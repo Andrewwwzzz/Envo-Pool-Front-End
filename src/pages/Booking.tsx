@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { LogOut, Clock, CalendarDays, Tag, CreditCard, Wallet, ChevronRight, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
+import { DateTimePicker } from "@/components/DateTimePicker";
 
 const statusColor: Record<TableStatus, string> = {
   Available: "bg-primary/10 text-primary border-primary/20",
@@ -24,15 +25,12 @@ const statusColor: Record<TableStatus, string> = {
 const Booking = () => {
   const { user, loading, signOut } = useAuth();
   const { toast } = useToast();
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<PromoValidation["promo"] | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"wallet" | "stripe" | null>(null);
-
-  const startDate = useMemo(() => (startTime ? new Date(startTime) : null), [startTime]);
-  const endDate = useMemo(() => (endTime ? new Date(endTime) : null), [endTime]);
 
   const { data: tables, isLoading: tablesLoading } = useTables(startDate, endDate);
   const { data: pricingRules } = usePricingRules();
@@ -150,28 +148,18 @@ const Booking = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="start">Start Time</Label>
-              <Input
-                id="start"
-                type="datetime-local"
-                value={startTime}
-                onChange={(e) => { setStartTime(e.target.value); setAppliedPromo(null); }}
-                step="900"
-                min={new Date().toISOString().slice(0, 16)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="end">End Time</Label>
-              <Input
-                id="end"
-                type="datetime-local"
-                value={endTime}
-                onChange={(e) => { setEndTime(e.target.value); setAppliedPromo(null); }}
-                step="900"
-                min={startTime || new Date().toISOString().slice(0, 16)}
-              />
-            </div>
+            <DateTimePicker
+              label="Start Time"
+              value={startDate}
+              onChange={(d) => { setStartDate(d); setAppliedPromo(null); }}
+            />
+            <DateTimePicker
+              label="End Time"
+              value={endDate}
+              onChange={(d) => { setEndDate(d); setAppliedPromo(null); }}
+              minDate={startDate}
+              minTime={startDate}
+            />
             {durationDisplay && (
               <div className="sm:col-span-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" /> Duration: {durationDisplay}
