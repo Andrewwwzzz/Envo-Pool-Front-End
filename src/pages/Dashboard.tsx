@@ -36,25 +36,21 @@ const Dashboard = () => {
       return bookingId;
     },
     onMutate: async (bookingId) => {
-      await queryClient.cancelQueries({ queryKey: ["my-bookings"] });
-      const previous = queryClient.getQueriesData({ queryKey: ["my-bookings"] });
-      queryClient.setQueriesData({ queryKey: ["my-bookings"] }, (old: any[] | undefined) =>
+      await queryClient.cancelQueries({ queryKey: ["my-bookings", user?.id] });
+      const previous = queryClient.getQueryData(["my-bookings", user?.id]);
+      queryClient.setQueryData(["my-bookings", user?.id], (old: any[] | undefined) =>
         old ? old.filter((b) => b.id !== bookingId) : []
       );
       return { previous };
     },
-    onSuccess: (_data, bookingId) => {
+    onSuccess: () => {
       toast({ title: "Booking cancelled successfully" });
-      // Remove again from cache to ensure it's gone after any refetch
-      queryClient.setQueriesData({ queryKey: ["my-bookings"] }, (old: any[] | undefined) =>
-        old ? old.filter((b) => b.id !== bookingId) : []
-      );
+      queryClient.invalidateQueries({ queryKey: ["my-bookings"], refetchType: "none" });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
     },
     onError: (err: Error, _bookingId, context) => {
-      // Rollback on error
       if (context?.previous) {
-        context.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+        queryClient.setQueryData(["my-bookings", user?.id], context.previous);
       }
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
