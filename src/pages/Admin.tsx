@@ -5,6 +5,7 @@ import { Navigate, Link } from "react-router-dom";
 import {
   useAdminStats,
   useAdminBookings,
+  useDeleteBooking,
   useAdminTables,
   useAdminPricingRules,
   useAdminPromoCodes,
@@ -94,6 +95,7 @@ function OverviewTab() {
 
 function BookingsTab() {
   const { data: bookings, isLoading } = useAdminBookings();
+  const deleteBooking = useDeleteBooking();
   if (isLoading) return <p className="text-muted-foreground">Loading...</p>;
   return (
     <Card>
@@ -108,20 +110,31 @@ function BookingsTab() {
               <th className="pb-2 pr-4">Duration</th>
               <th className="pb-2 pr-4">Price</th>
               <th className="pb-2 pr-4">Payment</th>
-              <th className="pb-2">Status</th>
+              <th className="pb-2 pr-4">Status</th>
+              <th className="pb-2">Actions</th>
             </tr></thead>
             <tbody>
-              {(bookings || []).map((b) => (
-                <tr key={b.id} className="border-b border-border last:border-0">
-                  <td className="py-3 pr-4">Table {(b as any).tables?.table_number ?? "?"}</td>
-                  <td className="py-3 pr-4">{new Date(b.start_time).toLocaleDateString()}</td>
-                  <td className="py-3 pr-4">{new Date(b.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} – {new Date(b.end_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
-                  <td className="py-3 pr-4">{b.duration_hours}h</td>
-                  <td className="py-3 pr-4">${b.final_price?.toFixed(2) ?? b.price?.toFixed(2)}</td>
-                  <td className="py-3 pr-4 capitalize">{b.payment_method ?? "—"}</td>
-                  <td className="py-3"><Badge variant="outline" className="capitalize">{b.status}</Badge></td>
-                </tr>
-              ))}
+              {(bookings || []).map((b) => {
+                const canDelete = b.status === "pending" || b.status === "cancelled";
+                return (
+                  <tr key={b.id} className="border-b border-border last:border-0">
+                    <td className="py-3 pr-4">Table {(b as any).tables?.table_number ?? "?"}</td>
+                    <td className="py-3 pr-4">{new Date(b.start_time).toLocaleDateString()}</td>
+                    <td className="py-3 pr-4">{new Date(b.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} – {new Date(b.end_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                    <td className="py-3 pr-4">{b.duration_hours}h</td>
+                    <td className="py-3 pr-4">${b.final_price?.toFixed(2) ?? b.price?.toFixed(2)}</td>
+                    <td className="py-3 pr-4 capitalize">{b.payment_method ?? "—"}</td>
+                    <td className="py-3 pr-4"><Badge variant="outline" className="capitalize">{b.status}</Badge></td>
+                    <td className="py-3">
+                      {canDelete && (
+                        <Button variant="ghost" size="sm" onClick={() => deleteBooking.mutate(b.id)} disabled={deleteBooking.isPending}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

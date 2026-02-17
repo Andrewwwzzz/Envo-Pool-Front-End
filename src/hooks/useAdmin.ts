@@ -18,6 +18,28 @@ export function useAdminBookings() {
   });
 }
 
+export function useDeleteBooking() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (bookingId: string) => {
+      // Delete related promo_usage first
+      await supabase.from("promo_usage").delete().eq("booking_id", bookingId);
+      const { error } = await supabase.from("bookings").delete().eq("id", bookingId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Booking deleted" });
+      queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
 export function useAdminTables() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
