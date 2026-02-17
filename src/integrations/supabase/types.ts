@@ -22,7 +22,7 @@ export type Database = {
           hardware_triggered: boolean
           id: string
           payment_id: string | null
-          payment_method: string
+          payment_method: string | null
           price: number
           start_time: string
           status: string
@@ -36,7 +36,7 @@ export type Database = {
           hardware_triggered?: boolean
           id?: string
           payment_id?: string | null
-          payment_method: string
+          payment_method?: string | null
           price: number
           start_time: string
           status?: string
@@ -50,7 +50,7 @@ export type Database = {
           hardware_triggered?: boolean
           id?: string
           payment_id?: string | null
-          payment_method?: string
+          payment_method?: string | null
           price?: number
           start_time?: string
           status?: string
