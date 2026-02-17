@@ -293,6 +293,14 @@ export function useUpdateCustomerProfile() {
       wallet_balance?: number;
       reward_points?: number;
     }) => {
+      // Get current profile to calculate difference
+      const { data: currentProfile, error: fetchErr } = await supabase
+        .from("profiles")
+        .select("wallet_balance, reward_points")
+        .eq("user_id", userId)
+        .single();
+      if (fetchErr) throw fetchErr;
+
       const updates: Record<string, number> = {};
       if (wallet_balance !== undefined) updates.wallet_balance = wallet_balance;
       if (reward_points !== undefined) updates.reward_points = reward_points;
@@ -302,6 +310,19 @@ export function useUpdateCustomerProfile() {
         .update(updates)
         .eq("user_id", userId);
       if (error) throw error;
+
+      // Log wallet transaction if balance changed
+      if (wallet_balance !== undefined && currentProfile) {
+        const diff = wallet_balance - currentProfile.wallet_balance;
+        if (diff !== 0) {
+          await supabase.from("wallet_transactions").insert({
+            user_id: userId,
+            type: diff > 0 ? "admin_topup" : "admin_deduction",
+            amount: diff,
+            balance_after: wallet_balance,
+          });
+        }
+      }
     },
     onSuccess: () => {
       toast({ title: "Customer updated" });
