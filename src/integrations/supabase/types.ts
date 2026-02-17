@@ -17,13 +17,17 @@ export type Database = {
       bookings: {
         Row: {
           created_at: string
+          discount_amount: number
           duration_hours: number
           end_time: string
+          final_price: number
           hardware_triggered: boolean
           id: string
+          original_price: number
           payment_id: string | null
           payment_method: string | null
           price: number
+          promo_id: string | null
           start_time: string
           status: string
           table_id: string
@@ -31,13 +35,17 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          discount_amount?: number
           duration_hours: number
           end_time: string
+          final_price?: number
           hardware_triggered?: boolean
           id?: string
+          original_price?: number
           payment_id?: string | null
           payment_method?: string | null
           price: number
+          promo_id?: string | null
           start_time: string
           status?: string
           table_id: string
@@ -45,19 +53,30 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          discount_amount?: number
           duration_hours?: number
           end_time?: string
+          final_price?: number
           hardware_triggered?: boolean
           id?: string
+          original_price?: number
           payment_id?: string | null
           payment_method?: string | null
           price?: number
+          promo_id?: string | null
           start_time?: string
           status?: string
           table_id?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "bookings_promo_id_fkey"
+            columns: ["promo_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "bookings_table_id_fkey"
             columns: ["table_id"]
@@ -67,41 +86,198 @@ export type Database = {
           },
         ]
       }
+      pricing_rules: {
+        Row: {
+          applies_to_table_id: string | null
+          applies_to_weekdays: string[]
+          created_at: string
+          end_time: string
+          hourly_rate: number
+          id: string
+          is_active: boolean
+          name: string
+          priority: number
+          specific_date: string | null
+          start_time: string
+        }
+        Insert: {
+          applies_to_table_id?: string | null
+          applies_to_weekdays?: string[]
+          created_at?: string
+          end_time: string
+          hourly_rate: number
+          id?: string
+          is_active?: boolean
+          name: string
+          priority?: number
+          specific_date?: string | null
+          start_time: string
+        }
+        Update: {
+          applies_to_table_id?: string | null
+          applies_to_weekdays?: string[]
+          created_at?: string
+          end_time?: string
+          hourly_rate?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          priority?: number
+          specific_date?: string | null
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_rules_applies_to_table_id_fkey"
+            columns: ["applies_to_table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
+          age_verified: boolean
           created_at: string
+          date_of_birth: string | null
           email: string
           id: string
           name: string
           phone: string | null
           reward_points: number
+          singpass_id: string | null
+          singpass_verified: boolean
           total_spent: number
           user_id: string
           wallet_balance: number
         }
         Insert: {
+          age_verified?: boolean
           created_at?: string
+          date_of_birth?: string | null
           email: string
           id?: string
           name: string
           phone?: string | null
           reward_points?: number
+          singpass_id?: string | null
+          singpass_verified?: boolean
           total_spent?: number
           user_id: string
           wallet_balance?: number
         }
         Update: {
+          age_verified?: boolean
           created_at?: string
+          date_of_birth?: string | null
           email?: string
           id?: string
           name?: string
           phone?: string | null
           reward_points?: number
+          singpass_id?: string | null
+          singpass_verified?: boolean
           total_spent?: number
           user_id?: string
           wallet_balance?: number
         }
         Relationships: []
+      }
+      promo_codes: {
+        Row: {
+          applies_to_table_id: string | null
+          code: string
+          created_at: string
+          discount_type: string
+          discount_value: number
+          expiry_date: string | null
+          id: string
+          is_active: boolean
+          max_discount_amount: number | null
+          minimum_spend: number | null
+          per_user_limit: number | null
+          usage_limit: number | null
+        }
+        Insert: {
+          applies_to_table_id?: string | null
+          code: string
+          created_at?: string
+          discount_type: string
+          discount_value: number
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean
+          max_discount_amount?: number | null
+          minimum_spend?: number | null
+          per_user_limit?: number | null
+          usage_limit?: number | null
+        }
+        Update: {
+          applies_to_table_id?: string | null
+          code?: string
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean
+          max_discount_amount?: number | null
+          minimum_spend?: number | null
+          per_user_limit?: number | null
+          usage_limit?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_codes_applies_to_table_id_fkey"
+            columns: ["applies_to_table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_usage: {
+        Row: {
+          booking_id: string
+          created_at: string
+          discount_amount: number
+          id: string
+          promo_id: string
+          user_id: string
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          discount_amount: number
+          id?: string
+          promo_id: string
+          user_id: string
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          discount_amount?: number
+          id?: string
+          promo_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_usage_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_usage_promo_id_fkey"
+            columns: ["promo_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reward_transactions: {
         Row: {

@@ -1,0 +1,367 @@
+import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useProfile";
+import { Navigate, Link } from "react-router-dom";
+import {
+  useAdminStats,
+  useAdminBookings,
+  useAdminTables,
+  useAdminPricingRules,
+  useAdminPromoCodes,
+} from "@/hooks/useAdmin";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LogOut, ArrowLeft, DollarSign, Calendar, Percent, BarChart3, Trash2 } from "lucide-react";
+
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const Admin = () => {
+  const { user, loading, signOut } = useAuth();
+  const { data: role, isLoading: roleLoading } = useUserRole();
+
+  if (loading || roleLoading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>;
+  if (!user) return <Navigate to="/auth" replace />;
+  if (role !== "admin") return <Navigate to="/booking" replace />;
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link to="/booking"><Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button></Link>
+          <h1 className="text-xl font-semibold text-foreground tracking-tight">Admin Dashboard</h1>
+        </div>
+        <Button variant="ghost" size="sm" onClick={signOut}><LogOut className="mr-2 h-4 w-4" /> Sign Out</Button>
+      </header>
+
+      <main className="mx-auto max-w-6xl p-6">
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="bookings">Bookings</TabsTrigger>
+            <TabsTrigger value="tables">Tables</TabsTrigger>
+            <TabsTrigger value="pricing">Pricing</TabsTrigger>
+            <TabsTrigger value="promos">Promos</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview"><OverviewTab /></TabsContent>
+          <TabsContent value="bookings"><BookingsTab /></TabsContent>
+          <TabsContent value="tables"><TablesTab /></TabsContent>
+          <TabsContent value="pricing"><PricingTab /></TabsContent>
+          <TabsContent value="promos"><PromosTab /></TabsContent>
+        </Tabs>
+      </main>
+    </div>
+  );
+};
+
+function OverviewTab() {
+  const { data: stats } = useAdminStats();
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <Card><CardContent className="pt-6 text-center">
+        <Calendar className="h-6 w-6 mx-auto text-primary mb-2" />
+        <p className="text-2xl font-bold">{stats?.todayBookings ?? 0}</p>
+        <p className="text-sm text-muted-foreground">Today's Bookings</p>
+      </CardContent></Card>
+      <Card><CardContent className="pt-6 text-center">
+        <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
+        <p className="text-2xl font-bold">${stats?.todayRevenue?.toFixed(2) ?? "0.00"}</p>
+        <p className="text-sm text-muted-foreground">Revenue Today</p>
+      </CardContent></Card>
+      <Card><CardContent className="pt-6 text-center">
+        <BarChart3 className="h-6 w-6 mx-auto text-primary mb-2" />
+        <p className="text-2xl font-bold">{stats?.totalBookings ?? 0}</p>
+        <p className="text-sm text-muted-foreground">Total Bookings</p>
+      </CardContent></Card>
+      <Card><CardContent className="pt-6 text-center">
+        <Percent className="h-6 w-6 mx-auto text-accent mb-2" />
+        <p className="text-2xl font-bold">{stats?.utilisation ?? 0}%</p>
+        <p className="text-sm text-muted-foreground">Table Utilisation</p>
+      </CardContent></Card>
+    </div>
+  );
+}
+
+function BookingsTab() {
+  const { data: bookings, isLoading } = useAdminBookings();
+  if (isLoading) return <p className="text-muted-foreground">Loading...</p>;
+  return (
+    <Card>
+      <CardHeader><CardTitle>All Bookings</CardTitle></CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="border-b border-border text-left">
+              <th className="pb-2 pr-4">Table</th>
+              <th className="pb-2 pr-4">Date</th>
+              <th className="pb-2 pr-4">Time</th>
+              <th className="pb-2 pr-4">Duration</th>
+              <th className="pb-2 pr-4">Price</th>
+              <th className="pb-2 pr-4">Payment</th>
+              <th className="pb-2">Status</th>
+            </tr></thead>
+            <tbody>
+              {(bookings || []).map((b) => (
+                <tr key={b.id} className="border-b border-border last:border-0">
+                  <td className="py-3 pr-4">Table {(b as any).tables?.table_number ?? "?"}</td>
+                  <td className="py-3 pr-4">{new Date(b.start_time).toLocaleDateString()}</td>
+                  <td className="py-3 pr-4">{new Date(b.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} – {new Date(b.end_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                  <td className="py-3 pr-4">{b.duration_hours}h</td>
+                  <td className="py-3 pr-4">${b.final_price?.toFixed(2) ?? b.price?.toFixed(2)}</td>
+                  <td className="py-3 pr-4 capitalize">{b.payment_method ?? "—"}</td>
+                  <td className="py-3"><Badge variant="outline" className="capitalize">{b.status}</Badge></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TablesTab() {
+  const { data: tables, updateStatus } = useAdminTables();
+  return (
+    <Card>
+      <CardHeader><CardTitle>Manage Tables</CardTitle></CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {(tables || []).map((t) => (
+            <div key={t.id} className="rounded-xl border border-border p-4 space-y-3">
+              <p className="font-medium">Table {t.table_number}</p>
+              <Badge variant="outline" className="capitalize">{t.status}</Badge>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant={t.status === "available" ? "default" : "outline"}
+                  onClick={() => updateStatus.mutate({ tableId: t.id, status: "available" })}
+                  className="flex-1 text-xs"
+                >
+                  Available
+                </Button>
+                <Button
+                  size="sm"
+                  variant={t.status === "maintenance" ? "destructive" : "outline"}
+                  onClick={() => updateStatus.mutate({ tableId: t.id, status: "maintenance" })}
+                  className="flex-1 text-xs"
+                >
+                  Maintenance
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PricingTab() {
+  const { data: rules, create, remove, toggle } = useAdminPricingRules();
+  const [form, setForm] = useState({
+    name: "", start_time: "09:00", end_time: "23:00", hourly_rate: "20",
+    priority: "0", weekdays: [...WEEKDAYS] as string[], specific_date: "", table_id: "",
+  });
+
+  const handleCreate = () => {
+    create.mutate({
+      name: form.name,
+      start_time: form.start_time,
+      end_time: form.end_time,
+      hourly_rate: parseFloat(form.hourly_rate),
+      applies_to_weekdays: form.weekdays,
+      specific_date: form.specific_date || null,
+      applies_to_table_id: form.table_id || null,
+      priority: parseInt(form.priority),
+      is_active: true,
+    });
+    setForm({ name: "", start_time: "09:00", end_time: "23:00", hourly_rate: "20", priority: "0", weekdays: [...WEEKDAYS], specific_date: "", table_id: "" });
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader><CardTitle>Add Pricing Rule</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Peak Hours" />
+            </div>
+            <div className="space-y-2">
+              <Label>Start Time</Label>
+              <Input type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>End Time</Label>
+              <Input type="time" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Hourly Rate ($)</Label>
+              <Input type="number" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Priority</Label>
+              <Input type="number" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Specific Date (optional)</Label>
+              <Input type="date" value={form.specific_date} onChange={(e) => setForm({ ...form, specific_date: e.target.value })} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Weekdays</Label>
+            <div className="flex flex-wrap gap-2">
+              {WEEKDAYS.map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setForm({ ...form, weekdays: form.weekdays.includes(d) ? form.weekdays.filter((w) => w !== d) : [...form.weekdays, d] })}
+                  className={`px-3 py-1 rounded-full text-xs border transition-all ${form.weekdays.includes(d) ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"}`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+          <Button onClick={handleCreate} disabled={!form.name || create.isPending}>Create Rule</Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Existing Rules</CardTitle></CardHeader>
+        <CardContent>
+          {!rules?.length ? <p className="text-muted-foreground text-sm">No pricing rules.</p> : (
+            <div className="space-y-3">
+              {rules.map((r) => (
+                <div key={r.id} className="flex items-center justify-between rounded-lg border border-border p-4">
+                  <div>
+                    <p className="font-medium">{r.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {r.start_time} – {r.end_time} · ${r.hourly_rate}/hr · Priority {r.priority}
+                      {r.specific_date && ` · ${r.specific_date}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">{(r.applies_to_weekdays as string[]).join(", ")}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch checked={r.is_active} onCheckedChange={(v) => toggle.mutate({ id: r.id, is_active: v })} />
+                    <Button variant="ghost" size="sm" onClick={() => remove.mutate(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function PromosTab() {
+  const { data: promos, create, toggle, remove } = useAdminPromoCodes();
+  const [form, setForm] = useState({
+    code: "", discount_type: "percentage" as string, discount_value: "", minimum_spend: "",
+    max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
+  });
+
+  const handleCreate = () => {
+    create.mutate({
+      code: form.code,
+      discount_type: form.discount_type,
+      discount_value: parseFloat(form.discount_value),
+      minimum_spend: form.minimum_spend ? parseFloat(form.minimum_spend) : null,
+      max_discount_amount: form.max_discount_amount ? parseFloat(form.max_discount_amount) : null,
+      usage_limit: form.usage_limit ? parseInt(form.usage_limit) : null,
+      per_user_limit: form.per_user_limit ? parseInt(form.per_user_limit) : null,
+      expiry_date: form.expiry_date || null,
+      is_active: true,
+    });
+    setForm({ code: "", discount_type: "percentage", discount_value: "", minimum_spend: "", max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "" });
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader><CardTitle>Create Promo Code</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Code</Label>
+              <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="SUMMER20" />
+            </div>
+            <div className="space-y-2">
+              <Label>Discount Type</Label>
+              <Select value={form.discount_type} onValueChange={(v) => setForm({ ...form, discount_type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="percentage">Percentage</SelectItem>
+                  <SelectItem value="fixed">Fixed Amount</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Discount Value</Label>
+              <Input type="number" value={form.discount_value} onChange={(e) => setForm({ ...form, discount_value: e.target.value })} placeholder={form.discount_type === "percentage" ? "20" : "5.00"} />
+            </div>
+            <div className="space-y-2">
+              <Label>Min Spend (opt)</Label>
+              <Input type="number" value={form.minimum_spend} onChange={(e) => setForm({ ...form, minimum_spend: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Max Discount (opt)</Label>
+              <Input type="number" value={form.max_discount_amount} onChange={(e) => setForm({ ...form, max_discount_amount: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Usage Limit (opt)</Label>
+              <Input type="number" value={form.usage_limit} onChange={(e) => setForm({ ...form, usage_limit: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Per User Limit (opt)</Label>
+              <Input type="number" value={form.per_user_limit} onChange={(e) => setForm({ ...form, per_user_limit: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Expiry Date (opt)</Label>
+              <Input type="datetime-local" value={form.expiry_date} onChange={(e) => setForm({ ...form, expiry_date: e.target.value })} />
+            </div>
+          </div>
+          <Button onClick={handleCreate} disabled={!form.code || !form.discount_value || create.isPending}>Create Promo</Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Existing Promo Codes</CardTitle></CardHeader>
+        <CardContent>
+          {!promos?.length ? <p className="text-muted-foreground text-sm">No promo codes.</p> : (
+            <div className="space-y-3">
+              {promos.map((p) => (
+                <div key={p.id} className="flex items-center justify-between rounded-lg border border-border p-4">
+                  <div>
+                    <p className="font-medium font-mono">{p.code}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {p.discount_type === "percentage" ? `${p.discount_value}%` : `$${p.discount_value}`} off
+                      {p.minimum_spend ? ` · Min $${p.minimum_spend}` : ""}
+                      {p.max_discount_amount ? ` · Max $${p.max_discount_amount}` : ""}
+                      {p.expiry_date ? ` · Expires ${new Date(p.expiry_date).toLocaleDateString()}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch checked={p.is_active} onCheckedChange={(v) => toggle.mutate({ id: p.id, is_active: v })} />
+                    <Button variant="ghost" size="sm" onClick={() => remove.mutate(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default Admin;
