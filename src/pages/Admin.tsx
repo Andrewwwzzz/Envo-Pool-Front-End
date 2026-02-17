@@ -131,8 +131,7 @@ function BookingsTab() {
 }
 
 function TablesTab() {
-  const { data: tables, updateStatus } = useAdminTables();
-  const [timers, setTimers] = useState<Record<string, { startedAt: number }>>({});
+  const { data: tables, startTimer, stopTimer } = useAdminTables();
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
   const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number }>>({});
   const [hourlyRate, setHourlyRate] = useState("20");
@@ -140,44 +139,44 @@ function TablesTab() {
 
   const rate = parseFloat(hourlyRate) || 0;
 
+  // Compute elapsed from DB-persisted timer_started_at
   useEffect(() => {
-    const activeTimers = Object.keys(timers);
-    if (activeTimers.length > 0) {
-      intervalRef.current = setInterval(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+
+    const activeTables = (tables || []).filter((t) => t.timer_started_at);
+    if (activeTables.length > 0) {
+      const tick = () => {
         const now = Date.now();
         const newElapsed: Record<string, number> = {};
-        for (const id of activeTimers) {
-          newElapsed[id] = Math.floor((now - timers[id].startedAt) / 1000);
+        for (const t of activeTables) {
+          newElapsed[t.id] = Math.floor((now - new Date(t.timer_started_at!).getTime()) / 1000);
         }
         setElapsed((prev) => ({ ...prev, ...newElapsed }));
-      }, 1000);
+      };
+      tick();
+      intervalRef.current = setInterval(tick, 1000);
     }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [timers]);
+  }, [tables]);
 
   const openTable = (tableId: string) => {
-    updateStatus.mutate({ tableId, status: "available" });
-    setTimers((prev) => ({ ...prev, [tableId]: { startedAt: Date.now() } }));
-    setElapsed((prev) => ({ ...prev, [tableId]: 0 }));
     setCompletedSessions((prev) => {
       const copy = { ...prev };
       delete copy[tableId];
       return copy;
     });
+    startTimer.mutate({ tableId, hourlyRate: rate });
   };
 
   const closeTable = (tableId: string) => {
+    const table = (tables || []).find((t) => t.id === tableId);
+    const tableRate = table?.hourly_rate ?? rate;
     const seconds = elapsed[tableId] ?? 0;
-    const cost = Math.round((seconds / 3600) * rate * 100) / 100;
+    const cost = Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
     setCompletedSessions((prev) => ({ ...prev, [tableId]: { seconds, cost } }));
-    setTimers((prev) => {
-      const copy = { ...prev };
-      delete copy[tableId];
-      return copy;
-    });
-    updateStatus.mutate({ tableId, status: "maintenance" });
+    stopTimer.mutate({ tableId });
   };
 
   const formatTime = (totalSeconds: number) => {
@@ -187,8 +186,8 @@ function TablesTab() {
     return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const calculateLiveCost = (seconds: number) => {
-    return Math.round((seconds / 3600) * rate * 100) / 100;
+  const calculateLiveCost = (seconds: number, tableRate: number) => {
+    return Math.round((seconds / 3600) * tableRate * 100) / 100;
   };
 
   return (
@@ -216,9 +215,10 @@ function TablesTab() {
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {(tables || []).map((t) => {
-              const isRunning = !!timers[t.id];
+              const isRunning = !!t.timer_started_at;
               const seconds = elapsed[t.id] ?? 0;
               const session = completedSessions[t.id];
+              const tableRate = isRunning ? Number(t.hourly_rate ?? rate) : rate;
 
               return (
                 <div key={t.id} className="rounded-xl border border-border p-4 space-y-3">
@@ -241,8 +241,8 @@ function TablesTab() {
                   {isRunning && (
                     <div className="flex items-center gap-2 text-sm">
                       <DollarSign className="h-4 w-4 text-primary" />
-                      <span className="font-medium text-primary">${calculateLiveCost(seconds).toFixed(2)}</span>
-                      <span className="text-muted-foreground">@ ${rate}/hr</span>
+                      <span className="font-medium text-primary">${calculateLiveCost(seconds, tableRate).toFixed(2)}</span>
+                      <span className="text-muted-foreground">@ ${tableRate}/hr</span>
                     </div>
                   )}
 
