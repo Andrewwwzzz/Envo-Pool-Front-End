@@ -102,7 +102,7 @@ const Dashboard = () => {
           <Link to="/booking">
             <Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
           </Link>
-          <h1 className="text-xl font-bold tracking-tight gold-gradient">My Dashboard</h1>
+          <h1 className="text-xl font-bold tracking-tight gold-gradient">Anytime Pool</h1>
         </div>
         <Button variant="ghost" size="sm" onClick={signOut} className="text-muted-foreground">
           <LogOut className="h-4 w-4" />
@@ -114,28 +114,28 @@ const Dashboard = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="card-premium">
             <CardContent className="pt-6 text-center">
-              <Wallet className="h-6 w-6 mx-auto text-accent mb-2" />
+              <Wallet className="h-6 w-6 mx-auto text-gold mb-2" />
               <p className="text-2xl font-bold">${profile?.wallet_balance?.toFixed(2) ?? "0.00"}</p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Wallet Balance</p>
             </CardContent>
           </Card>
           <Card className="card-premium">
             <CardContent className="pt-6 text-center">
-              <Star className="h-6 w-6 mx-auto text-accent mb-2" />
+              <Star className="h-6 w-6 mx-auto text-gold mb-2" />
               <p className="text-2xl font-bold">{profile?.reward_points ?? 0}</p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Reward Points</p>
             </CardContent>
           </Card>
           <Card className="card-premium">
             <CardContent className="pt-6 text-center">
-              <Calendar className="h-6 w-6 mx-auto text-primary mb-2" />
+              <Calendar className="h-6 w-6 mx-auto text-gold mb-2" />
               <p className="text-2xl font-bold">{upcoming.length}</p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Upcoming</p>
             </CardContent>
           </Card>
           <Card className="card-premium">
             <CardContent className="pt-6 text-center">
-              <History className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+              <History className="h-6 w-6 mx-auto text-gold mb-2" />
               <p className="text-2xl font-bold">${profile?.total_spent?.toFixed(2) ?? "0.00"}</p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Total Spent</p>
             </CardContent>
