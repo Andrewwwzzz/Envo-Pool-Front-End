@@ -26,14 +26,13 @@ const Dashboard = () => {
 
   const cancelBooking = useMutation({
     mutationFn: async (bookingId: string) => {
-      // Delete related promo_usage first
-      await supabase.from("promo_usage").delete().eq("booking_id", bookingId);
       const { error } = await supabase.from("bookings").delete().eq("id", bookingId);
       if (error) throw error;
     },
     onSuccess: () => {
       toast({ title: "Booking cancelled successfully" });
       queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
