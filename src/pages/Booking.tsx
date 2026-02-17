@@ -152,11 +152,25 @@ const Booking = () => {
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="start">Start Time</Label>
-              <Input id="start" type="datetime-local" value={startTime} onChange={(e) => { setStartTime(e.target.value); setAppliedPromo(null); }} />
+              <Input
+                id="start"
+                type="datetime-local"
+                value={startTime}
+                onChange={(e) => { setStartTime(e.target.value); setAppliedPromo(null); }}
+                step="900"
+                min={new Date().toISOString().slice(0, 16)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="end">End Time</Label>
-              <Input id="end" type="datetime-local" value={endTime} onChange={(e) => { setEndTime(e.target.value); setAppliedPromo(null); }} min={startTime} />
+              <Input
+                id="end"
+                type="datetime-local"
+                value={endTime}
+                onChange={(e) => { setEndTime(e.target.value); setAppliedPromo(null); }}
+                step="900"
+                min={startTime || new Date().toISOString().slice(0, 16)}
+              />
             </div>
             {durationDisplay && (
               <div className="sm:col-span-2 flex items-center gap-2 text-sm text-muted-foreground">
