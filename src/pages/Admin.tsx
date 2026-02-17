@@ -310,7 +310,7 @@ function TablesTab() {
                         variant={isMaintenance ? "outline" : "secondary"}
                         onClick={() => setMaintenance.mutate({ tableId: t.id, maintenance: !isMaintenance })}
                         className="w-full"
-                        disabled={hasActiveBooking}
+                        disabled={false}
                       >
                         <Wrench className="mr-2 h-3 w-3" />
                         {isMaintenance ? "Remove Maintenance" : "Set Maintenance"}
