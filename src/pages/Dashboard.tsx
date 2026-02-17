@@ -86,7 +86,7 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
-  if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>;
+  if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
 
   const now = new Date();
@@ -94,62 +94,64 @@ const Dashboard = () => {
   const past = (bookings || []).filter((b) => new Date(b.start_time) < now || b.status === "cancelled");
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border px-6 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-background dark">
+      <div className="fixed inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, hsl(var(--foreground)) 1px, transparent 0)', backgroundSize: '40px 40px' }} />
+
+      <header className="relative z-10 border-b border-border/50 bg-card/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link to="/booking">
-            <Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Book</Button>
+            <Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
           </Link>
-          <h1 className="text-xl font-semibold text-foreground tracking-tight">My Dashboard</h1>
+          <h1 className="text-xl font-bold tracking-tight gold-gradient">My Dashboard</h1>
         </div>
-        <Button variant="ghost" size="sm" onClick={signOut}>
-          <LogOut className="mr-2 h-4 w-4" /> Sign Out
+        <Button variant="ghost" size="sm" onClick={signOut} className="text-muted-foreground">
+          <LogOut className="h-4 w-4" />
         </Button>
       </header>
 
-      <main className="mx-auto max-w-4xl p-6 space-y-6">
+      <main className="relative z-10 mx-auto max-w-4xl p-6 space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
+          <Card className="card-premium">
             <CardContent className="pt-6 text-center">
-              <Wallet className="h-6 w-6 mx-auto text-primary mb-2" />
+              <Wallet className="h-6 w-6 mx-auto text-accent mb-2" />
               <p className="text-2xl font-bold">${profile?.wallet_balance?.toFixed(2) ?? "0.00"}</p>
-              <p className="text-sm text-muted-foreground">Wallet Balance</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Wallet Balance</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="card-premium">
             <CardContent className="pt-6 text-center">
               <Star className="h-6 w-6 mx-auto text-accent mb-2" />
               <p className="text-2xl font-bold">{profile?.reward_points ?? 0}</p>
-              <p className="text-sm text-muted-foreground">Reward Points</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Reward Points</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="card-premium">
             <CardContent className="pt-6 text-center">
               <Calendar className="h-6 w-6 mx-auto text-primary mb-2" />
               <p className="text-2xl font-bold">{upcoming.length}</p>
-              <p className="text-sm text-muted-foreground">Upcoming</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Upcoming</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="card-premium">
             <CardContent className="pt-6 text-center">
               <History className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
               <p className="text-2xl font-bold">${profile?.total_spent?.toFixed(2) ?? "0.00"}</p>
-              <p className="text-sm text-muted-foreground">Total Spent</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Total Spent</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Upcoming Bookings */}
-        <Card>
-          <CardHeader><CardTitle className="text-lg">Upcoming Bookings</CardTitle></CardHeader>
+        <Card className="card-premium">
+          <CardHeader><CardTitle className="text-lg">Upcoming Reservations</CardTitle></CardHeader>
           <CardContent>
             {upcoming.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No upcoming bookings.</p>
+              <p className="text-muted-foreground text-sm">No upcoming reservations.</p>
             ) : (
               <div className="space-y-3">
                 {upcoming.map((b) => (
-                  <div key={b.id} className="flex items-center justify-between rounded-lg border border-border p-4">
+                  <div key={b.id} className="flex items-center justify-between rounded-lg border border-border/50 p-4 hover:bg-card/50 transition-colors">
                     <div>
                       <p className="font-medium">Table {(b as any).tables?.table_number ?? "?"}</p>
                       <p className="text-sm text-muted-foreground">
@@ -179,15 +181,15 @@ const Dashboard = () => {
         </Card>
 
         {/* Past Bookings */}
-        <Card>
-          <CardHeader><CardTitle className="text-lg">Past Bookings</CardTitle></CardHeader>
+        <Card className="card-premium">
+          <CardHeader><CardTitle className="text-lg">Past Reservations</CardTitle></CardHeader>
           <CardContent>
             {past.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No past bookings.</p>
+              <p className="text-muted-foreground text-sm">No past reservations.</p>
             ) : (
               <div className="space-y-3">
                 {past.slice(0, 10).map((b) => (
-                  <div key={b.id} className="flex items-center justify-between rounded-lg border border-border p-4">
+                  <div key={b.id} className="flex items-center justify-between rounded-lg border border-border/50 p-4">
                     <div>
                       <p className="font-medium">Table {(b as any).tables?.table_number ?? "?"}</p>
                       <p className="text-sm text-muted-foreground">
@@ -206,7 +208,7 @@ const Dashboard = () => {
         </Card>
 
         {/* Wallet Transactions */}
-        <Card>
+        <Card className="card-premium">
           <CardHeader><CardTitle className="text-lg">Wallet Transactions</CardTitle></CardHeader>
           <CardContent>
             {!walletTxns?.length ? (
@@ -214,7 +216,7 @@ const Dashboard = () => {
             ) : (
               <div className="space-y-2">
                 {walletTxns.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border last:border-0">
+                  <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
                     <div>
                       <p className="font-medium capitalize">{t.type === "adjustment" ? "Admin Adjustment" : t.type.replace("_", " ")}</p>
                       <p className="text-xs text-muted-foreground">{fmtDateTime(t.created_at)}</p>
@@ -230,7 +232,7 @@ const Dashboard = () => {
         </Card>
 
         {/* Reward Transactions */}
-        <Card>
+        <Card className="card-premium">
           <CardHeader><CardTitle className="text-lg">Reward Points History</CardTitle></CardHeader>
           <CardContent>
             {!rewardTxns?.length ? (
@@ -238,7 +240,7 @@ const Dashboard = () => {
             ) : (
               <div className="space-y-2">
                 {rewardTxns.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border last:border-0">
+                  <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
                     <div>
                       <p className="font-medium capitalize">{t.type === "adjustment" ? "Admin Adjustment" : t.type}</p>
                       <p className="text-xs text-muted-foreground">{fmtDateTime(t.created_at)}</p>

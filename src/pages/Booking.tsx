@@ -77,7 +77,7 @@ const Booking = () => {
     return validateDuration(startDate, endDate);
   }, [startDate, endDate]);
 
-  if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>;
+  if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
 
   const handleApplyPromo = async () => {
@@ -132,30 +132,37 @@ const Booking = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border px-6 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-foreground tracking-tight">Book a Table</h1>
+    <div className="min-h-screen bg-background dark">
+      {/* Subtle background pattern */}
+      <div className="fixed inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, hsl(var(--foreground)) 1px, transparent 0)', backgroundSize: '40px 40px' }} />
+
+      <header className="relative z-10 border-b border-border/50 bg-card/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
+          <h1 className="text-xl font-bold tracking-tight gold-gradient">The Cue Club</h1>
+          <span className="text-muted-foreground text-sm hidden sm:inline">|</span>
+          <span className="text-sm text-muted-foreground hidden sm:inline">Reserve a Table</span>
+        </div>
+        <div className="flex items-center gap-2">
           {role === "admin" && (
             <Link to="/admin">
-              <Button variant="outline" size="sm"><Shield className="mr-2 h-4 w-4" /> Admin</Button>
+              <Button variant="outline" size="sm" className="border-accent/30 text-accent hover:bg-accent/10"><Shield className="mr-2 h-4 w-4" /> Admin</Button>
             </Link>
           )}
           <Link to="/dashboard">
-            <Button variant="outline" size="sm">My Dashboard</Button>
+            <Button variant="outline" size="sm">Dashboard</Button>
           </Link>
-          <Button variant="ghost" size="sm" onClick={signOut}>
-            <LogOut className="mr-2 h-4 w-4" /> Sign Out
+          <Button variant="ghost" size="sm" onClick={signOut} className="text-muted-foreground">
+            <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl p-6 space-y-6">
+      <main className="relative z-10 mx-auto max-w-4xl p-6 space-y-6">
         {/* Time Selection */}
-        <Card>
+        <Card className="card-premium">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <CalendarDays className="h-5 w-5 text-primary" /> Select Time
+              <CalendarDays className="h-5 w-5 text-accent" /> Select Time
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
@@ -173,7 +180,7 @@ const Booking = () => {
             />
             {durationDisplay && (
               <div className="sm:col-span-2 flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4" /> Duration: {durationDisplay}
+                <Clock className="h-4 w-4 text-accent" /> Duration: <span className="text-foreground font-medium">{durationDisplay}</span>
               </div>
             )}
             {durationError && (
@@ -183,7 +190,7 @@ const Booking = () => {
         </Card>
 
         {/* Table Grid */}
-        <Card>
+        <Card className="card-premium">
           <CardHeader className="pb-4">
             <CardTitle className="text-lg">Select a Table</CardTitle>
           </CardHeader>
@@ -199,13 +206,13 @@ const Booking = () => {
                     key={table.id}
                     onClick={() => { table.status === "Available" && setSelectedTable(table.id); setAppliedPromo(null); }}
                     disabled={table.status !== "Available"}
-                    className={`rounded-xl border p-4 text-left transition-all ${
+                    className={`rounded-xl border p-4 text-left transition-all duration-200 ${
                       selectedTable === table.id
-                        ? "border-primary ring-2 ring-primary/20 bg-primary/5"
-                        : "border-border hover:border-muted-foreground/30"
-                    } ${table.status !== "Available" ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                        ? "border-accent ring-2 ring-accent/20 bg-accent/5"
+                        : "border-border hover:border-muted-foreground/30 hover:bg-card"
+                    } ${table.status !== "Available" ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
                   >
-                    <p className="font-medium text-foreground">Table {table.table_number}</p>
+                    <p className="font-semibold text-foreground">Table {table.table_number}</p>
                     <Badge variant="outline" className={`mt-2 text-xs ${statusColor[table.status]}`}>
                       {table.status}
                     </Badge>
@@ -218,7 +225,7 @@ const Booking = () => {
 
         {/* Pricing Breakdown */}
         {pricing && selectedTable && !durationError && (
-          <Card>
+          <Card className="card-premium">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg">Pricing</CardTitle>
             </CardHeader>
@@ -228,7 +235,7 @@ const Booking = () => {
                   <span className="text-muted-foreground">
                     {seg.startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} –{" "}
                     {seg.endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    <span className="ml-2 text-xs">@ ${seg.hourlyRate}/hr</span>
+                    <span className="ml-2 text-xs opacity-60">@ ${seg.hourlyRate}/hr</span>
                   </span>
                   <span className="font-medium">${seg.segmentCost.toFixed(2)}</span>
                 </div>
@@ -257,7 +264,7 @@ const Booking = () => {
                       placeholder="Promo code"
                       value={promoCode}
                       onChange={(e) => setPromoCode(e.target.value)}
-                      className="flex-1"
+                      className="flex-1 bg-background/50"
                     />
                     <Button
                       variant="outline"
@@ -279,7 +286,7 @@ const Booking = () => {
 
               <div className="border-t border-border pt-3 flex justify-between text-lg font-bold">
                 <span>Total</span>
-                <span>${finalPrice.toFixed(2)}</span>
+                <span className="gold-gradient">${finalPrice.toFixed(2)}</span>
               </div>
             </CardContent>
           </Card>
@@ -287,23 +294,23 @@ const Booking = () => {
 
         {/* Payment Method */}
         {pricing && selectedTable && !durationError && (
-          <Card>
+          <Card className="card-premium">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-primary" /> Payment Method
+                <CreditCard className="h-5 w-5 text-accent" /> Payment Method
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
               <button
                 onClick={() => setPaymentMethod("wallet")}
-                className={`rounded-xl border p-4 text-left transition-all ${
+                className={`rounded-xl border p-4 text-left transition-all duration-200 ${
                   paymentMethod === "wallet"
-                    ? "border-primary ring-2 ring-primary/20 bg-primary/5"
+                    ? "border-accent ring-2 ring-accent/20 bg-accent/5"
                     : "border-border hover:border-muted-foreground/30"
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Wallet className="h-5 w-5 text-primary" />
+                  <Wallet className="h-5 w-5 text-accent" />
                   <div>
                     <p className="font-medium">Wallet</p>
                     <p className="text-sm text-muted-foreground">
@@ -317,14 +324,14 @@ const Booking = () => {
               </button>
               <button
                 onClick={() => setPaymentMethod("stripe")}
-                className={`rounded-xl border p-4 text-left transition-all ${
+                className={`rounded-xl border p-4 text-left transition-all duration-200 ${
                   paymentMethod === "stripe"
-                    ? "border-primary ring-2 ring-primary/20 bg-primary/5"
+                    ? "border-accent ring-2 ring-accent/20 bg-accent/5"
                     : "border-border hover:border-muted-foreground/30"
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <CreditCard className="h-5 w-5 text-primary" />
+                  <CreditCard className="h-5 w-5 text-accent" />
                   <div>
                     <p className="font-medium">Card (Stripe)</p>
                     <p className="text-sm text-muted-foreground">Pay with credit/debit card</p>
@@ -341,18 +348,18 @@ const Booking = () => {
             size="lg"
             disabled={!canBook || createBooking.isPending}
             onClick={handleBookClick}
-            className="gap-2"
+            className="gap-2 h-12 px-8 text-sm font-semibold tracking-wide uppercase bg-accent text-accent-foreground hover:bg-accent/90"
           >
-            {createBooking.isPending ? "Processing..." : `Book Table — $${finalPrice.toFixed(2)}`}
+            {createBooking.isPending ? "Processing..." : `Reserve Table — $${finalPrice.toFixed(2)}`}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
 
         {/* Terms & Conditions Confirmation Dialog */}
         <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-          <DialogContent>
+          <DialogContent className="card-premium">
             <DialogHeader>
-              <DialogTitle>Confirm Booking</DialogTitle>
+              <DialogTitle>Confirm Reservation</DialogTitle>
               <DialogDescription>
                 Please review and accept our terms before proceeding with payment.
               </DialogDescription>
@@ -365,14 +372,14 @@ const Booking = () => {
               />
               <label htmlFor="agree-terms" className="text-sm cursor-pointer select-none">
                 I have read and agree to the{" "}
-                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:text-primary/80">
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-2 hover:text-accent/80 font-medium">
                   Terms & Conditions
                 </a>
               </label>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancel</Button>
-              <Button disabled={!agreedToTerms} onClick={handleConfirmBook}>
+              <Button disabled={!agreedToTerms} onClick={handleConfirmBook} className="bg-accent text-accent-foreground hover:bg-accent/90">
                 Confirm & Pay
               </Button>
             </DialogFooter>
