@@ -170,7 +170,7 @@ const Dashboard = () => {
                 {walletTxns.map((t) => (
                   <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border last:border-0">
                     <div>
-                      <p className="font-medium capitalize">{t.type.replace("_", " ")}</p>
+                      <p className="font-medium capitalize">{t.type === "adjustment" ? "Admin Adjustment" : t.type.replace("_", " ")}</p>
                       <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString()}</p>
                     </div>
                     <span className={t.amount >= 0 ? "text-primary font-medium" : "text-destructive font-medium"}>
@@ -194,7 +194,7 @@ const Dashboard = () => {
                 {rewardTxns.map((t) => (
                   <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border last:border-0">
                     <div>
-                      <p className="font-medium capitalize">{t.type}</p>
+                      <p className="font-medium capitalize">{t.type === "adjustment" ? "Admin Adjustment" : t.type}</p>
                       <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString()}</p>
                     </div>
                     <span className={t.points >= 0 ? "text-primary font-medium" : "text-destructive font-medium"}>
