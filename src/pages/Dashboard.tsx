@@ -28,20 +28,29 @@ const Dashboard = () => {
     mutationFn: async (bookingId: string) => {
       const { error } = await supabase.from("bookings").delete().eq("id", bookingId);
       if (error) throw error;
+      return bookingId;
     },
     onMutate: async (bookingId) => {
       await queryClient.cancelQueries({ queryKey: ["my-bookings"] });
+      const previous = queryClient.getQueriesData({ queryKey: ["my-bookings"] });
       queryClient.setQueriesData({ queryKey: ["my-bookings"] }, (old: any[] | undefined) =>
         old ? old.filter((b) => b.id !== bookingId) : []
       );
+      return { previous };
     },
-    onSuccess: () => {
+    onSuccess: (_data, bookingId) => {
       toast({ title: "Booking cancelled successfully" });
-      queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+      // Remove again from cache to ensure it's gone after any refetch
+      queryClient.setQueriesData({ queryKey: ["my-bookings"] }, (old: any[] | undefined) =>
+        old ? old.filter((b) => b.id !== bookingId) : []
+      );
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
     },
-    onError: (err: Error) => {
-      queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+    onError: (err: Error, _bookingId, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        context.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      }
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
