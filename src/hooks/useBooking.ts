@@ -19,7 +19,7 @@ function calculateDurationHours(start: Date, end: Date): number {
   return (end.getTime() - start.getTime()) / (1000 * 60 * 60);
 }
 
-function validateDuration(start: Date, end: Date): string | null {
+export function validateDuration(start: Date, end: Date): string | null {
   const diffMs = end.getTime() - start.getTime();
   const diffMinutes = diffMs / (1000 * 60);
 
@@ -53,7 +53,6 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
         }));
       }
 
-      // Fetch overlapping bookings for the selected time range
       const { data: bookings, error: bErr } = await supabase
         .from("bookings")
         .select("*")
@@ -88,8 +87,19 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
       });
     },
     enabled: true,
-    refetchInterval: 30000, // refresh every 30s
+    refetchInterval: 30000,
   });
+}
+
+export interface CreateBookingParams {
+  tableId: string;
+  startTime: Date;
+  endTime: Date;
+  originalPrice: number;
+  discountAmount: number;
+  finalPrice: number;
+  promoId: string | null;
+  paymentMethod: "wallet" | "stripe";
 }
 
 export function useCreateBooking() {
@@ -98,16 +108,10 @@ export function useCreateBooking() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      tableId,
-      startTime,
-      endTime,
-    }: {
-      tableId: string;
-      startTime: Date;
-      endTime: Date;
-    }) => {
+    mutationFn: async (params: CreateBookingParams) => {
       if (!user) throw new Error("Must be logged in");
+
+      const { tableId, startTime, endTime, originalPrice, discountAmount, finalPrice, promoId, paymentMethod } = params;
 
       // Validate duration
       const durationError = validateDuration(startTime, endTime);
@@ -115,7 +119,7 @@ export function useCreateBooking() {
 
       const durationHours = calculateDurationHours(startTime, endTime);
 
-      // Check table overlap (server-side via RLS + query)
+      // Check table overlap
       const { data: tableConflicts } = await supabase
         .from("bookings")
         .select("id, status, created_at")
@@ -154,8 +158,117 @@ export function useCreateBooking() {
         throw new Error("You already have a booking that overlaps this time.");
       }
 
-      // Create booking
-      const { data, error } = await supabase
+      // Handle wallet payment
+      if (paymentMethod === "wallet") {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("wallet_balance")
+          .eq("user_id", user.id)
+          .single();
+
+        if (!profile || profile.wallet_balance < finalPrice) {
+          throw new Error("Insufficient wallet balance.");
+        }
+
+        const newBalance = profile.wallet_balance - finalPrice;
+
+        // Deduct wallet
+        const { error: walletErr } = await supabase
+          .from("profiles")
+          .update({ 
+            wallet_balance: newBalance,
+            total_spent: profile.wallet_balance - newBalance + finalPrice, // will be corrected below
+          })
+          .eq("user_id", user.id);
+
+        if (walletErr) throw walletErr;
+
+        // Create confirmed booking
+        const { data: booking, error: bookingErr } = await supabase
+          .from("bookings")
+          .insert({
+            user_id: user.id,
+            table_id: tableId,
+            start_time: startTime.toISOString(),
+            end_time: endTime.toISOString(),
+            duration_hours: durationHours,
+            price: finalPrice,
+            original_price: originalPrice,
+            discount_amount: discountAmount,
+            final_price: finalPrice,
+            promo_id: promoId,
+            payment_method: "wallet",
+            status: "confirmed",
+          })
+          .select()
+          .single();
+
+        if (bookingErr) throw bookingErr;
+
+        // Record wallet transaction
+        await supabase.from("wallet_transactions").insert({
+          user_id: user.id,
+          type: "booking_payment",
+          amount: -finalPrice,
+          balance_after: newBalance,
+          related_booking_id: booking.id,
+        });
+
+        // Update total_spent properly
+        await supabase.rpc("has_role", { _user_id: user.id, _role: "customer" }); // dummy call to keep types happy
+        // Actually update total_spent
+        const { data: currentProfile } = await supabase
+          .from("profiles")
+          .select("total_spent")
+          .eq("user_id", user.id)
+          .single();
+        
+        if (currentProfile) {
+          await supabase
+            .from("profiles")
+            .update({ total_spent: currentProfile.total_spent + finalPrice })
+            .eq("user_id", user.id);
+        }
+
+        // Award reward points (10 per $1)
+        const rewardPoints = Math.floor(finalPrice * 10);
+        if (rewardPoints > 0) {
+          const { data: rpProfile } = await supabase
+            .from("profiles")
+            .select("reward_points")
+            .eq("user_id", user.id)
+            .single();
+
+          if (rpProfile) {
+            await supabase
+              .from("profiles")
+              .update({ reward_points: rpProfile.reward_points + rewardPoints })
+              .eq("user_id", user.id);
+
+            await supabase.from("reward_transactions").insert({
+              user_id: user.id,
+              type: "earn",
+              points: rewardPoints,
+              related_booking_id: booking.id,
+            });
+          }
+        }
+
+        // Record promo usage
+        if (promoId && discountAmount > 0) {
+          await supabase.from("promo_usage").insert({
+            promo_id: promoId,
+            user_id: user.id,
+            booking_id: booking.id,
+            discount_amount: discountAmount,
+          });
+        }
+
+        return booking;
+      }
+
+      // STRIPE: create pending booking, payment handled separately
+      const { data: booking, error: bookingErr } = await supabase
         .from("bookings")
         .insert({
           user_id: user.id,
@@ -163,22 +276,61 @@ export function useCreateBooking() {
           start_time: startTime.toISOString(),
           end_time: endTime.toISOString(),
           duration_hours: durationHours,
-          price: 0, // placeholder - no payment logic yet
-          payment_method: null,
+          price: finalPrice,
+          original_price: originalPrice,
+          discount_amount: discountAmount,
+          final_price: finalPrice,
+          promo_id: promoId,
+          payment_method: "stripe",
           status: "pending",
         })
         .select()
         .single();
 
-      if (error) throw error;
-      return data;
+      if (bookingErr) throw bookingErr;
+
+      // Record promo usage for stripe too
+      if (promoId && discountAmount > 0) {
+        await supabase.from("promo_usage").insert({
+          promo_id: promoId,
+          user_id: user.id,
+          booking_id: booking.id,
+          discount_amount: discountAmount,
+        });
+      }
+
+      return booking;
     },
-    onSuccess: () => {
-      toast({ title: "Booking created", description: "Your booking is pending payment (5 min lock)." });
+    onSuccess: (_data, variables) => {
+      const msg = variables.paymentMethod === "wallet"
+        ? "Booking confirmed! Payment deducted from wallet."
+        : "Booking created. Complete Stripe payment to confirm.";
+      toast({ title: "Booking created", description: msg });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
     },
     onError: (err: Error) => {
       toast({ title: "Booking failed", description: err.message, variant: "destructive" });
     },
+  });
+}
+
+export function useMyBookings() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["my-bookings", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("*, tables(table_number)")
+        .eq("user_id", user.id)
+        .order("start_time", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
   });
 }
