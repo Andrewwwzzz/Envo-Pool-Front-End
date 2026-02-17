@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, ArrowLeft, DollarSign, Calendar, Percent, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText } from "lucide-react";
+import { LogOut, ArrowLeft, DollarSign, Calendar, Percent, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check } from "lucide-react";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -495,11 +495,44 @@ function CustomersTab() {
 }
 
 function PricingTab() {
-  const { data: rules, create, remove, toggle } = useAdminPricingRules();
+  const { data: rules, create, remove, toggle, update } = useAdminPricingRules();
   const [form, setForm] = useState({
     name: "", start_time: "09:00", end_time: "23:00", hourly_rate: "20",
     priority: "0", weekdays: [...WEEKDAYS] as string[], specific_date: "", table_id: "",
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "", start_time: "", end_time: "", hourly_rate: "",
+    priority: "", weekdays: [] as string[], specific_date: "",
+  });
+
+  const startEdit = (r: any) => {
+    setEditingId(r.id);
+    setEditForm({
+      name: r.name,
+      start_time: r.start_time,
+      end_time: r.end_time,
+      hourly_rate: String(r.hourly_rate),
+      priority: String(r.priority),
+      weekdays: [...(r.applies_to_weekdays as string[])],
+      specific_date: r.specific_date || "",
+    });
+  };
+
+  const saveEdit = () => {
+    if (!editingId) return;
+    update.mutate({
+      id: editingId,
+      name: editForm.name,
+      start_time: editForm.start_time,
+      end_time: editForm.end_time,
+      hourly_rate: parseFloat(editForm.hourly_rate),
+      applies_to_weekdays: editForm.weekdays,
+      specific_date: editForm.specific_date || null,
+      priority: parseInt(editForm.priority),
+    });
+    setEditingId(null);
+  };
 
   const handleCreate = () => {
     create.mutate({
@@ -571,19 +604,71 @@ function PricingTab() {
           {!rules?.length ? <p className="text-muted-foreground text-sm">No pricing rules.</p> : (
             <div className="space-y-3">
               {rules.map((r) => (
-                <div key={r.id} className="flex items-center justify-between rounded-lg border border-border p-4">
-                  <div>
-                    <p className="font-medium">{r.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {r.start_time} – {r.end_time} · ${r.hourly_rate}/hr · Priority {r.priority}
-                      {r.specific_date && ` · ${r.specific_date}`}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">{(r.applies_to_weekdays as string[]).join(", ")}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Switch checked={r.is_active} onCheckedChange={(v) => toggle.mutate({ id: r.id, is_active: v })} />
-                    <Button variant="ghost" size="sm" onClick={() => remove.mutate(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                  </div>
+                <div key={r.id} className="rounded-lg border border-border p-4">
+                  {editingId === r.id ? (
+                    <div className="space-y-4">
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Name</Label>
+                          <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Start Time</Label>
+                          <Input type="time" value={editForm.start_time} onChange={(e) => setEditForm({ ...editForm, start_time: e.target.value })} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">End Time</Label>
+                          <Input type="time" value={editForm.end_time} onChange={(e) => setEditForm({ ...editForm, end_time: e.target.value })} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Rate ($)</Label>
+                          <Input type="number" value={editForm.hourly_rate} onChange={(e) => setEditForm({ ...editForm, hourly_rate: e.target.value })} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Priority</Label>
+                          <Input type="number" value={editForm.priority} onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Specific Date</Label>
+                          <Input type="date" value={editForm.specific_date} onChange={(e) => setEditForm({ ...editForm, specific_date: e.target.value })} />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Weekdays</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {WEEKDAYS.map((d) => (
+                            <button
+                              key={d}
+                              onClick={() => setEditForm({ ...editForm, weekdays: editForm.weekdays.includes(d) ? editForm.weekdays.filter((w) => w !== d) : [...editForm.weekdays, d] })}
+                              className={`px-3 py-1 rounded-full text-xs border transition-all ${editForm.weekdays.includes(d) ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"}`}
+                            >
+                              {d}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={saveEdit} disabled={update.isPending}><Check className="mr-1 h-3 w-3" /> Save</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}><X className="mr-1 h-3 w-3" /> Cancel</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{r.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {r.start_time} – {r.end_time} · ${r.hourly_rate}/hr · Priority {r.priority}
+                          {r.specific_date && ` · ${r.specific_date}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{(r.applies_to_weekdays as string[]).join(", ")}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => startEdit(r)}><Pencil className="h-4 w-4" /></Button>
+                        <Switch checked={r.is_active} onCheckedChange={(v) => toggle.mutate({ id: r.id, is_active: v })} />
+                        <Button variant="ghost" size="sm" onClick={() => remove.mutate(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
