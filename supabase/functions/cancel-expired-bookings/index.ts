@@ -15,20 +15,38 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Cancel bookings that have been pending for more than 5 minutes
+    // Delete bookings that have been pending for more than 5 minutes
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
-    const { data, error } = await supabase
+    // First get the IDs to report count
+    const { data: expired, error: fetchErr } = await supabase
       .from("bookings")
-      .update({ status: "cancelled" })
+      .select("id")
       .eq("status", "pending")
-      .lt("created_at", fiveMinutesAgo)
-      .select("id");
+      .lt("created_at", fiveMinutesAgo);
 
-    if (error) throw error;
+    if (fetchErr) throw fetchErr;
+
+    if (expired && expired.length > 0) {
+      const ids = expired.map((b) => b.id);
+
+      // Delete related promo_usage first (foreign key)
+      await supabase
+        .from("promo_usage")
+        .delete()
+        .in("booking_id", ids);
+
+      // Delete the expired bookings
+      const { error } = await supabase
+        .from("bookings")
+        .delete()
+        .in("id", ids);
+
+      if (error) throw error;
+    }
 
     return new Response(
-      JSON.stringify({ cancelled: data?.length ?? 0 }),
+      JSON.stringify({ deleted: expired?.length ?? 0 }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
