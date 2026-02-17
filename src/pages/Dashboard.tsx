@@ -10,6 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Wallet, Star, Calendar, History, LogOut, ArrowLeft, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+const SG_TZ = "Asia/Singapore";
+const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-GB", { timeZone: SG_TZ, day: "2-digit", month: "2-digit", year: "numeric" });
+const fmtTime = (d: string) => new Date(d).toLocaleTimeString("en-GB", { timeZone: SG_TZ, hour: "2-digit", minute: "2-digit" });
+const fmtDateTime = (d: string) => `${fmtDate(d)} ${fmtTime(d)}`;
+
 const statusBadge: Record<string, string> = {
   confirmed: "bg-primary/10 text-primary border-primary/20",
   pending: "bg-accent/20 text-accent-foreground border-accent/30",
@@ -152,7 +157,7 @@ const Dashboard = () => {
                     <div>
                       <p className="font-medium">Table {(b as any).tables?.table_number ?? "?"}</p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(b.start_time).toLocaleDateString()} {new Date(b.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} – {new Date(b.end_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {fmtDate(b.start_time)} {fmtTime(b.start_time)} – {fmtTime(b.end_time)}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -190,7 +195,7 @@ const Dashboard = () => {
                     <div>
                       <p className="font-medium">Table {(b as any).tables?.table_number ?? "?"}</p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(b.start_time).toLocaleDateString()} · {b.duration_hours}h
+                        {fmtDate(b.start_time)} {fmtTime(b.start_time)} – {fmtTime(b.end_time)} · {b.duration_hours}h
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -216,7 +221,7 @@ const Dashboard = () => {
                   <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border last:border-0">
                     <div>
                       <p className="font-medium capitalize">{t.type === "adjustment" ? "Admin Adjustment" : t.type.replace("_", " ")}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString()}</p>
+                      <p className="text-xs text-muted-foreground">{fmtDateTime(t.created_at)}</p>
                     </div>
                     <span className={t.amount >= 0 ? "text-primary font-medium" : "text-destructive font-medium"}>
                       {t.amount >= 0 ? "+" : ""}${t.amount.toFixed(2)}
@@ -240,7 +245,7 @@ const Dashboard = () => {
                   <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border last:border-0">
                     <div>
                       <p className="font-medium capitalize">{t.type === "adjustment" ? "Admin Adjustment" : t.type}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString()}</p>
+                      <p className="text-xs text-muted-foreground">{fmtDateTime(t.created_at)}</p>
                     </div>
                     <span className={t.points >= 0 ? "text-primary font-medium" : "text-destructive font-medium"}>
                       {t.points >= 0 ? "+" : ""}{t.points} pts
