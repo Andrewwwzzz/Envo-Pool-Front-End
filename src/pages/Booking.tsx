@@ -4,7 +4,7 @@ import { Navigate } from "react-router-dom";
 import { useTables, useCreateBooking, TableStatus, validateDuration } from "@/hooks/useBooking";
 import { usePricingRules } from "@/hooks/usePricing";
 import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
-import { useProfile } from "@/hooks/useProfile";
+import { useProfile, useUserRole } from "@/hooks/useProfile";
 import { calculateBookingPrice, calculateDiscount } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Clock, CalendarDays, Tag, CreditCard, Wallet, ChevronRight } from "lucide-react";
+import { LogOut, Clock, CalendarDays, Tag, CreditCard, Wallet, ChevronRight, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const statusColor: Record<TableStatus, string> = {
@@ -37,6 +37,7 @@ const Booking = () => {
   const { data: tables, isLoading: tablesLoading } = useTables(startDate, endDate);
   const { data: pricingRules } = usePricingRules();
   const { data: profile } = useProfile();
+  const { data: role } = useUserRole();
   const createBooking = useCreateBooking();
   const validatePromo = useValidatePromo();
 
@@ -126,6 +127,11 @@ const Booking = () => {
       <header className="border-b border-border px-6 py-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-foreground tracking-tight">Book a Table</h1>
         <div className="flex items-center gap-3">
+          {role === "admin" && (
+            <Link to="/admin">
+              <Button variant="outline" size="sm"><Shield className="mr-2 h-4 w-4" /> Admin</Button>
+            </Link>
+          )}
           <Link to="/dashboard">
             <Button variant="outline" size="sm">My Dashboard</Button>
           </Link>
