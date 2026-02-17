@@ -67,6 +67,7 @@ export function useAdminTables() {
     onSuccess: () => {
       toast({ title: "Table updated" });
       queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
+      queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
     },
   });
 
@@ -80,23 +81,72 @@ export function useAdminTables() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
+      queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
     },
   });
 
   const stopTimer = useMutation({
-    mutationFn: async ({ tableId }: { tableId: string }) => {
+    mutationFn: async ({ tableId, durationSeconds, hourlyRate, startedAt }: { tableId: string; durationSeconds: number; hourlyRate: number; startedAt: string }) => {
+      const totalCost = Math.round((durationSeconds / 3600) * hourlyRate * 100) / 100;
+
+      // Save invoice record
+      const { error: invoiceErr } = await supabase.from("timer_sessions").insert({
+        table_id: tableId,
+        started_at: startedAt,
+        ended_at: new Date().toISOString(),
+        duration_seconds: durationSeconds,
+        hourly_rate: hourlyRate,
+        total_cost: totalCost,
+      });
+      if (invoiceErr) throw invoiceErr;
+
+      // Reset table
       const { error } = await supabase
         .from("tables")
         .update({ status: "available", timer_started_at: null })
         .eq("id", tableId);
       if (error) throw error;
+
+      return { totalCost, durationSeconds };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
     },
   });
 
-  return { ...tablesQuery, updateStatus, startTimer, stopTimer };
+  const setMaintenance = useMutation({
+    mutationFn: async ({ tableId, maintenance }: { tableId: string; maintenance: boolean }) => {
+      const { error } = await supabase
+        .from("tables")
+        .update({ status: maintenance ? "maintenance" : "available" })
+        .eq("id", tableId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Table status updated" });
+      queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
+      queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+    },
+  });
+
+  return { ...tablesQuery, updateStatus, startTimer, stopTimer, setMaintenance };
+}
+
+export function useAdminTimerSessions() {
+  return useQuery({
+    queryKey: ["admin-timer-sessions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("timer_sessions")
+        .select("*, tables(table_number)")
+        .order("ended_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+  });
 }
 
 export function useAdminPricingRules() {

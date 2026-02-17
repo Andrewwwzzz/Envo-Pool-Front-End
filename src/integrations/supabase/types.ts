@@ -344,6 +344,50 @@ export type Database = {
         }
         Relationships: []
       }
+      timer_sessions: {
+        Row: {
+          created_at: string
+          duration_seconds: number
+          ended_at: string
+          hourly_rate: number
+          id: string
+          notes: string | null
+          started_at: string
+          table_id: string
+          total_cost: number
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds: number
+          ended_at?: string
+          hourly_rate: number
+          id?: string
+          notes?: string | null
+          started_at: string
+          table_id: string
+          total_cost: number
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number
+          ended_at?: string
+          hourly_rate?: number
+          id?: string
+          notes?: string | null
+          started_at?: string
+          table_id?: string
+          total_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timer_sessions_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
