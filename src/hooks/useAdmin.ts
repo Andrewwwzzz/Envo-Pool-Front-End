@@ -213,7 +213,33 @@ export function useAdminPricingRules() {
     },
   });
 
-  return { ...query, create, remove, toggle };
+  const update = useMutation({
+    mutationFn: async (rule: {
+      id: string;
+      name: string;
+      start_time: string;
+      end_time: string;
+      hourly_rate: number;
+      applies_to_weekdays: string[];
+      specific_date?: string | null;
+      applies_to_table_id?: string | null;
+      priority: number;
+    }) => {
+      const { id, ...updates } = rule;
+      const { error } = await supabase.from("pricing_rules").update(updates).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Pricing rule updated" });
+      queryClient.invalidateQueries({ queryKey: ["admin-pricing-rules"] });
+      queryClient.invalidateQueries({ queryKey: ["pricing-rules"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return { ...query, create, remove, toggle, update };
 }
 
 export function useAdminPromoCodes() {
