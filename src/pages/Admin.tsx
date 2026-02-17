@@ -132,10 +132,13 @@ function BookingsTab() {
 
 function TablesTab() {
   const { data: tables, updateStatus } = useAdminTables();
-  // Timer state: { [tableId]: { startedAt: number } }
   const [timers, setTimers] = useState<Record<string, { startedAt: number }>>({});
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
+  const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number }>>({});
+  const [hourlyRate, setHourlyRate] = useState("20");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const rate = parseFloat(hourlyRate) || 0;
 
   useEffect(() => {
     const activeTimers = Object.keys(timers);
@@ -154,17 +157,27 @@ function TablesTab() {
     };
   }, [timers]);
 
-  const startTimer = (tableId: string) => {
+  const openTable = (tableId: string) => {
+    updateStatus.mutate({ tableId, status: "available" });
     setTimers((prev) => ({ ...prev, [tableId]: { startedAt: Date.now() } }));
     setElapsed((prev) => ({ ...prev, [tableId]: 0 }));
+    setCompletedSessions((prev) => {
+      const copy = { ...prev };
+      delete copy[tableId];
+      return copy;
+    });
   };
 
-  const stopTimer = (tableId: string) => {
+  const closeTable = (tableId: string) => {
+    const seconds = elapsed[tableId] ?? 0;
+    const cost = Math.round((seconds / 3600) * rate * 100) / 100;
+    setCompletedSessions((prev) => ({ ...prev, [tableId]: { seconds, cost } }));
     setTimers((prev) => {
       const copy = { ...prev };
       delete copy[tableId];
       return copy;
     });
+    updateStatus.mutate({ tableId, status: "maintenance" });
   };
 
   const formatTime = (totalSeconds: number) => {
@@ -174,63 +187,92 @@ function TablesTab() {
     return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
+  const calculateLiveCost = (seconds: number) => {
+    return Math.round((seconds / 3600) * rate * 100) / 100;
+  };
+
   return (
-    <Card>
-      <CardHeader><CardTitle>Manage Tables</CardTitle></CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {(tables || []).map((t) => (
-            <div key={t.id} className="rounded-xl border border-border p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="font-medium">Table {t.table_number}</p>
-                <Badge variant="outline" className="capitalize">{t.status}</Badge>
-              </div>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle>Hourly Rate Preset</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            <Label>Rate ($/hr)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={hourlyRate}
+              onChange={(e) => setHourlyRate(e.target.value)}
+              className="w-[120px]"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-              {/* Timer display */}
-              <div className="flex items-center gap-2">
-                <Timer className="h-4 w-4 text-muted-foreground" />
-                <span className="font-mono text-lg">
-                  {formatTime(elapsed[t.id] ?? 0)}
-                </span>
-              </div>
+      <Card>
+        <CardHeader><CardTitle>Manage Tables</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {(tables || []).map((t) => {
+              const isRunning = !!timers[t.id];
+              const seconds = elapsed[t.id] ?? 0;
+              const session = completedSessions[t.id];
 
-              {/* Timer controls */}
-              <div className="flex gap-2">
-                {timers[t.id] ? (
-                  <Button size="sm" variant="destructive" onClick={() => stopTimer(t.id)} className="flex-1">
-                    <Square className="mr-1 h-3 w-3" /> Stop
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="default" onClick={() => startTimer(t.id)} className="flex-1">
-                    <Play className="mr-1 h-3 w-3" /> Start Timer
-                  </Button>
-                )}
-              </div>
+              return (
+                <div key={t.id} className="rounded-xl border border-border p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium">Table {t.table_number}</p>
+                    <Badge variant="outline" className={isRunning ? "bg-primary/10 text-primary border-primary/20" : "capitalize"}>
+                      {isRunning ? "In Use" : t.status}
+                    </Badge>
+                  </div>
 
-              {/* Status controls */}
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant={t.status === "available" ? "default" : "outline"}
-                  onClick={() => updateStatus.mutate({ tableId: t.id, status: "available" })}
-                  className="flex-1 text-xs"
-                >
-                  Open
-                </Button>
-                <Button
-                  size="sm"
-                  variant={t.status === "maintenance" ? "destructive" : "outline"}
-                  onClick={() => updateStatus.mutate({ tableId: t.id, status: "maintenance" })}
-                  className="flex-1 text-xs"
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+                  {/* Timer display */}
+                  <div className="flex items-center gap-2">
+                    <Timer className="h-4 w-4 text-muted-foreground" />
+                    <span className={`font-mono text-xl ${isRunning ? "text-primary" : "text-muted-foreground"}`}>
+                      {formatTime(isRunning ? seconds : (session?.seconds ?? 0))}
+                    </span>
+                  </div>
+
+                  {/* Live cost */}
+                  {isRunning && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <DollarSign className="h-4 w-4 text-primary" />
+                      <span className="font-medium text-primary">${calculateLiveCost(seconds).toFixed(2)}</span>
+                      <span className="text-muted-foreground">@ ${rate}/hr</span>
+                    </div>
+                  )}
+
+                  {/* Completed session summary */}
+                  {!isRunning && session && (
+                    <div className="rounded-lg bg-muted/50 p-3 space-y-1">
+                      <p className="text-sm font-medium">Session Complete</p>
+                      <p className="text-sm text-muted-foreground">
+                        Duration: {formatTime(session.seconds)} · Cost: <strong>${session.cost.toFixed(2)}</strong>
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Open / Close button */}
+                  {isRunning ? (
+                    <Button size="sm" variant="destructive" onClick={() => closeTable(t.id)} className="w-full">
+                      <Square className="mr-2 h-3 w-3" /> Close Table
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="default" onClick={() => openTable(t.id)} className="w-full">
+                      <Play className="mr-2 h-3 w-3" /> Open Table
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
