@@ -1,0 +1,1 @@
+ALTER TABLE public.bookings ALTER COLUMN payment_method DROP NOT NULL;
