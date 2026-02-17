@@ -87,7 +87,7 @@ export function useAdminTables() {
     mutationFn: async ({ tableId }: { tableId: string }) => {
       const { error } = await supabase
         .from("tables")
-        .update({ status: "maintenance", timer_started_at: null })
+        .update({ status: "available", timer_started_at: null })
         .eq("id", tableId);
       if (error) throw error;
     },
