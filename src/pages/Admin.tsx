@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useProfile";
 import { Navigate, Link } from "react-router-dom";
@@ -8,6 +8,8 @@ import {
   useAdminTables,
   useAdminPricingRules,
   useAdminPromoCodes,
+  useAdminCustomers,
+  useUpdateCustomerProfile,
 } from "@/hooks/useAdmin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, ArrowLeft, DollarSign, Calendar, Percent, BarChart3, Trash2 } from "lucide-react";
+import { LogOut, ArrowLeft, DollarSign, Calendar, Percent, BarChart3, Trash2, Search, Users, Timer, Play, Square } from "lucide-react";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -45,6 +47,7 @@ const Admin = () => {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="bookings">Bookings</TabsTrigger>
             <TabsTrigger value="tables">Tables</TabsTrigger>
+            <TabsTrigger value="customers">Customers</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="promos">Promos</TabsTrigger>
           </TabsList>
@@ -52,6 +55,7 @@ const Admin = () => {
           <TabsContent value="overview"><OverviewTab /></TabsContent>
           <TabsContent value="bookings"><BookingsTab /></TabsContent>
           <TabsContent value="tables"><TablesTab /></TabsContent>
+          <TabsContent value="customers"><CustomersTab /></TabsContent>
           <TabsContent value="pricing"><PricingTab /></TabsContent>
           <TabsContent value="promos"><PromosTab /></TabsContent>
         </Tabs>
@@ -128,15 +132,82 @@ function BookingsTab() {
 
 function TablesTab() {
   const { data: tables, updateStatus } = useAdminTables();
+  // Timer state: { [tableId]: { startedAt: number } }
+  const [timers, setTimers] = useState<Record<string, { startedAt: number }>>({});
+  const [elapsed, setElapsed] = useState<Record<string, number>>({});
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const activeTimers = Object.keys(timers);
+    if (activeTimers.length > 0) {
+      intervalRef.current = setInterval(() => {
+        const now = Date.now();
+        const newElapsed: Record<string, number> = {};
+        for (const id of activeTimers) {
+          newElapsed[id] = Math.floor((now - timers[id].startedAt) / 1000);
+        }
+        setElapsed((prev) => ({ ...prev, ...newElapsed }));
+      }, 1000);
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [timers]);
+
+  const startTimer = (tableId: string) => {
+    setTimers((prev) => ({ ...prev, [tableId]: { startedAt: Date.now() } }));
+    setElapsed((prev) => ({ ...prev, [tableId]: 0 }));
+  };
+
+  const stopTimer = (tableId: string) => {
+    setTimers((prev) => {
+      const copy = { ...prev };
+      delete copy[tableId];
+      return copy;
+    });
+  };
+
+  const formatTime = (totalSeconds: number) => {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  };
+
   return (
     <Card>
       <CardHeader><CardTitle>Manage Tables</CardTitle></CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {(tables || []).map((t) => (
             <div key={t.id} className="rounded-xl border border-border p-4 space-y-3">
-              <p className="font-medium">Table {t.table_number}</p>
-              <Badge variant="outline" className="capitalize">{t.status}</Badge>
+              <div className="flex items-center justify-between">
+                <p className="font-medium">Table {t.table_number}</p>
+                <Badge variant="outline" className="capitalize">{t.status}</Badge>
+              </div>
+
+              {/* Timer display */}
+              <div className="flex items-center gap-2">
+                <Timer className="h-4 w-4 text-muted-foreground" />
+                <span className="font-mono text-lg">
+                  {formatTime(elapsed[t.id] ?? 0)}
+                </span>
+              </div>
+
+              {/* Timer controls */}
+              <div className="flex gap-2">
+                {timers[t.id] ? (
+                  <Button size="sm" variant="destructive" onClick={() => stopTimer(t.id)} className="flex-1">
+                    <Square className="mr-1 h-3 w-3" /> Stop
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="default" onClick={() => startTimer(t.id)} className="flex-1">
+                    <Play className="mr-1 h-3 w-3" /> Start Timer
+                  </Button>
+                )}
+              </div>
+
+              {/* Status controls */}
               <div className="flex gap-2">
                 <Button
                   size="sm"
@@ -144,7 +215,7 @@ function TablesTab() {
                   onClick={() => updateStatus.mutate({ tableId: t.id, status: "available" })}
                   className="flex-1 text-xs"
                 >
-                  Available
+                  Open
                 </Button>
                 <Button
                   size="sm"
@@ -152,12 +223,118 @@ function TablesTab() {
                   onClick={() => updateStatus.mutate({ tableId: t.id, status: "maintenance" })}
                   className="flex-1 text-xs"
                 >
-                  Maintenance
+                  Close
                 </Button>
               </div>
             </div>
           ))}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CustomersTab() {
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const { data: customers, isLoading } = useAdminCustomers(debouncedSearch);
+  const updateProfile = useUpdateCustomerProfile();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [walletInput, setWalletInput] = useState("");
+  const [pointsInput, setPointsInput] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const startEdit = (customer: any) => {
+    setEditingId(customer.user_id);
+    setWalletInput(String(customer.wallet_balance));
+    setPointsInput(String(customer.reward_points));
+  };
+
+  const saveEdit = (userId: string) => {
+    updateProfile.mutate({
+      userId,
+      wallet_balance: parseFloat(walletInput),
+      reward_points: parseFloat(pointsInput),
+    });
+    setEditingId(null);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Users className="h-5 w-5 text-primary" /> Customer Management
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        {isLoading && <p className="text-muted-foreground text-sm">Searching...</p>}
+
+        {customers && customers.length === 0 && debouncedSearch && (
+          <p className="text-muted-foreground text-sm">No customers found.</p>
+        )}
+
+        {(customers || []).map((c) => (
+          <div key={c.id} className="rounded-xl border border-border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">{c.name || "No name"}</p>
+                <p className="text-sm text-muted-foreground">{c.email}</p>
+              </div>
+              {editingId !== c.user_id && (
+                <Button size="sm" variant="outline" onClick={() => startEdit(c)}>Edit</Button>
+              )}
+            </div>
+
+            {editingId === c.user_id ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Wallet Balance ($)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={walletInput}
+                    onChange={(e) => setWalletInput(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Reward Points</Label>
+                  <Input
+                    type="number"
+                    step="1"
+                    value={pointsInput}
+                    onChange={(e) => setPointsInput(e.target.value)}
+                  />
+                </div>
+                <div className="sm:col-span-2 flex gap-2">
+                  <Button size="sm" onClick={() => saveEdit(c.user_id)} disabled={updateProfile.isPending}>
+                    Save
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Cancel</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-6 text-sm">
+                <span>Wallet: <strong>${c.wallet_balance.toFixed(2)}</strong></span>
+                <span>Points: <strong>{c.reward_points}</strong></span>
+                <span>Total Spent: <strong>${c.total_spent.toFixed(2)}</strong></span>
+              </div>
+            )}
+          </div>
+        ))}
       </CardContent>
     </Card>
   );

@@ -234,3 +234,55 @@ export function useAdminStats() {
     refetchInterval: 60000,
   });
 }
+
+export function useAdminCustomers(searchEmail: string) {
+  return useQuery({
+    queryKey: ["admin-customers", searchEmail],
+    queryFn: async () => {
+      if (!searchEmail.trim()) return [];
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .ilike("email", `%${searchEmail}%`)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: searchEmail.trim().length > 0,
+  });
+}
+
+export function useUpdateCustomerProfile() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      wallet_balance,
+      reward_points,
+    }: {
+      userId: string;
+      wallet_balance?: number;
+      reward_points?: number;
+    }) => {
+      const updates: Record<string, number> = {};
+      if (wallet_balance !== undefined) updates.wallet_balance = wallet_balance;
+      if (reward_points !== undefined) updates.reward_points = reward_points;
+
+      const { error } = await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("user_id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Customer updated" });
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+}
