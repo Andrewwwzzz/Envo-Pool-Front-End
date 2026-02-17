@@ -132,6 +132,7 @@ function BookingsTab() {
 
 function TablesTab() {
   const { data: tables, startTimer, stopTimer } = useAdminTables();
+  const { data: bookings } = useAdminBookings();
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
   const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number }>>({});
   const [hourlyRate, setHourlyRate] = useState("20");
@@ -220,12 +221,20 @@ function TablesTab() {
               const session = completedSessions[t.id];
               const tableRate = isRunning ? Number(t.hourly_rate ?? rate) : rate;
 
+              // Check if table has active bookings blocking timer open
+              const now = new Date();
+              const hasActiveBooking = !isRunning && (bookings || []).some((b) => {
+                if (b.table_id !== t.id) return false;
+                if (!["pending", "confirmed"].includes(b.status)) return false;
+                return new Date(b.start_time) <= now && new Date(b.end_time) > now;
+              });
+
               return (
                 <div key={t.id} className="rounded-xl border border-border p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="font-medium">Table {t.table_number}</p>
-                    <Badge variant="outline" className={isRunning ? "bg-primary/10 text-primary border-primary/20" : "capitalize"}>
-                      {isRunning ? "In Use" : t.status}
+                    <Badge variant="outline" className={isRunning ? "bg-primary/10 text-primary border-primary/20" : hasActiveBooking ? "bg-destructive/10 text-destructive border-destructive/20" : "capitalize"}>
+                      {isRunning ? "In Use" : hasActiveBooking ? "Has Booking" : t.status}
                     </Badge>
                   </div>
 
@@ -262,7 +271,7 @@ function TablesTab() {
                       <Square className="mr-2 h-3 w-3" /> Close Table
                     </Button>
                   ) : (
-                    <Button size="sm" variant="default" onClick={() => openTable(t.id)} className="w-full">
+                    <Button size="sm" variant="default" onClick={() => openTable(t.id)} className="w-full" disabled={hasActiveBooking} title={hasActiveBooking ? "Table has an active booking" : undefined}>
                       <Play className="mr-2 h-3 w-3" /> Open Table
                     </Button>
                   )}
