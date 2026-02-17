@@ -1,18 +1,36 @@
 
 
-## Fix: Booking Check Constraint Violation
+# Mutual Exclusivity: Maintenance and Bookings
 
-**Root Cause:** In `src/hooks/useBooking.ts` (line ~139), the booking insert sets `payment_method: "pending"`, which violates the `bookings_payment_method_check` constraint that only allows `NULL`, `'wallet'`, or `'stripe'`.
+## What Changes
 
-**Fix:** Change `payment_method: "pending"` to `payment_method: null` in the insert statement.
+### Admin Panel (`src/pages/Admin.tsx`)
+- **Remove the `disabled={hasActiveBooking}` restriction** on the maintenance toggle button (line 313), so admins can always toggle maintenance on or off regardless of active bookings.
 
-### Technical Details
+### Booking Page (already handled)
+- The booking system already marks tables with `status === "maintenance"` as unavailable, so no new bookings can be placed on a table in maintenance mode. No changes needed here.
 
-**File:** `src/hooks/useBooking.ts`
+## Behavior After Fix
 
-Change on the insert object (around line 139):
-- Before: `payment_method: "pending"`
-- After: `payment_method: null`
+| Scenario | Result |
+|----------|--------|
+| Table has active booking | Admin CAN still set maintenance on/off |
+| Table is in maintenance | Customers CANNOT book it |
+| Admin removes maintenance | Table becomes available for booking again |
+| Table in maintenance | Admin CANNOT open timer (already blocked) |
 
-This aligns with the updated constraint and the intended flow where payment method is set later during the payment step.
+## Technical Detail
+
+**`src/pages/Admin.tsx` (line 313):**
+Change the maintenance button from:
+```typescript
+disabled={hasActiveBooking}
+```
+to:
+```typescript
+disabled={false}
+```
+(or simply remove the `disabled` prop)
+
+This is a single-line change. No database or booking logic changes required.
 
