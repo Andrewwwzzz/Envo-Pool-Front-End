@@ -29,12 +29,19 @@ const Dashboard = () => {
       const { error } = await supabase.from("bookings").delete().eq("id", bookingId);
       if (error) throw error;
     },
+    onMutate: async (bookingId) => {
+      await queryClient.cancelQueries({ queryKey: ["my-bookings"] });
+      queryClient.setQueriesData({ queryKey: ["my-bookings"] }, (old: any[] | undefined) =>
+        old ? old.filter((b) => b.id !== bookingId) : []
+      );
+    },
     onSuccess: () => {
       toast({ title: "Booking cancelled successfully" });
       queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
     },
     onError: (err: Error) => {
+      queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
