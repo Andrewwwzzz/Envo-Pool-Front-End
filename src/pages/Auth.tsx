@@ -46,7 +46,6 @@ const Auth = () => {
         navigate("/booking");
       }
     } else {
-      // Age gate: Singpass placeholder — for now use DOB
       if (!dob) {
         toast({ title: "Date of birth required", description: "Please enter your date of birth for age verification.", variant: "destructive" });
         setLoading(false);
@@ -78,59 +77,70 @@ const Auth = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl tracking-tight">{isLogin ? "Sign In" : "Create Account"}</CardTitle>
-          <CardDescription>
-            {isLogin ? "Sign in to book a table" : "Create an account to get started"}
-          </CardDescription>
-          {!isLogin && (
-            <div className="mt-2 rounded-lg bg-accent/10 border border-accent/20 p-3">
-              <p className="text-xs text-muted-foreground">
-                🔐 <strong>Singpass verification</strong> will be required for booking. For now, age verification is done via date of birth (minimum age: 16).
-              </p>
-            </div>
-          )}
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 dark">
+      {/* Subtle background pattern */}
+      <div className="fixed inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, hsl(var(--foreground)) 1px, transparent 0)', backgroundSize: '40px 40px' }} />
+
+      <div className="relative z-10 w-full max-w-md">
+        {/* Logo / Brand */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold tracking-tight gold-gradient">The Cue Club</h1>
+          <p className="text-muted-foreground mt-2 text-sm tracking-widest uppercase">Premium Pool Experience</p>
+        </div>
+
+        <Card className="card-premium backdrop-blur-sm">
+          <CardHeader className="space-y-1 pb-4">
+            <CardTitle className="text-2xl tracking-tight">{isLogin ? "Welcome Back" : "Join Us"}</CardTitle>
+            <CardDescription>
+              {isLogin ? "Sign in to reserve your table" : "Create an account to get started"}
+            </CardDescription>
             {!isLogin && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone (optional)</Label>
-                  <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dob">Date of Birth</Label>
-                  <Input id="dob" type="date" value={dob} onChange={(e) => setDob(e.target.value)} required />
-                </div>
-              </>
+              <div className="mt-3 rounded-lg bg-accent/10 border border-accent/20 p-3">
+                <p className="text-xs text-muted-foreground">
+                  🔐 <strong>Singpass verification</strong> will be required for booking. For now, age verification is done via date of birth (minimum age: 16).
+                </p>
+              </div>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
-            </Button>
-            <p className="text-center text-sm text-muted-foreground">
-              {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-              <button type="button" className="text-primary underline" onClick={() => setIsLogin(!isLogin)}>
-                {isLogin ? "Sign Up" : "Sign In"}
-              </button>
-            </p>
-          </form>
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {!isLogin && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="bg-background/50" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone (optional)</Label>
+                    <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="bg-background/50" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dob">Date of Birth</Label>
+                    <Input id="dob" type="date" value={dob} onChange={(e) => setDob(e.target.value)} required className="bg-background/50" />
+                  </div>
+                </>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="bg-background/50" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="bg-background/50" />
+              </div>
+              <Button type="submit" className="w-full h-11 text-sm font-semibold tracking-wide uppercase" disabled={loading}>
+                {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
+              </Button>
+              <p className="text-center text-sm text-muted-foreground">
+                {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+                <button type="button" className="text-accent hover:text-accent/80 font-medium transition-colors" onClick={() => setIsLogin(!isLogin)}>
+                  {isLogin ? "Sign Up" : "Sign In"}
+                </button>
+              </p>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
