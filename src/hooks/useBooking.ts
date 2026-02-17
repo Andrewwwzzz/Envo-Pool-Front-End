@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-export type TableStatus = "Available" | "Booked" | "Pending Payment" | "In Use";
+export type TableStatus = "Available" | "Booked" | "Pending Payment" | "In Use" | "Maintenance";
 
 export interface TableWithStatus {
   id: string;
@@ -49,7 +49,7 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
           id: t.id,
           table_number: t.table_number,
           hardware_id: t.hardware_id,
-          status: t.timer_started_at ? "In Use" as TableStatus : "Available" as TableStatus,
+          status: t.timer_started_at ? "In Use" as TableStatus : t.status === "maintenance" ? "Maintenance" as TableStatus : "Available" as TableStatus,
         }));
       }
 
@@ -65,6 +65,10 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
       const now = new Date();
 
       return tables.map((t) => {
+        // If table is under maintenance
+        if (t.status === "maintenance") {
+          return { ...t, hardware_id: t.hardware_id, status: "Maintenance" as TableStatus };
+        }
         // If table has an active timer, it's in use by admin
         if (t.timer_started_at) {
           return { ...t, hardware_id: t.hardware_id, status: "In Use" as TableStatus };

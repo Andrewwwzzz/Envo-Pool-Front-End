@@ -7,6 +7,7 @@ import {
   useAdminBookings,
   useDeleteBooking,
   useAdminTables,
+  useAdminTimerSessions,
   useAdminPricingRules,
   useAdminPromoCodes,
   useAdminCustomers,
@@ -20,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, ArrowLeft, DollarSign, Calendar, Percent, BarChart3, Trash2, Search, Users, Timer, Play, Square } from "lucide-react";
+import { LogOut, ArrowLeft, DollarSign, Calendar, Percent, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText } from "lucide-react";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -44,10 +45,11 @@ const Admin = () => {
 
       <main className="mx-auto max-w-6xl p-6">
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList>
+          <TabsList className="flex-wrap">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="bookings">Bookings</TabsTrigger>
             <TabsTrigger value="tables">Tables</TabsTrigger>
+            <TabsTrigger value="invoices">Invoices</TabsTrigger>
             <TabsTrigger value="customers">Customers</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="promos">Promos</TabsTrigger>
@@ -56,6 +58,7 @@ const Admin = () => {
           <TabsContent value="overview"><OverviewTab /></TabsContent>
           <TabsContent value="bookings"><BookingsTab /></TabsContent>
           <TabsContent value="tables"><TablesTab /></TabsContent>
+          <TabsContent value="invoices"><InvoicesTab /></TabsContent>
           <TabsContent value="customers"><CustomersTab /></TabsContent>
           <TabsContent value="pricing"><PricingTab /></TabsContent>
           <TabsContent value="promos"><PromosTab /></TabsContent>
@@ -144,7 +147,7 @@ function BookingsTab() {
 }
 
 function TablesTab() {
-  const { data: tables, startTimer, stopTimer } = useAdminTables();
+  const { data: tables, startTimer, stopTimer, setMaintenance } = useAdminTables();
   const { data: bookings } = useAdminBookings();
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
   const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number }>>({});
@@ -190,7 +193,12 @@ function TablesTab() {
     const seconds = elapsed[tableId] ?? 0;
     const cost = Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
     setCompletedSessions((prev) => ({ ...prev, [tableId]: { seconds, cost } }));
-    stopTimer.mutate({ tableId });
+    stopTimer.mutate({
+      tableId,
+      durationSeconds: seconds,
+      hourlyRate: Number(tableRate),
+      startedAt: table?.timer_started_at!,
+    });
   };
 
   const formatTime = (totalSeconds: number) => {
@@ -242,12 +250,19 @@ function TablesTab() {
                 return new Date(b.start_time) <= now && new Date(b.end_time) > now;
               });
 
+              const isMaintenance = !isRunning && t.status === "maintenance";
+
               return (
-                <div key={t.id} className="rounded-xl border border-border p-4 space-y-3">
+                <div key={t.id} className={`rounded-xl border p-4 space-y-3 ${isMaintenance ? "border-destructive/30 bg-destructive/5" : "border-border"}`}>
                   <div className="flex items-center justify-between">
                     <p className="font-medium">Table {t.table_number}</p>
-                    <Badge variant="outline" className={isRunning ? "bg-primary/10 text-primary border-primary/20" : hasActiveBooking ? "bg-destructive/10 text-destructive border-destructive/20" : "capitalize"}>
-                      {isRunning ? "In Use" : hasActiveBooking ? "Has Booking" : t.status}
+                    <Badge variant="outline" className={
+                      isRunning ? "bg-primary/10 text-primary border-primary/20" 
+                      : isMaintenance ? "bg-destructive/10 text-destructive border-destructive/20"
+                      : hasActiveBooking ? "bg-accent/20 text-accent-foreground border-accent/30" 
+                      : "capitalize"
+                    }>
+                      {isRunning ? "In Use" : isMaintenance ? "Maintenance" : hasActiveBooking ? "Has Booking" : "Available"}
                     </Badge>
                   </div>
 
@@ -271,23 +286,37 @@ function TablesTab() {
                   {/* Completed session summary */}
                   {!isRunning && session && (
                     <div className="rounded-lg bg-muted/50 p-3 space-y-1">
-                      <p className="text-sm font-medium">Session Complete</p>
+                      <p className="text-sm font-medium">Session Complete — Invoice Generated</p>
                       <p className="text-sm text-muted-foreground">
                         Duration: {formatTime(session.seconds)} · Cost: <strong>${session.cost.toFixed(2)}</strong>
                       </p>
                     </div>
                   )}
 
-                  {/* Open / Close button */}
-                  {isRunning ? (
-                    <Button size="sm" variant="destructive" onClick={() => closeTable(t.id)} className="w-full">
-                      <Square className="mr-2 h-3 w-3" /> Close Table
-                    </Button>
-                  ) : (
-                    <Button size="sm" variant="default" onClick={() => openTable(t.id)} className="w-full" disabled={hasActiveBooking} title={hasActiveBooking ? "Table has an active booking" : undefined}>
-                      <Play className="mr-2 h-3 w-3" /> Open Table
-                    </Button>
-                  )}
+                  {/* Action buttons */}
+                  <div className="space-y-2">
+                    {isRunning ? (
+                      <Button size="sm" variant="destructive" onClick={() => closeTable(t.id)} className="w-full">
+                        <Square className="mr-2 h-3 w-3" /> Close Table
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="default" onClick={() => openTable(t.id)} className="w-full" disabled={hasActiveBooking || isMaintenance} title={hasActiveBooking ? "Table has an active booking" : isMaintenance ? "Table is under maintenance" : undefined}>
+                        <Play className="mr-2 h-3 w-3" /> Open Table
+                      </Button>
+                    )}
+                    {!isRunning && (
+                      <Button
+                        size="sm"
+                        variant={isMaintenance ? "outline" : "secondary"}
+                        onClick={() => setMaintenance.mutate({ tableId: t.id, maintenance: !isMaintenance })}
+                        className="w-full"
+                        disabled={hasActiveBooking}
+                      >
+                        <Wrench className="mr-2 h-3 w-3" />
+                        {isMaintenance ? "Remove Maintenance" : "Set Maintenance"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -295,6 +324,63 @@ function TablesTab() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function InvoicesTab() {
+  const { data: sessions, isLoading } = useAdminTimerSessions();
+
+  const formatDuration = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  };
+
+  if (isLoading) return <p className="text-muted-foreground">Loading...</p>;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5" /> Timer Session Invoices
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {!sessions?.length ? (
+          <p className="text-muted-foreground text-sm">No timer sessions yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left">
+                  <th className="pb-2 pr-4">Table</th>
+                  <th className="pb-2 pr-4">Date</th>
+                  <th className="pb-2 pr-4">Start</th>
+                  <th className="pb-2 pr-4">End</th>
+                  <th className="pb-2 pr-4">Duration</th>
+                  <th className="pb-2 pr-4">Rate</th>
+                  <th className="pb-2">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessions.map((s: any) => (
+                  <tr key={s.id} className="border-b border-border last:border-0">
+                    <td className="py-3 pr-4">Table {s.tables?.table_number ?? "?"}</td>
+                    <td className="py-3 pr-4">{new Date(s.started_at).toLocaleDateString()}</td>
+                    <td className="py-3 pr-4">{new Date(s.started_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                    <td className="py-3 pr-4">{new Date(s.ended_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                    <td className="py-3 pr-4 font-mono">{formatDuration(s.duration_seconds)}</td>
+                    <td className="py-3 pr-4">${Number(s.hourly_rate).toFixed(2)}/hr</td>
+                    <td className="py-3 font-medium">${Number(s.total_cost).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

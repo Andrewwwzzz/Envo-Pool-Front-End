@@ -21,6 +21,7 @@ const statusColor: Record<TableStatus, string> = {
   Booked: "bg-destructive/10 text-destructive border-destructive/20",
   "Pending Payment": "bg-accent/20 text-accent-foreground border-accent/30",
   "In Use": "bg-destructive/10 text-destructive border-destructive/20",
+  Maintenance: "bg-muted text-muted-foreground border-muted",
 };
 
 const Booking = () => {
