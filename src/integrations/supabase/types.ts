@@ -318,23 +318,29 @@ export type Database = {
         Row: {
           created_at: string
           hardware_id: string | null
+          hourly_rate: number | null
           id: string
           status: string
           table_number: number
+          timer_started_at: string | null
         }
         Insert: {
           created_at?: string
           hardware_id?: string | null
+          hourly_rate?: number | null
           id?: string
           status?: string
           table_number: number
+          timer_started_at?: string | null
         }
         Update: {
           created_at?: string
           hardware_id?: string | null
+          hourly_rate?: number | null
           id?: string
           status?: string
           table_number?: number
+          timer_started_at?: string | null
         }
         Relationships: []
       }

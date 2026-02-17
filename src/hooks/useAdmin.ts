@@ -48,7 +48,33 @@ export function useAdminTables() {
     },
   });
 
-  return { ...tablesQuery, updateStatus };
+  const startTimer = useMutation({
+    mutationFn: async ({ tableId, hourlyRate }: { tableId: string; hourlyRate: number }) => {
+      const { error } = await supabase
+        .from("tables")
+        .update({ status: "available", timer_started_at: new Date().toISOString(), hourly_rate: hourlyRate })
+        .eq("id", tableId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
+    },
+  });
+
+  const stopTimer = useMutation({
+    mutationFn: async ({ tableId }: { tableId: string }) => {
+      const { error } = await supabase
+        .from("tables")
+        .update({ status: "maintenance", timer_started_at: null })
+        .eq("id", tableId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
+    },
+  });
+
+  return { ...tablesQuery, updateStatus, startTimer, stopTimer };
 }
 
 export function useAdminPricingRules() {
