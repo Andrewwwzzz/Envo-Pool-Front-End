@@ -177,7 +177,6 @@ export function useCreateBooking() {
           .from("profiles")
           .update({ 
             wallet_balance: newBalance,
-            total_spent: profile.wallet_balance - newBalance + finalPrice, // will be corrected below
           })
           .eq("user_id", user.id);
 
@@ -214,9 +213,7 @@ export function useCreateBooking() {
           related_booking_id: booking.id,
         });
 
-        // Update total_spent properly
-        await supabase.rpc("has_role", { _user_id: user.id, _role: "customer" }); // dummy call to keep types happy
-        // Actually update total_spent
+        // Update total_spent by finalPrice (net amount)
         const { data: currentProfile } = await supabase
           .from("profiles")
           .select("total_spent")
@@ -230,7 +227,7 @@ export function useCreateBooking() {
             .eq("user_id", user.id);
         }
 
-        // Award reward points (10 per $1)
+        // Award reward points based on finalPrice (net amount, 10 per $1)
         const rewardPoints = Math.floor(finalPrice * 10);
         if (rewardPoints > 0) {
           const { data: rpProfile } = await supabase
