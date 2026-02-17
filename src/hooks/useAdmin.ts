@@ -323,6 +323,18 @@ export function useUpdateCustomerProfile() {
           });
         }
       }
+
+      // Log reward transaction if points changed
+      if (reward_points !== undefined && currentProfile) {
+        const diff = reward_points - currentProfile.reward_points;
+        if (diff !== 0) {
+          await supabase.from("reward_transactions").insert({
+            user_id: userId,
+            type: diff > 0 ? "admin_credit" : "admin_debit",
+            points: diff,
+          });
+        }
+      }
     },
     onSuccess: () => {
       toast({ title: "Customer updated" });
