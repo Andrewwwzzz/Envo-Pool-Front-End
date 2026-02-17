@@ -164,7 +164,7 @@ export function useCreateBooking() {
           end_time: endTime.toISOString(),
           duration_hours: durationHours,
           price: 0, // placeholder - no payment logic yet
-          payment_method: "pending",
+          payment_method: null,
           status: "pending",
         })
         .select()
