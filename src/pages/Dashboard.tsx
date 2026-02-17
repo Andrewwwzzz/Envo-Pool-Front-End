@@ -2,12 +2,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, Link } from "react-router-dom";
 import { useProfile } from "@/hooks/useProfile";
 import { useMyBookings } from "@/hooks/useBooking";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, Star, Calendar, History, LogOut, ArrowLeft } from "lucide-react";
+import { Wallet, Star, Calendar, History, LogOut, ArrowLeft, XCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const statusBadge: Record<string, string> = {
   confirmed: "bg-primary/10 text-primary border-primary/20",
@@ -20,6 +21,24 @@ const Dashboard = () => {
   const { user, loading, signOut } = useAuth();
   const { data: profile } = useProfile();
   const { data: bookings, isLoading: bookingsLoading } = useMyBookings();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const cancelBooking = useMutation({
+    mutationFn: async (bookingId: string) => {
+      // Delete related promo_usage first
+      await supabase.from("promo_usage").delete().eq("booking_id", bookingId);
+      const { error } = await supabase.from("bookings").delete().eq("id", bookingId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Booking cancelled successfully" });
+      queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
 
   const { data: walletTxns } = useQuery({
     queryKey: ["wallet-txns", user?.id],
@@ -124,6 +143,17 @@ const Dashboard = () => {
                     <div className="flex items-center gap-3">
                       <span className="font-medium">${b.final_price?.toFixed(2) ?? b.price?.toFixed(2)}</span>
                       <Badge variant="outline" className={statusBadge[b.status] ?? ""}>{b.status}</Badge>
+                      {b.status === "pending" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => cancelBooking.mutate(b.id)}
+                          disabled={cancelBooking.isPending}
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
