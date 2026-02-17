@@ -138,7 +138,7 @@ const Booking = () => {
 
       <header className="relative z-10 border-b border-border/50 bg-card/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold tracking-tight gold-gradient">The Cue Club</h1>
+          <h1 className="text-xl font-bold tracking-tight gold-gradient">Anytime Pool</h1>
           <span className="text-muted-foreground text-sm hidden sm:inline">|</span>
           <span className="text-sm text-muted-foreground hidden sm:inline">Reserve a Table</span>
         </div>

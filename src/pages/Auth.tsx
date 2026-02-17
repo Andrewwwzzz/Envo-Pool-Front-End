@@ -84,7 +84,7 @@ const Auth = () => {
       <div className="relative z-10 w-full max-w-md">
         {/* Logo / Brand */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold tracking-tight gold-gradient">The Cue Club</h1>
+          <h1 className="text-4xl font-bold tracking-tight gold-gradient">Anytime Pool</h1>
           <p className="text-muted-foreground mt-2 text-sm tracking-widest uppercase">Premium Pool Experience</p>
         </div>
 
