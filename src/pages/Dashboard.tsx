@@ -100,7 +100,7 @@ const Dashboard = () => {
       <header className="relative z-10 border-b border-border/50 bg-card/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link to="/booking">
-            <Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+            <Button variant="outline" size="sm" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
           </Link>
           <h1 className="text-xl font-bold tracking-tight gold-gradient">Anytime Pool</h1>
         </div>
