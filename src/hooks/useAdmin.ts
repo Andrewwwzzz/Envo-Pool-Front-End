@@ -339,7 +339,7 @@ export function useUpdateCustomerProfile() {
         if (diff !== 0) {
           await supabase.from("wallet_transactions").insert({
             user_id: userId,
-            type: diff > 0 ? "admin_topup" : "admin_deduction",
+            type: "adjustment",
             amount: diff,
             balance_after: wallet_balance,
           });
@@ -352,7 +352,7 @@ export function useUpdateCustomerProfile() {
         if (diff !== 0) {
           await supabase.from("reward_transactions").insert({
             user_id: userId,
-            type: diff > 0 ? "admin_credit" : "admin_debit",
+            type: "adjustment",
             points: diff,
           });
         }
