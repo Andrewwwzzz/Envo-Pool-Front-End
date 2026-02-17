@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTermsContent, useUpdateTerms } from "@/hooks/useTerms";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useProfile";
 import { Navigate, Link } from "react-router-dom";
@@ -17,11 +18,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, ArrowLeft, DollarSign, Calendar, Percent, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText } from "lucide-react";
+import { LogOut, ArrowLeft, DollarSign, Calendar, Percent, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText } from "lucide-react";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -53,6 +55,7 @@ const Admin = () => {
             <TabsTrigger value="customers">Customers</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="promos">Promos</TabsTrigger>
+            <TabsTrigger value="terms">T&C</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview"><OverviewTab /></TabsContent>
@@ -62,6 +65,7 @@ const Admin = () => {
           <TabsContent value="customers"><CustomersTab /></TabsContent>
           <TabsContent value="pricing"><PricingTab /></TabsContent>
           <TabsContent value="promos"><PromosTab /></TabsContent>
+          <TabsContent value="terms"><TermsTab /></TabsContent>
         </Tabs>
       </main>
     </div>
@@ -688,6 +692,62 @@ function PromosTab() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function TermsTab() {
+  const { data: terms, isLoading } = useTermsContent();
+  const updateTerms = useUpdateTerms();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  const startEdit = () => {
+    setDraft(terms?.content ?? "");
+    setEditing(true);
+  };
+
+  const save = () => {
+    if (!terms) return;
+    updateTerms.mutate({ id: terms.id, content: draft }, {
+      onSuccess: () => setEditing(false),
+    });
+  };
+
+  if (isLoading) return <p className="text-muted-foreground">Loading...</p>;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ScrollText className="h-5 w-5 text-primary" /> Terms & Conditions
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {editing ? (
+          <>
+            <Textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={16}
+              className="font-mono text-sm"
+            />
+            <div className="flex gap-2">
+              <Button onClick={save} disabled={updateTerms.isPending}>
+                {updateTerms.isPending ? "Saving..." : "Save"}
+              </Button>
+              <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="whitespace-pre-wrap text-sm text-foreground border border-border rounded-lg p-4 max-h-96 overflow-y-auto">
+              {terms?.content || "No content yet."}
+            </div>
+            <Button onClick={startEdit}>Edit Terms</Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

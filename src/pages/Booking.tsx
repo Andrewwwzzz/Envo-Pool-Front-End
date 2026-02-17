@@ -352,19 +352,11 @@ const Booking = () => {
         <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Terms & Conditions</DialogTitle>
+              <DialogTitle>Confirm Booking</DialogTitle>
               <DialogDescription>
-                Please read and agree to the following terms before proceeding.
+                Please review and accept our terms before proceeding with payment.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <ul className="list-disc pl-5 space-y-1.5">
-                <li>Bookings cannot be cancelled once payment is confirmed.</li>
-                <li>All payments are final and non-refundable.</li>
-                <li>Tables will be released after 15 minutes of no-show.</li>
-                <li>Management reserves the right to modify or cancel bookings under special circumstances.</li>
-              </ul>
-            </div>
             <div className="flex items-center gap-2 pt-2">
               <Checkbox
                 id="agree-terms"
@@ -372,7 +364,10 @@ const Booking = () => {
                 onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
               />
               <label htmlFor="agree-terms" className="text-sm cursor-pointer select-none">
-                I have read and agree to the terms and conditions
+                I have read and agree to the{" "}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:text-primary/80">
+                  Terms & Conditions
+                </a>
               </label>
             </div>
             <DialogFooter>
