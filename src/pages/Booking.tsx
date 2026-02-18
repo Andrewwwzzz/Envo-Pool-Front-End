@@ -12,11 +12,15 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Clock, CalendarDays, Tag, CreditCard, Wallet, ChevronRight, Shield } from "lucide-react";
+import { LogOut, CalendarDays, Tag, CreditCard, Wallet, ChevronRight, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
-import { DateTimePicker } from "@/components/DateTimePicker";
+import { Calendar } from "@/components/ui/calendar";
+import { TimeSlotPicker } from "@/components/TimeSlotPicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { startOfDay, isBefore } from "date-fns";
 
 const statusColor: Record<TableStatus, string> = {
   Available: "bg-primary/10 text-primary border-primary/20",
@@ -26,25 +30,71 @@ const statusColor: Record<TableStatus, string> = {
   Maintenance: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
+function slotToDate(date: Date, slot: string): Date {
+  const [h, m] = slot.split(":").map(Number);
+  const d = new Date(date);
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+
 const Booking = () => {
   const { user, loading, signOut } = useAuth();
   const { toast } = useToast();
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
+
+  // Step 1: Date
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  // Step 2: Table
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  // Step 3: Time slots
+  const [startSlot, setStartSlot] = useState<string | null>(null);
+  const [endSlot, setEndSlot] = useState<string | null>(null);
+
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<PromoValidation["promo"] | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"wallet" | "stripe" | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const { data: tables, isLoading: tablesLoading } = useTables(startDate, endDate);
+
+  const today = useMemo(() => startOfDay(new Date()), []);
+
+  // Fetch tables (basic info, no time filter needed for display)
+  const { data: tables, isLoading: tablesLoading } = useTables(null, null);
+
+  // Fetch bookings for the selected table + date to show slot availability
+  const { data: tableBookings } = useQuery({
+    queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()],
+    queryFn: async () => {
+      if (!selectedTable || !selectedDate) return [];
+      const dayStart = new Date(selectedDate);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(selectedDate);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("start_time, end_time, status, created_at")
+        .eq("table_id", selectedTable)
+        .in("status", ["pending", "confirmed"])
+        .lt("start_time", dayEnd.toISOString())
+        .gt("end_time", dayStart.toISOString());
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedTable && !!selectedDate,
+    refetchInterval: 30000,
+  });
+
   const { data: pricingRules } = usePricingRules();
   const { data: profile } = useProfile();
   const { data: role } = useUserRole();
   const createBooking = useCreateBooking();
   const validatePromo = useValidatePromo();
 
-  // Calculate pricing
+  // Compute start/end Date from slots
+  const startDate = selectedDate && startSlot ? slotToDate(selectedDate, startSlot) : null;
+  const endDate = selectedDate && endSlot ? slotToDate(selectedDate, endSlot) : null;
+
   const pricing = useMemo(() => {
     if (!startDate || !endDate || !selectedTable || endDate <= startDate || !pricingRules) return null;
     return calculateBookingPrice(pricingRules, selectedTable, startDate, endDate);
@@ -64,21 +114,30 @@ const Booking = () => {
 
   const finalPrice = Math.max(0, originalPrice - discountAmount);
 
-  const durationDisplay = useMemo(() => {
-    if (!startDate || !endDate || endDate <= startDate) return null;
-    const hours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-    const h = Math.floor(hours);
-    const m = Math.round((hours - h) * 60);
-    return h > 0 && m > 0 ? `${h}h ${m}m` : h > 0 ? `${h}h` : `${m}m`;
-  }, [startDate, endDate]);
-
   const durationError = useMemo(() => {
     if (!startDate || !endDate || endDate <= startDate) return null;
     return validateDuration(startDate, endDate);
   }, [startDate, endDate]);
 
+  // Get table status for display
+  const selectedTableData = tables?.find((t) => t.id === selectedTable);
+
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
+
+  const handleDateSelect = (date: Date | undefined) => {
+    setSelectedDate(date);
+    setStartSlot(null);
+    setEndSlot(null);
+    setAppliedPromo(null);
+  };
+
+  const handleTableSelect = (tableId: string) => {
+    setSelectedTable(tableId);
+    setStartSlot(null);
+    setEndSlot(null);
+    setAppliedPromo(null);
+  };
 
   const handleApplyPromo = async () => {
     if (!promoCode.trim() || !selectedTable) return;
@@ -100,13 +159,11 @@ const Booking = () => {
     setPromoCode("");
   };
 
-  const selectedTableData = tables?.find((t) => t.id === selectedTable);
   const canBook =
-    selectedTable &&
     startDate &&
     endDate &&
     endDate > startDate &&
-    selectedTableData?.status === "Available" &&
+    selectedTable &&
     paymentMethod &&
     !durationError &&
     (paymentMethod !== "wallet" || (profile && profile.wallet_balance >= finalPrice));
@@ -131,9 +188,13 @@ const Booking = () => {
     });
   };
 
+  // Check if table is bookable (not maintenance/in-use)
+  const isTableBookable = (table: typeof tables extends (infer T)[] ? T : never) => {
+    return table.status !== "Maintenance" && table.status !== "In Use";
+  };
+
   return (
     <div className="min-h-screen bg-background dark">
-      {/* Subtle background pattern */}
       <div className="fixed inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, hsl(var(--foreground)) 1px, transparent 0)', backgroundSize: '40px 40px' }} />
 
       <header className="relative z-10 border-b border-border/50 bg-card/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
@@ -158,73 +219,90 @@ const Booking = () => {
       </header>
 
       <main className="relative z-10 mx-auto max-w-4xl p-6 space-y-6">
-        {/* Time Selection */}
+        {/* Step 1: Date Selection */}
         <Card className="card-premium">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <CalendarDays className="h-5 w-5 text-accent" /> Select Time
+              <CalendarDays className="h-5 w-5 text-accent" />
+              <span>1. Select Date</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <DateTimePicker
-              label="Start Time"
-              value={startDate}
-              onChange={(d) => { setStartDate(d); setAppliedPromo(null); }}
+          <CardContent className="flex justify-center">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={handleDateSelect}
+              disabled={(date) => isBefore(date, today)}
+              className="p-3 pointer-events-auto"
             />
-            <DateTimePicker
-              label="End Time"
-              value={endDate}
-              onChange={(d) => { setEndDate(d); setAppliedPromo(null); }}
-              minDate={startDate}
-              minTime={startDate}
-            />
-            {durationDisplay && (
-              <div className="sm:col-span-2 flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4 text-accent" /> Duration: <span className="text-foreground font-medium">{durationDisplay}</span>
-              </div>
-            )}
-            {durationError && (
-              <p className="sm:col-span-2 text-sm text-destructive">{durationError}</p>
-            )}
           </CardContent>
         </Card>
 
-        {/* Table Grid */}
-        <Card className="card-premium">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg">Select a Table</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {tablesLoading ? (
-              <p className="text-muted-foreground">Loading tables...</p>
-            ) : !tables?.length ? (
-              <p className="text-muted-foreground">No tables available.</p>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {tables.map((table) => (
-                  <button
-                    key={table.id}
-                    onClick={() => { table.status === "Available" && setSelectedTable(table.id); setAppliedPromo(null); }}
-                    disabled={table.status !== "Available"}
-                    className={`rounded-xl border p-4 text-left transition-all duration-200 ${
-                      selectedTable === table.id
-                        ? "border-accent ring-2 ring-accent/20 bg-accent/5"
-                        : "border-border hover:border-muted-foreground/30 hover:bg-card"
-                    } ${table.status !== "Available" ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
-                  >
-                    <p className="font-semibold text-foreground">Table {table.table_number}</p>
-                    <Badge variant="outline" className={`mt-2 text-xs ${statusColor[table.status]}`}>
-                      {table.status}
-                    </Badge>
-                  </button>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Step 2: Table Selection */}
+        {selectedDate && (
+          <Card className="card-premium">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg">2. Select a Table</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {tablesLoading ? (
+                <p className="text-muted-foreground">Loading tables...</p>
+              ) : !tables?.length ? (
+                <p className="text-muted-foreground">No tables available.</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {tables.map((table) => {
+                    const bookable = isTableBookable(table);
+                    return (
+                      <button
+                        key={table.id}
+                        onClick={() => bookable && handleTableSelect(table.id)}
+                        disabled={!bookable}
+                        className={`rounded-xl border p-4 text-left transition-all duration-200 ${
+                          selectedTable === table.id
+                            ? "border-accent ring-2 ring-accent/20 bg-accent/5"
+                            : "border-border hover:border-muted-foreground/30 hover:bg-card"
+                        } ${!bookable ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                      >
+                        <p className="font-semibold text-foreground">Table {table.table_number}</p>
+                        {!bookable && (
+                          <Badge variant="outline" className={`mt-2 text-xs ${statusColor[table.status]}`}>
+                            {table.status}
+                          </Badge>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 3: Time Slot Selection */}
+        {selectedDate && selectedTable && (
+          <Card className="card-premium">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg">3. Choose Time</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TimeSlotPicker
+                date={selectedDate}
+                bookedSlots={tableBookings || []}
+                startSlot={startSlot}
+                endSlot={endSlot}
+                onSelectStart={setStartSlot}
+                onSelectEnd={setEndSlot}
+              />
+              {durationError && (
+                <p className="mt-3 text-sm text-destructive">{durationError}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Pricing Breakdown */}
-        {pricing && selectedTable && !durationError && (
+        {pricing && selectedTable && !durationError && startSlot && endSlot && (
           <Card className="card-premium">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg">Pricing</CardTitle>
@@ -293,7 +371,7 @@ const Booking = () => {
         )}
 
         {/* Payment Method */}
-        {pricing && selectedTable && !durationError && (
+        {pricing && selectedTable && !durationError && startSlot && endSlot && (
           <Card className="card-premium">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg flex items-center gap-2">

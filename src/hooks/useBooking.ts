@@ -25,9 +25,8 @@ export function validateDuration(start: Date, end: Date): string | null {
 
   if (diffMinutes < 60) return "Minimum booking duration is 1 hour.";
 
-  const minutesBeyondFirstHour = diffMinutes - 60;
-  if (minutesBeyondFirstHour % 15 !== 0) {
-    return "After the first hour, duration must increase in 15-minute intervals.";
+  if (diffMinutes % 30 !== 0) {
+    return "Duration must be in 30-minute intervals.";
   }
 
   return null;
