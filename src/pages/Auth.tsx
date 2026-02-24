@@ -139,13 +139,6 @@ const Auth = () => {
                     {isLogin ? "Sign Up with Singpass" : "Sign In"}
                   </button>
                 </p>
-                {isLogin && (
-                  <div className="flex justify-center">
-                    <a href="https://anytime-pool-api.onrender.com/api/auth/singpass">
-                      <img src={singpassBtn} alt="Retrieve Myinfo with Singpass" className="h-10 rounded-lg cursor-pointer hover:opacity-80 transition-opacity" />
-                    </a>
-                  </div>
-                )}
               </div>
             </form>
           </CardContent>
