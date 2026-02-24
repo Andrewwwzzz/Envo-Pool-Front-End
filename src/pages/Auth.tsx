@@ -131,12 +131,22 @@ const Auth = () => {
               <Button type="submit" className="w-full h-11 text-sm font-semibold tracking-wide uppercase" disabled={loading}>
                 {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
               </Button>
-              <p className="text-center text-sm text-muted-foreground">
-                {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-                <button type="button" className="text-accent hover:text-accent/80 font-medium transition-colors" onClick={() => setIsLogin(!isLogin)}>
-                  {isLogin ? "Sign Up" : "Sign In"}
-                </button>
-              </p>
+              <div className="text-center space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+                  <button type="button" className="text-accent hover:text-accent/80 font-medium transition-colors" onClick={() => setIsLogin(!isLogin)}>
+                    {isLogin ? "Sign Up with Singpass" : "Sign In"}
+                  </button>
+                </p>
+                {isLogin && (
+                  <div className="flex justify-center">
+                    <svg width="80" height="28" viewBox="0 0 200 70" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-70">
+                      <rect x="2" y="2" width="196" height="66" rx="12" stroke="hsl(var(--accent))" strokeWidth="2" fill="none" />
+                      <text x="100" y="42" textAnchor="middle" fill="hsl(var(--accent))" fontSize="22" fontWeight="700" fontFamily="sans-serif">Singpass</text>
+                    </svg>
+                  </div>
+                )}
+              </div>
             </form>
           </CardContent>
         </Card>
