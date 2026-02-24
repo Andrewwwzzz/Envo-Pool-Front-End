@@ -11,6 +11,16 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Authenticate: require valid Authorization header with service role or anon key
+    const authHeader = req.headers.get("Authorization");
+    const expectedKey = Deno.env.get("SUPABASE_ANON_KEY");
+    if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.replace("Bearer ", "") !== expectedKey) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -51,7 +61,7 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     return new Response(
-      JSON.stringify({ error: err.message }),
+      JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
