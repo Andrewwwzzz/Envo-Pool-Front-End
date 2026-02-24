@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
+import singpassBtn from "@/assets/singpass-btn.png";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -140,10 +141,7 @@ const Auth = () => {
                 </p>
                 {isLogin && (
                   <div className="flex justify-center">
-                    <svg width="80" height="28" viewBox="0 0 200 70" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-70">
-                      <rect x="2" y="2" width="196" height="66" rx="12" stroke="hsl(var(--accent))" strokeWidth="2" fill="none" />
-                      <text x="100" y="42" textAnchor="middle" fill="hsl(var(--accent))" fontSize="22" fontWeight="700" fontFamily="sans-serif">Singpass</text>
-                    </svg>
+                    <img src={singpassBtn} alt="Retrieve Myinfo with Singpass" className="h-10 rounded-lg cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setIsLogin(false)} />
                   </div>
                 )}
               </div>
