@@ -141,7 +141,9 @@ const Auth = () => {
                 </p>
                 {isLogin && (
                   <div className="flex justify-center">
-                    <img src={singpassBtn} alt="Retrieve Myinfo with Singpass" className="h-10 rounded-lg cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setIsLogin(false)} />
+                    <a href="https://anytime-pool-api.onrender.com/api/auth/singpass">
+                      <img src={singpassBtn} alt="Retrieve Myinfo with Singpass" className="h-10 rounded-lg cursor-pointer hover:opacity-80 transition-opacity" />
+                    </a>
                   </div>
                 )}
               </div>
