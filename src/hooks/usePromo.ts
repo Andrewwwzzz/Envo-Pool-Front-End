@@ -31,69 +31,16 @@ export function useValidatePromo() {
     }): Promise<PromoValidation> => {
       if (!user) return { valid: false, error: "Not authenticated" };
 
-      const trimmedCode = code.trim().toUpperCase();
-
-      // Fetch promo
-      const { data: promo, error } = await supabase
-        .from("promo_codes")
-        .select("*")
-        .eq("code", trimmedCode)
-        .eq("is_active", true)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("validate_promo_code", {
+        p_code: code,
+        p_original_price: originalPrice,
+        p_table_id: tableId,
+      });
 
       if (error) return { valid: false, error: "Failed to validate promo code" };
-      if (!promo) return { valid: false, error: "Invalid promo code" };
 
-      // Check expiry
-      if (promo.expiry_date && new Date(promo.expiry_date) < new Date()) {
-        return { valid: false, error: "Promo code has expired" };
-      }
-
-      // Check table restriction
-      if (promo.applies_to_table_id && promo.applies_to_table_id !== tableId) {
-        return { valid: false, error: "This promo code is not valid for the selected table" };
-      }
-
-      // Check minimum spend
-      if (promo.minimum_spend !== null && originalPrice < promo.minimum_spend) {
-        return { valid: false, error: `Minimum spend of $${promo.minimum_spend} required` };
-      }
-
-      // Check total usage
-      if (promo.usage_limit !== null) {
-        const { count } = await supabase
-          .from("promo_usage")
-          .select("*", { count: "exact", head: true })
-          .eq("promo_id", promo.id);
-        if ((count ?? 0) >= promo.usage_limit) {
-          return { valid: false, error: "Promo code usage limit reached" };
-        }
-      }
-
-      // Check per-user usage
-      if (promo.per_user_limit !== null) {
-        const { count } = await supabase
-          .from("promo_usage")
-          .select("*", { count: "exact", head: true })
-          .eq("promo_id", promo.id)
-          .eq("user_id", user.id);
-        if ((count ?? 0) >= promo.per_user_limit) {
-          return { valid: false, error: "You've already used this promo code the maximum number of times" };
-        }
-      }
-
-      return {
-        valid: true,
-        promo: {
-          id: promo.id,
-          code: promo.code,
-          discount_type: promo.discount_type as "percentage" | "fixed",
-          discount_value: promo.discount_value,
-          max_discount_amount: promo.max_discount_amount,
-          minimum_spend: promo.minimum_spend,
-          applies_to_table_id: promo.applies_to_table_id,
-        },
-      };
+      const result = data as unknown as PromoValidation;
+      return result;
     },
   });
 }
