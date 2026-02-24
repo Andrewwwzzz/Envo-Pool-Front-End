@@ -477,6 +477,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      validate_promo_code: {
+        Args: { p_code: string; p_original_price: number; p_table_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "customer" | "admin"
