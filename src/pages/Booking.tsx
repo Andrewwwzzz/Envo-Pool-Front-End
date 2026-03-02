@@ -53,6 +53,7 @@ const Booking = () => {
   const [appliedPromo, setAppliedPromo] = useState<PromoValidation["promo"] | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"wallet" | "stripe" | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const today = useMemo(() => startOfDay(new Date()), []);
@@ -173,19 +174,64 @@ const Booking = () => {
     setShowConfirm(true);
   };
 
-  const handleConfirmBook = () => {
-    if (!selectedTable || !startDate || !endDate || !paymentMethod) return;
+
+  const handleConfirmBook = async () => {
+    if (!selectedTable || !startDate || !endDate || !selectedTableData) return;
     setShowConfirm(false);
-    createBooking.mutate({
-      tableId: selectedTable,
-      startTime: startDate,
-      endTime: endDate,
-      originalPrice,
-      discountAmount,
-      finalPrice,
-      promoId: appliedPromo?.id ?? null,
-      paymentMethod,
-    });
+    setIsProcessing(true);
+
+    try {
+      // 1️⃣ Create booking
+      const bookingResponse = await fetch(
+        "https://anytime-pool-api.onrender.com/api/bookings",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: selectedDate,
+            tableNumber: selectedTableData.table_number,
+            startTime: startSlot,
+            endTime: endSlot,
+            totalPrice: finalPrice,
+          }),
+        }
+      );
+
+      const bookingData = await bookingResponse.json();
+      if (!bookingResponse.ok) {
+        throw new Error("Booking creation failed");
+      }
+
+      // 2️⃣ Create Stripe checkout session
+      const paymentResponse = await fetch(
+        "https://anytime-pool-api.onrender.com/api/payments/create-checkout-session",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: finalPrice * 100,
+            bookingId: bookingData._id,
+          }),
+        }
+      );
+
+      const paymentData = await paymentResponse.json();
+      if (!paymentResponse.ok) {
+        throw new Error("Stripe session failed");
+      }
+
+      // 3️⃣ Redirect to Stripe
+      window.location.href = paymentData.url;
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Something went wrong",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // Check if table is bookable (not maintenance/in-use)
@@ -424,11 +470,11 @@ const Booking = () => {
         <div className="flex justify-end">
           <Button
             size="lg"
-            disabled={!canBook || createBooking.isPending}
+            disabled={!canBook || isProcessing}
             onClick={handleBookClick}
             className="gap-2 h-12 px-8 text-sm font-semibold tracking-wide uppercase bg-accent text-accent-foreground hover:bg-accent/90"
           >
-            {createBooking.isPending ? "Processing..." : `Reserve Table — $${finalPrice.toFixed(2)}`}
+            {isProcessing ? "Processing..." : `Reserve Table — $${finalPrice.toFixed(2)}`}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
