@@ -470,6 +470,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_booking_atomic: {
+        Args: {
+          p_discount_amount: number
+          p_duration_hours: number
+          p_end_time: string
+          p_final_price: number
+          p_original_price: number
+          p_payment_method?: string
+          p_promo_id?: string
+          p_start_time: string
+          p_table_id: string
+        }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

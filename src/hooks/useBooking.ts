@@ -121,190 +121,37 @@ export function useCreateBooking() {
 
       const { tableId, startTime, endTime, originalPrice, discountAmount, finalPrice, promoId, paymentMethod } = params;
 
-      // Validate duration
+      // Validate duration client-side (server also validates via constraints)
       const durationError = validateDuration(startTime, endTime);
       if (durationError) throw new Error(durationError);
 
       const durationHours = calculateDurationHours(startTime, endTime);
 
-      // Check table overlap
-      const { data: tableConflicts } = await supabase
-        .from("bookings")
-        .select("id, status, created_at")
-        .eq("table_id", tableId)
-        .in("status", ["pending", "confirmed"])
-        .lt("start_time", endTime.toISOString())
-        .gt("end_time", startTime.toISOString());
-
-      const now = new Date();
-      const activeConflicts = (tableConflicts || []).filter((b) => {
-        if (b.status === "confirmed") return true;
-        const created = new Date(b.created_at);
-        return (now.getTime() - created.getTime()) / (1000 * 60) <= PENDING_LOCK_MINUTES;
+      // Call atomic server-side function that handles all checks and mutations
+      const { data, error } = await supabase.rpc("create_booking_atomic", {
+        p_table_id: tableId,
+        p_start_time: startTime.toISOString(),
+        p_end_time: endTime.toISOString(),
+        p_duration_hours: durationHours,
+        p_original_price: originalPrice,
+        p_discount_amount: discountAmount,
+        p_final_price: finalPrice,
+        p_promo_id: promoId,
+        p_payment_method: paymentMethod,
       });
 
-      if (activeConflicts.length > 0) {
-        throw new Error("This table is already booked or locked for that time slot.");
+      if (error) throw new Error(error.message);
+
+      const result = data as unknown as { success?: boolean; error?: string; booking_id?: string; status?: string };
+
+      if (result.error) {
+        throw new Error(result.error);
       }
 
-      // Check user overlap
-      const { data: userConflicts } = await supabase
-        .from("bookings")
-        .select("id, status, created_at")
-        .eq("user_id", user.id)
-        .in("status", ["pending", "confirmed"])
-        .lt("start_time", endTime.toISOString())
-        .gt("end_time", startTime.toISOString());
-
-      const activeUserConflicts = (userConflicts || []).filter((b) => {
-        if (b.status === "confirmed") return true;
-        const created = new Date(b.created_at);
-        return (now.getTime() - created.getTime()) / (1000 * 60) <= PENDING_LOCK_MINUTES;
-      });
-
-      if (activeUserConflicts.length > 0) {
-        throw new Error("You already have a booking that overlaps this time.");
-      }
-
-      // Handle wallet payment
-      if (paymentMethod === "wallet") {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("wallet_balance")
-          .eq("user_id", user.id)
-          .single();
-
-        if (!profile || profile.wallet_balance < finalPrice) {
-          throw new Error("Insufficient wallet balance.");
-        }
-
-        const newBalance = profile.wallet_balance - finalPrice;
-
-        // Deduct wallet
-        const { error: walletErr } = await supabase
-          .from("profiles")
-          .update({ 
-            wallet_balance: newBalance,
-          })
-          .eq("user_id", user.id);
-
-        if (walletErr) throw walletErr;
-
-        // Create confirmed booking
-        const { data: booking, error: bookingErr } = await supabase
-          .from("bookings")
-          .insert({
-            user_id: user.id,
-            table_id: tableId,
-            start_time: startTime.toISOString(),
-            end_time: endTime.toISOString(),
-            duration_hours: durationHours,
-            price: finalPrice,
-            original_price: originalPrice,
-            discount_amount: discountAmount,
-            final_price: finalPrice,
-            promo_id: promoId,
-            payment_method: "wallet",
-            status: "confirmed",
-          })
-          .select()
-          .single();
-
-        if (bookingErr) throw bookingErr;
-
-        // Record wallet transaction
-        await supabase.from("wallet_transactions").insert({
-          user_id: user.id,
-          type: "booking_payment",
-          amount: -finalPrice,
-          balance_after: newBalance,
-          related_booking_id: booking.id,
-        });
-
-        // Update total_spent by finalPrice (net amount)
-        const { data: currentProfile } = await supabase
-          .from("profiles")
-          .select("total_spent")
-          .eq("user_id", user.id)
-          .single();
-        
-        if (currentProfile) {
-          await supabase
-            .from("profiles")
-            .update({ total_spent: currentProfile.total_spent + finalPrice })
-            .eq("user_id", user.id);
-        }
-
-        // Award reward points based on finalPrice (net amount, 10 per $1)
-        const rewardPoints = Math.floor(finalPrice * 10);
-        if (rewardPoints > 0) {
-          const { data: rpProfile } = await supabase
-            .from("profiles")
-            .select("reward_points")
-            .eq("user_id", user.id)
-            .single();
-
-          if (rpProfile) {
-            await supabase
-              .from("profiles")
-              .update({ reward_points: rpProfile.reward_points + rewardPoints })
-              .eq("user_id", user.id);
-
-            await supabase.from("reward_transactions").insert({
-              user_id: user.id,
-              type: "earn",
-              points: rewardPoints,
-              related_booking_id: booking.id,
-            });
-          }
-        }
-
-        // Record promo usage
-        if (promoId && discountAmount > 0) {
-          await supabase.from("promo_usage").insert({
-            promo_id: promoId,
-            user_id: user.id,
-            booking_id: booking.id,
-            discount_amount: discountAmount,
-          });
-        }
-
-        return booking;
-      }
-
-      // STRIPE: create pending booking, payment handled separately
-      const { data: booking, error: bookingErr } = await supabase
-        .from("bookings")
-        .insert({
-          user_id: user.id,
-          table_id: tableId,
-          start_time: startTime.toISOString(),
-          end_time: endTime.toISOString(),
-          duration_hours: durationHours,
-          price: finalPrice,
-          original_price: originalPrice,
-          discount_amount: discountAmount,
-          final_price: finalPrice,
-          promo_id: promoId,
-          payment_method: "stripe",
-          status: "pending",
-        })
-        .select()
-        .single();
-
-      if (bookingErr) throw bookingErr;
-
-      // Record promo usage for stripe too
-      if (promoId && discountAmount > 0) {
-        await supabase.from("promo_usage").insert({
-          promo_id: promoId,
-          user_id: user.id,
-          booking_id: booking.id,
-          discount_amount: discountAmount,
-        });
-      }
-
-      return booking;
+      return {
+        id: result.booking_id,
+        status: result.status,
+      };
     },
     onSuccess: (_data, variables) => {
       const msg = variables.paymentMethod === "wallet"
