@@ -176,7 +176,7 @@ const Booking = () => {
 
 
   const handleConfirmBook = async () => {
-    if (!selectedTable || !startDate || !endDate || !selectedTableData) return;
+    if (!selectedTable || !startDate || !endDate || !selectedTableData || !paymentMethod) return;
     setShowConfirm(false);
     setIsProcessing(true);
 
@@ -202,26 +202,38 @@ const Booking = () => {
         throw new Error("Booking creation failed");
       }
 
-      // 2️⃣ Create Stripe checkout session
-      const paymentResponse = await fetch(
-        "https://anytime-pool-api.onrender.com/api/payments/create-checkout-session",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            amount: finalPrice * 100,
-            bookingId: bookingData._id,
-          }),
+      if (paymentMethod === "stripe") {
+        // 2️⃣ Create Stripe checkout session
+        const paymentResponse = await fetch(
+          `https://anytime-pool-api.onrender.com/api/payment/create/${bookingData._id}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentMethod: "stripe" }),
+          }
+        );
+
+        const paymentData = await paymentResponse.json();
+        if (!paymentResponse.ok) {
+          throw new Error("Stripe session failed");
         }
-      );
 
-      const paymentData = await paymentResponse.json();
-      if (!paymentResponse.ok) {
-        throw new Error("Stripe session failed");
+        if (paymentData.checkoutUrl) {
+          window.location.href = paymentData.checkoutUrl;
+        }
+      } else if (paymentMethod === "wallet") {
+        // 2️⃣ Confirm wallet payment
+        const walletResponse = await fetch(
+          `https://anytime-pool-api.onrender.com/api/payment/wallet-confirm/${bookingData._id}`,
+          { method: "POST" }
+        );
+
+        if (!walletResponse.ok) {
+          throw new Error("Wallet payment failed");
+        }
+
+        window.location.href = "/booking-success";
       }
-
-      // 3️⃣ Redirect to Stripe
-      window.location.href = paymentData.url;
     } catch (error) {
       console.error(error);
       toast({
