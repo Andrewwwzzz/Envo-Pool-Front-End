@@ -189,7 +189,7 @@ const Booking = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             userId: user.id,
-            tableId: selectedTable,
+            tableId: selectedTableData?.hardware_id,
             startTime: startDate.toISOString(),
             endTime: endDate.toISOString(),
           }),
