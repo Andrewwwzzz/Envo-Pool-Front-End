@@ -188,7 +188,7 @@ const Booking = () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: "TEMP_USER_ID",
+            userId: user.id,
             tableId: selectedTable,
             startTime: startDate.toISOString(),
             endTime: endDate.toISOString(),
