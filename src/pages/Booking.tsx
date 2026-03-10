@@ -183,16 +183,15 @@ const Booking = () => {
     try {
       // 1️⃣ Create booking
       const bookingResponse = await fetch(
-        "https://anytime-pool-api.onrender.com/api/bookings",
+        "https://anytime-pool-api.onrender.com/api/bookings/create",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            date: selectedDate,
-            tableNumber: selectedTableData.table_number,
-            startTime: startSlot,
-            endTime: endSlot,
-            totalPrice: finalPrice,
+            userId: "TEMP_USER_ID",
+            tableId: selectedTable,
+            startTime: startDate.toISOString(),
+            endTime: endDate.toISOString(),
           }),
         }
       );
@@ -205,11 +204,14 @@ const Booking = () => {
       if (paymentMethod === "stripe") {
         // 2️⃣ Create Stripe checkout session
         const paymentResponse = await fetch(
-          `https://anytime-pool-api.onrender.com/api/payment/create/${bookingData._id}`,
+          "https://anytime-pool-api.onrender.com/api/payments/create-checkout",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentMethod: "stripe" }),
+            body: JSON.stringify({
+              bookingId: bookingData._id,
+              amount: Math.round(finalPrice * 100),
+            }),
           }
         );
 
@@ -218,11 +220,9 @@ const Booking = () => {
           throw new Error("Stripe session failed");
         }
 
-        if (paymentData.checkoutUrl) {
-          window.location.href = paymentData.checkoutUrl;
-        }
+        // 3️⃣ Redirect to Stripe
+        window.location.href = paymentData.url;
       } else if (paymentMethod === "wallet") {
-        // 2️⃣ Confirm wallet payment
         const walletResponse = await fetch(
           `https://anytime-pool-api.onrender.com/api/payment/wallet-confirm/${bookingData._id}`,
           { method: "POST" }
