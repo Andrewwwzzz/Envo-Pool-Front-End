@@ -239,6 +239,7 @@ const Booking = () => {
           final_price: finalPrice,
           promo_id: appliedPromo?.id ?? null,
           payment_method: paymentMethod,
+          payment_id: paymentMethod === "stripe" ? bookingId : null,
           status: "pending",
         })
         .select("id")
