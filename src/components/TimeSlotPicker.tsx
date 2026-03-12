@@ -72,7 +72,7 @@ export function TimeSlotPicker({
 
       // Past time today
       if (isToday && slotMin < nowMinutes) {
-        return { ...slot, available: false };
+        return { ...slot, available: false, state: "past" as const };
       }
 
       // Build slot start/end as Date objects for comparison with bookings
@@ -82,26 +82,35 @@ export function TimeSlotPicker({
       slotEnd.setHours(Math.floor(slotEndMin / 60), slotEndMin % 60, 0, 0);
 
       // Check against booked slots
-      const isBooked = bookedSlots.some((b) => {
+      const hasConfirmed = bookedSlots.some((b) => {
+        if (b.status !== "confirmed") return false;
+
         const bStart = new Date(b.start_time);
         const bEnd = new Date(b.end_time);
-
-        // Check overlap
-        if (slotStart >= bEnd || slotEnd <= bStart) return false;
-
-        if (b.status === "confirmed") return true;
-
-        // Pending: only block if within lock window
-        if (b.status === "pending") {
-          const created = new Date(b.created_at);
-          const elapsed = (currentTime.getTime() - created.getTime()) / (1000 * 60);
-          return elapsed <= PENDING_LOCK_MINUTES;
-        }
-
-        return false;
+        return !(slotStart >= bEnd || slotEnd <= bStart);
       });
 
-      return { ...slot, available: !isBooked };
+      if (hasConfirmed) {
+        return { ...slot, available: false, state: "booked" as const };
+      }
+
+      const hasActivePending = bookedSlots.some((b) => {
+        if (b.status !== "pending") return false;
+
+        const bStart = new Date(b.start_time);
+        const bEnd = new Date(b.end_time);
+        if (slotStart >= bEnd || slotEnd <= bStart) return false;
+
+        const created = new Date(b.created_at);
+        const elapsed = (currentTime.getTime() - created.getTime()) / (1000 * 60);
+        return elapsed <= PENDING_LOCK_MINUTES;
+      });
+
+      if (hasActivePending) {
+        return { ...slot, available: false, state: "pending" as const };
+      }
+
+      return { ...slot, available: true, state: "available" as const };
     });
   }, [date, bookedSlots, isToday, nowMinutes]);
 
