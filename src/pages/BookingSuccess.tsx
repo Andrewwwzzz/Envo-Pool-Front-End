@@ -4,28 +4,97 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+
+const FALLBACK_CONFIRM_WINDOW_MINUTES = 60;
 
 const BookingSuccess = () => {
+  const { user } = useAuth();
+
   useEffect(() => {
+    if (!user) return;
+
     const pendingBookingId = sessionStorage.getItem("pending_booking_id");
-    if (!pendingBookingId) return;
+    const searchParams = new URLSearchParams(window.location.search);
+    const externalBookingId =
+      searchParams.get("bookingId") ||
+      searchParams.get("booking_id") ||
+      searchParams.get("id");
 
     const confirmMirroredBooking = async () => {
-      const { error } = await supabase
-        .from("bookings")
-        .update({ status: "confirmed" })
-        .eq("id", pendingBookingId)
-        .eq("status", "pending");
+      let confirmed = false;
 
-      if (error) {
-        console.error("Failed to confirm mirrored booking:", error);
+      if (pendingBookingId) {
+        const { data, error } = await supabase
+          .from("bookings")
+          .update({ status: "confirmed" })
+          .eq("id", pendingBookingId)
+          .eq("user_id", user.id)
+          .eq("status", "pending")
+          .select("id");
+
+        if (error) {
+          console.error("Failed to confirm mirrored booking by session ID:", error);
+        }
+
+        confirmed = !!data?.length;
+      }
+
+      if (!confirmed && externalBookingId) {
+        const { data, error } = await supabase
+          .from("bookings")
+          .update({ status: "confirmed" })
+          .eq("payment_method", "stripe")
+          .eq("payment_id", externalBookingId)
+          .eq("user_id", user.id)
+          .eq("status", "pending")
+          .select("id");
+
+        if (error) {
+          console.error("Failed to confirm mirrored booking by external booking ID:", error);
+        }
+
+        confirmed = !!data?.length;
+      }
+
+      if (!confirmed) {
+        const cutoff = new Date(
+          Date.now() - FALLBACK_CONFIRM_WINDOW_MINUTES * 60 * 1000,
+        ).toISOString();
+
+        const { data: recentPending, error: pendingError } = await supabase
+          .from("bookings")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("payment_method", "stripe")
+          .eq("status", "pending")
+          .gte("created_at", cutoff)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (pendingError) {
+          console.error("Failed to fetch recent pending booking:", pendingError);
+        }
+
+        if (recentPending?.id) {
+          const { error: fallbackError } = await supabase
+            .from("bookings")
+            .update({ status: "confirmed" })
+            .eq("id", recentPending.id)
+            .eq("status", "pending");
+
+          if (fallbackError) {
+            console.error("Failed to confirm recent pending booking:", fallbackError);
+          }
+        }
       }
 
       sessionStorage.removeItem("pending_booking_id");
     };
 
     void confirmMirroredBooking();
-  }, []);
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-background dark flex items-center justify-center p-6">
