@@ -208,7 +208,8 @@ const Booking = () => {
       }
 
       const bookingData = await bookingResponse.json();
-      const bookingId = bookingData._id;
+      console.log("Booking API response:", bookingData);
+      const bookingId = bookingData._id || bookingData.bookingId || bookingData.id;
 
       if (paymentMethod === "stripe") {
         // 2️⃣ Create Stripe checkout session
