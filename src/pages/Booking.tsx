@@ -543,7 +543,7 @@ const Booking = () => {
                   <CreditCard className="h-5 w-5 text-accent" />
                   <div>
                     <p className="font-medium">Paynow</p>
-                    <p className="text-sm text-muted-foreground">Pay with credit/debit card</p>
+                    <p className="text-sm text-muted-foreground">Scan and Pay</p>
                   </div>
                 </div>
               </button>
