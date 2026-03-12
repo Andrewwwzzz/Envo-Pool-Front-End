@@ -57,8 +57,8 @@ export function DateTimePicker({ label, value, onChange, minDate, minTime }: Dat
   const availableTimeSlots = useMemo(() => {
     if (!selectedDate) return ALL_TIME_SLOTS;
 
-    const now = new Date();
-    const isSelectedToday = isToday(selectedDate);
+    const sgNow = nowSG();
+    const isSelectedToday = isTodaySG(selectedDate);
     const minTimeDate = minTime && isSameDay(selectedDate, startOfDay(minTime)) ? minTime : null;
 
     return ALL_TIME_SLOTS.filter((slot) => {
