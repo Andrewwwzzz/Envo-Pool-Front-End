@@ -59,7 +59,7 @@ export function DateTimePicker({ label, value, onChange, minDate, minTime }: Dat
 
     const sgNow = nowSG();
     const isSelectedToday = isTodaySG(selectedDate);
-    const minTimeDate = minTime && isSameDay(selectedDate, startOfDay(minTime)) ? minTime : null;
+    const minTimeDate = minTime && isSameDay(selectedDate, (() => { const d = new Date(minTime); d.setHours(0,0,0,0); return d; })()) ? minTime : null;
 
     return ALL_TIME_SLOTS.filter((slot) => {
       const [h, m] = slot.split(":").map(Number);
