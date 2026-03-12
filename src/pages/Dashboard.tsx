@@ -151,7 +151,13 @@ const Dashboard = () => {
             ) : (
               <div className="space-y-3">
                 {upcoming.map((b) => (
-                  <div key={b.id} className="flex items-center justify-between rounded-lg border border-border/50 p-4 hover:bg-card/50 transition-colors">
+                  <div
+                    key={b.id}
+                    className={`flex items-center justify-between rounded-lg border border-border/50 p-4 transition-colors ${
+                      b.status === "confirmed" ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : "hover:bg-card/50"
+                    }`}
+                    onClick={() => b.status === "confirmed" && setSelectedBooking(b)}
+                  >
                     <div>
                       <p className="font-medium">Table {(b as any).tables?.table_number ?? "?"}</p>
                       <p className="text-sm text-muted-foreground">
@@ -166,7 +172,7 @@ const Dashboard = () => {
                           variant="ghost"
                           size="sm"
                           className="text-destructive hover:text-destructive"
-                          onClick={() => cancelBooking.mutate(b.id)}
+                          onClick={(e) => { e.stopPropagation(); cancelBooking.mutate(b.id); }}
                           disabled={cancelBooking.isPending}
                         >
                           <XCircle className="h-4 w-4" />
