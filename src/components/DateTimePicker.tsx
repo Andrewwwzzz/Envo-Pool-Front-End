@@ -83,13 +83,17 @@ export function DateTimePicker({ label, value, onChange, minDate, minTime }: Dat
       const combined = new Date(date);
       combined.setHours(value.getHours(), value.getMinutes(), 0, 0);
       // If combined is now in the past, clear time
-      if (isBefore(combined, new Date())) {
-        onChange(startOfDay(date));
+      if (isBefore(combined, nowSG())) {
+        const startDay = new Date(date);
+        startDay.setHours(0, 0, 0, 0);
+        onChange(startDay);
       } else {
         onChange(combined);
       }
     } else {
-      onChange(startOfDay(date));
+      const startDay = new Date(date);
+      startDay.setHours(0, 0, 0, 0);
+      onChange(startDay);
     }
   };
 
