@@ -49,7 +49,7 @@ export function DateTimePicker({ label, value, onChange, minDate, minTime }: Dat
   }, []);
   const effectiveMinDate = minDate ? (() => { const d = new Date(minDate); d.setHours(0,0,0,0); return d; })() : today;
 
-  const selectedDate = value ? startOfDay(value) : undefined;
+  const selectedDate = value ? (() => { const d = new Date(value); d.setHours(0,0,0,0); return d; })() : undefined;
   const selectedTimeStr = value
     ? `${value.getHours().toString().padStart(2, "0")}:${value.getMinutes().toString().padStart(2, "0")}`
     : "";
