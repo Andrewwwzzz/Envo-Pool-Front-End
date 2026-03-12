@@ -188,7 +188,7 @@ const Booking = () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: user.id,
+            userId: "69b29fd2945d95cf8f55c86a", // Temporary hardcoded MongoDB user ID until Singpass integration
             tableId: selectedTableData?.hardware_id,
             startTime: startDate.toISOString(),
             endTime: endDate.toISOString(),
