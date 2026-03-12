@@ -42,8 +42,12 @@ const ALL_TIME_SLOTS = generateTimeSlots();
 export function DateTimePicker({ label, value, onChange, minDate, minTime }: DateTimePickerProps) {
   const [calendarOpen, setCalendarOpen] = useState(false);
 
-  const today = useMemo(() => startOfDay(new Date()), []);
-  const effectiveMinDate = minDate ? startOfDay(minDate) : today;
+  const today = useMemo(() => {
+    const sg = nowSG();
+    sg.setHours(0, 0, 0, 0);
+    return sg;
+  }, []);
+  const effectiveMinDate = minDate ? (() => { const d = new Date(minDate); d.setHours(0,0,0,0); return d; })() : today;
 
   const selectedDate = value ? startOfDay(value) : undefined;
   const selectedTimeStr = value
