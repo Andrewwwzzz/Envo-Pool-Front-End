@@ -26,6 +26,7 @@ const Dashboard = () => {
   const { data: bookings, isLoading: bookingsLoading } = useMyBookings();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
 
   const cancelBooking = useMutation({
     mutationFn: async (bookingId: string) => {
