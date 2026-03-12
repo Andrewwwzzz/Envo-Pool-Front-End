@@ -19,7 +19,7 @@ import { TimeSlotPicker } from "@/components/TimeSlotPicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { startOfDay, isBefore } from "date-fns";
 
 const statusColor: Record<TableStatus, string> = {
@@ -40,6 +40,7 @@ function slotToDate(date: Date, slot: string): Date {
 const Booking = () => {
   const { user, loading, signOut } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Step 1: Date
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -197,7 +198,15 @@ const Booking = () => {
 
       if (!bookingResponse.ok) {
         if (bookingResponse.status === 409) {
-          toast({ title: "Time slot already booked", description: "Please choose a different time.", variant: "destructive" });
+          toast({
+            title: "Time slot unavailable",
+            description: "This time slot was just booked by another player. Please select another slot.",
+            variant: "destructive",
+          });
+          // Reset time selection and refresh availability
+          setStartSlot(null);
+          setEndSlot(null);
+          queryClient.invalidateQueries({ queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()] });
         } else if (bookingResponse.status === 400) {
           toast({ title: "Missing booking information", description: "Please fill in all required fields.", variant: "destructive" });
         } else {
