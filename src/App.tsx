@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Booking from "./pages/Booking";
+import BookingSuccess from "./pages/BookingSuccess";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
 import Terms from "./pages/Terms";
