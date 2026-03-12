@@ -39,8 +39,8 @@ const statusBadge: Record<string, string> = {
 
 const paymentLabel: Record<string, string> = {
   wallet: "Wallet",
-  paynow: "Paynow (Stripe)",
-  stripe: "Paynow (Stripe)",
+  paynow: "Paynow",
+  stripe: "Paynow",
 };
 
 const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialogProps) => {
