@@ -484,6 +484,15 @@ export type Database = {
         }
         Returns: Json
       }
+      get_table_booked_slots: {
+        Args: { p_day_end: string; p_day_start: string; p_table_id: string }
+        Returns: {
+          created_at: string
+          end_time: string
+          start_time: string
+          status: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
