@@ -173,12 +173,14 @@ const Booking = () => {
 
 
   const handleConfirmBook = async () => {
-    if (!selectedTable || !startDate || !endDate || !selectedTableData || !paymentMethod) return;
+    if (!user || !selectedTable || !startDate || !endDate || !selectedTableData || !paymentMethod) return;
     setShowConfirm(false);
     setIsProcessing(true);
 
+    let localBookingId: string | null = null;
+
     try {
-      // 1️⃣ Create booking
+      // 1️⃣ Create booking in external booking service
       const bookingResponse = await fetch(
         "https://anytime-pool-api.onrender.com/api/bookings/create",
         {
@@ -186,7 +188,7 @@ const Booking = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             userId: "69b29fd2945d95cf8f55c86a", // Temporary hardcoded MongoDB user ID until Singpass integration
-            tableId: selectedTableData?.hardware_id,
+            tableId: selectedTableData.hardware_id,
             startTime: startDate.toISOString(),
             endTime: endDate.toISOString(),
           }),
@@ -208,8 +210,39 @@ const Booking = () => {
       console.log("Booking API response:", bookingData);
       const bookingId = bookingData._id || bookingData.bookingId || bookingData.id;
 
+      if (!bookingId) {
+        throw new Error("Missing booking ID from booking API response");
+      }
+
+      // 2️⃣ Mirror booking into app database so booked slots become unavailable in the picker
+      const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+      const { data: mirroredBooking, error: mirrorError } = await supabase
+        .from("bookings")
+        .insert({
+          user_id: user.id,
+          table_id: selectedTable,
+          start_time: startDate.toISOString(),
+          end_time: endDate.toISOString(),
+          duration_hours: durationHours,
+          price: finalPrice,
+          original_price: originalPrice,
+          discount_amount: discountAmount,
+          final_price: finalPrice,
+          promo_id: appliedPromo?.id ?? null,
+          payment_method: paymentMethod,
+          status: "pending",
+        })
+        .select("id")
+        .single();
+
+      if (mirrorError) {
+        console.error("Failed to mirror booking locally:", mirrorError);
+      } else {
+        localBookingId = mirroredBooking.id;
+      }
+
       if (paymentMethod === "stripe") {
-        // 2️⃣ Create Stripe checkout session
+        // 3️⃣ Create Stripe checkout session
         const paymentResponse = await fetch(
           "https://anytime-pool-api.onrender.com/api/payments/create-checkout",
           {
@@ -223,13 +256,20 @@ const Booking = () => {
         );
 
         if (!paymentResponse.ok) {
+          if (localBookingId) {
+            await supabase.from("bookings").delete().eq("id", localBookingId);
+          }
           toast({ title: "Payment error", description: "Could not create checkout session. Please try again.", variant: "destructive" });
           return;
         }
 
         const paymentData = await paymentResponse.json();
 
-        // 3️⃣ Redirect to Stripe
+        if (localBookingId) {
+          sessionStorage.setItem("pending_booking_id", localBookingId);
+        }
+
+        // 4️⃣ Redirect to Stripe
         window.location.href = paymentData.url;
       } else if (paymentMethod === "wallet") {
         const walletResponse = await fetch(
@@ -238,13 +278,28 @@ const Booking = () => {
         );
 
         if (!walletResponse.ok) {
+          if (localBookingId) {
+            await supabase.from("bookings").delete().eq("id", localBookingId);
+          }
           toast({ title: "Wallet payment failed", description: "Please try again.", variant: "destructive" });
           return;
+        }
+
+        if (localBookingId) {
+          await supabase
+            .from("bookings")
+            .update({ status: "confirmed" })
+            .eq("id", localBookingId)
+            .eq("status", "pending");
         }
 
         window.location.href = "/booking-success";
       }
     } catch (error) {
+      if (localBookingId) {
+        await supabase.from("bookings").delete().eq("id", localBookingId);
+      }
+
       console.error(error);
       toast({
         title: "Unable to create booking",
