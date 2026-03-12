@@ -19,7 +19,7 @@ import { TimeSlotPicker } from "@/components/TimeSlotPicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { startOfDay, isBefore } from "date-fns";
 
 const statusColor: Record<TableStatus, string> = {
