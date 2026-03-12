@@ -3,10 +3,13 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 
+type SlotState = "available" | "booked" | "pending" | "past";
+
 interface TimeSlot {
   time: string; // "HH:MM"
   label: string;
   available: boolean;
+  state: SlotState;
 }
 
 interface BookedSlot {
