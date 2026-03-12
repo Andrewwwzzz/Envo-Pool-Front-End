@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wallet, Star, Calendar, History, LogOut, ArrowLeft, XCircle } from "lucide-react";
+import BookingDetailDialog from "@/components/BookingDetailDialog";
 import { useToast } from "@/hooks/use-toast";
 
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, fmtDateTimeSG as fmtDateTime } from "@/lib/sgTime";
