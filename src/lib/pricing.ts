@@ -111,15 +111,15 @@ export function calculateBookingPrice(
     const rule = findBestRule(rules, current, tableId);
     const hourlyRate = rule?.hourly_rate ?? DEFAULT_HOURLY_RATE;
     const durationHours = (segEnd.getTime() - current.getTime()) / (1000 * 60 * 60);
-    const segmentCost = Math.round(hourlyRate * durationHours * 100) / 100;
 
     // Try to merge with previous segment if same rate
     const prev = segments[segments.length - 1];
     if (prev && prev.hourlyRate === hourlyRate && prev.rule?.id === rule?.id) {
       prev.endTime = segEnd;
       prev.durationHours += durationHours;
-      prev.segmentCost = Math.round((prev.segmentCost + segmentCost) * 100) / 100;
+      prev.segmentCost = Math.round(prev.hourlyRate * prev.durationHours * 100) / 100;
     } else {
+      const segmentCost = Math.round(hourlyRate * durationHours * 100) / 100;
       segments.push({
         startTime: new Date(current),
         endTime: segEnd,
