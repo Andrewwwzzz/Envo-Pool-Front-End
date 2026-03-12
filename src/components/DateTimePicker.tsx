@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { format, startOfDay, addMinutes, isBefore, isToday, isSameDay } from "date-fns";
+import { format, addMinutes, isBefore, isSameDay } from "date-fns";
+import { nowSG, isTodaySG } from "@/lib/sgTime";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
