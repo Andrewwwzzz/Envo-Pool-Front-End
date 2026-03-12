@@ -178,145 +178,133 @@ const Booking = () => {
     setShowConfirm(false);
     setIsProcessing(true);
 
-    let localBookingId: string | null = null;
-
     try {
-      // 1️⃣ Create booking in external booking service
-      const bookingResponse = await fetch(
-        "https://anytime-pool-api.onrender.com/api/bookings/create",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: "69b29fd2945d95cf8f55c86a", // Temporary hardcoded MongoDB user ID until Singpass integration
-            tableId: selectedTableData.hardware_id,
-            startTime: startDate.toISOString(),
-            endTime: endDate.toISOString(),
-          }),
-        }
-      );
+      if (paymentMethod === "wallet") {
+        // Use atomic RPC for wallet — handles booking creation, wallet deduction, transactions, and rewards
+        const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+        const { data, error } = await supabase.rpc("create_booking_atomic", {
+          p_table_id: selectedTable,
+          p_start_time: startDate.toISOString(),
+          p_end_time: endDate.toISOString(),
+          p_duration_hours: durationHours,
+          p_original_price: originalPrice,
+          p_discount_amount: discountAmount,
+          p_final_price: finalPrice,
+          p_promo_id: appliedPromo?.id ?? undefined,
+          p_payment_method: "wallet",
+        });
 
-      if (!bookingResponse.ok) {
-        if (bookingResponse.status === 409) {
-          toast({
-            title: "Time slot unavailable",
-            description: "This time slot was just booked by another player. Please select another slot.",
-            variant: "destructive",
-          });
-          // Reset time selection and refresh availability
-          setStartSlot(null);
-          setEndSlot(null);
-          queryClient.invalidateQueries({ queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()] });
-        } else if (bookingResponse.status === 400) {
-          toast({ title: "Missing booking information", description: "Please fill in all required fields.", variant: "destructive" });
-        } else {
-          toast({ title: "Unable to create booking", description: "Please try again.", variant: "destructive" });
-        }
-        return;
-      }
+        if (error) throw new Error(error.message);
+        const result = data as unknown as { success?: boolean; error?: string; booking_id?: string };
+        if (result.error) throw new Error(result.error);
 
-      const bookingData = await bookingResponse.json();
-      console.log("Booking API response:", bookingData);
-      const bookingId = bookingData._id || bookingData.bookingId || bookingData.id;
-
-      if (!bookingId) {
-        throw new Error("Missing booking ID from booking API response");
-      }
-
-      // 2️⃣ Mirror booking into app database so booked slots become unavailable in the picker
-      const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-      const { data: mirroredBooking, error: mirrorError } = await supabase
-        .from("bookings")
-        .insert({
-          user_id: user.id,
-          table_id: selectedTable,
-          start_time: startDate.toISOString(),
-          end_time: endDate.toISOString(),
-          duration_hours: durationHours,
-          price: finalPrice,
-          original_price: originalPrice,
-          discount_amount: discountAmount,
-          final_price: finalPrice,
-          promo_id: appliedPromo?.id ?? null,
-          payment_method: paymentMethod,
-          payment_id: paymentMethod === "stripe" ? bookingId : null,
-          status: "pending",
-        })
-        .select("id")
-        .single();
-
-      if (mirrorError) {
-        console.error("Failed to mirror booking locally:", mirrorError);
-      } else {
-        localBookingId = mirroredBooking.id;
-      }
-
-      if (paymentMethod === "stripe") {
-        // 3️⃣ Create Stripe checkout session
-        const paymentResponse = await fetch(
-          "https://anytime-pool-api.onrender.com/api/payments/create-checkout",
-          {
+        // Also create in external API for hardware sync
+        try {
+          await fetch("https://anytime-pool-api.onrender.com/api/bookings/create", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              bookingId,
-              amount: Math.round(finalPrice * 100),
+              userId: "69b29fd2945d95cf8f55c86a",
+              tableId: selectedTableData.hardware_id,
+              startTime: startDate.toISOString(),
+              endTime: endDate.toISOString(),
             }),
-          }
-        );
-
-        if (!paymentResponse.ok) {
-          if (localBookingId) {
-            await supabase.from("bookings").delete().eq("id", localBookingId);
-          }
-          toast({ title: "Payment error", description: "Could not create checkout session. Please try again.", variant: "destructive" });
-          return;
-        }
-
-        const paymentData = await paymentResponse.json();
-
-        if (localBookingId) {
-          sessionStorage.setItem("pending_booking_id", localBookingId);
-        }
-
-        // 4️⃣ Redirect to Stripe
-        window.location.href = paymentData.url;
-      } else if (paymentMethod === "wallet") {
-        // Deduct wallet balance directly
-        const { error: walletError } = await supabase
-          .from("profiles")
-          .update({ wallet_balance: (profile?.wallet_balance ?? 0) - finalPrice })
-          .eq("user_id", user.id);
-
-        if (walletError) {
-          if (localBookingId) {
-            await supabase.from("bookings").delete().eq("id", localBookingId);
-          }
-          toast({ title: "Wallet payment failed", description: "Could not deduct balance.", variant: "destructive" });
-          return;
-        }
-
-        // Log wallet transaction
-        if (localBookingId) {
-          await supabase.from("wallet_transactions").insert({
-            user_id: user.id,
-            amount: -finalPrice,
-            balance_after: (profile?.wallet_balance ?? 0) - finalPrice,
-            type: "booking_payment",
-            related_booking_id: localBookingId,
           });
-
-          await supabase
-            .from("bookings")
-            .update({ status: "confirmed" })
-            .eq("id", localBookingId)
-            .eq("status", "pending");
+        } catch (extErr) {
+          console.warn("External API booking failed (non-critical):", extErr);
         }
 
         queryClient.invalidateQueries({ queryKey: ["profile"] });
         queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
         queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+        queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] });
         window.location.href = "/booking-success";
+      } else {
+        // Stripe flow: external API + mirror + redirect
+        let localBookingId: string | null = null;
+
+        const bookingResponse = await fetch(
+          "https://anytime-pool-api.onrender.com/api/bookings/create",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: "69b29fd2945d95cf8f55c86a",
+              tableId: selectedTableData.hardware_id,
+              startTime: startDate.toISOString(),
+              endTime: endDate.toISOString(),
+            }),
+          }
+        );
+
+        if (!bookingResponse.ok) {
+          if (bookingResponse.status === 409) {
+            toast({
+              title: "Time slot unavailable",
+              description: "This time slot was just booked by another player. Please select another slot.",
+              variant: "destructive",
+            });
+            setStartSlot(null);
+            setEndSlot(null);
+            queryClient.invalidateQueries({ queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()] });
+          } else if (bookingResponse.status === 400) {
+            toast({ title: "Missing booking information", description: "Please fill in all required fields.", variant: "destructive" });
+          } else {
+            toast({ title: "Unable to create booking", description: "Please try again.", variant: "destructive" });
+          }
+          return;
+        }
+
+        const bookingData = await bookingResponse.json();
+        const bookingId = bookingData._id || bookingData.bookingId || bookingData.id;
+        if (!bookingId) throw new Error("Missing booking ID from booking API response");
+
+        // Mirror booking locally
+        const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+        const { data: mirroredBooking, error: mirrorError } = await supabase
+          .from("bookings")
+          .insert({
+            user_id: user.id,
+            table_id: selectedTable,
+            start_time: startDate.toISOString(),
+            end_time: endDate.toISOString(),
+            duration_hours: durationHours,
+            price: finalPrice,
+            original_price: originalPrice,
+            discount_amount: discountAmount,
+            final_price: finalPrice,
+            promo_id: appliedPromo?.id ?? null,
+            payment_method: "stripe",
+            payment_id: bookingId,
+            status: "pending",
+          })
+          .select("id")
+          .single();
+
+        if (mirrorError) {
+          console.error("Failed to mirror booking locally:", mirrorError);
+        } else {
+          localBookingId = mirroredBooking.id;
+        }
+
+        const paymentResponse = await fetch(
+          "https://anytime-pool-api.onrender.com/api/payments/create-checkout",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ bookingId, amount: Math.round(finalPrice * 100) }),
+          }
+        );
+
+        if (!paymentResponse.ok) {
+          if (localBookingId) await supabase.from("bookings").delete().eq("id", localBookingId);
+          toast({ title: "Payment error", description: "Could not create checkout session.", variant: "destructive" });
+          return;
+        }
+
+        const paymentData = await paymentResponse.json();
+        if (localBookingId) sessionStorage.setItem("pending_booking_id", localBookingId);
+        window.location.href = paymentData.url;
       }
     } catch (error) {
       if (localBookingId) {
