@@ -87,7 +87,6 @@ const Booking = () => {
   const { data: pricingRules } = usePricingRules();
   const { data: profile } = useProfile();
   const { data: role } = useUserRole();
-  const createBooking = useCreateBooking();
   const validatePromo = useValidatePromo();
 
   // Compute start/end Date from slots
