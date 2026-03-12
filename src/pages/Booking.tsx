@@ -199,18 +199,23 @@ const Booking = () => {
         const result = data as unknown as { success?: boolean; error?: string; booking_id?: string };
         if (result.error) throw new Error(result.error);
 
-        // Also create in external API for hardware sync
+        // Also create in external API for hardware sync (session-based)
         try {
-          await fetch("https://anytime-pool-api.onrender.com/api/bookings/create", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userId: "69b29fd2945d95cf8f55c86a",
-              tableId: selectedTableData.hardware_id,
-              startTime: startDate.toISOString(),
-              endTime: endDate.toISOString(),
-            }),
-          });
+          const startHour = startDate.getHours();
+          const durationHrs = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60));
+          const dateStr = `${startDate.getFullYear()}-${(startDate.getMonth() + 1).toString().padStart(2, "0")}-${startDate.getDate().toString().padStart(2, "0")}`;
+          for (let i = 0; i < durationHrs; i++) {
+            const sessionId = `${dateStr}-${(startHour + i).toString().padStart(2, "0")}`;
+            await fetch("https://anytime-pool-api.onrender.com/api/bookings/create", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                userId: "69b29fd2945d95cf8f55c86a",
+                tableId: selectedTableData.hardware_id,
+                sessionId,
+              }),
+            });
+          }
         } catch (extErr) {
           console.warn("External API booking failed (non-critical):", extErr);
         }
