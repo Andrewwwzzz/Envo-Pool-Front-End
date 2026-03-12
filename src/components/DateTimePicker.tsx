@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { format, startOfDay, addMinutes, isBefore, isToday, isSameDay } from "date-fns";
+import { format, addMinutes, isBefore, isSameDay } from "date-fns";
+import { nowSG, isTodaySG } from "@/lib/sgTime";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -41,10 +42,14 @@ const ALL_TIME_SLOTS = generateTimeSlots();
 export function DateTimePicker({ label, value, onChange, minDate, minTime }: DateTimePickerProps) {
   const [calendarOpen, setCalendarOpen] = useState(false);
 
-  const today = useMemo(() => startOfDay(new Date()), []);
-  const effectiveMinDate = minDate ? startOfDay(minDate) : today;
+  const today = useMemo(() => {
+    const sg = nowSG();
+    sg.setHours(0, 0, 0, 0);
+    return sg;
+  }, []);
+  const effectiveMinDate = minDate ? (() => { const d = new Date(minDate); d.setHours(0,0,0,0); return d; })() : today;
 
-  const selectedDate = value ? startOfDay(value) : undefined;
+  const selectedDate = value ? (() => { const d = new Date(value); d.setHours(0,0,0,0); return d; })() : undefined;
   const selectedTimeStr = value
     ? `${value.getHours().toString().padStart(2, "0")}:${value.getMinutes().toString().padStart(2, "0")}`
     : "";
@@ -52,9 +57,9 @@ export function DateTimePicker({ label, value, onChange, minDate, minTime }: Dat
   const availableTimeSlots = useMemo(() => {
     if (!selectedDate) return ALL_TIME_SLOTS;
 
-    const now = new Date();
-    const isSelectedToday = isToday(selectedDate);
-    const minTimeDate = minTime && isSameDay(selectedDate, startOfDay(minTime)) ? minTime : null;
+    const sgNow = nowSG();
+    const isSelectedToday = isTodaySG(selectedDate);
+    const minTimeDate = minTime && isSameDay(selectedDate, (() => { const d = new Date(minTime); d.setHours(0,0,0,0); return d; })()) ? minTime : null;
 
     return ALL_TIME_SLOTS.filter((slot) => {
       const [h, m] = slot.split(":").map(Number);
@@ -62,7 +67,7 @@ export function DateTimePicker({ label, value, onChange, minDate, minTime }: Dat
       slotDate.setHours(h, m, 0, 0);
 
       // Block past times if today
-      if (isSelectedToday && isBefore(slotDate, now)) return false;
+      if (isSelectedToday && isBefore(slotDate, sgNow)) return false;
 
       // Block times before minTime on same day
       if (minTimeDate && isBefore(slotDate, minTimeDate)) return false;
@@ -78,13 +83,17 @@ export function DateTimePicker({ label, value, onChange, minDate, minTime }: Dat
       const combined = new Date(date);
       combined.setHours(value.getHours(), value.getMinutes(), 0, 0);
       // If combined is now in the past, clear time
-      if (isBefore(combined, new Date())) {
-        onChange(startOfDay(date));
+      if (isBefore(combined, nowSG())) {
+        const startDay = new Date(date);
+        startDay.setHours(0, 0, 0, 0);
+        onChange(startDay);
       } else {
         onChange(combined);
       }
     } else {
-      onChange(startOfDay(date));
+      const startDay = new Date(date);
+      startDay.setHours(0, 0, 0, 0);
+      onChange(startDay);
     }
   };
 

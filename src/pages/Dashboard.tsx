@@ -10,10 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Wallet, Star, Calendar, History, LogOut, ArrowLeft, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const SG_TZ = "Asia/Singapore";
-const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-GB", { timeZone: SG_TZ, day: "2-digit", month: "2-digit", year: "numeric" });
-const fmtTime = (d: string) => new Date(d).toLocaleTimeString("en-GB", { timeZone: SG_TZ, hour: "2-digit", minute: "2-digit" });
-const fmtDateTime = (d: string) => `${fmtDate(d)} ${fmtTime(d)}`;
+import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, fmtDateTimeSG as fmtDateTime } from "@/lib/sgTime";
 
 const statusBadge: Record<string, string> = {
   confirmed: "bg-primary/10 text-primary border-primary/20",

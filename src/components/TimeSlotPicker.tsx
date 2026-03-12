@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
+import { isTodaySG, nowSGMinutes } from "@/lib/sgTime";
 
 type SlotState = "available" | "booked" | "pending" | "past";
 
@@ -59,12 +60,11 @@ export function TimeSlotPicker({
   onSelectStart,
   onSelectEnd,
 }: TimeSlotPickerProps) {
-  const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const isToday = isTodaySG(date);
+  const nowMinutes = nowSGMinutes();
 
   const slotAvailability = useMemo(() => {
-    const currentTime = new Date();
+    const currentTimeMs = Date.now();
 
     return ALL_SLOTS.map((slot) => {
       const slotMin = slotToMinutes(slot.time);
@@ -102,7 +102,7 @@ export function TimeSlotPicker({
         if (slotStart >= bEnd || slotEnd <= bStart) return false;
 
         const created = new Date(b.created_at);
-        const elapsed = (currentTime.getTime() - created.getTime()) / (1000 * 60);
+        const elapsed = (currentTimeMs - created.getTime()) / (1000 * 60);
         return elapsed <= PENDING_LOCK_MINUTES;
       });
 
