@@ -40,6 +40,7 @@ function slotToDate(date: Date, slot: string): Date {
 const Booking = () => {
   const { user, loading, signOut } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Step 1: Date
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
