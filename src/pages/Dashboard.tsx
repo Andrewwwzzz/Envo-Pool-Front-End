@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, Link } from "react-router-dom";
 import { useProfile } from "@/hooks/useProfile";
@@ -8,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wallet, Star, Calendar, History, LogOut, ArrowLeft, XCircle } from "lucide-react";
+import BookingDetailDialog from "@/components/BookingDetailDialog";
 import { useToast } from "@/hooks/use-toast";
 
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, fmtDateTimeSG as fmtDateTime } from "@/lib/sgTime";
@@ -25,6 +27,7 @@ const Dashboard = () => {
   const { data: bookings, isLoading: bookingsLoading } = useMyBookings();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
 
   const cancelBooking = useMutation({
     mutationFn: async (bookingId: string) => {
@@ -148,7 +151,13 @@ const Dashboard = () => {
             ) : (
               <div className="space-y-3">
                 {upcoming.map((b) => (
-                  <div key={b.id} className="flex items-center justify-between rounded-lg border border-border/50 p-4 hover:bg-card/50 transition-colors">
+                  <div
+                    key={b.id}
+                    className={`flex items-center justify-between rounded-lg border border-border/50 p-4 transition-colors ${
+                      b.status === "confirmed" ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : "hover:bg-card/50"
+                    }`}
+                    onClick={() => b.status === "confirmed" && setSelectedBooking(b)}
+                  >
                     <div>
                       <p className="font-medium">Table {(b as any).tables?.table_number ?? "?"}</p>
                       <p className="text-sm text-muted-foreground">
@@ -163,7 +172,7 @@ const Dashboard = () => {
                           variant="ghost"
                           size="sm"
                           className="text-destructive hover:text-destructive"
-                          onClick={() => cancelBooking.mutate(b.id)}
+                          onClick={(e) => { e.stopPropagation(); cancelBooking.mutate(b.id); }}
                           disabled={cancelBooking.isPending}
                         >
                           <XCircle className="h-4 w-4" />
@@ -186,7 +195,13 @@ const Dashboard = () => {
             ) : (
               <div className="space-y-3">
                 {past.slice(0, 10).map((b) => (
-                  <div key={b.id} className="flex items-center justify-between rounded-lg border border-border/50 p-4">
+                  <div
+                    key={b.id}
+                    className={`flex items-center justify-between rounded-lg border border-border/50 p-4 transition-colors ${
+                      b.status === "confirmed" || b.status === "completed" ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : ""
+                    }`}
+                    onClick={() => (b.status === "confirmed" || b.status === "completed") && setSelectedBooking(b)}
+                  >
                     <div>
                       <p className="font-medium">Table {(b as any).tables?.table_number ?? "?"}</p>
                       <p className="text-sm text-muted-foreground">
@@ -252,6 +267,12 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </main>
+
+      <BookingDetailDialog
+        booking={selectedBooking}
+        open={!!selectedBooking}
+        onOpenChange={(open) => !open && setSelectedBooking(null)}
+      />
     </div>
   );
 };
