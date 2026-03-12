@@ -158,7 +158,7 @@ export function TimeSlotPicker({
   };
 
   const isInRange = (slotTime: string) => {
-    if (!startMinutes || !endMinutes) return false;
+    if (startMinutes === null || endMinutes === null) return false;
     const min = slotToMinutes(slotTime);
     return min >= startMinutes && min < endMinutes;
   };
