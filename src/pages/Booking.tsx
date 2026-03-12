@@ -542,7 +542,7 @@ const Booking = () => {
                 <div className="flex items-center gap-3">
                   <CreditCard className="h-5 w-5 text-accent" />
                   <div>
-                    <p className="font-medium">Card (Stripe)</p>
+                    <p className="font-medium">Paynow</p>
                     <p className="text-sm text-muted-foreground">Pay with credit/debit card</p>
                   </div>
                 </div>
