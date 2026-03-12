@@ -307,9 +307,6 @@ const Booking = () => {
         window.location.href = paymentData.url;
       }
     } catch (error) {
-      if (localBookingId) {
-        await supabase.from("bookings").delete().eq("id", localBookingId);
-      }
 
       console.error(error);
       toast({
