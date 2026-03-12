@@ -176,8 +176,16 @@ const Booking = () => {
 
   const handleConfirmBook = async () => {
     if (!user || !selectedTable || !startDate || !endDate || !selectedTableData || !paymentMethod) return;
+
+    if (!selectedTableData.hardware_id) {
+      toast({ title: "Table configuration error", description: "Please refresh the page.", variant: "destructive" });
+      return;
+    }
+
     setShowConfirm(false);
     setIsProcessing(true);
+
+    const hardwareId = selectedTableData.hardware_id;
 
     try {
       if (paymentMethod === "wallet") {
