@@ -247,9 +247,10 @@ export function TimeSlotPicker({
           <span className="w-3 h-3 rounded border border-destructive/40 bg-destructive/10" /> Booked
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded border border-primary/40 bg-primary/10" /> Pending payment (5 min lock)
+          <span className="w-3 h-3 rounded border border-amber-500/40 bg-amber-500/10" /> Pending payment
         </span>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
