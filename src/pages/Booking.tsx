@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
-import { useTables, useCreateBooking, TableStatus, validateDuration } from "@/hooks/useBooking";
+import { useTables, TableStatus, validateDuration } from "@/hooks/useBooking";
 import { usePricingRules } from "@/hooks/usePricing";
 import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
 import { useProfile, useUserRole } from "@/hooks/useProfile";
