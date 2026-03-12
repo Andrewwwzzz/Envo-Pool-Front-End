@@ -196,10 +196,19 @@ const Booking = () => {
         }
       );
 
-      const bookingData = await bookingResponse.json();
       if (!bookingResponse.ok) {
-        throw new Error("Booking creation failed");
+        if (bookingResponse.status === 409) {
+          toast({ title: "Time slot already booked", description: "Please choose a different time.", variant: "destructive" });
+        } else if (bookingResponse.status === 400) {
+          toast({ title: "Missing booking information", description: "Please fill in all required fields.", variant: "destructive" });
+        } else {
+          toast({ title: "Unable to create booking", description: "Please try again.", variant: "destructive" });
+        }
+        return;
       }
+
+      const bookingData = await bookingResponse.json();
+      const bookingId = bookingData._id;
 
       if (paymentMethod === "stripe") {
         // 2️⃣ Create Stripe checkout session
@@ -209,27 +218,30 @@ const Booking = () => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              bookingId: bookingData._id,
+              bookingId,
               amount: Math.round(finalPrice * 100),
             }),
           }
         );
 
-        const paymentData = await paymentResponse.json();
         if (!paymentResponse.ok) {
-          throw new Error("Stripe session failed");
+          toast({ title: "Payment error", description: "Could not create checkout session. Please try again.", variant: "destructive" });
+          return;
         }
+
+        const paymentData = await paymentResponse.json();
 
         // 3️⃣ Redirect to Stripe
         window.location.href = paymentData.url;
       } else if (paymentMethod === "wallet") {
         const walletResponse = await fetch(
-          `https://anytime-pool-api.onrender.com/api/payment/wallet-confirm/${bookingData._id}`,
+          `https://anytime-pool-api.onrender.com/api/payment/wallet-confirm/${bookingId}`,
           { method: "POST" }
         );
 
         if (!walletResponse.ok) {
-          throw new Error("Wallet payment failed");
+          toast({ title: "Wallet payment failed", description: "Please try again.", variant: "destructive" });
+          return;
         }
 
         window.location.href = "/booking-success";
@@ -237,7 +249,7 @@ const Booking = () => {
     } catch (error) {
       console.error(error);
       toast({
-        title: "Something went wrong",
+        title: "Unable to create booking",
         description: "Please try again.",
         variant: "destructive",
       });
