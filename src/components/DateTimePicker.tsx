@@ -67,7 +67,7 @@ export function DateTimePicker({ label, value, onChange, minDate, minTime }: Dat
       slotDate.setHours(h, m, 0, 0);
 
       // Block past times if today
-      if (isSelectedToday && isBefore(slotDate, now)) return false;
+      if (isSelectedToday && isBefore(slotDate, sgNow)) return false;
 
       // Block times before minTime on same day
       if (minTimeDate && isBefore(slotDate, minTimeDate)) return false;
