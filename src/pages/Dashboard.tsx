@@ -267,6 +267,12 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </main>
+
+      <BookingDetailDialog
+        booking={selectedBooking}
+        open={!!selectedBooking}
+        onOpenChange={(open) => !open && setSelectedBooking(null)}
+      />
     </div>
   );
 };
