@@ -16,17 +16,11 @@ export interface PricingRule {
   is_active: boolean;
 }
 
-const WEEKDAY_MAP: Record<number, string> = {
-  0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat",
-};
+import { getSGWeekday, getSGTimeMinutes, getSGDateStr } from "@/lib/sgTime";
 
 function timeToMinutes(timeStr: string): number {
   const [h, m] = timeStr.split(":").map(Number);
   return h * 60 + m;
-}
-
-function dateToTimeMinutes(d: Date): number {
-  return d.getHours() * 60 + d.getMinutes();
 }
 
 /**
