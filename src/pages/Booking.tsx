@@ -58,7 +58,7 @@ const Booking = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
-  const today = useMemo(() => startOfDay(new Date()), []);
+  const today = useMemo(() => todaySG(), []);
 
   // Fetch tables (basic info, no time filter needed for display)
   const { data: tables, isLoading: tablesLoading } = useTables(null, null);
