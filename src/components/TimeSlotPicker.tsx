@@ -207,7 +207,9 @@ export function TimeSlotPicker({
               disabled={!slot.available}
               className={cn(
                 "rounded-lg border px-1 py-2 text-xs font-medium transition-all duration-150",
-                !slot.available && "opacity-30 cursor-not-allowed bg-muted border-border text-muted-foreground line-through",
+                slot.state === "past" && "opacity-30 cursor-not-allowed bg-muted border-border text-muted-foreground line-through",
+                slot.state === "booked" && "cursor-not-allowed border-destructive/40 bg-destructive/10 text-destructive",
+                slot.state === "pending" && "cursor-not-allowed border-primary/40 bg-primary/10 text-primary",
                 slot.available && !inRange && !isStartSlot && "border-border hover:border-accent/50 hover:bg-accent/5 cursor-pointer text-foreground",
                 isStartSlot && "border-accent bg-accent text-accent-foreground ring-2 ring-accent/30",
                 inRange && !isStartSlot && "border-accent/40 bg-accent/10 text-accent-foreground",
