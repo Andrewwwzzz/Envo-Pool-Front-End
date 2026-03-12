@@ -282,20 +282,30 @@ const Booking = () => {
         // 4️⃣ Redirect to Stripe
         window.location.href = paymentData.url;
       } else if (paymentMethod === "wallet") {
-        const walletResponse = await fetch(
-          `https://anytime-pool-api.onrender.com/api/payment/wallet-confirm/${bookingId}`,
-          { method: "POST" }
-        );
+        // Deduct wallet balance directly
+        const { error: walletError } = await supabase
+          .from("profiles")
+          .update({ wallet_balance: (profile?.wallet_balance ?? 0) - finalPrice })
+          .eq("user_id", user.id);
 
-        if (!walletResponse.ok) {
+        if (walletError) {
           if (localBookingId) {
             await supabase.from("bookings").delete().eq("id", localBookingId);
           }
-          toast({ title: "Wallet payment failed", description: "Please try again.", variant: "destructive" });
+          toast({ title: "Wallet payment failed", description: "Could not deduct balance.", variant: "destructive" });
           return;
         }
 
+        // Log wallet transaction
         if (localBookingId) {
+          await supabase.from("wallet_transactions").insert({
+            user_id: user.id,
+            amount: -finalPrice,
+            balance_after: (profile?.wallet_balance ?? 0) - finalPrice,
+            type: "booking_payment",
+            related_booking_id: localBookingId,
+          });
+
           await supabase
             .from("bookings")
             .update({ status: "confirmed" })
@@ -303,6 +313,9 @@ const Booking = () => {
             .eq("status", "pending");
         }
 
+        queryClient.invalidateQueries({ queryKey: ["profile"] });
+        queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+        queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
         window.location.href = "/booking-success";
       }
     } catch (error) {
