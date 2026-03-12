@@ -119,6 +119,7 @@ export function calculateBookingPrice(
       prev.durationHours += durationHours;
       prev.segmentCost = Math.round(prev.hourlyRate * prev.durationHours * 100) / 100;
     } else {
+      const segmentCost = Math.round(hourlyRate * durationHours * 100) / 100;
       segments.push({
         startTime: new Date(current),
         endTime: segEnd,
