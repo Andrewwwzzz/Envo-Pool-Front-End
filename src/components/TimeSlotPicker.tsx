@@ -60,9 +60,8 @@ export function TimeSlotPicker({
   onSelectStart,
   onSelectEnd,
 }: TimeSlotPickerProps) {
-  const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const isToday = isTodaySG(date);
+  const nowMinutes = nowSGMinutes();
 
   const slotAvailability = useMemo(() => {
     const currentTime = new Date();
