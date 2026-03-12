@@ -71,16 +71,14 @@ const Booking = () => {
       const dayEnd = new Date(selectedDate);
       dayEnd.setHours(23, 59, 59, 999);
 
-      const { data, error } = await supabase
-        .from("bookings")
-        .select("start_time, end_time, status, created_at")
-        .eq("table_id", selectedTable)
-        .in("status", ["pending", "confirmed"])
-        .lt("start_time", dayEnd.toISOString())
-        .gt("end_time", dayStart.toISOString());
+      const { data, error } = await supabase.rpc("get_table_booked_slots", {
+        p_table_id: selectedTable,
+        p_day_start: dayStart.toISOString(),
+        p_day_end: dayEnd.toISOString(),
+      });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as { start_time: string; end_time: string; status: string; created_at: string }[];
     },
     enabled: !!selectedTable && !!selectedDate,
     refetchInterval: 30000,
