@@ -195,7 +195,13 @@ const Dashboard = () => {
             ) : (
               <div className="space-y-3">
                 {past.slice(0, 10).map((b) => (
-                  <div key={b.id} className="flex items-center justify-between rounded-lg border border-border/50 p-4">
+                  <div
+                    key={b.id}
+                    className={`flex items-center justify-between rounded-lg border border-border/50 p-4 transition-colors ${
+                      b.status === "confirmed" || b.status === "completed" ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : ""
+                    }`}
+                    onClick={() => (b.status === "confirmed" || b.status === "completed") && setSelectedBooking(b)}
+                  >
                     <div>
                       <p className="font-medium">Table {(b as any).tables?.table_number ?? "?"}</p>
                       <p className="text-sm text-muted-foreground">
