@@ -102,7 +102,7 @@ export function TimeSlotPicker({
         if (slotStart >= bEnd || slotEnd <= bStart) return false;
 
         const created = new Date(b.created_at);
-        const elapsed = (currentTime.getTime() - created.getTime()) / (1000 * 60);
+        const elapsed = (currentTimeMs - created.getTime()) / (1000 * 60);
         return elapsed <= PENDING_LOCK_MINUTES;
       });
 

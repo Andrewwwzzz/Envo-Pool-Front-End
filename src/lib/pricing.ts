@@ -33,9 +33,9 @@ function findBestRule(
   dateTime: Date,
   tableId: string
 ): PricingRule | null {
-  const weekday = WEEKDAY_MAP[dateTime.getDay()];
-  const timeMin = dateToTimeMinutes(dateTime);
-  const dateStr = dateTime.toISOString().split("T")[0]; // YYYY-MM-DD
+  const weekday = getSGWeekday(dateTime);
+  const timeMin = getSGTimeMinutes(dateTime);
+  const dateStr = getSGDateStr(dateTime);
 
   const matching = rules.filter((r) => {
     if (!r.is_active) return false;
