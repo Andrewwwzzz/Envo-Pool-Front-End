@@ -1,9 +1,32 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const BookingSuccess = () => {
+  useEffect(() => {
+    const pendingBookingId = sessionStorage.getItem("pending_booking_id");
+    if (!pendingBookingId) return;
+
+    const confirmMirroredBooking = async () => {
+      const { error } = await supabase
+        .from("bookings")
+        .update({ status: "confirmed" })
+        .eq("id", pendingBookingId)
+        .eq("status", "pending");
+
+      if (error) {
+        console.error("Failed to confirm mirrored booking:", error);
+      }
+
+      sessionStorage.removeItem("pending_booking_id");
+    };
+
+    void confirmMirroredBooking();
+  }, []);
+
   return (
     <div className="min-h-screen bg-background dark flex items-center justify-center p-6">
       <Card className="card-premium max-w-md w-full text-center">
