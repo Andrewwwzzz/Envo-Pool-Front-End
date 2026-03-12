@@ -64,7 +64,7 @@ export function TimeSlotPicker({
   const nowMinutes = nowSGMinutes();
 
   const slotAvailability = useMemo(() => {
-    const currentTime = new Date();
+    const currentTimeMs = Date.now();
 
     return ALL_SLOTS.map((slot) => {
       const slotMin = slotToMinutes(slot.time);
