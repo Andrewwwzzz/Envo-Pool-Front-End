@@ -97,14 +97,9 @@ export function TimeSlotPicker({
 
       const hasActivePending = bookedSlots.some((b) => {
         if (b.status !== "pending") return false;
-
         const bStart = new Date(b.start_time);
         const bEnd = new Date(b.end_time);
-        if (slotStart >= bEnd || slotEnd <= bStart) return false;
-
-        const created = new Date(b.created_at);
-        const elapsed = (currentTimeMs - created.getTime()) / (1000 * 60);
-        return elapsed <= PENDING_LOCK_MINUTES;
+        return !(slotStart >= bEnd || slotEnd <= bStart);
       });
 
       if (hasActivePending) {

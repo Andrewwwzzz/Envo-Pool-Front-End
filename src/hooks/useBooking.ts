@@ -80,14 +80,8 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
           return { ...t, hardware_id: t.hardware_id, status: "Booked" as TableStatus };
         }
 
-        const hasActivePending = overlapping.some((b) => {
-          if (b.status !== "pending") return false;
-          const createdAt = new Date(b.created_at);
-          const elapsed = (now.getTime() - createdAt.getTime()) / (1000 * 60);
-          return elapsed <= PENDING_LOCK_MINUTES;
-        });
-
-        if (hasActivePending) {
+        const hasPending = overlapping.some((b) => b.status === "pending");
+        if (hasPending) {
           return { ...t, hardware_id: t.hardware_id, status: "Pending Payment" as TableStatus };
         }
 
