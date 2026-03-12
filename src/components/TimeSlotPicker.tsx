@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { isTodaySG, nowSGMinutes } from "@/lib/sgTime";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type SlotState = "available" | "booked" | "pending" | "past";
 
@@ -176,6 +177,7 @@ export function TimeSlotPicker({
     : null;
 
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <Label className="text-base">
@@ -200,7 +202,7 @@ export function TimeSlotPicker({
           const inRange = isInRange(slot.time);
           const isStartSlot = isStart(slot.time);
 
-          return (
+          const slotButton = (
             <button
               key={slot.time}
               onClick={() => handleSlotClick(slot)}
@@ -209,7 +211,7 @@ export function TimeSlotPicker({
                 "rounded-lg border px-1 py-2 text-xs font-medium transition-all duration-150",
                 slot.state === "past" && "opacity-30 cursor-not-allowed bg-muted border-border text-muted-foreground line-through",
                 slot.state === "booked" && "cursor-not-allowed border-destructive/40 bg-destructive/10 text-destructive",
-                slot.state === "pending" && "cursor-not-allowed border-primary/40 bg-primary/10 text-primary",
+                slot.state === "pending" && "cursor-not-allowed border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
                 slot.available && !inRange && !isStartSlot && "border-border hover:border-accent/50 hover:bg-accent/5 cursor-pointer text-foreground",
                 isStartSlot && "border-accent bg-accent text-accent-foreground ring-2 ring-accent/30",
                 inRange && !isStartSlot && "border-accent/40 bg-accent/10 text-accent-foreground",
@@ -218,6 +220,19 @@ export function TimeSlotPicker({
               {slot.label}
             </button>
           );
+
+          if (slot.state === "pending") {
+            return (
+              <Tooltip key={slot.time}>
+                <TooltipTrigger asChild>{slotButton}</TooltipTrigger>
+                <TooltipContent className="max-w-[220px] text-center">
+                  This table is currently being reserved. It may become available if payment is not completed.
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          return slotButton;
         })}
       </div>
 
@@ -232,9 +247,10 @@ export function TimeSlotPicker({
           <span className="w-3 h-3 rounded border border-destructive/40 bg-destructive/10" /> Booked
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded border border-primary/40 bg-primary/10" /> Pending payment (5 min lock)
+          <span className="w-3 h-3 rounded border border-amber-500/40 bg-amber-500/10" /> Pending payment
         </span>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
