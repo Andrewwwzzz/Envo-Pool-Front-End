@@ -32,9 +32,14 @@ const BookingSuccess = () => {
       ""
     ).toLowerCase();
 
-    const hasExplicitSuccess =
-      ["success", "paid", "succeeded", "true", "1"].includes(statusParam) ||
-      !!searchParams.get("session_id");
+    const hasExplicitSuccess = [
+      "success",
+      "paid",
+      "succeeded",
+      "true",
+      "1",
+      "complete",
+    ].includes(statusParam);
 
     const isCanceled = ["1", "true", "cancel", "canceled", "cancelled"].includes(canceledParam);
 
