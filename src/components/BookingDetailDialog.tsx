@@ -16,6 +16,7 @@ interface BookingData {
   id: string;
   start_time: string;
   end_time: string;
+  created_at: string;
   duration_hours: number;
   final_price: number;
   price: number;
@@ -129,6 +130,17 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
             <div>
               <p className="text-sm text-muted-foreground">Amount Paid</p>
               <p className="font-medium">${(booking.final_price ?? booking.price)?.toFixed(2)}</p>
+            </div>
+          </div>
+
+          <Separator className="bg-border/50" />
+
+          {/* Order Created */}
+          <div className="flex items-center gap-3">
+            <Calendar className="h-4 w-4 text-accent shrink-0" />
+            <div>
+              <p className="text-sm text-muted-foreground">Order Created</p>
+              <p className="font-medium">{fmtDate(booking.created_at)} at {fmtTime(booking.created_at)}</p>
             </div>
           </div>
 
