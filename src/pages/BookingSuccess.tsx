@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 
-type VerifyStatus = "loading" | "confirmed" | "expired" | "error";
+type VerifyStatus = "loading" | "confirmed" | "expired" | "processing" | "error";
 
 const BookingSuccess = () => {
   const { user } = useAuth();
