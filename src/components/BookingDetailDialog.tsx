@@ -135,6 +135,17 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
 
           <Separator className="bg-border/50" />
 
+          {/* Order Created */}
+          <div className="flex items-center gap-3">
+            <Calendar className="h-4 w-4 text-accent shrink-0" />
+            <div>
+              <p className="text-sm text-muted-foreground">Order Created</p>
+              <p className="font-medium">{fmtDate(booking.created_at)} at {fmtTime(booking.created_at)}</p>
+            </div>
+          </div>
+
+          <Separator className="bg-border/50" />
+
           {/* Video Download */}
           {downloadMode === "choose" ? (
             <div className="space-y-2">
