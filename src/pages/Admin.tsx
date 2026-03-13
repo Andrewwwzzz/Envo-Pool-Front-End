@@ -579,7 +579,18 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>{customer.name || "No Name"}</CardTitle>
-            {!editing && <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit</Button>}
+            <div className="flex gap-2">
+              {!editing && <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit</Button>}
+              {!confirmDelete ? (
+                <Button size="sm" variant="destructive" onClick={() => setConfirmDelete(true)}><Trash2 className="mr-1 h-3 w-3" /> Delete</Button>
+              ) : (
+                <div className="flex gap-1 items-center">
+                  <span className="text-sm text-destructive mr-1">Confirm?</span>
+                  <Button size="sm" variant="destructive" onClick={() => { deleteCustomer.mutate(customer.user_id); onBack(); }} disabled={deleteCustomer.isPending}>Yes</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>No</Button>
+                </div>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
