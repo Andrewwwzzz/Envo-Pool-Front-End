@@ -35,6 +35,8 @@ const statusBadge: Record<string, string> = {
   pending: "bg-accent/20 text-accent-foreground border-accent/30",
   cancelled: "bg-destructive/10 text-destructive border-destructive/20",
   completed: "bg-muted text-muted-foreground border-border",
+  refunded: "bg-orange-500/10 text-orange-600 border-orange-300",
+  no_show: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
 const paymentLabel: Record<string, string> = {
