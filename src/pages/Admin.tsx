@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
+import { fmtDateSG, fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
 import { useTermsContent, useUpdateTerms } from "@/hooks/useTerms";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useProfile";
@@ -190,8 +191,8 @@ function BookingsTab() {
                 return (
                   <tr key={b.id} className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setSelectedBooking(b)}>
                     <td className="py-3 pr-4">Table {(b as any).tables?.table_number ?? "?"}</td>
-                    <td className="py-3 pr-4">{new Date(b.start_time).toLocaleDateString()}</td>
-                    <td className="py-3 pr-4">{new Date(b.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} – {new Date(b.end_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                    <td className="py-3 pr-4">{fmtDateSG(b.start_time)}</td>
+                    <td className="py-3 pr-4">{fmtTimeSG(b.start_time)} – {fmtTimeSG(b.end_time)}</td>
                     <td className="py-3 pr-4">{b.duration_hours}h</td>
                     <td className="py-3 pr-4">${b.final_price?.toFixed(2) ?? b.price?.toFixed(2)}</td>
                     <td className="py-3 pr-4 capitalize">{b.payment_method ?? "—"}</td>
@@ -471,9 +472,9 @@ function InvoicesTab() {
                 {sessions.map((s: any) => (
                   <tr key={s.id} className="border-b border-border last:border-0">
                     <td className="py-3 pr-4">Table {s.tables?.table_number ?? "?"}</td>
-                    <td className="py-3 pr-4">{new Date(s.started_at).toLocaleDateString()}</td>
-                    <td className="py-3 pr-4">{new Date(s.started_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
-                    <td className="py-3 pr-4">{new Date(s.ended_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                    <td className="py-3 pr-4">{fmtDateSG(s.started_at)}</td>
+                    <td className="py-3 pr-4">{fmtTimeSG(s.started_at)}</td>
+                    <td className="py-3 pr-4">{fmtTimeSG(s.ended_at)}</td>
                     <td className="py-3 pr-4 font-mono">{formatDuration(s.duration_seconds)}</td>
                     <td className="py-3 pr-4">${Number(s.hourly_rate).toFixed(2)}/hr</td>
                     <td className="py-3 font-medium">${Number(s.total_cost).toFixed(2)}</td>
@@ -549,7 +550,7 @@ function CustomersTab() {
                   <td className="py-3 pr-4">${c.wallet_balance.toFixed(2)}</td>
                   <td className="py-3 pr-4">{c.reward_points}</td>
                   <td className="py-3 pr-4">${c.total_spent.toFixed(2)}</td>
-                  <td className="py-3 text-muted-foreground">{new Date(c.created_at).toLocaleDateString()}</td>
+                  <td className="py-3 text-muted-foreground">{fmtDateSG(c.created_at)}</td>
                 </tr>
               ))}
             </tbody>
@@ -608,7 +609,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
             <div><p className="text-muted-foreground">Email</p><p className="font-medium">{customer.email}</p></div>
             <div><p className="text-muted-foreground">Phone</p><p className="font-medium">{customer.phone || "—"}</p></div>
             <div><p className="text-muted-foreground">DOB</p><p className="font-medium">{customer.date_of_birth || "—"}</p></div>
-            <div><p className="text-muted-foreground">Joined</p><p className="font-medium">{new Date(customer.created_at).toLocaleDateString()}</p></div>
+            <div><p className="text-muted-foreground">Joined</p><p className="font-medium">{fmtDateSG(customer.created_at)}</p></div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div><p className="text-muted-foreground">Age Verified</p><p className="font-medium">{customer.age_verified ? "Yes" : "No"}</p></div>
@@ -661,8 +662,8 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                   {bookings.map((b: any) => (
                     <tr key={b.id} className="border-b border-border last:border-0">
                       <td className="py-2 pr-4">Table {b.tables?.table_number ?? "?"}</td>
-                      <td className="py-2 pr-4">{new Date(b.start_time).toLocaleDateString()}</td>
-                      <td className="py-2 pr-4">{new Date(b.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                      <td className="py-2 pr-4">{fmtDateSG(b.start_time)}</td>
+                      <td className="py-2 pr-4">{fmtTimeSG(b.start_time)}</td>
                       <td className="py-2 pr-4">{b.duration_hours}h</td>
                       <td className="py-2 pr-4">${b.final_price?.toFixed(2)}</td>
                       <td className="py-2"><Badge variant="outline" className="capitalize">{b.status}</Badge></td>
@@ -686,7 +687,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                   <div key={t.id} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
                     <div>
                       <p className="capitalize font-medium">{t.type.replace(/_/g, " ")}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">{fmtDateTimeSG(t.created_at)}</p>
                     </div>
                     <div className="text-right">
                       <p className={t.amount >= 0 ? "text-green-600" : "text-destructive"}>{t.amount >= 0 ? "+" : ""}${t.amount.toFixed(2)}</p>
@@ -707,7 +708,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                   <div key={t.id} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
                     <div>
                       <p className="capitalize font-medium">{t.type.replace(/_/g, " ")}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">{fmtDateTimeSG(t.created_at)}</p>
                     </div>
                     <p className={t.points >= 0 ? "text-green-600" : "text-destructive"}>{t.points >= 0 ? "+" : ""}{t.points} pts</p>
                   </div>
@@ -990,7 +991,7 @@ function PromosTab() {
                       {p.discount_type === "percentage" ? `${p.discount_value}%` : `$${p.discount_value}`} off
                       {p.minimum_spend ? ` · Min $${p.minimum_spend}` : ""}
                       {p.max_discount_amount ? ` · Max $${p.max_discount_amount}` : ""}
-                      {p.expiry_date ? ` · Expires ${new Date(p.expiry_date).toLocaleDateString()}` : ""}
+                      {p.expiry_date ? ` · Expires ${fmtDateSG(p.expiry_date)}` : ""}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
