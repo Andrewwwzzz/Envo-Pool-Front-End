@@ -191,8 +191,8 @@ function BookingsTab() {
                 return (
                   <tr key={b.id} className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setSelectedBooking(b)}>
                     <td className="py-3 pr-4">Table {(b as any).tables?.table_number ?? "?"}</td>
-                    <td className="py-3 pr-4">{new Date(b.start_time).toLocaleDateString()}</td>
-                    <td className="py-3 pr-4">{new Date(b.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} – {new Date(b.end_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                    <td className="py-3 pr-4">{fmtDateSG(b.start_time)}</td>
+                    <td className="py-3 pr-4">{fmtTimeSG(b.start_time)} – {fmtTimeSG(b.end_time)}</td>
                     <td className="py-3 pr-4">{b.duration_hours}h</td>
                     <td className="py-3 pr-4">${b.final_price?.toFixed(2) ?? b.price?.toFixed(2)}</td>
                     <td className="py-3 pr-4 capitalize">{b.payment_method ?? "—"}</td>
