@@ -310,20 +310,67 @@ export function useAdminPromoCodes() {
   return { ...query, create, toggle, remove };
 }
 
+export function useUpdateBookingStatus() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ bookingId, status }: { bookingId: string; status: string }) => {
+      const { error } = await supabase
+        .from("bookings")
+        .update({ status })
+        .eq("id", bookingId);
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      toast({ title: `Booking marked as ${variables.status}` });
+      queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
 export function useAdminStats() {
   return useQuery({
     queryKey: ["admin-stats"],
     queryFn: async () => {
-      const todayStart = new Date();
+      const now = new Date();
+      const todayStart = new Date(now);
       todayStart.setHours(0, 0, 0, 0);
-      const todayEnd = new Date();
+      const todayEnd = new Date(now);
       todayEnd.setHours(23, 59, 59, 999);
+
+      // Week start (Monday)
+      const weekStart = new Date(now);
+      const dayOfWeek = weekStart.getDay();
+      const diffToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      weekStart.setDate(weekStart.getDate() - diffToMon);
+      weekStart.setHours(0, 0, 0, 0);
+
+      // Month start
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
       const { data: todayBookings } = await supabase
         .from("bookings")
         .select("*")
         .gte("start_time", todayStart.toISOString())
         .lte("start_time", todayEnd.toISOString());
+
+      const { data: weekBookings } = await supabase
+        .from("bookings")
+        .select("id, final_price, status")
+        .gte("start_time", weekStart.toISOString())
+        .in("status", ["confirmed", "completed"]);
+
+      const { data: monthBookings } = await supabase
+        .from("bookings")
+        .select("id, final_price, status, duration_hours")
+        .gte("start_time", monthStart.toISOString())
+        .in("status", ["confirmed", "completed"]);
 
       const { data: allBookings } = await supabase
         .from("bookings")
@@ -336,9 +383,17 @@ export function useAdminStats() {
         .filter((b) => b.status === "confirmed" || b.status === "completed")
         .reduce((sum, b) => sum + (b.final_price || 0), 0);
 
+      const weekRevenue = (weekBookings || []).reduce((sum, b) => sum + (b.final_price || 0), 0);
+      const monthRevenue = (monthBookings || []).reduce((sum, b) => sum + (b.final_price || 0), 0);
+
+      // Average session length from month bookings
+      const completedWithDuration = (monthBookings || []).filter((b: any) => b.duration_hours > 0);
+      const avgSessionHours = completedWithDuration.length > 0
+        ? completedWithDuration.reduce((sum: number, b: any) => sum + Number(b.duration_hours), 0) / completedWithDuration.length
+        : 0;
+
       const totalBookings = allBookings?.length || 0;
 
-      // Table utilisation: % of tables with confirmed bookings today
       const tablesWithBookingsToday = new Set(
         (todayBookings || [])
           .filter((b) => b.status === "confirmed" || b.status === "completed")
@@ -351,6 +406,9 @@ export function useAdminStats() {
       return {
         todayBookings: todayBookings?.length || 0,
         todayRevenue,
+        weekRevenue,
+        monthRevenue,
+        avgSessionHours: Math.round(avgSessionHours * 10) / 10,
         totalBookings,
         utilisation,
       };

@@ -7,6 +7,7 @@ import {
   useAdminStats,
   useAdminBookings,
   useDeleteBooking,
+  useUpdateBookingStatus,
   useAdminTables,
   useAdminTimerSessions,
   useAdminPricingRules,
@@ -23,7 +24,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, ArrowLeft, DollarSign, Calendar, Percent, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { LogOut, ArrowLeft, DollarSign, Calendar, Percent, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp } from "lucide-react";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -75,38 +77,92 @@ const Admin = () => {
 function OverviewTab() {
   const { data: stats } = useAdminStats();
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <Card><CardContent className="pt-6 text-center">
-        <Calendar className="h-6 w-6 mx-auto text-primary mb-2" />
-        <p className="text-2xl font-bold">{stats?.todayBookings ?? 0}</p>
-        <p className="text-sm text-muted-foreground">Today's Bookings</p>
-      </CardContent></Card>
-      <Card><CardContent className="pt-6 text-center">
-        <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
-        <p className="text-2xl font-bold">${stats?.todayRevenue?.toFixed(2) ?? "0.00"}</p>
-        <p className="text-sm text-muted-foreground">Revenue Today</p>
-      </CardContent></Card>
-      <Card><CardContent className="pt-6 text-center">
-        <BarChart3 className="h-6 w-6 mx-auto text-primary mb-2" />
-        <p className="text-2xl font-bold">{stats?.totalBookings ?? 0}</p>
-        <p className="text-sm text-muted-foreground">Total Bookings</p>
-      </CardContent></Card>
-      <Card><CardContent className="pt-6 text-center">
-        <Percent className="h-6 w-6 mx-auto text-accent mb-2" />
-        <p className="text-2xl font-bold">{stats?.utilisation ?? 0}%</p>
-        <p className="text-sm text-muted-foreground">Table Utilisation</p>
-      </CardContent></Card>
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card><CardContent className="pt-6 text-center">
+          <Calendar className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">{stats?.todayBookings ?? 0}</p>
+          <p className="text-sm text-muted-foreground">Today's Bookings</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-6 text-center">
+          <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">${stats?.todayRevenue?.toFixed(2) ?? "0.00"}</p>
+          <p className="text-sm text-muted-foreground">Revenue Today</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-6 text-center">
+          <BarChart3 className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">{stats?.totalBookings ?? 0}</p>
+          <p className="text-sm text-muted-foreground">Total Bookings</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-6 text-center">
+          <Percent className="h-6 w-6 mx-auto text-accent mb-2" />
+          <p className="text-2xl font-bold">{stats?.utilisation ?? 0}%</p>
+          <p className="text-sm text-muted-foreground">Table Utilisation</p>
+        </CardContent></Card>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <Card><CardContent className="pt-6 text-center">
+          <TrendingUp className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">${stats?.weekRevenue?.toFixed(2) ?? "0.00"}</p>
+          <p className="text-sm text-muted-foreground">Revenue This Week</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-6 text-center">
+          <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">${stats?.monthRevenue?.toFixed(2) ?? "0.00"}</p>
+          <p className="text-sm text-muted-foreground">Revenue This Month</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-6 text-center">
+          <Clock className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">{stats?.avgSessionHours ?? 0}h</p>
+          <p className="text-sm text-muted-foreground">Avg Session Length</p>
+        </CardContent></Card>
+      </div>
     </div>
   );
 }
 
+type BookingFilter = "all" | "today" | "upcoming" | "completed" | "cancelled" | "refunded" | "no_show";
+
 function BookingsTab() {
   const { data: bookings, isLoading } = useAdminBookings();
   const deleteBooking = useDeleteBooking();
+  const updateStatus = useUpdateBookingStatus();
+  const [filter, setFilter] = useState<BookingFilter>("all");
+
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(now);
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const filtered = (bookings || []).filter((b) => {
+    const startDate = new Date(b.start_time);
+    switch (filter) {
+      case "today": return startDate >= todayStart && startDate <= todayEnd;
+      case "upcoming": return startDate > now && (b.status === "confirmed" || b.status === "pending");
+      case "completed": return b.status === "completed" || (b.status === "confirmed" && new Date(b.end_time) < now);
+      case "cancelled": return b.status === "cancelled";
+      case "refunded": return b.status === "refunded";
+      case "no_show": return b.status === "no_show";
+      default: return true;
+    }
+  });
+
   if (isLoading) return <p className="text-muted-foreground">Loading...</p>;
   return (
     <Card>
-      <CardHeader><CardTitle>All Bookings</CardTitle></CardHeader>
+      <CardHeader>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <CardTitle>All Bookings</CardTitle>
+          <div className="flex flex-wrap gap-1.5">
+            {(["all", "today", "upcoming", "completed", "cancelled", "refunded", "no_show"] as BookingFilter[]).map((f) => (
+              <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} onClick={() => setFilter(f)} className="capitalize text-xs h-7 px-2.5">
+                {f === "no_show" ? "No Show" : f}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -121,8 +177,9 @@ function BookingsTab() {
               <th className="pb-2">Actions</th>
             </tr></thead>
             <tbody>
-              {(bookings || []).map((b) => {
+              {filtered.map((b) => {
                 const canDelete = b.status === "pending" || b.status === "cancelled";
+                const canAction = b.status === "confirmed" || b.status === "pending";
                 return (
                   <tr key={b.id} className="border-b border-border last:border-0">
                     <td className="py-3 pr-4">Table {(b as any).tables?.table_number ?? "?"}</td>
@@ -131,17 +188,46 @@ function BookingsTab() {
                     <td className="py-3 pr-4">{b.duration_hours}h</td>
                     <td className="py-3 pr-4">${b.final_price?.toFixed(2) ?? b.price?.toFixed(2)}</td>
                     <td className="py-3 pr-4 capitalize">{b.payment_method ?? "—"}</td>
-                    <td className="py-3 pr-4"><Badge variant="outline" className="capitalize">{b.status}</Badge></td>
+                    <td className="py-3 pr-4">
+                      <Badge variant="outline" className={`capitalize ${
+                        b.status === "refunded" ? "text-orange-600 border-orange-300" :
+                        b.status === "no_show" ? "text-red-600 border-red-300" :
+                        b.status === "cancelled" ? "text-destructive border-destructive/30" : ""
+                      }`}>{b.status === "no_show" ? "No Show" : b.status}</Badge>
+                    </td>
                     <td className="py-3">
-                      {canDelete && (
-                        <Button variant="ghost" size="sm" onClick={() => deleteBooking.mutate(b.id)} disabled={deleteBooking.isPending}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {canDelete && (
+                          <Button variant="ghost" size="sm" onClick={() => deleteBooking.mutate(b.id)} disabled={deleteBooking.isPending}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                        {canAction && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm"><MoreHorizontal className="h-4 w-4" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId: b.id, status: "refunded" })}>
+                                Refund
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId: b.id, status: "cancelled" })}>
+                                Cancel
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId: b.id, status: "no_show" })}>
+                                Mark No Show
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
               })}
+              {filtered.length === 0 && (
+                <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">No bookings found</td></tr>
+              )}
             </tbody>
           </table>
         </div>
