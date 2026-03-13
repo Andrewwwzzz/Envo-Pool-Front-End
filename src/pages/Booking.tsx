@@ -232,7 +232,7 @@ const Booking = () => {
         queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
         queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
         queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] });
-        window.location.href = "/booking-success";
+        window.location.href = "/booking-confirmed";
       } else {
         // Stripe flow: external API + mirror + redirect
         let localBookingId: string | null = null;
