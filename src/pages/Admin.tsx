@@ -609,7 +609,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
             <div><p className="text-muted-foreground">Email</p><p className="font-medium">{customer.email}</p></div>
             <div><p className="text-muted-foreground">Phone</p><p className="font-medium">{customer.phone || "—"}</p></div>
             <div><p className="text-muted-foreground">DOB</p><p className="font-medium">{customer.date_of_birth || "—"}</p></div>
-            <div><p className="text-muted-foreground">Joined</p><p className="font-medium">{new Date(customer.created_at).toLocaleDateString()}</p></div>
+            <div><p className="text-muted-foreground">Joined</p><p className="font-medium">{fmtDateSG(customer.created_at)}</p></div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div><p className="text-muted-foreground">Age Verified</p><p className="font-medium">{customer.age_verified ? "Yes" : "No"}</p></div>
