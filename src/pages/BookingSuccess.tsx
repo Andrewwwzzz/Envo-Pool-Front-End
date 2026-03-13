@@ -24,8 +24,8 @@ const BookingSuccess = () => {
 
     let cancelled = false;
     let retryCount = 0;
-    const MAX_RETRIES = 6;
-    const RETRY_DELAY = 5000;
+    const MAX_RETRIES = 30;
+    const RETRY_DELAY = 2000;
 
     const verify = async () => {
       try {
