@@ -132,6 +132,7 @@ function BookingsTab() {
   const deleteBooking = useDeleteBooking();
   const updateStatus = useUpdateBookingStatus();
   const [filter, setFilter] = useState<BookingFilter>("all");
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
 
   const now = new Date();
   const todayStart = new Date(now);
