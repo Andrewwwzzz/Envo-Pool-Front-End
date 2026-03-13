@@ -31,8 +31,8 @@ const App = () => (
             <Route path="/payment-verification" element={<PaymentVerification />} />
             <Route path="/booking-confirmed" element={<BookingConfirmed />} />
             <Route path="/booking-refunded" element={<BookingRefunded />} />
-            {/* Legacy redirect */}
-            <Route path="/booking-success" element={<Navigate to="/payment-verification" replace />} />
+            {/* Legacy redirect — preserves query params */}
+            <Route path="/booking-success" element={<LegacyRedirect />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/terms" element={<Terms />} />
