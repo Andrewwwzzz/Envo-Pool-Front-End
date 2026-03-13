@@ -553,3 +553,28 @@ export function useUpdateCustomerProfile() {
     },
   });
 }
+
+export function useDeleteCustomer() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      // Clean up related records first
+      await supabase.from("reward_transactions").delete().eq("user_id", userId);
+      await supabase.from("wallet_transactions").delete().eq("user_id", userId);
+      await supabase.from("promo_usage").delete().eq("user_id", userId);
+      await supabase.from("bookings").delete().eq("user_id", userId);
+      await supabase.from("user_roles").delete().eq("user_id", userId);
+      const { error } = await supabase.from("profiles").delete().eq("user_id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Customer deleted" });
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+}
