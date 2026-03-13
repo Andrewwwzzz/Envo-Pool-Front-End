@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import BookingDetailDialog from "@/components/BookingDetailDialog";
 import { useTermsContent, useUpdateTerms } from "@/hooks/useTerms";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useProfile";
