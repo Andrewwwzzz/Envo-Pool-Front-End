@@ -708,7 +708,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                   <div key={t.id} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
                     <div>
                       <p className="capitalize font-medium">{t.type.replace(/_/g, " ")}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">{fmtDateTimeSG(t.created_at)}</p>
                     </div>
                     <p className={t.points >= 0 ? "text-green-600" : "text-destructive"}>{t.points >= 0 ? "+" : ""}{t.points} pts</p>
                   </div>
