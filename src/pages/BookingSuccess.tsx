@@ -14,11 +14,10 @@ const BookingSuccess = () => {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("session_id");
-  const [status, setStatus] = useState<VerifyStatus>("loading");
+  const [status, setStatus] = useState<VerifyStatus>(sessionId ? "loading" : "error");
 
   useEffect(() => {
     if (!user || !sessionId) {
-      if (!sessionId) setStatus("error");
       return;
     }
 
