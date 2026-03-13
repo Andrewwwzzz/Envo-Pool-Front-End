@@ -95,8 +95,11 @@ export function TimeSlotPicker({
         return { ...slot, available: false, state: "booked" as const };
       }
 
+      const pendingCutoffMs = currentTimeMs - PENDING_LOCK_MINUTES * 60 * 1000;
       const hasActivePending = bookedSlots.some((b) => {
         if (b.status !== "pending") return false;
+        if (new Date(b.created_at).getTime() <= pendingCutoffMs) return false;
+
         const bStart = new Date(b.start_time);
         const bEnd = new Date(b.end_time);
         return !(slotStart >= bEnd || slotEnd <= bStart);
