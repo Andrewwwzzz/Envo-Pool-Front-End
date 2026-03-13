@@ -210,7 +210,7 @@ export function TimeSlotPicker({
                 slot.state === "past" && "opacity-30 cursor-not-allowed bg-muted border-border text-muted-foreground line-through",
                 slot.state === "booked" && "cursor-not-allowed border-destructive/40 bg-destructive/10 text-destructive",
                 slot.state === "pending" && "cursor-not-allowed border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
-                slot.available && !inRange && !isStartSlot && "border-border hover:border-accent/50 hover:bg-accent/5 cursor-pointer text-foreground",
+                slot.available && !inRange && !isStartSlot && "border-emerald-500/40 bg-emerald-500/5 hover:border-accent/50 hover:bg-accent/5 cursor-pointer text-foreground",
                 isStartSlot && "border-accent bg-accent text-accent-foreground ring-2 ring-accent/30",
                 inRange && !isStartSlot && "border-accent bg-accent/30 text-accent-foreground ring-1 ring-accent/40",
               )}
