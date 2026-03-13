@@ -236,7 +236,7 @@ export function TimeSlotPicker({
 
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-1">
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded border border-border" /> Available
+          <span className="w-3 h-3 rounded border border-emerald-500/60 bg-emerald-500/20" /> Available
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded bg-accent" /> Selected
@@ -245,7 +245,7 @@ export function TimeSlotPicker({
           <span className="w-3 h-3 rounded border border-destructive/40 bg-destructive/10" /> Booked
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded border border-amber-500/40 bg-amber-500/10" /> Pending payment
+          <span className="w-3 h-3 rounded border border-amber-500/40 bg-amber-500/10" /> Pending Payment (Expires after 5 mins)
         </span>
       </div>
     </div>
