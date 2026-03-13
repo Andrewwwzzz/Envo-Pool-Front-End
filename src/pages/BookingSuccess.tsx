@@ -61,13 +61,23 @@ const BookingSuccess = () => {
         }
 
         if (data.status === "confirmed") {
-          // Reconcile local bookings
           await reconcileBookings();
           if (!cancelled) setStatus("confirmed");
           return;
         }
 
-        // Still pending — retry
+        if (data.status === "processing") {
+          if (!cancelled) setStatus("processing");
+          if (retryCount < MAX_RETRIES && !cancelled) {
+            retryCount++;
+            setTimeout(() => { if (!cancelled) verify(); }, RETRY_DELAY);
+          } else {
+            if (!cancelled) setStatus("error");
+          }
+          return;
+        }
+
+        // Unknown status — retry
         if (retryCount < MAX_RETRIES && !cancelled) {
           retryCount++;
           setTimeout(() => { if (!cancelled) verify(); }, RETRY_DELAY);
