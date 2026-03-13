@@ -168,7 +168,7 @@ const BookingSuccess = () => {
       <Card className="card-premium max-w-md w-full text-center">
         <CardContent className="pt-10 pb-8 space-y-6">
           <div className="flex justify-center">
-            {status === "loading" && (
+            {(status === "loading" || status === "processing") && (
               <Loader2 className="h-16 w-16 text-accent animate-spin" />
             )}
             {status === "confirmed" && (
