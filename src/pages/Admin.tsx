@@ -550,7 +550,7 @@ function CustomersTab() {
                   <td className="py-3 pr-4">${c.wallet_balance.toFixed(2)}</td>
                   <td className="py-3 pr-4">{c.reward_points}</td>
                   <td className="py-3 pr-4">${c.total_spent.toFixed(2)}</td>
-                  <td className="py-3 text-muted-foreground">{new Date(c.created_at).toLocaleDateString()}</td>
+                  <td className="py-3 text-muted-foreground">{fmtDateSG(c.created_at)}</td>
                 </tr>
               ))}
             </tbody>
