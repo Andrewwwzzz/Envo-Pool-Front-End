@@ -239,6 +239,13 @@ function BookingsTab() {
         </div>
       </CardContent>
     </Card>
+
+    <BookingDetailDialog
+      booking={selectedBooking}
+      open={!!selectedBooking}
+      onOpenChange={(open) => { if (!open) setSelectedBooking(null); }}
+    />
+    </>
   );
 }
 
