@@ -1,83 +1,143 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 const BookingSuccess = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [confirming, setConfirming] = useState(true);
 
   useEffect(() => {
     if (!user) return;
 
-    const searchParams = new URLSearchParams(window.location.search);
-    const externalBookingId =
-      searchParams.get("bookingId") ||
-      searchParams.get("booking_id") ||
-      searchParams.get("id");
+    let cancelled = false;
+    let retryCount = 0;
+    const MAX_RETRIES = 6; // ~30 seconds total
+    const RETRY_DELAY = 5000;
 
-    const statusParam = (
-      searchParams.get("status") ||
-      searchParams.get("payment_status") ||
-      searchParams.get("result") ||
-      searchParams.get("redirect_status") ||
-      ""
-    ).toLowerCase();
+    const reconcile = async () => {
+      // Find pending stripe bookings for this user
+      const { data: pendingBookings, error } = await supabase
+        .from("bookings")
+        .select("id, table_id, start_time, end_time, payment_id")
+        .eq("user_id", user.id)
+        .eq("payment_method", "stripe")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(5);
 
-    const canceledParam = (
-      searchParams.get("canceled") ||
-      searchParams.get("cancelled") ||
-      ""
-    ).toLowerCase();
-
-    const hasExplicitSuccess = [
-      "success",
-      "paid",
-      "succeeded",
-      "true",
-      "1",
-      "complete",
-    ].includes(statusParam);
-
-    const isCanceled = ["1", "true", "cancel", "canceled", "cancelled"].includes(canceledParam);
-
-    const confirmMirroredBooking = async () => {
-      // Only confirm when we have a booking ID + explicit success signal
-      if (!externalBookingId || !hasExplicitSuccess || isCanceled) {
-        sessionStorage.removeItem("pending_booking_id");
+      if (error || !pendingBookings?.length) {
+        setConfirming(false);
         return;
       }
 
-      const { error } = await supabase
-        .from("bookings")
-        .update({ status: "confirmed" })
-        .eq("payment_method", "stripe")
-        .eq("payment_id", externalBookingId)
-        .eq("user_id", user.id)
-        .eq("status", "pending");
+      // Also fetch tables to get hardware_id mapping
+      const tableIds = [...new Set(pendingBookings.map((b) => b.table_id))];
+      const { data: tables } = await supabase
+        .from("tables")
+        .select("id, hardware_id")
+        .in("id", tableIds);
 
-      if (error) {
-        console.error("Failed to confirm mirrored booking by external booking ID:", error);
+      const tableMap = new Map(tables?.map((t) => [t.id, t.hardware_id]) || []);
+
+      let anyConfirmed = false;
+
+      for (const booking of pendingBookings) {
+        const hardwareId = tableMap.get(booking.table_id);
+        if (!hardwareId) continue;
+
+        const start = new Date(booking.start_time);
+        const end = new Date(booking.end_time);
+        const durationHrs = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+        const startHour = start.getHours();
+        const dateStr = `${start.getFullYear()}-${(start.getMonth() + 1).toString().padStart(2, "0")}-${start.getDate().toString().padStart(2, "0")}`;
+
+        let allSessionsBooked = true;
+
+        for (let i = 0; i < durationHrs; i++) {
+          const sessionId = `${dateStr}-${(startHour + i).toString().padStart(2, "0")}`;
+          try {
+            const res = await fetch(
+              `https://anytime-pool-api.onrender.com/api/bookings/availability?sessionId=${sessionId}&tableId=${hardwareId}`
+            );
+            if (res.ok) {
+              const data = await res.json();
+              // If the session is available, it means payment wasn't confirmed yet
+              if (data.available === true) {
+                allSessionsBooked = false;
+                break;
+              }
+            } else {
+              allSessionsBooked = false;
+              break;
+            }
+          } catch {
+            allSessionsBooked = false;
+            break;
+          }
+        }
+
+        if (allSessionsBooked) {
+          // External API confirms booking is paid — update local mirror
+          const { error: updateErr } = await supabase
+            .from("bookings")
+            .update({ status: "confirmed" })
+            .eq("id", booking.id)
+            .eq("status", "pending");
+
+          if (!updateErr) anyConfirmed = true;
+        }
       }
 
-      sessionStorage.removeItem("pending_booking_id");
+      if (anyConfirmed) {
+        queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+        queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] });
+        queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+        sessionStorage.removeItem("pending_booking_id");
+        setConfirming(false);
+      } else if (retryCount < MAX_RETRIES && !cancelled) {
+        // Webhook may not have fired yet, retry
+        retryCount++;
+        setTimeout(() => {
+          if (!cancelled) reconcile();
+        }, RETRY_DELAY);
+      } else {
+        setConfirming(false);
+      }
     };
 
-    void confirmMirroredBooking();
-  }, [user]);
+    reconcile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, queryClient]);
 
   return (
     <div className="min-h-screen bg-background dark flex items-center justify-center p-6">
       <Card className="card-premium max-w-md w-full text-center">
         <CardContent className="pt-10 pb-8 space-y-6">
           <div className="flex justify-center">
-            <CheckCircle className="h-16 w-16 text-primary" />
+            {confirming ? (
+              <Loader2 className="h-16 w-16 text-accent animate-spin" />
+            ) : (
+              <CheckCircle className="h-16 w-16 text-primary" />
+            )}
           </div>
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-foreground">Payment Successful</h1>
-            <p className="text-muted-foreground">Your booking is confirmed.</p>
+            <h1 className="text-2xl font-bold text-foreground">
+              {confirming ? "Confirming Payment..." : "Payment Successful"}
+            </h1>
+            <p className="text-muted-foreground">
+              {confirming
+                ? "Please wait while we verify your payment."
+                : "Your booking is confirmed."}
+            </p>
           </div>
           <div className="flex flex-col gap-3 pt-4">
             <Link to="/dashboard">
