@@ -991,7 +991,7 @@ function PromosTab() {
                       {p.discount_type === "percentage" ? `${p.discount_value}%` : `$${p.discount_value}`} off
                       {p.minimum_spend ? ` · Min $${p.minimum_spend}` : ""}
                       {p.max_discount_amount ? ` · Max $${p.max_discount_amount}` : ""}
-                      {p.expiry_date ? ` · Expires ${new Date(p.expiry_date).toLocaleDateString()}` : ""}
+                      {p.expiry_date ? ` · Expires ${fmtDateSG(p.expiry_date)}` : ""}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
