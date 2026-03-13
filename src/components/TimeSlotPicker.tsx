@@ -32,8 +32,8 @@ interface TimeSlotPickerProps {
 
 const PENDING_LOCK_MINUTES = 5;
 
-function generateSlots(): {time: string;label: string;}[] {
-  const slots: {time: string;label: string;}[] = [];
+function generateSlots(): { time: string; label: string }[] {
+  const slots: { time: string; label: string }[] = [];
   for (let h = 0; h < 24; h++) {
     for (let m = 0; m < 60; m += 30) {
       const time = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
@@ -59,7 +59,7 @@ export function TimeSlotPicker({
   startSlot,
   endSlot,
   onSelectStart,
-  onSelectEnd
+  onSelectEnd,
 }: TimeSlotPickerProps) {
   const isToday = isTodaySG(date);
   const nowMinutes = nowSGMinutes();
@@ -119,7 +119,7 @@ export function TimeSlotPicker({
   const handleSlotClick = (slot: TimeSlot) => {
     if (!slot.available) return;
 
-    if (!startSlot || startSlot && endSlot) {
+    if (!startSlot || (startSlot && endSlot)) {
       // Start fresh selection
       onSelectStart(slot.time);
       onSelectEnd("");
@@ -165,14 +165,14 @@ export function TimeSlotPicker({
   const isStart = (slotTime: string) => startSlot === slotTime;
 
   // Duration display
-  const duration = startSlot && endSlot ?
-  (() => {
-    const mins = slotToMinutes(endSlot) - slotToMinutes(startSlot);
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    return h > 0 && m > 0 ? `${h}h ${m}m` : h > 0 ? `${h}h` : `${m}m`;
-  })() :
-  null;
+  const duration = startSlot && endSlot
+    ? (() => {
+        const mins = slotToMinutes(endSlot) - slotToMinutes(startSlot);
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return h > 0 && m > 0 ? `${h}h ${m}m` : h > 0 ? `${h}h` : `${m}m`;
+      })()
+    : null;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -181,26 +181,26 @@ export function TimeSlotPicker({
         <Label className="text-base">
           {format(date, "EEEE, d MMM yyyy")} — Available Slots
         </Label>
-        {duration &&
+        {duration && (
           <span className="text-sm text-accent font-medium">
             Duration: {duration}
           </span>
-          }
+        )}
       </div>
 
-      {!startSlot &&
+      {!startSlot && (
         <p className="text-sm text-muted-foreground">Click a slot to set your start time</p>
-        }
-      {startSlot && !endSlot &&
+      )}
+      {startSlot && !endSlot && (
         <p className="text-sm text-muted-foreground">Click another slot to set your end time</p>
-        }
+      )}
 
       <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5">
         {slotAvailability.map((slot) => {
-            const inRange = isInRange(slot.time);
-            const isStartSlot = isStart(slot.time);
+          const inRange = isInRange(slot.time);
+          const isStartSlot = isStart(slot.time);
 
-            const slotButton =
+          const slotButton = (
             <button
               key={slot.time}
               onClick={() => handleSlotClick(slot)}
@@ -212,26 +212,26 @@ export function TimeSlotPicker({
                 slot.state === "pending" && "cursor-not-allowed border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
                 slot.available && !inRange && !isStartSlot && "border-border hover:border-accent/50 hover:bg-accent/5 cursor-pointer text-foreground",
                 isStartSlot && "border-accent bg-accent text-accent-foreground ring-2 ring-accent/30",
-                inRange && !isStartSlot && "border-accent bg-accent/30 text-accent-foreground ring-1 ring-accent/40"
-              )}>
-              
+                inRange && !isStartSlot && "border-accent bg-accent/30 text-accent-foreground ring-1 ring-accent/40",
+              )}
+            >
               {slot.label}
-            </button>;
+            </button>
+          );
 
-
-            if (slot.state === "pending") {
-              return (
-                <Tooltip key={slot.time}>
+          if (slot.state === "pending") {
+            return (
+              <Tooltip key={slot.time}>
                 <TooltipTrigger asChild>{slotButton}</TooltipTrigger>
                 <TooltipContent className="max-w-[220px] text-center">
                   This table is currently being reserved. It may become available if payment is not completed.
                 </TooltipContent>
-              </Tooltip>);
+              </Tooltip>
+            );
+          }
 
-            }
-
-            return slotButton;
-          })}
+          return slotButton;
+        })}
       </div>
 
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-1">
@@ -244,11 +244,11 @@ export function TimeSlotPicker({
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded border border-destructive/40 bg-destructive/10" /> Booked
         </span>
-        <span className="flex items-center gap-1.5">Pending payment (Expires after 5 mins)
-
-            <span className="w-3 h-3 rounded border border-amber-500/40 bg-amber-500/10" /> Pending payment
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded border border-amber-500/40 bg-amber-500/10" /> Pending payment
         </span>
       </div>
     </div>
-    </TooltipProvider>);
+    </TooltipProvider>
+  );
 }
