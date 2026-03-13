@@ -472,9 +472,9 @@ function InvoicesTab() {
                 {sessions.map((s: any) => (
                   <tr key={s.id} className="border-b border-border last:border-0">
                     <td className="py-3 pr-4">Table {s.tables?.table_number ?? "?"}</td>
-                    <td className="py-3 pr-4">{new Date(s.started_at).toLocaleDateString()}</td>
-                    <td className="py-3 pr-4">{new Date(s.started_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
-                    <td className="py-3 pr-4">{new Date(s.ended_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                    <td className="py-3 pr-4">{fmtDateSG(s.started_at)}</td>
+                    <td className="py-3 pr-4">{fmtTimeSG(s.started_at)}</td>
+                    <td className="py-3 pr-4">{fmtTimeSG(s.ended_at)}</td>
                     <td className="py-3 pr-4 font-mono">{formatDuration(s.duration_seconds)}</td>
                     <td className="py-3 pr-4">${Number(s.hourly_rate).toFixed(2)}/hr</td>
                     <td className="py-3 font-medium">${Number(s.total_cost).toFixed(2)}</td>
