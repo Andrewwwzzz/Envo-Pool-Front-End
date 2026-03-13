@@ -35,6 +35,8 @@ const statusBadge: Record<string, string> = {
   pending: "bg-accent/20 text-accent-foreground border-accent/30",
   cancelled: "bg-destructive/10 text-destructive border-destructive/20",
   completed: "bg-muted text-muted-foreground border-border",
+  refunded: "bg-orange-500/10 text-orange-600 border-orange-300",
+  no_show: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
 const paymentLabel: Record<string, string> = {
@@ -49,6 +51,9 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
   if (!booking) return null;
 
   const tableNum = (booking as any).tables?.table_number ?? "?";
+  const isCompleted = (booking.status === "confirmed" || booking.status === "completed") && new Date(booking.end_time) < new Date();
+  const displayStatus = isCompleted ? "completed" : booking.status;
+  const statusLabel = displayStatus === "no_show" ? "No Show" : displayStatus;
   const payment = booking.payment_method
     ? paymentLabel[booking.payment_method] ?? booking.payment_method
     : "N/A";
@@ -81,8 +86,8 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
           {/* Status */}
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Status</span>
-            <Badge variant="outline" className={statusBadge[booking.status] ?? ""}>
-              {booking.status}
+            <Badge variant="outline" className={statusBadge[displayStatus] ?? ""}>
+              {statusLabel}
             </Badge>
           </div>
 
