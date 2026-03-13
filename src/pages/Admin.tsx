@@ -662,8 +662,8 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                   {bookings.map((b: any) => (
                     <tr key={b.id} className="border-b border-border last:border-0">
                       <td className="py-2 pr-4">Table {b.tables?.table_number ?? "?"}</td>
-                      <td className="py-2 pr-4">{new Date(b.start_time).toLocaleDateString()}</td>
-                      <td className="py-2 pr-4">{new Date(b.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                      <td className="py-2 pr-4">{fmtDateSG(b.start_time)}</td>
+                      <td className="py-2 pr-4">{fmtTimeSG(b.start_time)}</td>
                       <td className="py-2 pr-4">{b.duration_hours}h</td>
                       <td className="py-2 pr-4">${b.final_price?.toFixed(2)}</td>
                       <td className="py-2"><Badge variant="outline" className="capitalize">{b.status}</Badge></td>
