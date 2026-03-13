@@ -15,6 +15,12 @@ import Admin from "./pages/Admin";
 import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
 
+const LegacyRedirect = () => {
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get("session_id");
+  return <Navigate to={`/payment-verification${sessionId ? `?session_id=${sessionId}` : ""}`} replace />;
+};
+
 const queryClient = new QueryClient();
 
 const App = () => (
