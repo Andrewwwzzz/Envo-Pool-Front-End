@@ -7,7 +7,9 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Booking from "./pages/Booking";
-import BookingSuccess from "./pages/BookingSuccess";
+import PaymentVerification from "./pages/PaymentVerification";
+import BookingConfirmed from "./pages/BookingConfirmed";
+import BookingRefunded from "./pages/BookingRefunded";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
 import Terms from "./pages/Terms";
@@ -26,7 +28,11 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/booking" element={<Booking />} />
-            <Route path="/booking-success" element={<BookingSuccess />} />
+            <Route path="/payment-verification" element={<PaymentVerification />} />
+            <Route path="/booking-confirmed" element={<BookingConfirmed />} />
+            <Route path="/booking-refunded" element={<BookingRefunded />} />
+            {/* Legacy redirect */}
+            <Route path="/booking-success" element={<Navigate to="/payment-verification" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/terms" element={<Terms />} />
