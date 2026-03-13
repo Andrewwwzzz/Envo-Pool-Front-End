@@ -86,8 +86,8 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
           {/* Status */}
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Status</span>
-            <Badge variant="outline" className={statusBadge[booking.status] ?? ""}>
-              {booking.status}
+            <Badge variant="outline" className={statusBadge[displayStatus] ?? ""}>
+              {statusLabel}
             </Badge>
           </div>
 
