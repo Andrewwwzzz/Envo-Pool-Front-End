@@ -90,7 +90,48 @@ const BookingSuccess = () => {
             .eq("id", booking.id)
             .eq("status", "pending");
 
-          if (!updateErr) anyConfirmed = true;
+          if (!updateErr) {
+            anyConfirmed = true;
+
+            // Award reward points (1 pt per $1 spent)
+            // Fetch the booking's final_price to calculate points
+            const { data: confirmedBooking } = await supabase
+              .from("bookings")
+              .select("final_price")
+              .eq("id", booking.id)
+              .single();
+
+            if (confirmedBooking && confirmedBooking.final_price > 0) {
+              const earnedPoints = Math.floor(confirmedBooking.final_price);
+
+              if (earnedPoints > 0) {
+                // Insert reward transaction
+                await supabase.from("reward_transactions").insert({
+                  user_id: user.id,
+                  type: "earn",
+                  points: earnedPoints,
+                  related_booking_id: booking.id,
+                });
+
+                // Update profile reward_points and total_spent
+                const { data: profile } = await supabase
+                  .from("profiles")
+                  .select("reward_points, total_spent")
+                  .eq("user_id", user.id)
+                  .single();
+
+                if (profile) {
+                  await supabase
+                    .from("profiles")
+                    .update({
+                      reward_points: (profile.reward_points || 0) + earnedPoints,
+                      total_spent: (profile.total_spent || 0) + confirmedBooking.final_price,
+                    })
+                    .eq("user_id", user.id);
+                }
+              }
+            }
+          }
         }
       }
 
