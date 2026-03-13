@@ -187,7 +187,7 @@ function BookingsTab() {
                 const canDelete = b.status === "pending" || b.status === "cancelled";
                 const canAction = b.status === "confirmed" || b.status === "pending";
                 return (
-                  <tr key={b.id} className="border-b border-border last:border-0">
+                  <tr key={b.id} className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setSelectedBooking(b)}>
                     <td className="py-3 pr-4">Table {(b as any).tables?.table_number ?? "?"}</td>
                     <td className="py-3 pr-4">{new Date(b.start_time).toLocaleDateString()}</td>
                     <td className="py-3 pr-4">{new Date(b.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} – {new Date(b.end_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
