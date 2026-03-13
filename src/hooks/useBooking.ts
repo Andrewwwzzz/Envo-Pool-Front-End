@@ -61,7 +61,7 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
 
       if (bErr) throw bErr;
 
-      const now = new Date();
+      const nowMs = Date.now();
 
       return tables.map((t) => {
         // If table is under maintenance
@@ -80,7 +80,10 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
           return { ...t, hardware_id: t.hardware_id, status: "Booked" as TableStatus };
         }
 
-        const hasPending = overlapping.some((b) => b.status === "pending");
+        const hasPending = overlapping.some((b) => {
+          if (b.status !== "pending") return false;
+          return new Date(b.created_at).getTime() > nowMs - PENDING_LOCK_MINUTES * 60 * 1000;
+        });
         if (hasPending) {
           return { ...t, hardware_id: t.hardware_id, status: "Pending Payment" as TableStatus };
         }
