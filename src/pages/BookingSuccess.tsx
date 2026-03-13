@@ -186,10 +186,20 @@ const BookingSuccess = () => {
             {status === "loading" && (
               <>
                 <h1 className="text-2xl font-bold text-foreground">
-                  Confirming Payment...
+                  Verifying Payment...
                 </h1>
                 <p className="text-muted-foreground">
-                  Please wait while we verify your payment.
+                  Please wait while we check your payment status.
+                </p>
+              </>
+            )}
+            {status === "processing" && (
+              <>
+                <h1 className="text-2xl font-bold text-foreground">
+                  Payment Received
+                </h1>
+                <p className="text-muted-foreground">
+                  Confirming your booking... This may take a moment.
                 </p>
               </>
             )}
