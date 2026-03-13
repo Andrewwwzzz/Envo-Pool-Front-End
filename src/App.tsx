@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -14,6 +14,12 @@ import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
 import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
+
+const LegacyRedirect = () => {
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get("session_id");
+  return <Navigate to={`/payment-verification${sessionId ? `?session_id=${sessionId}` : ""}`} replace />;
+};
 
 const queryClient = new QueryClient();
 
@@ -31,8 +37,8 @@ const App = () => (
             <Route path="/payment-verification" element={<PaymentVerification />} />
             <Route path="/booking-confirmed" element={<BookingConfirmed />} />
             <Route path="/booking-refunded" element={<BookingRefunded />} />
-            {/* Legacy redirect */}
-            <Route path="/booking-success" element={<Navigate to="/payment-verification" replace />} />
+            {/* Legacy redirect — preserves query params */}
+            <Route path="/booking-success" element={<LegacyRedirect />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/terms" element={<Terms />} />
