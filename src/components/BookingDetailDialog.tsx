@@ -51,6 +51,9 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
   if (!booking) return null;
 
   const tableNum = (booking as any).tables?.table_number ?? "?";
+  const isCompleted = (booking.status === "confirmed" || booking.status === "completed") && new Date(booking.end_time) < new Date();
+  const displayStatus = isCompleted ? "completed" : booking.status;
+  const statusLabel = displayStatus === "no_show" ? "No Show" : displayStatus;
   const payment = booking.payment_method
     ? paymentLabel[booking.payment_method] ?? booking.payment_method
     : "N/A";
