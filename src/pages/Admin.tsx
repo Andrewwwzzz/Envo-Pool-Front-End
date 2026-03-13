@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import BookingDetailDialog from "@/components/BookingDetailDialog";
 import { useTermsContent, useUpdateTerms } from "@/hooks/useTerms";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useProfile";
@@ -132,6 +133,7 @@ function BookingsTab() {
   const deleteBooking = useDeleteBooking();
   const updateStatus = useUpdateBookingStatus();
   const [filter, setFilter] = useState<BookingFilter>("all");
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
 
   const now = new Date();
   const todayStart = new Date(now);
@@ -154,6 +156,7 @@ function BookingsTab() {
 
   if (isLoading) return <p className="text-muted-foreground">Loading...</p>;
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -185,7 +188,7 @@ function BookingsTab() {
                 const canDelete = b.status === "pending" || b.status === "cancelled";
                 const canAction = b.status === "confirmed" || b.status === "pending";
                 return (
-                  <tr key={b.id} className="border-b border-border last:border-0">
+                  <tr key={b.id} className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setSelectedBooking(b)}>
                     <td className="py-3 pr-4">Table {(b as any).tables?.table_number ?? "?"}</td>
                     <td className="py-3 pr-4">{new Date(b.start_time).toLocaleDateString()}</td>
                     <td className="py-3 pr-4">{new Date(b.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} – {new Date(b.end_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
@@ -200,7 +203,7 @@ function BookingsTab() {
                       }`}>{b.status === "no_show" ? "No Show" : b.status}</Badge>
                     </td>
                     <td className="py-3">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         {canDelete && (
                           <Button variant="ghost" size="sm" onClick={() => deleteBooking.mutate(b.id)} disabled={deleteBooking.isPending}>
                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -237,6 +240,13 @@ function BookingsTab() {
         </div>
       </CardContent>
     </Card>
+
+    <BookingDetailDialog
+      booking={selectedBooking}
+      open={!!selectedBooking}
+      onOpenChange={(open) => { if (!open) setSelectedBooking(null); }}
+    />
+    </>
   );
 }
 
