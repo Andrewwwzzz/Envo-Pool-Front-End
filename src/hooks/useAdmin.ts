@@ -417,21 +417,73 @@ export function useAdminStats() {
   });
 }
 
-export function useAdminCustomers(searchEmail: string) {
+export function useAdminCustomers(searchTerm: string) {
   return useQuery({
-    queryKey: ["admin-customers", searchEmail],
+    queryKey: ["admin-customers", searchTerm],
     queryFn: async () => {
-      if (!searchEmail.trim()) return [];
-      const { data, error } = await supabase
+      let query = supabase
         .from("profiles")
         .select("*")
-        .ilike("email", `%${searchEmail}%`)
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(100);
+      if (searchTerm.trim()) {
+        query = query.or(`email.ilike.%${searchTerm}%,name.ilike.%${searchTerm}%`);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    enabled: searchEmail.trim().length > 0,
+  });
+}
+
+export function useCustomerBookings(userId: string) {
+  return useQuery({
+    queryKey: ["admin-customer-bookings", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("*, tables(table_number)")
+        .eq("user_id", userId)
+        .order("start_time", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!userId,
+  });
+}
+
+export function useCustomerWalletHistory(userId: string) {
+  return useQuery({
+    queryKey: ["admin-customer-wallet", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("wallet_transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!userId,
+  });
+}
+
+export function useCustomerRewardHistory(userId: string) {
+  return useQuery({
+    queryKey: ["admin-customer-rewards", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reward_transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!userId,
   });
 }
 
