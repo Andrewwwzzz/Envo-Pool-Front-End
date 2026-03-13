@@ -202,7 +202,7 @@ function BookingsTab() {
                       }`}>{b.status === "no_show" ? "No Show" : b.status}</Badge>
                     </td>
                     <td className="py-3">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         {canDelete && (
                           <Button variant="ghost" size="sm" onClick={() => deleteBooking.mutate(b.id)} disabled={deleteBooking.isPending}>
                             <Trash2 className="h-4 w-4 text-destructive" />
