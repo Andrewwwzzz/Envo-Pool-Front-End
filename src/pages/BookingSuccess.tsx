@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 
-type VerifyStatus = "loading" | "confirmed" | "expired" | "error";
+type VerifyStatus = "loading" | "confirmed" | "expired" | "processing" | "error";
 
 const BookingSuccess = () => {
   const { user } = useAuth();
@@ -24,8 +24,8 @@ const BookingSuccess = () => {
 
     let cancelled = false;
     let retryCount = 0;
-    const MAX_RETRIES = 6;
-    const RETRY_DELAY = 5000;
+    const MAX_RETRIES = 30;
+    const RETRY_DELAY = 2000;
 
     const verify = async () => {
       try {
@@ -61,13 +61,23 @@ const BookingSuccess = () => {
         }
 
         if (data.status === "confirmed") {
-          // Reconcile local bookings
           await reconcileBookings();
           if (!cancelled) setStatus("confirmed");
           return;
         }
 
-        // Still pending — retry
+        if (data.status === "processing") {
+          if (!cancelled) setStatus("processing");
+          if (retryCount < MAX_RETRIES && !cancelled) {
+            retryCount++;
+            setTimeout(() => { if (!cancelled) verify(); }, RETRY_DELAY);
+          } else {
+            if (!cancelled) setStatus("error");
+          }
+          return;
+        }
+
+        // Unknown status — retry
         if (retryCount < MAX_RETRIES && !cancelled) {
           retryCount++;
           setTimeout(() => { if (!cancelled) verify(); }, RETRY_DELAY);
@@ -158,7 +168,7 @@ const BookingSuccess = () => {
       <Card className="card-premium max-w-md w-full text-center">
         <CardContent className="pt-10 pb-8 space-y-6">
           <div className="flex justify-center">
-            {status === "loading" && (
+            {(status === "loading" || status === "processing") && (
               <Loader2 className="h-16 w-16 text-accent animate-spin" />
             )}
             {status === "confirmed" && (
@@ -176,10 +186,20 @@ const BookingSuccess = () => {
             {status === "loading" && (
               <>
                 <h1 className="text-2xl font-bold text-foreground">
-                  Confirming Payment...
+                  Verifying Payment...
                 </h1>
                 <p className="text-muted-foreground">
-                  Please wait while we verify your payment.
+                  Please wait while we check your payment status.
+                </p>
+              </>
+            )}
+            {status === "processing" && (
+              <>
+                <h1 className="text-2xl font-bold text-foreground">
+                  Payment Received
+                </h1>
+                <p className="text-muted-foreground">
+                  Confirming your booking... This may take a moment.
                 </p>
               </>
             )}
