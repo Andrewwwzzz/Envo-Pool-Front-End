@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
+import { fmtDateSG, fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
 import { useTermsContent, useUpdateTerms } from "@/hooks/useTerms";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useProfile";
