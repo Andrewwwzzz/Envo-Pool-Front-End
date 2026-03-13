@@ -481,30 +481,16 @@ function CustomersTab() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const { data: customers, isLoading } = useAdminCustomers(debouncedSearch);
-  const updateProfile = useUpdateCustomerProfile();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [walletInput, setWalletInput] = useState("");
-  const [pointsInput, setPointsInput] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(t);
   }, [search]);
 
-  const startEdit = (customer: any) => {
-    setEditingId(customer.user_id);
-    setWalletInput(String(customer.wallet_balance));
-    setPointsInput(String(customer.reward_points));
-  };
-
-  const saveEdit = (userId: string) => {
-    updateProfile.mutate({
-      userId,
-      wallet_balance: parseFloat(walletInput),
-      reward_points: parseFloat(pointsInput),
-    });
-    setEditingId(null);
-  };
+  if (selectedCustomer) {
+    return <CustomerDetail customer={selectedCustomer} onBack={() => setSelectedCustomer(null)} />;
+  }
 
   return (
     <Card>
@@ -517,69 +503,197 @@ function CustomersTab() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by email..."
+            placeholder="Search by name or email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
           />
         </div>
 
-        {isLoading && <p className="text-muted-foreground text-sm">Searching...</p>}
+        {isLoading && <p className="text-muted-foreground text-sm">Loading...</p>}
 
-        {customers && customers.length === 0 && debouncedSearch && (
+        {customers && customers.length === 0 && (
           <p className="text-muted-foreground text-sm">No customers found.</p>
         )}
 
-        {(customers || []).map((c) => (
-          <div key={c.id} className="rounded-xl border border-border p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">{c.name || "No name"}</p>
-                <p className="text-sm text-muted-foreground">{c.email}</p>
-              </div>
-              {editingId !== c.user_id && (
-                <Button size="sm" variant="outline" onClick={() => startEdit(c)}>Edit</Button>
-              )}
-            </div>
-
-            {editingId === c.user_id ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label className="text-xs">Wallet Balance ($)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={walletInput}
-                    onChange={(e) => setWalletInput(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Reward Points</Label>
-                  <Input
-                    type="number"
-                    step="1"
-                    value={pointsInput}
-                    onChange={(e) => setPointsInput(e.target.value)}
-                  />
-                </div>
-                <div className="sm:col-span-2 flex gap-2">
-                  <Button size="sm" onClick={() => saveEdit(c.user_id)} disabled={updateProfile.isPending}>
-                    Save
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Cancel</Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex gap-6 text-sm">
-                <span>Wallet: <strong>${c.wallet_balance.toFixed(2)}</strong></span>
-                <span>Points: <strong>{c.reward_points}</strong></span>
-                <span>Total Spent: <strong>${c.total_spent.toFixed(2)}</strong></span>
-              </div>
-            )}
-          </div>
-        ))}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="border-b border-border text-left">
+              <th className="pb-2 pr-4">Name</th>
+              <th className="pb-2 pr-4">Email</th>
+              <th className="pb-2 pr-4">Wallet</th>
+              <th className="pb-2 pr-4">Points</th>
+              <th className="pb-2 pr-4">Total Spent</th>
+              <th className="pb-2">Joined</th>
+            </tr></thead>
+            <tbody>
+              {(customers || []).map((c) => (
+                <tr
+                  key={c.id}
+                  className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => setSelectedCustomer(c)}
+                >
+                  <td className="py-3 pr-4 font-medium">{c.name || "—"}</td>
+                  <td className="py-3 pr-4 text-muted-foreground">{c.email}</td>
+                  <td className="py-3 pr-4">${c.wallet_balance.toFixed(2)}</td>
+                  <td className="py-3 pr-4">{c.reward_points}</td>
+                  <td className="py-3 pr-4">${c.total_spent.toFixed(2)}</td>
+                  <td className="py-3 text-muted-foreground">{new Date(c.created_at).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </CardContent>
     </Card>
+  );
+}
+
+function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => void }) {
+  const updateProfile = useUpdateCustomerProfile();
+  const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id);
+  const { data: walletHistory } = useCustomerWalletHistory(customer.user_id);
+  const { data: rewardHistory } = useCustomerRewardHistory(customer.user_id);
+  const [editing, setEditing] = useState(false);
+  const [walletInput, setWalletInput] = useState(String(customer.wallet_balance));
+  const [pointsInput, setPointsInput] = useState(String(customer.reward_points));
+
+  const saveEdit = () => {
+    updateProfile.mutate({
+      userId: customer.user_id,
+      wallet_balance: parseFloat(walletInput),
+      reward_points: parseFloat(pointsInput),
+    });
+    setEditing(false);
+  };
+
+  return (
+    <div className="space-y-4">
+      <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="mr-2 h-4 w-4" /> Back to Customers</Button>
+
+      {/* Profile Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>{customer.name || "No Name"}</CardTitle>
+            {!editing && <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit</Button>}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div><p className="text-muted-foreground">Email</p><p className="font-medium">{customer.email}</p></div>
+            <div><p className="text-muted-foreground">Phone</p><p className="font-medium">{customer.phone || "—"}</p></div>
+            <div><p className="text-muted-foreground">DOB</p><p className="font-medium">{customer.date_of_birth || "—"}</p></div>
+            <div><p className="text-muted-foreground">Joined</p><p className="font-medium">{new Date(customer.created_at).toLocaleDateString()}</p></div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div><p className="text-muted-foreground">Age Verified</p><p className="font-medium">{customer.age_verified ? "Yes" : "No"}</p></div>
+            <div><p className="text-muted-foreground">Singpass</p><p className="font-medium">{customer.singpass_verified ? "Verified" : "No"}</p></div>
+          </div>
+
+          {editing ? (
+            <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t border-border">
+              <div className="space-y-1">
+                <Label className="text-xs">Wallet Balance ($)</Label>
+                <Input type="number" step="0.01" value={walletInput} onChange={(e) => setWalletInput(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Reward Points</Label>
+                <Input type="number" step="1" value={pointsInput} onChange={(e) => setPointsInput(e.target.value)} />
+              </div>
+              <div className="sm:col-span-2 flex gap-2">
+                <Button size="sm" onClick={saveEdit} disabled={updateProfile.isPending}>Save</Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-6 text-sm pt-2 border-t border-border">
+              <span>Wallet: <strong>${customer.wallet_balance.toFixed(2)}</strong></span>
+              <span>Points: <strong>{customer.reward_points}</strong></span>
+              <span>Total Spent: <strong>${customer.total_spent.toFixed(2)}</strong></span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Booking History */}
+      <Card>
+        <CardHeader><CardTitle className="text-base">Booking History</CardTitle></CardHeader>
+        <CardContent>
+          {bookingsLoading ? <p className="text-muted-foreground text-sm">Loading...</p> : !bookings?.length ? (
+            <p className="text-muted-foreground text-sm">No bookings.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b border-border text-left">
+                  <th className="pb-2 pr-4">Table</th>
+                  <th className="pb-2 pr-4">Date</th>
+                  <th className="pb-2 pr-4">Time</th>
+                  <th className="pb-2 pr-4">Duration</th>
+                  <th className="pb-2 pr-4">Price</th>
+                  <th className="pb-2">Status</th>
+                </tr></thead>
+                <tbody>
+                  {bookings.map((b: any) => (
+                    <tr key={b.id} className="border-b border-border last:border-0">
+                      <td className="py-2 pr-4">Table {b.tables?.table_number ?? "?"}</td>
+                      <td className="py-2 pr-4">{new Date(b.start_time).toLocaleDateString()}</td>
+                      <td className="py-2 pr-4">{new Date(b.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                      <td className="py-2 pr-4">{b.duration_hours}h</td>
+                      <td className="py-2 pr-4">${b.final_price?.toFixed(2)}</td>
+                      <td className="py-2"><Badge variant="outline" className="capitalize">{b.status}</Badge></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Wallet & Reward History */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-base">Wallet Transactions</CardTitle></CardHeader>
+          <CardContent>
+            {!walletHistory?.length ? <p className="text-muted-foreground text-sm">No transactions.</p> : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {walletHistory.map((t: any) => (
+                  <div key={t.id} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
+                    <div>
+                      <p className="capitalize font-medium">{t.type.replace(/_/g, " ")}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={t.amount >= 0 ? "text-green-600" : "text-destructive"}>{t.amount >= 0 ? "+" : ""}${t.amount.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">Bal: ${t.balance_after.toFixed(2)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">Reward Transactions</CardTitle></CardHeader>
+          <CardContent>
+            {!rewardHistory?.length ? <p className="text-muted-foreground text-sm">No transactions.</p> : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {rewardHistory.map((t: any) => (
+                  <div key={t.id} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
+                    <div>
+                      <p className="capitalize font-medium">{t.type.replace(/_/g, " ")}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p>
+                    </div>
+                    <p className={t.points >= 0 ? "text-green-600" : "text-destructive"}>{t.points >= 0 ? "+" : ""}{t.points} pts</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }
 
