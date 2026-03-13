@@ -16,6 +16,7 @@ interface BookingData {
   id: string;
   start_time: string;
   end_time: string;
+  created_at: string;
   duration_hours: number;
   final_price: number;
   price: number;
