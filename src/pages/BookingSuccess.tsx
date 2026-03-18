@@ -28,31 +28,22 @@ const BookingSuccess = () => {
 
     const verify = async () => {
       try {
-        const res = await fetch(
-          `https://anytime-pool-api.onrender.com/api/payments/verify-session?session_id=${sessionId}`
+        const { data, error } = await supabase.functions.invoke(
+          "verify-stripe-booking",
+          { body: { session_id: sessionId } }
         );
 
-        if (!res.ok) {
+        if (error) {
           if (retryCount < MAX_RETRIES && !cancelled) {
             retryCount++;
             setTimeout(() => { if (!cancelled) verify(); }, RETRY_DELAY);
             return;
           }
-          setStatus("error");
+          if (!cancelled) setStatus("error");
           return;
         }
 
-        const data = await res.json();
-
         if (data.status === "expired") {
-          // Mark local pending bookings as expired
-          await supabase
-            .from("bookings")
-            .update({ status: "expired" })
-            .eq("user_id", user.id)
-            .eq("payment_method", "stripe")
-            .eq("status", "pending");
-
           queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
           queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
           if (!cancelled) setStatus("expired");
@@ -60,7 +51,11 @@ const BookingSuccess = () => {
         }
 
         if (data.status === "confirmed") {
-          await reconcileBookings();
+          queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+          queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] });
+          queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+          queryClient.invalidateQueries({ queryKey: ["profile"] });
+          sessionStorage.removeItem("pending_booking_id");
           if (!cancelled) setStatus("confirmed");
           return;
         }
@@ -91,70 +86,6 @@ const BookingSuccess = () => {
           if (!cancelled) setStatus("error");
         }
       }
-    };
-
-    const reconcileBookings = async () => {
-      const { data: pendingBookings } = await supabase
-        .from("bookings")
-        .select("id, table_id, start_time, end_time, payment_id")
-        .eq("user_id", user.id)
-        .eq("payment_method", "stripe")
-        .eq("status", "pending")
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      if (!pendingBookings?.length) return;
-
-      for (const booking of pendingBookings) {
-        const { error: updateErr } = await supabase
-          .from("bookings")
-          .update({ status: "confirmed" })
-          .eq("id", booking.id)
-          .eq("status", "pending");
-
-        if (!updateErr) {
-          // Award reward points (1 pt per $1 spent)
-          const { data: confirmedBooking } = await supabase
-            .from("bookings")
-            .select("final_price")
-            .eq("id", booking.id)
-            .single();
-
-          if (confirmedBooking && confirmedBooking.final_price > 0) {
-            const earnedPoints = Math.floor(confirmedBooking.final_price);
-
-            if (earnedPoints > 0) {
-              await supabase.from("reward_transactions").insert({
-                user_id: user.id,
-                type: "earn",
-                points: earnedPoints,
-                related_booking_id: booking.id,
-              });
-
-              const { data: profile } = await supabase
-                .from("profiles")
-                .select("reward_points, total_spent")
-                .eq("user_id", user.id)
-                .single();
-
-              if (profile) {
-                await supabase
-                  .from("profiles")
-                  .update({
-                    reward_points: (profile.reward_points || 0) + earnedPoints,
-                    total_spent: (profile.total_spent || 0) + confirmedBooking.final_price,
-                  })
-                  .eq("user_id", user.id);
-              }
-            }
-          }
-        }
-      }
-
-      queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
-      queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] });
-      queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
-      sessionStorage.removeItem("pending_booking_id");
     };
 
     verify();
