@@ -47,14 +47,12 @@ export function useUpdateProfile() {
   return useMutation({
     mutationFn: async (updates: { name?: string; phone?: string; date_of_birth?: string }) => {
       if (!user) throw new Error("Not authenticated");
-      const { data, error } = await supabase
-        .from("profiles")
-        .update(updates)
-        .eq("user_id", user.id)
-        .select()
-        .single();
+      const { error } = await supabase.rpc("update_own_profile", {
+        p_name: updates.name ?? "",
+        p_phone: updates.phone ?? "",
+        p_dob: updates.date_of_birth ?? null,
+      });
       if (error) throw error;
-      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["profile"] });
