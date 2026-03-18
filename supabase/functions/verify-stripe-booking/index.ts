@@ -65,50 +65,49 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     if (paymentData.status === "confirmed") {
-      // Confirm pending stripe bookings for this user
+      // Only confirm the specific booking tied to this session_id
       const { data: pendingBookings } = await supabase
         .from("bookings")
         .select("id, final_price")
         .eq("user_id", user.id)
         .eq("payment_method", "stripe")
         .eq("status", "pending")
-        .order("created_at", { ascending: false })
-        .limit(5);
+        .eq("stripe_session_id", session_id)
+        .limit(1);
 
       if (pendingBookings && pendingBookings.length > 0) {
-        for (const booking of pendingBookings) {
-          const { error: updateErr } = await supabase
-            .from("bookings")
-            .update({ status: "confirmed" })
-            .eq("id", booking.id)
-            .eq("status", "pending");
+        const booking = pendingBookings[0];
+        const { error: updateErr } = await supabase
+          .from("bookings")
+          .update({ status: "confirmed" })
+          .eq("id", booking.id)
+          .eq("status", "pending");
 
-          if (!updateErr && booking.final_price > 0) {
-            const earnedPoints = Math.floor(booking.final_price);
-            if (earnedPoints > 0) {
-              await supabase.from("reward_transactions").insert({
-                user_id: user.id,
-                type: "earn",
-                points: earnedPoints,
-                related_booking_id: booking.id,
-              });
+        if (!updateErr && booking.final_price > 0) {
+          const earnedPoints = Math.floor(booking.final_price);
+          if (earnedPoints > 0) {
+            await supabase.from("reward_transactions").insert({
+              user_id: user.id,
+              type: "earn",
+              points: earnedPoints,
+              related_booking_id: booking.id,
+            });
 
-              const { data: profile } = await supabase
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("reward_points, total_spent")
+              .eq("user_id", user.id)
+              .single();
+
+            if (profile) {
+              await supabase
                 .from("profiles")
-                .select("reward_points, total_spent")
-                .eq("user_id", user.id)
-                .single();
-
-              if (profile) {
-                await supabase
-                  .from("profiles")
-                  .update({
-                    reward_points: (profile.reward_points || 0) + earnedPoints,
-                    total_spent:
-                      (profile.total_spent || 0) + booking.final_price,
-                  })
-                  .eq("user_id", user.id);
-              }
+                .update({
+                  reward_points: (profile.reward_points || 0) + earnedPoints,
+                  total_spent:
+                    (profile.total_spent || 0) + booking.final_price,
+                })
+                .eq("user_id", user.id);
             }
           }
         }
@@ -120,13 +119,14 @@ Deno.serve(async (req) => {
     }
 
     if (paymentData.status === "expired") {
-      // Mark pending stripe bookings as expired
+      // Mark only the specific booking tied to this session as expired
       await supabase
         .from("bookings")
         .update({ status: "expired" })
         .eq("user_id", user.id)
         .eq("payment_method", "stripe")
-        .eq("status", "pending");
+        .eq("status", "pending")
+        .eq("stripe_session_id", session_id);
 
       return new Response(JSON.stringify({ status: "expired" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

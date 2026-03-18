@@ -30,6 +30,7 @@ export type Database = {
           promo_id: string | null
           start_time: string
           status: string
+          stripe_session_id: string | null
           table_id: string
           user_id: string
         }
@@ -48,6 +49,7 @@ export type Database = {
           promo_id?: string | null
           start_time: string
           status?: string
+          stripe_session_id?: string | null
           table_id: string
           user_id: string
         }
@@ -66,6 +68,7 @@ export type Database = {
           promo_id?: string | null
           start_time?: string
           status?: string
+          stripe_session_id?: string | null
           table_id?: string
           user_id?: string
         }

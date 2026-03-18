@@ -329,6 +329,23 @@ const Booking = () => {
         }
 
         const paymentData = await paymentResponse.json();
+
+        // Extract Stripe session_id from checkout URL and store on booking
+        if (localBookingId && paymentData.url) {
+          try {
+            const checkoutUrl = new URL(paymentData.url);
+            const stripeSessionId = paymentData.session_id || checkoutUrl.pathname.split("/").pop() || null;
+            if (stripeSessionId) {
+              await supabase
+                .from("bookings")
+                .update({ stripe_session_id: stripeSessionId } as any)
+                .eq("id", localBookingId);
+            }
+          } catch (e) {
+            console.warn("Could not extract stripe session_id:", e);
+          }
+        }
+
         if (localBookingId) sessionStorage.setItem("pending_booking_id", localBookingId);
         window.location.href = paymentData.url;
       }
