@@ -500,6 +500,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      update_own_profile: {
+        Args: { p_dob?: string; p_name: string; p_phone: string }
+        Returns: undefined
+      }
       validate_promo_code: {
         Args: { p_code: string; p_original_price: number; p_table_id: string }
         Returns: Json
