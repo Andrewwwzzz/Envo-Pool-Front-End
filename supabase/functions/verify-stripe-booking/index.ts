@@ -119,13 +119,14 @@ Deno.serve(async (req) => {
     }
 
     if (paymentData.status === "expired") {
-      // Mark pending stripe bookings as expired
+      // Mark only the specific booking tied to this session as expired
       await supabase
         .from("bookings")
         .update({ status: "expired" })
         .eq("user_id", user.id)
         .eq("payment_method", "stripe")
-        .eq("status", "pending");
+        .eq("status", "pending")
+        .eq("stripe_session_id", session_id);
 
       return new Response(JSON.stringify({ status: "expired" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
