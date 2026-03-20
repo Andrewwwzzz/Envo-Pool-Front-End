@@ -233,52 +233,43 @@ const Booking = () => {
         // Stripe flow: external API + mirror + redirect
         let localBookingId: string | null = null;
 
-        // Session-based booking: send one request per hour
-        const startHour = startDate.getHours();
-        const durationHrs = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60));
-        const dateStr = `${startDate.getFullYear()}-${(startDate.getMonth() + 1).toString().padStart(2, "0")}-${startDate.getDate().toString().padStart(2, "0")}`;
+        // Time-based booking: single request with startTime + duration
+        const durationMinutes = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
 
-        let lastBookingId: string | null = null;
-
-        for (let i = 0; i < durationHrs; i++) {
-          const sessionId = `${dateStr}-${(startHour + i).toString().padStart(2, "0")}`;
-
-          const bookingResponse = await fetch(
-            "https://anytime-pool-api.onrender.com/api/bookings/create",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                userId: "69b29fd2945d95cf8f55c86a",
-                tableId: hardwareId,
-                sessionId,
-              }),
-            }
-          );
-
-          if (!bookingResponse.ok) {
-            if (bookingResponse.status === 409) {
-              toast({
-                title: "Session unavailable",
-                description: "This session has just been booked by another player. Please select another slot.",
-                variant: "destructive",
-              });
-              setStartSlot(null);
-              setEndSlot(null);
-              queryClient.invalidateQueries({ queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()] });
-            } else if (bookingResponse.status === 400) {
-              toast({ title: "Missing booking information", description: "Please fill in all required fields.", variant: "destructive" });
-            } else {
-              toast({ title: "Unable to create booking", description: "Please try again.", variant: "destructive" });
-            }
-            return;
+        const bookingResponse = await fetch(
+          "https://anytime-pool-api.onrender.com/api/bookings/create",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: "69b29fd2945d95cf8f55c86a",
+              tableId: hardwareId,
+              startTime: startDate.toISOString(),
+              duration: durationMinutes,
+            }),
           }
+        );
 
-          const bookingData = await bookingResponse.json();
-          lastBookingId = bookingData._id || bookingData.bookingId || bookingData.id;
+        if (!bookingResponse.ok) {
+          if (bookingResponse.status === 409) {
+            toast({
+              title: "Time slot unavailable",
+              description: "This time slot has just been booked by another player. Please select another slot.",
+              variant: "destructive",
+            });
+            setStartSlot(null);
+            setEndSlot(null);
+            queryClient.invalidateQueries({ queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()] });
+          } else if (bookingResponse.status === 400) {
+            toast({ title: "Missing booking information", description: "Please fill in all required fields.", variant: "destructive" });
+          } else {
+            toast({ title: "Unable to create booking", description: "Please try again.", variant: "destructive" });
+          }
+          return;
         }
 
-        const bookingId = lastBookingId;
+        const bookingData = await bookingResponse.json();
+        const bookingId = bookingData._id || bookingData.bookingId || bookingData.id;
         if (!bookingId) throw new Error("Missing booking ID from booking API response");
 
         // Mirror booking locally
