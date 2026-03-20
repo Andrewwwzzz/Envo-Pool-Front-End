@@ -428,8 +428,6 @@ function TablesTab() {
                   <DeviceControlPanel hardwareId={t.hardware_id} />
                 </div>
               );
-            })}
-            })}
           </div>
         </CardContent>
       </Card>
