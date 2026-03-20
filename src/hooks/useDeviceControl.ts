@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
-const BASE_URL = "http://localhost:3000";
+const BASE_URL = "https://anytime-pool-back-end.onrender.com";
 const API_KEY = "supersecret123";
 
 type DeviceState = "ON" | "OFF" | null;
