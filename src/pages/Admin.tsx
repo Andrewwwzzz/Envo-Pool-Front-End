@@ -423,8 +423,12 @@ function TablesTab() {
                       </Button>
                     )}
                   </div>
+
+                  {/* Device Control */}
+                  <DeviceControlPanel hardwareId={t.hardware_id} />
                 </div>
               );
+            })}
             })}
           </div>
         </CardContent>
