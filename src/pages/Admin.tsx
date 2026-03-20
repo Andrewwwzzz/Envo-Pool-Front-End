@@ -252,6 +252,49 @@ function BookingsTab() {
   );
 }
 
+function DeviceControlPanel({ hardwareId }: { hardwareId: string | null }) {
+  const { state, loading, error } = useDeviceState(hardwareId);
+  const { controlDevice, clearOverride, pending } = useDeviceControl(hardwareId);
+
+  if (!hardwareId) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <WifiOff className="h-3 w-3" /> No hardware linked
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 border-t border-border pt-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm">
+          {loading && !state ? (
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+          ) : (
+            <Wifi className={`h-3 w-3 ${state === "ON" ? "text-primary" : "text-muted-foreground"}`} />
+          )}
+          <span className="text-muted-foreground">Device:</span>
+          <Badge variant="outline" className={state === "ON" ? "bg-primary/10 text-primary border-primary/20" : ""}>
+            {state ?? "Unknown"}
+          </Badge>
+        </div>
+        {error && <span className="text-xs text-destructive">{error}</span>}
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" className="flex-1" onClick={() => controlDevice("ON")} disabled={pending}>
+          {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Power className="mr-1 h-3 w-3" />} ON
+        </Button>
+        <Button size="sm" variant="outline" className="flex-1" onClick={() => controlDevice("OFF")} disabled={pending}>
+          {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <PowerOff className="mr-1 h-3 w-3" />} OFF
+        </Button>
+        <Button size="sm" variant="outline" className="flex-1" onClick={() => clearOverride()} disabled={pending}>
+          {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="mr-1 h-3 w-3" />} AUTO
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function TablesTab() {
   const { data: tables, startTimer, stopTimer, setMaintenance } = useAdminTables();
   const { data: bookings } = useAdminBookings();
