@@ -79,6 +79,7 @@ const Admin = () => {
           <TabsContent value="promos"><PromosTab /></TabsContent>
           <TabsContent value="terms"><TermsTab /></TabsContent>
           <TabsContent value="verification"><VerificationTab /></TabsContent>
+          <TabsContent value="logs"><LogsTab /></TabsContent>
         </Tabs>
       </main>
     </div>
