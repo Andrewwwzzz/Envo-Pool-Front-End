@@ -413,9 +413,10 @@ export function useUpdateCustomerProfile() {
       wallet_balance?: number;
       reward_points?: number;
     }) => {
-      const res = await apiFetch(`/api/admin/customers/${userId}`, {
+      console.log("TOKEN:", localStorage.getItem("token"));
+      const res = await apiFetch(`/api/users/${userId}/wallet`, {
         method: "PATCH",
-        body: JSON.stringify({ walletBalance: wallet_balance, rewardPoints: reward_points }),
+        body: JSON.stringify({ amount: wallet_balance, rewardPoints: reward_points }),
       });
       if (!res.ok) throw new Error("Failed to update customer");
     },
