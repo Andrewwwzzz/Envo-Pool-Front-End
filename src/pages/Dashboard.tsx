@@ -172,9 +172,16 @@ const Dashboard = () => {
           </Link>
           <h1 className="text-xl font-bold tracking-tight gold-gradient">Envo Pool</h1>
         </div>
-        <Button variant="ghost" size="sm" onClick={signOut} className="text-muted-foreground">
-          <LogOut className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link to="/settings">
+            <Button variant="ghost" size="sm" className="text-muted-foreground">
+              <Settings className="h-4 w-4" />
+            </Button>
+          </Link>
+          <Button variant="ghost" size="sm" onClick={signOut} className="text-muted-foreground">
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
       </header>
 
       <main className="relative z-10 mx-auto max-w-4xl p-6 space-y-6">
