@@ -216,7 +216,7 @@ export function useAdminPricingRules() {
     onSuccess: () => {
       toast({ title: "Pricing rule updated" });
       queryClient.invalidateQueries({ queryKey: ["admin-pricing-rules"] });
-      queryClient.invalidateQueries({ queryKey: ["pricing-rules"] });
+      
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
