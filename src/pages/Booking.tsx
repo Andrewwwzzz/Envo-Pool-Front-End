@@ -90,7 +90,7 @@ const Booking = () => {
       return filtered.map((b: any) => ({
         start_time: b.startTime,
         end_time: b.endTime,
-        status: "confirmed" as string,
+        status: b.status === "pending_payment" ? "pending" : "confirmed",
         created_at: b.createdAt || new Date().toISOString(),
       }));
     },
@@ -205,6 +205,7 @@ const Booking = () => {
       tableId: hardwareId,
       startTime: startDate.toISOString(),
       duration: durationMinutes,
+      price: finalPrice,
     };
 
     try {
