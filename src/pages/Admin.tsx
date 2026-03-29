@@ -673,8 +673,9 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
             <div><p className="text-muted-foreground">Joined</p><p className="font-medium">{fmtDateSG(customer.created_at)}</p></div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div><p className="text-muted-foreground">Verified</p><p className="font-medium">{customer.isVerified ? <Badge>Yes</Badge> : <Badge variant="destructive">No</Badge>}</p></div>
+            <div><p className="text-muted-foreground">Role</p><p className="font-medium capitalize">{customer.role}</p></div>
             <div><p className="text-muted-foreground">Age Verified</p><p className="font-medium">{customer.age_verified ? "Yes" : "No"}</p></div>
-            
           </div>
 
           {editing ? (
