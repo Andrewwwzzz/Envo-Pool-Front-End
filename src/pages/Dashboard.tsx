@@ -159,8 +159,8 @@ const Dashboard = () => {
   const getPrice = (b: any) => b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0;
   const getStatus = (b: any) => b.status;
 
-  const upcoming = (bookings || []).filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled");
-  const past = (bookings || []).filter((b: any) => new Date(getStartTime(b)) < now || getStatus(b) === "cancelled");
+  const upcoming = (bookings || []).filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled" && getStatus(b) !== "expired");
+  const past = (bookings || []).filter((b: any) => (new Date(getStartTime(b)) < now || getStatus(b) === "cancelled") && getStatus(b) !== "expired");
 
   return (
     <div className="min-h-screen bg-background dark">
