@@ -32,21 +32,27 @@ const Dashboard = () => {
 
   const cancelBooking = useMutation({
     mutationFn: async (bookingId: string) => {
-      const { error } = await supabase.from("bookings").delete().eq("id", bookingId);
-      if (error) throw error;
+      const res = await fetch(`https://api.envopoolsg.com/api/bookings/${bookingId}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Failed to cancel booking");
+      }
       return bookingId;
     },
     onMutate: async (bookingId) => {
       await queryClient.cancelQueries({ queryKey: ["my-bookings", user?.id] });
       const previous = queryClient.getQueryData(["my-bookings", user?.id]);
       queryClient.setQueryData(["my-bookings", user?.id], (old: any[] | undefined) =>
-        old ? old.filter((b) => b.id !== bookingId) : []
+        old ? old.filter((b) => b.id !== bookingId && b._id !== bookingId) : []
       );
       return { previous };
     },
     onSuccess: () => {
       toast({ title: "Booking cancelled successfully" });
-      queryClient.invalidateQueries({ queryKey: ["my-bookings"], refetchType: "none" });
+      queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
     },
     onError: (err: Error, _bookingId, context) => {
