@@ -66,10 +66,7 @@ const Booking = () => {
     queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()],
     queryFn: async () => {
       if (!selectedTable || !selectedDate) return [];
-      const dayStart = new Date(selectedDate);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(selectedDate);
-      dayEnd.setHours(23, 59, 59, 999);
+      const { dayStart, dayEnd } = sgDayBoundsUTC(selectedDate);
 
       const { data, error } = await supabase.rpc("get_table_booked_slots", {
         p_table_id: selectedTable,
