@@ -40,6 +40,7 @@ const Booking = () => {
   const { user, loading, signOut } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Step 1: Date
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
