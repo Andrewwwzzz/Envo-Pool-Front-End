@@ -154,8 +154,8 @@ const Dashboard = () => {
   const now = new Date();
   const getStartTime = (b: any) => b.startTime || b.start_time;
   const getEndTime = (b: any) => b.endTime || b.end_time;
-  const getTableName = (b: any) => b.tableId?.name || (b as any).tables?.table_number || "?";
-  const getPrice = (b: any) => b.finalPrice ?? b.final_price ?? b.price ?? 0;
+  const getTableLabel = (b: any) => b.tableId?.name || `Table ${(b as any).tables?.table_number || "?"}`;
+  const getPrice = (b: any) => b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0;
   const getStatus = (b: any) => b.status;
 
   const upcoming = (bookings || []).filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled");
