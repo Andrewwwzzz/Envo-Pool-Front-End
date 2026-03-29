@@ -660,7 +660,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div><p className="text-muted-foreground">Age Verified</p><p className="font-medium">{customer.age_verified ? "Yes" : "No"}</p></div>
-            <div><p className="text-muted-foreground">Singpass</p><p className="font-medium">{customer.singpass_verified ? "Verified" : "No"}</p></div>
+            
           </div>
 
           {editing ? (
