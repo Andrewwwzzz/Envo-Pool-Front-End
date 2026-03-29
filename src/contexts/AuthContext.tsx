@@ -1,47 +1,79 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+
+interface BackendUser {
+  id: string;
+  name: string;
+  email: string;
+  isVerified: boolean;
+  walletBalance?: number;
+  rewardPoints?: number;
+}
 
 interface AuthContextType {
-  session: Session | null;
-  user: User | null;
+  user: BackendUser | null;
+  token: string | null;
   loading: boolean;
-  signOut: () => Promise<void>;
+  signOut: () => void;
+  setAuth: (token: string, user: BackendUser) => void;
+  refreshUser: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
-  session: null,
   user: null,
+  token: null,
   loading: true,
-  signOut: async () => {},
+  signOut: () => {},
+  setAuth: () => {},
+  refreshUser: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<BackendUser | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setLoading(false);
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    const savedToken = localStorage.getItem("token");
+    const savedUser = localStorage.getItem("user");
+    if (savedToken && savedUser) {
+      try {
+        setToken(savedToken);
+        setUser(JSON.parse(savedUser));
+      } catch {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+      }
+    }
+    setLoading(false);
   }, []);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const setAuth = (newToken: string, newUser: BackendUser) => {
+    localStorage.setItem("token", newToken);
+    localStorage.setItem("user", JSON.stringify(newUser));
+    setToken(newToken);
+    setUser(newUser);
+  };
+
+  const signOut = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setToken(null);
+    setUser(null);
+  };
+
+  const refreshUser = () => {
+    const savedUser = localStorage.getItem("user");
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch {}
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signOut }}>
+    <AuthContext.Provider value={{ user, token, loading, signOut, setAuth, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
