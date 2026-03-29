@@ -244,7 +244,25 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Upcoming Bookings */}
+        {/* Privacy Setting */}
+        <Card className="card-premium">
+          <CardContent className="pt-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Eye className="h-5 w-5 text-accent" />
+              <div>
+                <Label htmlFor="name-toggle" className="font-medium cursor-pointer">Show my name on bookings</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Other users can see your name on booked slots</p>
+              </div>
+            </div>
+            <Switch
+              id="name-toggle"
+              checked={showName}
+              onCheckedChange={handleToggleNameVisibility}
+              disabled={nameToggleLoading}
+            />
+          </CardContent>
+        </Card>
+
         <Card className="card-premium">
           <CardHeader><CardTitle className="text-lg">Upcoming Reservations</CardTitle></CardHeader>
           <CardContent>
