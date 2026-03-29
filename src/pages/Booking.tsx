@@ -159,9 +159,7 @@ const Booking = () => {
     endDate &&
     endDate > startDate &&
     selectedTable &&
-    paymentMethod &&
-    !durationError &&
-    (paymentMethod !== "wallet" || (profile && profile.wallet_balance >= finalPrice));
+    !durationError;
 
   const handleBookClick = () => {
     setAgreedToTerms(false);
