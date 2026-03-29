@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, Link } from "react-router-dom";
 import { useProfile } from "@/hooks/useProfile";
@@ -8,7 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, Star, Calendar, History, LogOut, ArrowLeft, XCircle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Wallet, Star, Calendar, History, LogOut, ArrowLeft, XCircle, Eye } from "lucide-react";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -28,6 +30,38 @@ const Dashboard = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [showName, setShowName] = useState(true);
+  const [nameToggleLoading, setNameToggleLoading] = useState(false);
+
+  // Fetch initial name visibility preference
+  useEffect(() => {
+    if (!user) return;
+    fetch(`https://api.envopoolsg.com/api/bookings/name-visibility?userId=69b29fd2945d95cf8f55c86a`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data && typeof data.showName === "boolean") setShowName(data.showName); })
+      .catch(() => {});
+  }, [user]);
+
+  const handleToggleNameVisibility = async (checked: boolean) => {
+    setShowName(checked);
+    setNameToggleLoading(true);
+    try {
+      const res = await fetch("https://api.envopoolsg.com/api/bookings/toggle-name-visibility", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: "69b29fd2945d95cf8f55c86a", showName: checked }),
+      });
+      if (!res.ok) {
+        setShowName(!checked);
+        toast({ title: "Failed to update preference", variant: "destructive" });
+      }
+    } catch {
+      setShowName(!checked);
+      toast({ title: "Failed to update preference", variant: "destructive" });
+    } finally {
+      setNameToggleLoading(false);
+    }
+  };
 
   const cancelBooking = useMutation({
     mutationFn: async (bookingId: string) => {
@@ -210,7 +244,25 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Upcoming Bookings */}
+        {/* Privacy Setting */}
+        <Card className="card-premium">
+          <CardContent className="pt-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Eye className="h-5 w-5 text-accent" />
+              <div>
+                <Label htmlFor="name-toggle" className="font-medium cursor-pointer">Show my name on bookings</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Other users can see your name on booked slots</p>
+              </div>
+            </div>
+            <Switch
+              id="name-toggle"
+              checked={showName}
+              onCheckedChange={handleToggleNameVisibility}
+              disabled={nameToggleLoading}
+            />
+          </CardContent>
+        </Card>
+
         <Card className="card-premium">
           <CardHeader><CardTitle className="text-lg">Upcoming Reservations</CardTitle></CardHeader>
           <CardContent>
