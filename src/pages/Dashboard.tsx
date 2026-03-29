@@ -69,28 +69,9 @@ const Dashboard = () => {
     queryFn: async () => {
       if (!user) return [];
 
-      const [walletRes, rewardRes, bookingsRes] = await Promise.all([
-        supabase
-          .from("wallet_transactions")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(30),
-        supabase
-          .from("reward_transactions")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(30),
-        supabase
-          .from("bookings")
-          .select("id, final_price, payment_method, status, created_at, table_id, tables(table_number)")
-          .eq("user_id", user.id)
-          .eq("payment_method", "stripe")
-          .in("status", ["confirmed", "completed"])
-          .order("created_at", { ascending: false })
-          .limit(30),
-      ]);
+      const res = await apiFetch("/api/transactions");
+      if (!res.ok) return [];
+      const data = await res.json();
 
       const items: Array<{
         id: string;
@@ -102,36 +83,36 @@ const Dashboard = () => {
         sortKey: number;
       }> = [];
 
-      (walletRes.data || []).forEach((t) => {
+      (data.walletTransactions || []).forEach((t: any) => {
         const typeLabel = t.type === "adjustment"
           ? "Admin Adjustment"
           : t.type === "booking_payment"
           ? "Wallet Payment"
           : t.type.replace(/_/g, " ");
         items.push({
-          id: `w-${t.id}`,
-          date: t.created_at,
+          id: `w-${t._id || t.id}`,
+          date: t.createdAt || t.created_at,
           label: typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1),
-          sublabel: fmtDateTime(t.created_at),
+          sublabel: fmtDateTime(t.createdAt || t.created_at),
           amount: `${t.amount >= 0 ? "+" : ""}$${Math.abs(t.amount).toFixed(2)}`,
           positive: t.amount >= 0,
-          sortKey: new Date(t.created_at).getTime(),
+          sortKey: new Date(t.createdAt || t.created_at).getTime(),
         });
       });
 
-      (bookingsRes.data || []).forEach((b: any) => {
+      (data.stripePayments || []).forEach((b: any) => {
         items.push({
-          id: `s-${b.id}`,
-          date: b.created_at,
+          id: `s-${b._id || b.id}`,
+          date: b.createdAt || b.created_at,
           label: "Paynow Payment",
-          sublabel: `Table ${b.tables?.table_number ?? "?"} · ${fmtDateTime(b.created_at)}`,
-          amount: `-$${(b.final_price ?? 0).toFixed(2)}`,
+          sublabel: `${b.tableName || "Table ?"} · ${fmtDateTime(b.createdAt || b.created_at)}`,
+          amount: `-$${(b.finalPrice ?? b.final_price ?? b.amount ?? 0).toFixed(2)}`,
           positive: false,
-          sortKey: new Date(b.created_at).getTime(),
+          sortKey: new Date(b.createdAt || b.created_at).getTime(),
         });
       });
 
-      (rewardRes.data || []).forEach((t) => {
+      (data.rewardTransactions || []).forEach((t: any) => {
         const label = t.type === "adjustment"
           ? "Admin Points Adjustment"
           : t.type === "earn"
@@ -140,13 +121,13 @@ const Dashboard = () => {
           ? "Points Redeemed"
           : t.type;
         items.push({
-          id: `r-${t.id}`,
-          date: t.created_at,
+          id: `r-${t._id || t.id}`,
+          date: t.createdAt || t.created_at,
           label,
-          sublabel: fmtDateTime(t.created_at),
+          sublabel: fmtDateTime(t.createdAt || t.created_at),
           amount: `${t.points >= 0 ? "+" : ""}${t.points} pts`,
           positive: t.points >= 0,
-          sortKey: new Date(t.created_at).getTime(),
+          sortKey: new Date(t.createdAt || t.created_at).getTime(),
         });
       });
 
