@@ -137,7 +137,7 @@ export function useAdminPricingRules() {
   const query = useQuery({
     queryKey: ["admin-pricing-rules"],
     queryFn: async () => {
-      const res = await apiFetch("/api/pricing-rules");
+      const res = await apiFetch("/api/admin/pricing-rules");
       if (!res.ok) throw new Error("Failed to fetch pricing rules");
       return await res.json();
     },
@@ -164,7 +164,6 @@ export function useAdminPricingRules() {
     onSuccess: () => {
       toast({ title: "Pricing rule created" });
       queryClient.invalidateQueries({ queryKey: ["admin-pricing-rules"] });
-      queryClient.invalidateQueries({ queryKey: ["pricing-rules"] });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -179,7 +178,6 @@ export function useAdminPricingRules() {
     onSuccess: () => {
       toast({ title: "Pricing rule deleted" });
       queryClient.invalidateQueries({ queryKey: ["admin-pricing-rules"] });
-      queryClient.invalidateQueries({ queryKey: ["pricing-rules"] });
     },
   });
 
@@ -193,7 +191,6 @@ export function useAdminPricingRules() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-pricing-rules"] });
-      queryClient.invalidateQueries({ queryKey: ["pricing-rules"] });
     },
   });
 
@@ -219,7 +216,7 @@ export function useAdminPricingRules() {
     onSuccess: () => {
       toast({ title: "Pricing rule updated" });
       queryClient.invalidateQueries({ queryKey: ["admin-pricing-rules"] });
-      queryClient.invalidateQueries({ queryKey: ["pricing-rules"] });
+      
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
