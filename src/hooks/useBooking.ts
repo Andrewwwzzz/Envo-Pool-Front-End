@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -37,59 +36,64 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
   return useQuery({
     queryKey: ["tables-with-status", startTime?.toISOString(), endTime?.toISOString()],
     queryFn: async (): Promise<TableWithStatus[]> => {
-      const { data: tables, error } = await supabase
-        .from("tables")
-        .select("*")
-        .order("table_number");
-
-      if (error) throw error;
+      const res = await apiFetch("/api/tables");
+      if (!res.ok) throw new Error("Failed to fetch tables");
+      const tables = await res.json();
 
       if (!startTime || !endTime) {
-        return tables.map((t) => ({
-          id: t.id,
-          table_number: t.table_number,
-          hardware_id: t.hardware_id,
-          status: t.timer_started_at ? "In Use" as TableStatus : t.status === "maintenance" ? "Maintenance" as TableStatus : "Available" as TableStatus,
+        return (tables || []).map((t: any) => ({
+          id: t._id || t.id,
+          table_number: t.tableNumber ?? t.table_number,
+          hardware_id: t.hardwareId ?? t.hardware_id ?? null,
+          status: t.timerStartedAt || t.timer_started_at
+            ? "In Use" as TableStatus
+            : t.status === "maintenance"
+            ? "Maintenance" as TableStatus
+            : "Available" as TableStatus,
         }));
       }
 
-      const { data: bookings, error: bErr } = await supabase
-        .from("bookings")
-        .select("*")
-        .in("status", ["pending", "confirmed"])
-        .lt("start_time", endTime.toISOString())
-        .gt("end_time", startTime.toISOString());
-
-      if (bErr) throw bErr;
+      // Fetch availability to determine status
+      const params = new URLSearchParams({
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+      });
+      const availRes = await apiFetch(`/api/bookings/availability?${params}`);
+      const bookings = availRes.ok ? await availRes.json() : [];
 
       const nowMs = Date.now();
 
-      return tables.map((t) => {
-        // If table is under maintenance
+      return (tables || []).map((t: any) => {
+        const tableId = t._id || t.id;
+        const hardwareId = t.hardwareId ?? t.hardware_id ?? null;
+
         if (t.status === "maintenance") {
-          return { ...t, hardware_id: t.hardware_id, status: "Maintenance" as TableStatus };
+          return { id: tableId, table_number: t.tableNumber ?? t.table_number, hardware_id: hardwareId, status: "Maintenance" as TableStatus };
         }
-        // If table has an active timer, it's in use by admin
-        if (t.timer_started_at) {
-          return { ...t, hardware_id: t.hardware_id, status: "In Use" as TableStatus };
+        if (t.timerStartedAt || t.timer_started_at) {
+          return { id: tableId, table_number: t.tableNumber ?? t.table_number, hardware_id: hardwareId, status: "In Use" as TableStatus };
         }
 
-        const overlapping = (bookings || []).filter((b) => b.table_id === t.id);
+        const overlapping = (bookings || []).filter((b: any) => {
+          const bTableId = typeof b.tableId === "object" ? b.tableId?.hardware_id || b.tableId?._id : b.tableId;
+          return bTableId === hardwareId || bTableId === tableId;
+        });
 
-        const hasConfirmed = overlapping.some((b) => b.status === "confirmed");
+        const hasConfirmed = overlapping.some((b: any) => b.status === "confirmed");
         if (hasConfirmed) {
-          return { ...t, hardware_id: t.hardware_id, status: "Booked" as TableStatus };
+          return { id: tableId, table_number: t.tableNumber ?? t.table_number, hardware_id: hardwareId, status: "Booked" as TableStatus };
         }
 
-        const hasPending = overlapping.some((b) => {
-          if (b.status !== "pending") return false;
-          return new Date(b.created_at).getTime() > nowMs - PENDING_LOCK_MINUTES * 60 * 1000;
+        const hasPending = overlapping.some((b: any) => {
+          if (b.status !== "pending_payment" && b.status !== "pending") return false;
+          const createdAt = b.createdAt || b.created_at;
+          return createdAt ? new Date(createdAt).getTime() > nowMs - PENDING_LOCK_MINUTES * 60 * 1000 : true;
         });
         if (hasPending) {
-          return { ...t, hardware_id: t.hardware_id, status: "Pending Payment" as TableStatus };
+          return { id: tableId, table_number: t.tableNumber ?? t.table_number, hardware_id: hardwareId, status: "Pending Payment" as TableStatus };
         }
 
-        return { ...t, hardware_id: t.hardware_id, status: "Available" as TableStatus };
+        return { id: tableId, table_number: t.tableNumber ?? t.table_number, hardware_id: hardwareId, status: "Available" as TableStatus };
       });
     },
     enabled: true,
@@ -119,42 +123,43 @@ export function useCreateBooking() {
 
       const { tableId, startTime, endTime, originalPrice, discountAmount, finalPrice, promoId, paymentMethod } = params;
 
-      // Validate duration client-side (server also validates via constraints)
       const durationError = validateDuration(startTime, endTime);
       if (durationError) throw new Error(durationError);
 
-      const durationHours = calculateDurationHours(startTime, endTime);
+      const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
 
-      // Call atomic server-side function that handles all checks and mutations
-      const { data, error } = await supabase.rpc("create_booking_atomic", {
-        p_table_id: tableId,
-        p_start_time: startTime.toISOString(),
-        p_end_time: endTime.toISOString(),
-        p_duration_hours: durationHours,
-        p_original_price: originalPrice,
-        p_discount_amount: discountAmount,
-        p_final_price: finalPrice,
-        p_promo_id: promoId,
-        p_payment_method: paymentMethod,
+      const endpoint = paymentMethod === "wallet"
+        ? "/api/bookings/create-with-wallet"
+        : "/api/bookings/create-with-payment";
+
+      const res = await apiFetch(endpoint, {
+        method: "POST",
+        body: JSON.stringify({
+          userId: user.id,
+          tableId,
+          startTime: startTime.toISOString(),
+          duration: durationMinutes,
+          price: finalPrice,
+          promoId,
+        }),
       });
 
-      if (error) throw new Error(error.message);
-
-      const result = data as unknown as { success?: boolean; error?: string; booking_id?: string; status?: string };
-
-      if (result.error) {
-        throw new Error(result.error);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || data.message || "Booking failed");
       }
 
+      const data = await res.json();
       return {
-        id: result.booking_id,
-        status: result.status,
+        id: data.bookingId || data.id,
+        status: data.status || (paymentMethod === "wallet" ? "confirmed" : "pending"),
+        checkoutUrl: data.checkoutUrl,
       };
     },
     onSuccess: (_data, variables) => {
       const msg = variables.paymentMethod === "wallet"
         ? "Booking confirmed! Payment deducted from wallet."
-        : "Booking created. Complete Stripe payment to confirm.";
+        : "Booking created. Complete payment to confirm.";
       toast({ title: "Booking created", description: msg });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
       queryClient.invalidateQueries({ queryKey: ["profile"] });

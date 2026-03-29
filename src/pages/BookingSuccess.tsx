@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle, Loader2, XCircle, AlertTriangle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -28,10 +28,12 @@ const BookingSuccess = () => {
 
     const verify = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke(
-          "verify-stripe-booking",
-          { body: { session_id: sessionId } }
-        );
+        const res = await apiFetch("/api/bookings/verify-stripe", {
+          method: "POST",
+          body: JSON.stringify({ session_id: sessionId }),
+        });
+        const data = res.ok ? await res.json() : null;
+        const error = !res.ok;
 
         if (error) {
           if (retryCount < MAX_RETRIES && !cancelled) {

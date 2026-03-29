@@ -1,18 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { apiFetch } from "@/lib/api";
 
 export function useAdminBookings() {
   return useQuery({
     queryKey: ["admin-bookings"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("bookings")
-        .select("*, tables(table_number)")
-        .order("start_time", { ascending: false })
-        .limit(200);
-      if (error) throw error;
-      return data || [];
+      const res = await apiFetch("/api/admin/bookings");
+      if (!res.ok) throw new Error("Failed to fetch bookings");
+      return await res.json();
     },
     refetchInterval: 30000,
   });
@@ -24,10 +20,8 @@ export function useDeleteBooking() {
 
   return useMutation({
     mutationFn: async (bookingId: string) => {
-      // Delete related promo_usage first
-      await supabase.from("promo_usage").delete().eq("booking_id", bookingId);
-      const { error } = await supabase.from("bookings").delete().eq("id", bookingId);
-      if (error) throw error;
+      const res = await apiFetch(`/api/admin/bookings/${bookingId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete booking");
     },
     onSuccess: () => {
       toast({ title: "Booking deleted" });
@@ -47,22 +41,28 @@ export function useAdminTables() {
   const tablesQuery = useQuery({
     queryKey: ["admin-tables"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tables")
-        .select("*")
-        .order("table_number");
-      if (error) throw error;
-      return data || [];
+      const res = await apiFetch("/api/tables");
+      if (!res.ok) throw new Error("Failed to fetch tables");
+      const data = await res.json();
+      return (data || []).map((t: any) => ({
+        id: t._id || t.id,
+        table_number: t.tableNumber ?? t.table_number,
+        hardware_id: t.hardwareId ?? t.hardware_id ?? null,
+        hourly_rate: t.hourlyRate ?? t.hourly_rate ?? null,
+        status: t.status ?? "available",
+        timer_started_at: t.timerStartedAt ?? t.timer_started_at ?? null,
+        created_at: t.createdAt ?? t.created_at ?? "",
+      }));
     },
   });
 
   const updateStatus = useMutation({
     mutationFn: async ({ tableId, status }: { tableId: string; status: string }) => {
-      const { error } = await supabase
-        .from("tables")
-        .update({ status })
-        .eq("id", tableId);
-      if (error) throw error;
+      const res = await apiFetch(`/api/admin/tables/${tableId}/status`, {
+        method: "POST",
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error("Failed to update table status");
     },
     onSuccess: () => {
       toast({ title: "Table updated" });
@@ -73,11 +73,11 @@ export function useAdminTables() {
 
   const startTimer = useMutation({
     mutationFn: async ({ tableId, hourlyRate }: { tableId: string; hourlyRate: number }) => {
-      const { error } = await supabase
-        .from("tables")
-        .update({ status: "available", timer_started_at: new Date().toISOString(), hourly_rate: hourlyRate })
-        .eq("id", tableId);
-      if (error) throw error;
+      const res = await apiFetch(`/api/admin/tables/${tableId}/start-timer`, {
+        method: "POST",
+        body: JSON.stringify({ hourlyRate }),
+      });
+      if (!res.ok) throw new Error("Failed to start timer");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
@@ -87,27 +87,12 @@ export function useAdminTables() {
 
   const stopTimer = useMutation({
     mutationFn: async ({ tableId, durationSeconds, hourlyRate, startedAt }: { tableId: string; durationSeconds: number; hourlyRate: number; startedAt: string }) => {
-      const totalCost = Math.round((durationSeconds / 3600) * hourlyRate * 100) / 100;
-
-      // Save invoice record
-      const { error: invoiceErr } = await supabase.from("timer_sessions").insert({
-        table_id: tableId,
-        started_at: startedAt,
-        ended_at: new Date().toISOString(),
-        duration_seconds: durationSeconds,
-        hourly_rate: hourlyRate,
-        total_cost: totalCost,
+      const res = await apiFetch(`/api/admin/tables/${tableId}/stop-timer`, {
+        method: "POST",
+        body: JSON.stringify({ durationSeconds, hourlyRate, startedAt }),
       });
-      if (invoiceErr) throw invoiceErr;
-
-      // Reset table
-      const { error } = await supabase
-        .from("tables")
-        .update({ status: "available", timer_started_at: null })
-        .eq("id", tableId);
-      if (error) throw error;
-
-      return { totalCost, durationSeconds };
+      if (!res.ok) throw new Error("Failed to stop timer");
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
@@ -118,11 +103,11 @@ export function useAdminTables() {
 
   const setMaintenance = useMutation({
     mutationFn: async ({ tableId, maintenance }: { tableId: string; maintenance: boolean }) => {
-      const { error } = await supabase
-        .from("tables")
-        .update({ status: maintenance ? "maintenance" : "available" })
-        .eq("id", tableId);
-      if (error) throw error;
+      const res = await apiFetch(`/api/admin/tables/${tableId}/status`, {
+        method: "POST",
+        body: JSON.stringify({ status: maintenance ? "maintenance" : "available" }),
+      });
+      if (!res.ok) throw new Error("Failed to update table status");
     },
     onSuccess: () => {
       toast({ title: "Table status updated" });
@@ -138,13 +123,9 @@ export function useAdminTimerSessions() {
   return useQuery({
     queryKey: ["admin-timer-sessions"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("timer_sessions")
-        .select("*, tables(table_number)")
-        .order("ended_at", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return data || [];
+      const res = await apiFetch("/api/admin/timer-sessions");
+      if (!res.ok) throw new Error("Failed to fetch timer sessions");
+      return await res.json();
     },
   });
 }
@@ -156,12 +137,9 @@ export function useAdminPricingRules() {
   const query = useQuery({
     queryKey: ["admin-pricing-rules"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pricing_rules")
-        .select("*")
-        .order("priority", { ascending: false });
-      if (error) throw error;
-      return data || [];
+      const res = await apiFetch("/api/pricing-rules");
+      if (!res.ok) throw new Error("Failed to fetch pricing rules");
+      return await res.json();
     },
   });
 
@@ -177,8 +155,11 @@ export function useAdminPricingRules() {
       priority: number;
       is_active: boolean;
     }) => {
-      const { error } = await supabase.from("pricing_rules").insert(rule);
-      if (error) throw error;
+      const res = await apiFetch("/api/admin/pricing-rules", {
+        method: "POST",
+        body: JSON.stringify(rule),
+      });
+      if (!res.ok) throw new Error("Failed to create pricing rule");
     },
     onSuccess: () => {
       toast({ title: "Pricing rule created" });
@@ -192,8 +173,8 @@ export function useAdminPricingRules() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("pricing_rules").delete().eq("id", id);
-      if (error) throw error;
+      const res = await apiFetch(`/api/admin/pricing-rules/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete pricing rule");
     },
     onSuccess: () => {
       toast({ title: "Pricing rule deleted" });
@@ -204,8 +185,11 @@ export function useAdminPricingRules() {
 
   const toggle = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase.from("pricing_rules").update({ is_active }).eq("id", id);
-      if (error) throw error;
+      const res = await apiFetch(`/api/admin/pricing-rules/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active }),
+      });
+      if (!res.ok) throw new Error("Failed to toggle pricing rule");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-pricing-rules"] });
@@ -226,8 +210,11 @@ export function useAdminPricingRules() {
       priority: number;
     }) => {
       const { id, ...updates } = rule;
-      const { error } = await supabase.from("pricing_rules").update(updates).eq("id", id);
-      if (error) throw error;
+      const res = await apiFetch(`/api/admin/pricing-rules/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error("Failed to update pricing rule");
     },
     onSuccess: () => {
       toast({ title: "Pricing rule updated" });
@@ -249,12 +236,9 @@ export function useAdminPromoCodes() {
   const query = useQuery({
     queryKey: ["admin-promo-codes"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("promo_codes")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
+      const res = await apiFetch("/api/admin/promo-codes");
+      if (!res.ok) throw new Error("Failed to fetch promo codes");
+      return await res.json();
     },
   });
 
@@ -271,11 +255,11 @@ export function useAdminPromoCodes() {
       expiry_date?: string | null;
       is_active: boolean;
     }) => {
-      const { error } = await supabase.from("promo_codes").insert({
-        ...promo,
-        code: promo.code.toUpperCase(),
+      const res = await apiFetch("/api/admin/promo-codes", {
+        method: "POST",
+        body: JSON.stringify({ ...promo, code: promo.code.toUpperCase() }),
       });
-      if (error) throw error;
+      if (!res.ok) throw new Error("Failed to create promo code");
     },
     onSuccess: () => {
       toast({ title: "Promo code created" });
@@ -288,8 +272,11 @@ export function useAdminPromoCodes() {
 
   const toggle = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase.from("promo_codes").update({ is_active }).eq("id", id);
-      if (error) throw error;
+      const res = await apiFetch(`/api/admin/promo-codes/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active }),
+      });
+      if (!res.ok) throw new Error("Failed to toggle promo code");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-promo-codes"] });
@@ -298,8 +285,8 @@ export function useAdminPromoCodes() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("promo_codes").delete().eq("id", id);
-      if (error) throw error;
+      const res = await apiFetch(`/api/admin/promo-codes/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete promo code");
     },
     onSuccess: () => {
       toast({ title: "Promo code deleted" });
@@ -316,11 +303,11 @@ export function useUpdateBookingStatus() {
 
   return useMutation({
     mutationFn: async ({ bookingId, status }: { bookingId: string; status: string }) => {
-      const { error } = await supabase
-        .from("bookings")
-        .update({ status })
-        .eq("id", bookingId);
-      if (error) throw error;
+      const res = await apiFetch(`/api/admin/bookings/${bookingId}/status`, {
+        method: "POST",
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error("Failed to update booking status");
     },
     onSuccess: (_data, variables) => {
       toast({ title: `Booking marked as ${variables.status}` });
@@ -338,80 +325,9 @@ export function useAdminStats() {
   return useQuery({
     queryKey: ["admin-stats"],
     queryFn: async () => {
-      const now = new Date();
-      const todayStart = new Date(now);
-      todayStart.setHours(0, 0, 0, 0);
-      const todayEnd = new Date(now);
-      todayEnd.setHours(23, 59, 59, 999);
-
-      // Week start (Monday)
-      const weekStart = new Date(now);
-      const dayOfWeek = weekStart.getDay();
-      const diffToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      weekStart.setDate(weekStart.getDate() - diffToMon);
-      weekStart.setHours(0, 0, 0, 0);
-
-      // Month start
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-      const { data: todayBookings } = await supabase
-        .from("bookings")
-        .select("*")
-        .gte("start_time", todayStart.toISOString())
-        .lte("start_time", todayEnd.toISOString());
-
-      const { data: weekBookings } = await supabase
-        .from("bookings")
-        .select("id, final_price, status")
-        .gte("start_time", weekStart.toISOString())
-        .in("status", ["confirmed", "completed"]);
-
-      const { data: monthBookings } = await supabase
-        .from("bookings")
-        .select("id, final_price, status, duration_hours")
-        .gte("start_time", monthStart.toISOString())
-        .in("status", ["confirmed", "completed"]);
-
-      const { data: allBookings } = await supabase
-        .from("bookings")
-        .select("id, final_price, status")
-        .in("status", ["confirmed", "completed"]);
-
-      const { data: tables } = await supabase.from("tables").select("id");
-
-      const todayRevenue = (todayBookings || [])
-        .filter((b) => b.status === "confirmed" || b.status === "completed")
-        .reduce((sum, b) => sum + (b.final_price || 0), 0);
-
-      const weekRevenue = (weekBookings || []).reduce((sum, b) => sum + (b.final_price || 0), 0);
-      const monthRevenue = (monthBookings || []).reduce((sum, b) => sum + (b.final_price || 0), 0);
-
-      // Average session length from month bookings
-      const completedWithDuration = (monthBookings || []).filter((b: any) => b.duration_hours > 0);
-      const avgSessionHours = completedWithDuration.length > 0
-        ? completedWithDuration.reduce((sum: number, b: any) => sum + Number(b.duration_hours), 0) / completedWithDuration.length
-        : 0;
-
-      const totalBookings = allBookings?.length || 0;
-
-      const tablesWithBookingsToday = new Set(
-        (todayBookings || [])
-          .filter((b) => b.status === "confirmed" || b.status === "completed")
-          .map((b) => b.table_id)
-      );
-      const utilisation = tables?.length
-        ? Math.round((tablesWithBookingsToday.size / tables.length) * 100)
-        : 0;
-
-      return {
-        todayBookings: todayBookings?.length || 0,
-        todayRevenue,
-        weekRevenue,
-        monthRevenue,
-        avgSessionHours: Math.round(avgSessionHours * 10) / 10,
-        totalBookings,
-        utilisation,
-      };
+      const res = await apiFetch("/api/admin/stats");
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return await res.json();
     },
     refetchInterval: 60000,
   });
@@ -421,17 +337,10 @@ export function useAdminCustomers(searchTerm: string) {
   return useQuery({
     queryKey: ["admin-customers", searchTerm],
     queryFn: async () => {
-      let query = supabase
-        .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (searchTerm.trim()) {
-        query = query.or(`email.ilike.%${searchTerm}%,name.ilike.%${searchTerm}%`);
-      }
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
+      const params = searchTerm.trim() ? `?search=${encodeURIComponent(searchTerm)}` : "";
+      const res = await apiFetch(`/api/admin/customers${params}`);
+      if (!res.ok) throw new Error("Failed to fetch customers");
+      return await res.json();
     },
   });
 }
@@ -440,14 +349,9 @@ export function useCustomerBookings(userId: string) {
   return useQuery({
     queryKey: ["admin-customer-bookings", userId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("bookings")
-        .select("*, tables(table_number)")
-        .eq("user_id", userId)
-        .order("start_time", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data || [];
+      const res = await apiFetch(`/api/admin/customers/${userId}/bookings`);
+      if (!res.ok) throw new Error("Failed to fetch customer bookings");
+      return await res.json();
     },
     enabled: !!userId,
   });
@@ -457,14 +361,9 @@ export function useCustomerWalletHistory(userId: string) {
   return useQuery({
     queryKey: ["admin-customer-wallet", userId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("wallet_transactions")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data || [];
+      const res = await apiFetch(`/api/admin/customers/${userId}/wallet`);
+      if (!res.ok) throw new Error("Failed to fetch wallet history");
+      return await res.json();
     },
     enabled: !!userId,
   });
@@ -474,14 +373,9 @@ export function useCustomerRewardHistory(userId: string) {
   return useQuery({
     queryKey: ["admin-customer-rewards", userId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("reward_transactions")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data || [];
+      const res = await apiFetch(`/api/admin/customers/${userId}/rewards`);
+      if (!res.ok) throw new Error("Failed to fetch reward history");
+      return await res.json();
     },
     enabled: !!userId,
   });
@@ -501,48 +395,11 @@ export function useUpdateCustomerProfile() {
       wallet_balance?: number;
       reward_points?: number;
     }) => {
-      // Get current profile to calculate difference
-      const { data: currentProfile, error: fetchErr } = await supabase
-        .from("profiles")
-        .select("wallet_balance, reward_points")
-        .eq("user_id", userId)
-        .single();
-      if (fetchErr) throw fetchErr;
-
-      const updates: Record<string, number> = {};
-      if (wallet_balance !== undefined) updates.wallet_balance = wallet_balance;
-      if (reward_points !== undefined) updates.reward_points = reward_points;
-
-      const { error } = await supabase
-        .from("profiles")
-        .update(updates)
-        .eq("user_id", userId);
-      if (error) throw error;
-
-      // Log wallet transaction if balance changed
-      if (wallet_balance !== undefined && currentProfile) {
-        const diff = wallet_balance - currentProfile.wallet_balance;
-        if (diff !== 0) {
-          await supabase.from("wallet_transactions").insert({
-            user_id: userId,
-            type: "adjustment",
-            amount: diff,
-            balance_after: wallet_balance,
-          });
-        }
-      }
-
-      // Log reward transaction if points changed
-      if (reward_points !== undefined && currentProfile) {
-        const diff = reward_points - currentProfile.reward_points;
-        if (diff !== 0) {
-          await supabase.from("reward_transactions").insert({
-            user_id: userId,
-            type: "adjustment",
-            points: diff,
-          });
-        }
-      }
+      const res = await apiFetch(`/api/admin/customers/${userId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ walletBalance: wallet_balance, rewardPoints: reward_points }),
+      });
+      if (!res.ok) throw new Error("Failed to update customer");
     },
     onSuccess: () => {
       toast({ title: "Customer updated" });
@@ -560,14 +417,8 @@ export function useDeleteCustomer() {
 
   return useMutation({
     mutationFn: async (userId: string) => {
-      // Clean up related records first
-      await supabase.from("reward_transactions").delete().eq("user_id", userId);
-      await supabase.from("wallet_transactions").delete().eq("user_id", userId);
-      await supabase.from("promo_usage").delete().eq("user_id", userId);
-      await supabase.from("bookings").delete().eq("user_id", userId);
-      await supabase.from("user_roles").delete().eq("user_id", userId);
-      const { error } = await supabase.from("profiles").delete().eq("user_id", userId);
-      if (error) throw error;
+      const res = await apiFetch(`/api/admin/customers/${userId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete customer");
     },
     onSuccess: () => {
       toast({ title: "Customer deleted" });
