@@ -159,6 +159,7 @@ const Booking = () => {
     endDate &&
     endDate > startDate &&
     selectedTable &&
+    paymentMethod &&
     !durationError;
 
   const handleBookClick = () => {
