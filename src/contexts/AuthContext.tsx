@@ -48,6 +48,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       const data = await res.json();
       const u = data.user;
+      // Derive isAdmin from role
+      u.isAdmin = u.role === "admin";
       console.log("CURRENT USER:", u);
       localStorage.setItem("user", JSON.stringify(u));
       return u;
@@ -78,6 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const setAuth = (newToken: string, newUser: BackendUser) => {
+    newUser.isAdmin = newUser.role === "admin";
     localStorage.setItem("token", newToken);
     localStorage.setItem("user", JSON.stringify(newUser));
     setToken(newToken);
