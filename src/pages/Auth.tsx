@@ -96,13 +96,6 @@ const Auth = () => {
             <CardDescription>
               {isLogin ? "Sign in to reserve your table" : "Create an account to get started"}
             </CardDescription>
-            {!isLogin && (
-              <div className="mt-3 rounded-lg bg-accent/10 border border-accent/20 p-3">
-                <p className="text-xs text-muted-foreground">
-                  🔐 <strong>Singpass verification</strong> will be required for booking. For now, age verification is done via date of birth (minimum age: 16).
-                </p>
-              </div>
-            )}
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
