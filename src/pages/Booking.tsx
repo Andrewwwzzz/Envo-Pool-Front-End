@@ -62,24 +62,41 @@ const Booking = () => {
   // Fetch tables (basic info, no time filter needed for display)
   const { data: tables, isLoading: tablesLoading } = useTables(null, null);
 
-  // Fetch bookings for the selected table + date to show slot availability
+  // Fetch bookings for the selected table + date from backend availability API
+  const selectedTableData_pre = tables?.find((t) => t.id === selectedTable);
   const { data: tableBookings } = useQuery({
     queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()],
     queryFn: async () => {
-      if (!selectedTable || !selectedDate) return [];
+      if (!selectedTable || !selectedDate || !selectedTableData_pre?.hardware_id) return [];
       const { dayStart, dayEnd } = sgDayBoundsUTC(selectedDate);
 
-      const { data, error } = await supabase.rpc("get_table_booked_slots", {
-        p_table_id: selectedTable,
-        p_day_start: dayStart.toISOString(),
-        p_day_end: dayEnd.toISOString(),
+      const params = new URLSearchParams({
+        startTime: dayStart.toISOString(),
+        endTime: dayEnd.toISOString(),
       });
 
-      if (error) throw error;
-      return (data || []) as { start_time: string; end_time: string; status: string; created_at: string }[];
+      const res = await fetch(`https://api.envopoolsg.com/api/bookings/availability?${params}`);
+      if (!res.ok) throw new Error("Failed to fetch availability");
+      const allBookings = await res.json();
+
+      // Filter to only bookings for the selected table's hardware_id
+      const hardwareId = selectedTableData_pre.hardware_id;
+      const filtered = (allBookings || []).filter((b: any) => {
+        // Backend may return tableId as string hardware ID or object with hardware_id
+        const bTableId = typeof b.tableId === "object" ? b.tableId?.hardware_id || b.tableId?._id : b.tableId;
+        return bTableId === hardwareId;
+      });
+
+      return filtered.map((b: any) => ({
+        start_time: b.startTime,
+        end_time: b.endTime,
+        status: "confirmed" as string,
+        created_at: b.createdAt || new Date().toISOString(),
+      }));
     },
-    enabled: !!selectedTable && !!selectedDate,
+    enabled: !!selectedTable && !!selectedDate && !!selectedTableData_pre?.hardware_id,
     refetchInterval: 30000,
+    staleTime: 0,
   });
 
   const { data: pricingRules } = usePricingRules();
