@@ -137,7 +137,7 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
             <span className="h-4 w-4 text-accent shrink-0 text-center font-bold text-sm">$</span>
             <div>
               <p className="text-sm text-muted-foreground">Amount Paid</p>
-              <p className="font-medium">${(booking.final_price ?? booking.price)?.toFixed(2)}</p>
+              <p className="font-medium">${finalPrice.toFixed ? finalPrice.toFixed(2) : finalPrice}</p>
             </div>
           </div>
 
@@ -148,7 +148,7 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
             <Calendar className="h-4 w-4 text-accent shrink-0" />
             <div>
               <p className="text-sm text-muted-foreground">Order Created</p>
-              <p className="font-medium">{fmtDate(booking.created_at)} at {fmtTime(booking.created_at)}</p>
+              <p className="font-medium">{createdAt ? `${fmtDate(createdAt)} at ${fmtTime(createdAt)}` : "N/A"}</p>
             </div>
           </div>
 
