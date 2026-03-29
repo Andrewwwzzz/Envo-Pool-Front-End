@@ -75,7 +75,7 @@ const Index = () => {
                 <span className="text-foreground">Pool Culture in Singapore</span>
               </h2>
               <p className="text-muted-foreground leading-relaxed mb-6">
-                We're not your average pool hall. Anytime Pool is a modern, tech-integrated space designed for serious players. Every detail — from our competition-grade Rasson tables to our Aramith balls — is chosen to deliver a professional playing experience.
+                We're not your average pool hall. Envo Pool is a modern, tech-integrated space designed for serious players. Every detail — from our competition-grade Rasson tables to our Aramith balls — is chosen to deliver a professional playing experience.
               </p>
               <p className="text-muted-foreground leading-relaxed">
                 Whether you're perfecting your break, training for tournaments, or simply want to play on equipment that matches your ambition, this is your space.
