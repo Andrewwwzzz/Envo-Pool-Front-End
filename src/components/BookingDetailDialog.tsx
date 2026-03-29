@@ -107,7 +107,7 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
             <Calendar className="h-4 w-4 text-accent shrink-0" />
             <div>
               <p className="text-sm text-muted-foreground">Date</p>
-              <p className="font-medium">{fmtDate(booking.start_time)}</p>
+              <p className="font-medium">{fmtDate(startTime)}</p>
             </div>
           </div>
 
@@ -117,8 +117,8 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
             <div>
               <p className="text-sm text-muted-foreground">Time</p>
               <p className="font-medium">
-                {fmtTime(booking.start_time)} – {fmtTime(booking.end_time)}
-                <span className="text-muted-foreground text-sm ml-2">({booking.duration_hours}h)</span>
+                {fmtTime(startTime)} – {fmtTime(endTime)}
+                {durationHours && <span className="text-muted-foreground text-sm ml-2">({durationHours}h)</span>}
               </p>
             </div>
           </div>
