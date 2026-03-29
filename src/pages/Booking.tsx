@@ -38,7 +38,7 @@ function slotToDate(date: Date, slot: string): Date {
 }
 
 const Booking = () => {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, token } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
