@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiFetch } from "@/lib/api";
 
 export function useProfile() {
   const { user } = useAuth();
@@ -9,13 +9,17 @@ export function useProfile() {
     queryKey: ["profile", user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-      if (error) throw error;
-      return data;
+      const res = await apiFetch("/api/auth/me");
+      if (!res.ok) throw new Error("Failed to fetch profile");
+      const data = await res.json();
+      return {
+        ...data.user,
+        wallet_balance: data.user.walletBalance ?? 0,
+        reward_points: data.user.rewardPoints ?? 0,
+        total_spent: data.user.totalSpent ?? 0,
+        date_of_birth: data.user.dateOfBirth ?? null,
+        phone: data.user.phone ?? null,
+      };
     },
     enabled: !!user,
   });
@@ -28,13 +32,7 @@ export function useUserRole() {
     queryKey: ["user-role", user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .single();
-      if (error) throw error;
-      return data?.role as "customer" | "admin";
+      return user.role === "admin" ? "admin" : "customer";
     },
     enabled: !!user,
   });
@@ -47,12 +45,19 @@ export function useUpdateProfile() {
   return useMutation({
     mutationFn: async (updates: { name?: string; phone?: string; date_of_birth?: string }) => {
       if (!user) throw new Error("Not authenticated");
-      const { error } = await supabase.rpc("update_own_profile", {
-        p_name: updates.name ?? "",
-        p_phone: updates.phone ?? "",
-        p_dob: updates.date_of_birth ?? null,
+      const res = await apiFetch("/api/auth/update-profile", {
+        method: "POST",
+        body: JSON.stringify({
+          userId: user.id,
+          name: updates.name,
+          phone: updates.phone,
+          dateOfBirth: updates.date_of_birth,
+        }),
       });
-      if (error) throw error;
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to update profile");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["profile"] });

@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiFetch } from "@/lib/api";
 
 export interface PromoValidation {
   valid: boolean;
@@ -31,16 +31,19 @@ export function useValidatePromo() {
     }): Promise<PromoValidation> => {
       if (!user) return { valid: false, error: "Not authenticated" };
 
-      const { data, error } = await supabase.rpc("validate_promo_code", {
-        p_code: code,
-        p_original_price: originalPrice,
-        p_table_id: tableId,
+      const res = await apiFetch("/api/promo/validate", {
+        method: "POST",
+        body: JSON.stringify({
+          code,
+          originalPrice,
+          tableId,
+        }),
       });
 
-      if (error) return { valid: false, error: "Failed to validate promo code" };
+      if (!res.ok) return { valid: false, error: "Failed to validate promo code" };
 
-      const result = data as unknown as PromoValidation;
-      return result;
+      const data = await res.json();
+      return data as PromoValidation;
     },
   });
 }
