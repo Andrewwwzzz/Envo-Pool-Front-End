@@ -514,8 +514,8 @@ const Booking = () => {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancel</Button>
-              <Button disabled={!agreedToTerms} onClick={handleConfirmBook} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                Confirm & Pay
+              <Button disabled={!agreedToTerms || isProcessing} onClick={handleConfirmBook} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                {isProcessing ? "Processing..." : "Confirm & Pay"}
               </Button>
             </DialogFooter>
           </DialogContent>
