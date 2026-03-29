@@ -69,7 +69,7 @@ const Index = () => {
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid md:grid-cols-2 gap-16 items-center">
             <div>
-              <p className="text-accent uppercase tracking-[0.2em] text-xs font-medium mb-4">Why Anytime Pool</p>
+              <p className="text-accent uppercase tracking-[0.2em] text-xs font-medium mb-4">Why Envo Pool</p>
               <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">
                 <span className="gold-gradient">Redefining</span>{" "}
                 <span className="text-foreground">Pool Culture in Singapore</span>
