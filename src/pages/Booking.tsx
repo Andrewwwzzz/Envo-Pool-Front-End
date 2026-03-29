@@ -4,7 +4,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { useTables, TableStatus, validateDuration } from "@/hooks/useBooking";
 import { usePricingRules } from "@/hooks/usePricing";
 import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
-import { useProfile, useUserRole } from "@/hooks/useProfile";
+import { useProfile } from "@/hooks/useProfile";
 import { calculateBookingPrice, calculateDiscount } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
