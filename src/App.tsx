@@ -12,6 +12,7 @@ import BookingConfirmed from "./pages/BookingConfirmed";
 import BookingRefunded from "./pages/BookingRefunded";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
+import Settings from "./pages/Settings";
 import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
 
