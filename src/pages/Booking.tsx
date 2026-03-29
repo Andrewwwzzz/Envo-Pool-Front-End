@@ -21,7 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isBefore } from "date-fns";
-import { todaySG } from "@/lib/sgTime";
+import { todaySG, sgSlotToUTC, sgDayBoundsUTC } from "@/lib/sgTime";
 
 const statusColor: Record<TableStatus, string> = {
   Available: "bg-primary/10 text-primary border-primary/20",
@@ -32,10 +32,8 @@ const statusColor: Record<TableStatus, string> = {
 };
 
 function slotToDate(date: Date, slot: string): Date {
-  const [h, m] = slot.split(":").map(Number);
-  const d = new Date(date);
-  d.setHours(h, m, 0, 0);
-  return d;
+  // Build a proper UTC Date representing this slot in Singapore time
+  return sgSlotToUTC(date, slot);
 }
 
 const Booking = () => {
@@ -68,10 +66,7 @@ const Booking = () => {
     queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()],
     queryFn: async () => {
       if (!selectedTable || !selectedDate) return [];
-      const dayStart = new Date(selectedDate);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(selectedDate);
-      dayEnd.setHours(23, 59, 59, 999);
+      const { dayStart, dayEnd } = sgDayBoundsUTC(selectedDate);
 
       const { data, error } = await supabase.rpc("get_table_booked_slots", {
         p_table_id: selectedTable,
@@ -472,8 +467,8 @@ const Booking = () => {
               {pricing.segments.map((seg, i) => (
                 <div key={i} className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {seg.startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} –{" "}
-                    {seg.endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {seg.startTime.toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "2-digit", minute: "2-digit" })} –{" "}
+                    {seg.endTime.toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "2-digit", minute: "2-digit" })}
                     <span className="ml-2 text-xs opacity-60">@ ${seg.hourlyRate}/hr</span>
                   </span>
                   <span className="font-medium">${seg.segmentCost.toFixed(2)}</span>
