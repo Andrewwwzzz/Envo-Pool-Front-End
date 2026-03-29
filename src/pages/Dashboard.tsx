@@ -241,8 +241,10 @@ const Dashboard = () => {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-medium">${getPrice(b).toFixed(2)}</span>
-                      <Badge variant="outline" className={statusBadge[getStatus(b)] ?? ""}>{getStatus(b)}</Badge>
-                      {getStatus(b) === "pending" && (
+                      <Badge variant="outline" className={statusBadge[getStatus(b)] ?? ""}>
+                        {getStatus(b) === "pending_payment" ? "Pending Payment" : getStatus(b)}
+                      </Badge>
+                      {(getStatus(b) === "pending" || getStatus(b) === "pending_payment") && (
                         <Button
                           variant="ghost"
                           size="sm"
