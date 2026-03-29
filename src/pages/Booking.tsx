@@ -32,10 +32,8 @@ const statusColor: Record<TableStatus, string> = {
 };
 
 function slotToDate(date: Date, slot: string): Date {
-  const [h, m] = slot.split(":").map(Number);
-  const d = new Date(date);
-  d.setHours(h, m, 0, 0);
-  return d;
+  // Build a proper UTC Date representing this slot in Singapore time
+  return sgSlotToUTC(date, slot);
 }
 
 const Booking = () => {
