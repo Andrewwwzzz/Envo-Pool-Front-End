@@ -191,8 +191,8 @@ const Booking = () => {
 
     try {
       const endpoint = paymentMethod === "wallet"
-        ? "https://anytime-pool-api.onrender.com/api/bookings/create-with-wallet"
-        : "https://anytime-pool-api.onrender.com/api/bookings/create-with-payment";
+        ? "https://anytime-pool-back-end.onrender.com/api/bookings/create-with-wallet"
+        : "https://anytime-pool-back-end.onrender.com/api/bookings/create-with-payment";
 
       const response = await fetch(endpoint, {
         method: "POST",
