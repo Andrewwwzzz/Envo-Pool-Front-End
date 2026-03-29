@@ -335,11 +335,12 @@ export function useAdminCustomers(searchTerm: string) {
     queryKey: ["admin-customers", searchTerm],
     queryFn: async () => {
       const params = searchTerm.trim() ? `?search=${encodeURIComponent(searchTerm)}` : "";
-      const res = await apiFetch(`/api/admin/customers${params}`);
-      if (!res.ok) throw new Error("Failed to fetch customers");
+      const res = await apiFetch(`/api/users${params}`);
+      if (!res.ok) throw new Error("Failed to fetch users");
       const data = await res.json();
-      // Normalize backend fields to frontend convention
-      return (Array.isArray(data) ? data : data.customers || []).map((c: any) => ({
+      console.log("USERS:", data);
+      const users = Array.isArray(data) ? data : data.users || [];
+      return users.map((c: any) => ({
         id: c._id || c.id,
         user_id: c._id || c.id || c.user_id,
         name: c.name || "",
@@ -350,8 +351,8 @@ export function useAdminCustomers(searchTerm: string) {
         reward_points: c.rewardPoints ?? c.reward_points ?? 0,
         total_spent: c.totalSpent ?? c.total_spent ?? 0,
         age_verified: c.ageVerified ?? c.age_verified ?? false,
-        isVerified: c.isVerified ?? true,
-        role: c.role ?? "customer",
+        isVerified: c.isVerified ?? false,
+        role: c.role ?? "user",
         created_at: c.createdAt ?? c.created_at ?? "",
       }));
     },
