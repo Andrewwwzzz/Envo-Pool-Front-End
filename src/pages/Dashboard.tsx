@@ -227,7 +227,7 @@ const Dashboard = () => {
                     onClick={() => getStatus(b) === "confirmed" && setSelectedBooking(b)}
                   >
                     <div>
-                      <p className="font-medium">Table {getTableName(b)}</p>
+                      <p className="font-medium">{getTableLabel(b)}</p>
                       <p className="text-sm text-muted-foreground">
                         {fmtDate(getStartTime(b))} {fmtTime(getStartTime(b))} – {fmtTime(getEndTime(b))}
                       </p>
