@@ -1,10 +1,23 @@
+import { useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle, XCircle } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { loadBookingsFromBackend } from "@/hooks/useBooking";
 
 const BookingConfirmed = () => {
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+
+  // Refetch bookings from backend on mount
+  useEffect(() => {
+    loadBookingsFromBackend().then((data) => {
+      queryClient.setQueryData(["my-bookings"], data);
+      queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    }).catch(console.error);
+  }, [queryClient]);
   const hasError = searchParams.get("error") === "true";
 
   if (hasError) {

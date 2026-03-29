@@ -165,6 +165,16 @@ export function useCreateBooking() {
   });
 }
 
+const BACKEND_URL = "https://anytime-pool-back-end.onrender.com";
+
+export async function loadBookingsFromBackend() {
+  const res = await fetch(`${BACKEND_URL}/api/bookings`);
+  if (!res.ok) throw new Error("Failed to fetch bookings");
+  const data = await res.json();
+  console.log("Bookings from backend:", data);
+  return data;
+}
+
 export function useMyBookings() {
   const { user } = useAuth();
 
@@ -172,14 +182,11 @@ export function useMyBookings() {
     queryKey: ["my-bookings", user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase
-        .from("bookings")
-        .select("*, tables(table_number)")
-        .eq("user_id", user.id)
-        .order("start_time", { ascending: false });
-      if (error) throw error;
+      const data = await loadBookingsFromBackend();
       return data || [];
     },
     enabled: !!user,
+    staleTime: 0,
+    gcTime: 0,
   });
 }

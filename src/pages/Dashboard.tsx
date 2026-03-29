@@ -151,9 +151,15 @@ const Dashboard = () => {
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
 
-  const now = new Date(); // UTC is fine here — start_time is stored as UTC ISO
-  const upcoming = (bookings || []).filter((b) => new Date(b.start_time) >= now && b.status !== "cancelled");
-  const past = (bookings || []).filter((b) => new Date(b.start_time) < now || b.status === "cancelled");
+  const now = new Date();
+  const getStartTime = (b: any) => b.startTime || b.start_time;
+  const getEndTime = (b: any) => b.endTime || b.end_time;
+  const getTableName = (b: any) => b.tableId?.name || (b as any).tables?.table_number || "?";
+  const getPrice = (b: any) => b.finalPrice ?? b.final_price ?? b.price ?? 0;
+  const getStatus = (b: any) => b.status;
+
+  const upcoming = (bookings || []).filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled");
+  const past = (bookings || []).filter((b: any) => new Date(getStartTime(b)) < now || getStatus(b) === "cancelled");
 
   return (
     <div className="min-h-screen bg-background dark">
@@ -212,29 +218,29 @@ const Dashboard = () => {
               <p className="text-muted-foreground text-sm">No upcoming reservations.</p>
             ) : (
               <div className="space-y-3">
-                {upcoming.map((b) => (
+                {upcoming.map((b: any) => (
                   <div
-                    key={b.id}
+                    key={b.id || b._id}
                     className={`flex items-center justify-between rounded-lg border border-border/50 p-4 transition-colors ${
-                      b.status === "confirmed" ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : "hover:bg-card/50"
+                      getStatus(b) === "confirmed" ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : "hover:bg-card/50"
                     }`}
-                    onClick={() => b.status === "confirmed" && setSelectedBooking(b)}
+                    onClick={() => getStatus(b) === "confirmed" && setSelectedBooking(b)}
                   >
                     <div>
-                      <p className="font-medium">Table {(b as any).tables?.table_number ?? "?"}</p>
+                      <p className="font-medium">Table {getTableName(b)}</p>
                       <p className="text-sm text-muted-foreground">
-                        {fmtDate(b.start_time)} {fmtTime(b.start_time)} – {fmtTime(b.end_time)}
+                        {fmtDate(getStartTime(b))} {fmtTime(getStartTime(b))} – {fmtTime(getEndTime(b))}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="font-medium">${b.final_price?.toFixed(2) ?? b.price?.toFixed(2)}</span>
-                      <Badge variant="outline" className={statusBadge[b.status] ?? ""}>{b.status}</Badge>
-                      {b.status === "pending" && (
+                      <span className="font-medium">${getPrice(b).toFixed(2)}</span>
+                      <Badge variant="outline" className={statusBadge[getStatus(b)] ?? ""}>{getStatus(b)}</Badge>
+                      {getStatus(b) === "pending" && (
                         <Button
                           variant="ghost"
                           size="sm"
                           className="text-destructive hover:text-destructive"
-                          onClick={(e) => { e.stopPropagation(); cancelBooking.mutate(b.id); }}
+                          onClick={(e) => { e.stopPropagation(); cancelBooking.mutate(b.id || b._id); }}
                           disabled={cancelBooking.isPending}
                         >
                           <XCircle className="h-4 w-4" />
@@ -256,23 +262,23 @@ const Dashboard = () => {
               <p className="text-muted-foreground text-sm">No past reservations.</p>
             ) : (
               <div className="space-y-3">
-                {past.slice(0, 10).map((b) => (
+                {past.slice(0, 10).map((b: any) => (
                   <div
-                    key={b.id}
+                    key={b.id || b._id}
                     className={`flex items-center justify-between rounded-lg border border-border/50 p-4 transition-colors ${
-                      b.status === "confirmed" || b.status === "completed" ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : ""
+                      getStatus(b) === "confirmed" || getStatus(b) === "completed" ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : ""
                     }`}
-                    onClick={() => (b.status === "confirmed" || b.status === "completed") && setSelectedBooking(b)}
+                    onClick={() => (getStatus(b) === "confirmed" || getStatus(b) === "completed") && setSelectedBooking(b)}
                   >
                     <div>
-                      <p className="font-medium">Table {(b as any).tables?.table_number ?? "?"}</p>
+                      <p className="font-medium">Table {getTableName(b)}</p>
                       <p className="text-sm text-muted-foreground">
-                        {fmtDate(b.start_time)} {fmtTime(b.start_time)} – {fmtTime(b.end_time)} · {b.duration_hours}h
+                        {fmtDate(getStartTime(b))} {fmtTime(getStartTime(b))} – {fmtTime(getEndTime(b))}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="font-medium">${b.final_price?.toFixed(2) ?? b.price?.toFixed(2)}</span>
-                      <Badge variant="outline" className={statusBadge[b.status] ?? ""}>{b.status}</Badge>
+                      <span className="font-medium">${getPrice(b).toFixed(2)}</span>
+                      <Badge variant="outline" className={statusBadge[getStatus(b)] ?? ""}>{getStatus(b)}</Badge>
                     </div>
                   </div>
                 ))}
