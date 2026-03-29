@@ -76,8 +76,7 @@ const Booking = () => {
         endTime: dayEnd.toISOString(),
       });
 
-      const res = await fetch(`https://api.envopoolsg.com/api/bookings/availability?${params}`);
-      if (!res.ok) throw new Error("Failed to fetch availability");
+      const res = await apiFetch(`/api/bookings/availability?${params}`);
       const allBookings = await res.json();
 
       // Filter to only bookings for the selected table's hardware_id
