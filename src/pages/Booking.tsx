@@ -92,6 +92,8 @@ const Booking = () => {
         end_time: b.endTime,
         status: b.status === "pending_payment" ? "pending" : "confirmed",
         created_at: b.createdAt || new Date().toISOString(),
+        expires_at: b.expiresAt || null,
+        user_name: b.userName || null,
       }));
     },
     enabled: !!selectedTable && !!selectedDate && !!selectedTableData_pre?.hardware_id,
