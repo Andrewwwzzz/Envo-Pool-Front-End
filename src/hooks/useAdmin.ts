@@ -178,7 +178,6 @@ export function useAdminPricingRules() {
     onSuccess: () => {
       toast({ title: "Pricing rule deleted" });
       queryClient.invalidateQueries({ queryKey: ["admin-pricing-rules"] });
-      queryClient.invalidateQueries({ queryKey: ["pricing-rules"] });
     },
   });
 
