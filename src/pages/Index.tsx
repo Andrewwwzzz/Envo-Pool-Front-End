@@ -264,7 +264,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t border-border/30 py-12">
         <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="gold-gradient text-lg font-bold">Anytime Pool</p>
+          <p className="gold-gradient text-lg font-bold">Envo Pool</p>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <Link to="/terms" className="hover:text-foreground transition-colors">Terms & Conditions</Link>
             <Link to="/auth" className="hover:text-foreground transition-colors">Sign In</Link>
