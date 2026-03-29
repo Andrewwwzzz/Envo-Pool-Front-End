@@ -191,7 +191,6 @@ export function useAdminPricingRules() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-pricing-rules"] });
-      queryClient.invalidateQueries({ queryKey: ["pricing-rules"] });
     },
   });
 
