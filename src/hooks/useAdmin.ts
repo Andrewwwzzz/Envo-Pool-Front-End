@@ -337,7 +337,23 @@ export function useAdminCustomers(searchTerm: string) {
       const params = searchTerm.trim() ? `?search=${encodeURIComponent(searchTerm)}` : "";
       const res = await apiFetch(`/api/admin/customers${params}`);
       if (!res.ok) throw new Error("Failed to fetch customers");
-      return await res.json();
+      const data = await res.json();
+      // Normalize backend fields to frontend convention
+      return (Array.isArray(data) ? data : data.customers || []).map((c: any) => ({
+        id: c._id || c.id,
+        user_id: c._id || c.id || c.user_id,
+        name: c.name || "",
+        email: c.email || "",
+        phone: c.phone || null,
+        date_of_birth: c.dateOfBirth ?? c.date_of_birth ?? null,
+        wallet_balance: c.walletBalance ?? c.wallet_balance ?? 0,
+        reward_points: c.rewardPoints ?? c.reward_points ?? 0,
+        total_spent: c.totalSpent ?? c.total_spent ?? 0,
+        age_verified: c.ageVerified ?? c.age_verified ?? false,
+        isVerified: c.isVerified ?? true,
+        role: c.role ?? "customer",
+        created_at: c.createdAt ?? c.created_at ?? "",
+      }));
     },
   });
 }
