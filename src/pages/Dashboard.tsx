@@ -28,38 +28,6 @@ const Dashboard = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
-  const [showName, setShowName] = useState(true);
-  const [nameToggleLoading, setNameToggleLoading] = useState(false);
-
-  // Fetch initial name visibility preference
-  useEffect(() => {
-    if (!user) return;
-    fetch(`https://api.envopoolsg.com/api/bookings/name-visibility?userId=69b29fd2945d95cf8f55c86a`)
-      .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data && typeof data.showName === "boolean") setShowName(data.showName); })
-      .catch(() => {});
-  }, [user]);
-
-  const handleToggleNameVisibility = async (checked: boolean) => {
-    setShowName(checked);
-    setNameToggleLoading(true);
-    try {
-      const res = await fetch("https://api.envopoolsg.com/api/bookings/toggle-name-visibility", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: "69b29fd2945d95cf8f55c86a", showName: checked }),
-      });
-      if (!res.ok) {
-        setShowName(!checked);
-        toast({ title: "Failed to update preference", variant: "destructive" });
-      }
-    } catch {
-      setShowName(!checked);
-      toast({ title: "Failed to update preference", variant: "destructive" });
-    } finally {
-      setNameToggleLoading(false);
-    }
-  };
 
   const cancelBooking = useMutation({
     mutationFn: async (bookingId: string) => {
