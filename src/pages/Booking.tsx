@@ -225,14 +225,11 @@ const Booking = () => {
         queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] });
         window.location.href = "/booking-confirmed";
       } else {
-        // Stripe flow: external API + mirror + redirect
-        let localBookingId: string | null = null;
-
-        // Time-based booking: single request with startTime + duration
+        // Stripe flow: single backend call that creates booking + payment
         const durationMinutes = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
 
-        const bookingResponse = await fetch(
-          "https://anytime-pool-api.onrender.com/api/bookings/create",
+        const response = await fetch(
+          "https://anytime-pool-api.onrender.com/api/bookings/create-with-payment",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -245,29 +242,33 @@ const Booking = () => {
           }
         );
 
-        if (!bookingResponse.ok) {
-          if (bookingResponse.status === 409) {
+        if (!response.ok) {
+          if (response.status === 409) {
             toast({
-              title: "Time slot unavailable",
+              title: "Time slot already booked",
               description: "This time slot has just been booked by another player. Please select another slot.",
               variant: "destructive",
             });
             setStartSlot(null);
             setEndSlot(null);
             queryClient.invalidateQueries({ queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()] });
-          } else if (bookingResponse.status === 400) {
-            toast({ title: "Missing booking information", description: "Please fill in all required fields.", variant: "destructive" });
+          } else if (response.status === 400) {
+            const errData = await response.json().catch(() => ({}));
+            toast({ title: "Validation error", description: errData.message || "Please check your booking details.", variant: "destructive" });
           } else {
             toast({ title: "Unable to create booking", description: "Please try again.", variant: "destructive" });
           }
           return;
         }
 
-        const bookingData = await bookingResponse.json();
-        const bookingId = bookingData._id || bookingData.bookingId || bookingData.id;
-        if (!bookingId) throw new Error("Missing booking ID from booking API response");
+        const { checkoutUrl, bookingId } = await response.json();
 
-        // Mirror booking locally
+        if (!checkoutUrl || !bookingId) {
+          toast({ title: "Invalid response", description: "Missing checkout URL from server.", variant: "destructive" });
+          return;
+        }
+
+        // Mirror booking locally for tracking
         const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
         const { data: mirroredBooking, error: mirrorError } = await supabase
           .from("bookings")
@@ -291,45 +292,13 @@ const Booking = () => {
 
         if (mirrorError) {
           console.error("Failed to mirror booking locally:", mirrorError);
-        } else {
-          localBookingId = mirroredBooking.id;
         }
 
-        const paymentResponse = await fetch(
-          "https://anytime-pool-api.onrender.com/api/payments/create-checkout",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ bookingId, amount: Math.round(finalPrice * 100) }),
-          }
-        );
-
-        if (!paymentResponse.ok) {
-          if (localBookingId) await supabase.from("bookings").delete().eq("id", localBookingId);
-          toast({ title: "Payment error", description: "Could not create checkout session.", variant: "destructive" });
-          return;
+        if (mirroredBooking) {
+          sessionStorage.setItem("pending_booking_id", mirroredBooking.id);
         }
 
-        const paymentData = await paymentResponse.json();
-
-        // Extract Stripe session_id from checkout URL and store on booking
-        if (localBookingId && paymentData.url) {
-          try {
-            const checkoutUrl = new URL(paymentData.url);
-            const stripeSessionId = paymentData.session_id || checkoutUrl.pathname.split("/").pop() || null;
-            if (stripeSessionId) {
-              await supabase
-                .from("bookings")
-                .update({ stripe_session_id: stripeSessionId } as any)
-                .eq("id", localBookingId);
-            }
-          } catch (e) {
-            console.warn("Could not extract stripe session_id:", e);
-          }
-        }
-
-        if (localBookingId) sessionStorage.setItem("pending_booking_id", localBookingId);
-        window.location.href = paymentData.url;
+        window.location.href = checkoutUrl;
       }
     } catch (error) {
 
