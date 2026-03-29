@@ -151,9 +151,15 @@ const Dashboard = () => {
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
 
-  const now = new Date(); // UTC is fine here — start_time is stored as UTC ISO
-  const upcoming = (bookings || []).filter((b) => new Date(b.start_time) >= now && b.status !== "cancelled");
-  const past = (bookings || []).filter((b) => new Date(b.start_time) < now || b.status === "cancelled");
+  const now = new Date();
+  const getStartTime = (b: any) => b.startTime || b.start_time;
+  const getEndTime = (b: any) => b.endTime || b.end_time;
+  const getTableName = (b: any) => b.tableId?.name || (b as any).tables?.table_number || "?";
+  const getPrice = (b: any) => b.finalPrice ?? b.final_price ?? b.price ?? 0;
+  const getStatus = (b: any) => b.status;
+
+  const upcoming = (bookings || []).filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled");
+  const past = (bookings || []).filter((b: any) => new Date(getStartTime(b)) < now || getStatus(b) === "cancelled");
 
   return (
     <div className="min-h-screen bg-background dark">
