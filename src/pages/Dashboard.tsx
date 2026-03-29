@@ -17,6 +17,7 @@ import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, fmtDateTimeSG as fmtDateTim
 const statusBadge: Record<string, string> = {
   confirmed: "bg-primary/10 text-primary border-primary/20",
   pending: "bg-accent/20 text-accent-foreground border-accent/30",
+  pending_payment: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
   cancelled: "bg-destructive/10 text-destructive border-destructive/20",
   completed: "bg-muted text-muted-foreground border-border",
 };
