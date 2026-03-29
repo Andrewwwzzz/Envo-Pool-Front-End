@@ -55,8 +55,12 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
   const startTime = b.startTime || b.start_time;
   const endTime = b.endTime || b.end_time;
   const createdAt = b.createdAt || b.created_at;
-  const durationHours = b.duration_hours || b.duration;
-  const finalPrice = b.finalPrice ?? b.final_price ?? b.price ?? 0;
+  // duration: backend sends minutes, legacy sends hours
+  const rawDuration = b.duration ?? b.duration_hours;
+  const durationDisplay = b.duration
+    ? (b.duration >= 60 ? `${b.duration / 60}h` : `${b.duration}min`)
+    : (b.duration_hours ? `${b.duration_hours}h` : null);
+  const finalPrice = b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0;
   const tableNum = b.tableId?.name || b.tables?.table_number || "?";
   const paymentMethodRaw = b.paymentMethod || b.payment_method;
 
