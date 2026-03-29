@@ -165,7 +165,7 @@ export function useCreateBooking() {
   });
 }
 
-const BACKEND_URL = "https://anytime-pool-back-end.onrender.com";
+const BACKEND_URL = "https://api.envopoolsg.com";
 
 export async function loadBookingsFromBackend() {
   const res = await fetch(`${BACKEND_URL}/api/bookings`);
