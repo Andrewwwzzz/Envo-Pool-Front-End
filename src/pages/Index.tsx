@@ -270,7 +270,7 @@ const Index = () => {
             <Link to="/auth" className="hover:text-foreground transition-colors">Sign In</Link>
             <Link to="/booking" className="hover:text-foreground transition-colors">Book Now</Link>
           </div>
-          <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} Anytime Pool. All rights reserved.</p>
+          <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} Envo Pool. All rights reserved.</p>
         </div>
       </footer>
     </div>
