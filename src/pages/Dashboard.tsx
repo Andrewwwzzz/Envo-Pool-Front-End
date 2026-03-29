@@ -17,6 +17,7 @@ import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, fmtDateTimeSG as fmtDateTim
 const statusBadge: Record<string, string> = {
   confirmed: "bg-primary/10 text-primary border-primary/20",
   pending: "bg-accent/20 text-accent-foreground border-accent/30",
+  pending_payment: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
   cancelled: "bg-destructive/10 text-destructive border-destructive/20",
   completed: "bg-muted text-muted-foreground border-border",
 };
@@ -158,8 +159,8 @@ const Dashboard = () => {
   const getPrice = (b: any) => b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0;
   const getStatus = (b: any) => b.status;
 
-  const upcoming = (bookings || []).filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled");
-  const past = (bookings || []).filter((b: any) => new Date(getStartTime(b)) < now || getStatus(b) === "cancelled");
+  const upcoming = (bookings || []).filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled" && getStatus(b) !== "expired");
+  const past = (bookings || []).filter((b: any) => (new Date(getStartTime(b)) < now || getStatus(b) === "cancelled") && getStatus(b) !== "expired");
 
   return (
     <div className="min-h-screen bg-background dark">
@@ -240,8 +241,10 @@ const Dashboard = () => {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-medium">${getPrice(b).toFixed(2)}</span>
-                      <Badge variant="outline" className={statusBadge[getStatus(b)] ?? ""}>{getStatus(b)}</Badge>
-                      {getStatus(b) === "pending" && (
+                      <Badge variant="outline" className={statusBadge[getStatus(b)] ?? ""}>
+                        {getStatus(b) === "pending_payment" ? "Pending Payment" : getStatus(b)}
+                      </Badge>
+                      {(getStatus(b) === "pending" || getStatus(b) === "pending_payment") && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -284,7 +287,7 @@ const Dashboard = () => {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-medium">${getPrice(b).toFixed(2)}</span>
-                      <Badge variant="outline" className={statusBadge[getStatus(b)] ?? ""}>{getStatus(b)}</Badge>
+                      <Badge variant="outline" className={statusBadge[getStatus(b)] ?? ""}>{getStatus(b) === "pending_payment" ? "Pending Payment" : getStatus(b)}</Badge>
                     </div>
                   </div>
                 ))}
