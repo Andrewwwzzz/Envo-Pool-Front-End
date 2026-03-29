@@ -262,23 +262,23 @@ const Dashboard = () => {
               <p className="text-muted-foreground text-sm">No past reservations.</p>
             ) : (
               <div className="space-y-3">
-                {past.slice(0, 10).map((b) => (
+                {past.slice(0, 10).map((b: any) => (
                   <div
-                    key={b.id}
+                    key={b.id || b._id}
                     className={`flex items-center justify-between rounded-lg border border-border/50 p-4 transition-colors ${
-                      b.status === "confirmed" || b.status === "completed" ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : ""
+                      getStatus(b) === "confirmed" || getStatus(b) === "completed" ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : ""
                     }`}
-                    onClick={() => (b.status === "confirmed" || b.status === "completed") && setSelectedBooking(b)}
+                    onClick={() => (getStatus(b) === "confirmed" || getStatus(b) === "completed") && setSelectedBooking(b)}
                   >
                     <div>
-                      <p className="font-medium">Table {(b as any).tables?.table_number ?? "?"}</p>
+                      <p className="font-medium">Table {getTableName(b)}</p>
                       <p className="text-sm text-muted-foreground">
-                        {fmtDate(b.start_time)} {fmtTime(b.start_time)} – {fmtTime(b.end_time)} · {b.duration_hours}h
+                        {fmtDate(getStartTime(b))} {fmtTime(getStartTime(b))} – {fmtTime(getEndTime(b))}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="font-medium">${b.final_price?.toFixed(2) ?? b.price?.toFixed(2)}</span>
-                      <Badge variant="outline" className={statusBadge[b.status] ?? ""}>{b.status}</Badge>
+                      <span className="font-medium">${getPrice(b).toFixed(2)}</span>
+                      <Badge variant="outline" className={statusBadge[getStatus(b)] ?? ""}>{getStatus(b)}</Badge>
                     </div>
                   </div>
                 ))}
