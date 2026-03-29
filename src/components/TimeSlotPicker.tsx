@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
-import { isTodaySG, nowSGMinutes } from "@/lib/sgTime";
+import { isTodaySG, nowSGMinutes, sgSlotToUTC } from "@/lib/sgTime";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type SlotState = "available" | "booked" | "pending" | "past";
