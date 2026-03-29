@@ -6,7 +6,7 @@ import { useDeviceState, useDeviceControl } from "@/hooks/useDeviceControl";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
 import { useTermsContent, useUpdateTerms } from "@/hooks/useTerms";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUserRole } from "@/hooks/useProfile";
+
 import { Navigate, Link } from "react-router-dom";
 import {
   useAdminStats,

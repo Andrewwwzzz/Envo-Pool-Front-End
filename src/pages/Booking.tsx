@@ -289,7 +289,7 @@ const Booking = () => {
           <span className="text-sm text-muted-foreground hidden sm:inline">Reserve a Table</span>
         </div>
         <div className="flex items-center gap-2">
-          {role === "admin" && (
+          {isAdmin && (
             <Link to="/admin">
               <Button variant="outline" size="sm" className="border-accent/30 text-accent hover:bg-accent/10"><Shield className="mr-2 h-4 w-4" /> Admin</Button>
             </Link>
