@@ -88,10 +88,10 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
       <DialogContent className="sm:max-w-md bg-card border-border">
         <DialogHeader>
           <DialogTitle className="text-lg gold-gradient">
-            Table {tableNum} — Booking Details
+            {tableLabel} — Booking Details
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Details for your booking on table {tableNum}
+            Details for your booking on {tableLabel}
           </DialogDescription>
         </DialogHeader>
 
