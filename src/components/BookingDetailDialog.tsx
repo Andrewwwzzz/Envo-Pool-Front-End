@@ -51,12 +51,20 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
 
   if (!booking) return null;
 
-  const tableNum = (booking as any).tables?.table_number ?? "?";
-  const isCompleted = (booking.status === "confirmed" || booking.status === "completed") && new Date(booking.end_time) < new Date();
+  const b = booking as any;
+  const startTime = b.startTime || b.start_time;
+  const endTime = b.endTime || b.end_time;
+  const createdAt = b.createdAt || b.created_at;
+  const durationHours = b.duration_hours || b.duration;
+  const finalPrice = b.finalPrice ?? b.final_price ?? b.price ?? 0;
+  const tableNum = b.tableId?.name || b.tables?.table_number || "?";
+  const paymentMethodRaw = b.paymentMethod || b.payment_method;
+
+  const isCompleted = (booking.status === "confirmed" || booking.status === "completed") && new Date(endTime) < new Date();
   const displayStatus = isCompleted ? "completed" : booking.status;
   const statusLabel = displayStatus === "no_show" ? "No Show" : displayStatus;
-  const payment = booking.payment_method
-    ? paymentLabel[booking.payment_method] ?? booking.payment_method
+  const payment = paymentMethodRaw
+    ? paymentLabel[paymentMethodRaw] ?? paymentMethodRaw
     : "N/A";
 
   const handleDownload = (type: "paid" | "watermark") => {
@@ -99,7 +107,7 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
             <Calendar className="h-4 w-4 text-accent shrink-0" />
             <div>
               <p className="text-sm text-muted-foreground">Date</p>
-              <p className="font-medium">{fmtDate(booking.start_time)}</p>
+              <p className="font-medium">{fmtDate(startTime)}</p>
             </div>
           </div>
 
@@ -109,8 +117,8 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
             <div>
               <p className="text-sm text-muted-foreground">Time</p>
               <p className="font-medium">
-                {fmtTime(booking.start_time)} – {fmtTime(booking.end_time)}
-                <span className="text-muted-foreground text-sm ml-2">({booking.duration_hours}h)</span>
+                {fmtTime(startTime)} – {fmtTime(endTime)}
+                {durationHours && <span className="text-muted-foreground text-sm ml-2">({durationHours}h)</span>}
               </p>
             </div>
           </div>
@@ -129,7 +137,7 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
             <span className="h-4 w-4 text-accent shrink-0 text-center font-bold text-sm">$</span>
             <div>
               <p className="text-sm text-muted-foreground">Amount Paid</p>
-              <p className="font-medium">${(booking.final_price ?? booking.price)?.toFixed(2)}</p>
+              <p className="font-medium">${finalPrice.toFixed ? finalPrice.toFixed(2) : finalPrice}</p>
             </div>
           </div>
 
@@ -140,7 +148,7 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
             <Calendar className="h-4 w-4 text-accent shrink-0" />
             <div>
               <p className="text-sm text-muted-foreground">Order Created</p>
-              <p className="font-medium">{fmtDate(booking.created_at)} at {fmtTime(booking.created_at)}</p>
+              <p className="font-medium">{createdAt ? `${fmtDate(createdAt)} at ${fmtTime(createdAt)}` : "N/A"}</p>
             </div>
           </div>
 
