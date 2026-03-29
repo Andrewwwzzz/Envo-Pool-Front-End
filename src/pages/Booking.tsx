@@ -304,6 +304,15 @@ const Booking = () => {
       </header>
 
       <main className="relative z-10 mx-auto max-w-4xl p-6 space-y-6">
+        {!isVerified && (
+          <Card className="card-premium border-yellow-500/30 bg-yellow-500/5">
+            <CardContent className="pt-6 text-center">
+              <p className="text-yellow-400 font-semibold">⏳ Awaiting admin verification</p>
+              <p className="text-sm text-muted-foreground mt-1">Your account is pending approval. You cannot book until verified.</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Step 1: Date Selection */}
         <Card className="card-premium">
           <CardHeader className="pb-4">
