@@ -27,6 +27,8 @@ export function useDeleteBooking() {
       toast({ title: "Booking deleted" });
       queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-booking-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -311,6 +313,8 @@ export function useUpdateBookingStatus() {
       queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-booking-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -418,6 +422,8 @@ export function useUpdateCustomerProfile() {
     onSuccess: () => {
       toast({ title: "Customer updated" });
       queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -437,6 +443,8 @@ export function useDeleteCustomer() {
     onSuccess: () => {
       toast({ title: "Customer deleted" });
       queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });

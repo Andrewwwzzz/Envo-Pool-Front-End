@@ -23,6 +23,7 @@ import {
   useCustomerWalletHistory,
   useCustomerRewardHistory,
 } from "@/hooks/useAdmin";
+import LogsTab from "@/components/admin/LogsTab";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,7 @@ const Admin = () => {
             <TabsTrigger value="promos">Promos</TabsTrigger>
             <TabsTrigger value="terms">T&C</TabsTrigger>
             <TabsTrigger value="verification">Verification</TabsTrigger>
+            <TabsTrigger value="logs">Logs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview"><OverviewTab /></TabsContent>
@@ -77,6 +79,7 @@ const Admin = () => {
           <TabsContent value="promos"><PromosTab /></TabsContent>
           <TabsContent value="terms"><TermsTab /></TabsContent>
           <TabsContent value="verification"><VerificationTab /></TabsContent>
+          <TabsContent value="logs"><LogsTab /></TabsContent>
         </Tabs>
       </main>
     </div>
