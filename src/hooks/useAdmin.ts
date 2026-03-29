@@ -27,6 +27,8 @@ export function useDeleteBooking() {
       toast({ title: "Booking deleted" });
       queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-booking-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
