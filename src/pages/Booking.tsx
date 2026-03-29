@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useTables, TableStatus, validateDuration } from "@/hooks/useBooking";
 import { usePricingRules } from "@/hooks/usePricing";
 import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
@@ -40,6 +40,7 @@ const Booking = () => {
   const { user, loading, signOut } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Step 1: Date
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -218,13 +219,15 @@ const Booking = () => {
       const data = await response.json();
 
       if (paymentMethod === "wallet") {
-        // Wallet: booking already confirmed by backend — show success, refresh state
-        queryClient.invalidateQueries({ queryKey: ["profile"] });
-        queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
-        queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
-        queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] });
+        // Wallet: booking already confirmed by backend — refetch from backend, then navigate
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["profile"] }),
+          queryClient.invalidateQueries({ queryKey: ["my-bookings"] }),
+          queryClient.invalidateQueries({ queryKey: ["tables-with-status"] }),
+          queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] }),
+        ]);
         toast({ title: "Booking confirmed!", description: "Your table has been reserved successfully." });
-        window.location.href = "/booking-confirmed";
+        navigate("/booking-confirmed");
       } else {
         // Stripe: redirect to checkout
         const { checkoutUrl, bookingId } = data;
