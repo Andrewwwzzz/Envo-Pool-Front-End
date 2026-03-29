@@ -5,6 +5,7 @@ interface BackendUser {
   name: string;
   email: string;
   isVerified: boolean;
+  isAdmin?: boolean;
   walletBalance?: number;
   rewardPoints?: number;
 }

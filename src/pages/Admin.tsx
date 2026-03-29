@@ -40,11 +40,10 @@ const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
-  const { data: role, isLoading: roleLoading } = useUserRole();
 
-  if (loading || roleLoading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>;
+  if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
-  if (role !== "admin") return <Navigate to="/booking" replace />;
+  if (!user.isAdmin) return <Navigate to="/booking" replace />;
 
   return (
     <div className="min-h-screen bg-background">
