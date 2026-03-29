@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
-import singpassBtn from "@/assets/singpass-btn.png";
+
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
