@@ -170,7 +170,7 @@ const Dashboard = () => {
           <Link to="/booking">
             <Button variant="outline" size="sm" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
           </Link>
-          <h1 className="text-xl font-bold tracking-tight gold-gradient">Anytime Pool</h1>
+          <h1 className="text-xl font-bold tracking-tight gold-gradient">Envo Pool</h1>
         </div>
         <Button variant="ghost" size="sm" onClick={signOut} className="text-muted-foreground">
           <LogOut className="h-4 w-4" />

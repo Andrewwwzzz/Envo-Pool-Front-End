@@ -11,7 +11,7 @@ const Index = () => {
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/30 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold tracking-tight gold-gradient">Anytime Pool</h1>
+          <h1 className="text-xl font-bold tracking-tight gold-gradient">Envo Pool</h1>
           <div className="flex items-center gap-3">
             <Link to="/auth">
               <Button variant="outline" size="sm" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground">
@@ -69,13 +69,13 @@ const Index = () => {
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid md:grid-cols-2 gap-16 items-center">
             <div>
-              <p className="text-accent uppercase tracking-[0.2em] text-xs font-medium mb-4">Why Anytime Pool</p>
+              <p className="text-accent uppercase tracking-[0.2em] text-xs font-medium mb-4">Why Envo Pool</p>
               <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">
                 <span className="gold-gradient">Redefining</span>{" "}
                 <span className="text-foreground">Pool Culture in Singapore</span>
               </h2>
               <p className="text-muted-foreground leading-relaxed mb-6">
-                We're not your average pool hall. Anytime Pool is a modern, tech-integrated space designed for serious players. Every detail — from our competition-grade Rasson tables to our Aramith balls — is chosen to deliver a professional playing experience.
+                We're not your average pool hall. Envo Pool is a modern, tech-integrated space designed for serious players. Every detail — from our competition-grade Rasson tables to our Aramith balls — is chosen to deliver a professional playing experience.
               </p>
               <p className="text-muted-foreground leading-relaxed">
                 Whether you're perfecting your break, training for tournaments, or simply want to play on equipment that matches your ambition, this is your space.
@@ -143,7 +143,7 @@ const Index = () => {
               <span className="text-foreground">Our Space</span>
             </h2>
             <p className="text-muted-foreground mt-4 max-w-xl mx-auto">
-              Whether you just picked up a cue or you're eyeing the tournament circuit, Anytime Pool is built for your growth.
+              Whether you just picked up a cue or you're eyeing the tournament circuit, Envo Pool is built for your growth.
             </p>
           </div>
 
@@ -264,13 +264,13 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t border-border/30 py-12">
         <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="gold-gradient text-lg font-bold">Anytime Pool</p>
+          <p className="gold-gradient text-lg font-bold">Envo Pool</p>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <Link to="/terms" className="hover:text-foreground transition-colors">Terms & Conditions</Link>
             <Link to="/auth" className="hover:text-foreground transition-colors">Sign In</Link>
             <Link to="/booking" className="hover:text-foreground transition-colors">Book Now</Link>
           </div>
-          <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} Anytime Pool. All rights reserved.</p>
+          <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} Envo Pool. All rights reserved.</p>
         </div>
       </footer>
     </div>
