@@ -582,13 +582,15 @@ function CustomersTab() {
             <thead><tr className="border-b border-border text-left">
               <th className="pb-2 pr-4">Name</th>
               <th className="pb-2 pr-4">Email</th>
+              <th className="pb-2 pr-4">Status</th>
+              <th className="pb-2 pr-4">Role</th>
               <th className="pb-2 pr-4">Wallet</th>
               <th className="pb-2 pr-4">Points</th>
               <th className="pb-2 pr-4">Total Spent</th>
               <th className="pb-2">Joined</th>
             </tr></thead>
             <tbody>
-              {(customers || []).map((c) => (
+              {(customers || []).map((c: any) => (
                 <tr
                   key={c.id}
                   className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors"
@@ -596,10 +598,20 @@ function CustomersTab() {
                 >
                   <td className="py-3 pr-4 font-medium">{c.name || "—"}</td>
                   <td className="py-3 pr-4 text-muted-foreground">{c.email}</td>
-                  <td className="py-3 pr-4">${c.wallet_balance.toFixed(2)}</td>
-                  <td className="py-3 pr-4">{c.reward_points}</td>
-                  <td className="py-3 pr-4">${c.total_spent.toFixed(2)}</td>
-                  <td className="py-3 text-muted-foreground">{fmtDateSG(c.created_at)}</td>
+                  <td className="py-3 pr-4">
+                    <Badge variant={c.isVerified ? "default" : "destructive"} className="text-xs">
+                      {c.isVerified ? "Verified" : "Unverified"}
+                    </Badge>
+                  </td>
+                  <td className="py-3 pr-4">
+                    <Badge variant={c.role === "admin" ? "secondary" : "outline"} className="text-xs capitalize">
+                      {c.role}
+                    </Badge>
+                  </td>
+                  <td className="py-3 pr-4">${(c.wallet_balance ?? 0).toFixed(2)}</td>
+                  <td className="py-3 pr-4">{c.reward_points ?? 0}</td>
+                  <td className="py-3 pr-4">${(c.total_spent ?? 0).toFixed(2)}</td>
+                  <td className="py-3 text-muted-foreground">{c.created_at ? fmtDateSG(c.created_at) : "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -661,8 +673,9 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
             <div><p className="text-muted-foreground">Joined</p><p className="font-medium">{fmtDateSG(customer.created_at)}</p></div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div><p className="text-muted-foreground">Verified</p><p className="font-medium">{customer.isVerified ? <Badge>Yes</Badge> : <Badge variant="destructive">No</Badge>}</p></div>
+            <div><p className="text-muted-foreground">Role</p><p className="font-medium capitalize">{customer.role}</p></div>
             <div><p className="text-muted-foreground">Age Verified</p><p className="font-medium">{customer.age_verified ? "Yes" : "No"}</p></div>
-            
           </div>
 
           {editing ? (
