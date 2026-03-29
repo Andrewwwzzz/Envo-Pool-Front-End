@@ -8,9 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Wallet, Star, Calendar, History, LogOut, ArrowLeft, XCircle, Eye } from "lucide-react";
+import { Wallet, Star, Calendar, History, LogOut, ArrowLeft, XCircle, Settings } from "lucide-react";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
 import { useToast } from "@/hooks/use-toast";
 
