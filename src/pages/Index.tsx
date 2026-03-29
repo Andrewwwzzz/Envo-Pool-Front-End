@@ -11,7 +11,7 @@ const Index = () => {
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/30 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold tracking-tight gold-gradient">Anytime Pool</h1>
+          <h1 className="text-xl font-bold tracking-tight gold-gradient">Envo Pool</h1>
           <div className="flex items-center gap-3">
             <Link to="/auth">
               <Button variant="outline" size="sm" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground">
