@@ -77,6 +77,7 @@ const Booking = () => {
       });
 
       const res = await apiFetch(`/api/bookings/availability?${params}`);
+      if (!res.ok) throw new Error("Failed to fetch availability");
       const allBookings = await res.json();
 
       // Filter to only bookings for the selected table's hardware_id
