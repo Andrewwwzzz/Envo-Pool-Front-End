@@ -209,7 +209,7 @@ const Booking = () => {
           queryClient.invalidateQueries({ queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()] });
         } else if (response.status === 400) {
           const errData = await response.json().catch(() => ({}));
-          toast({ title: "Booking failed", description: errData.message || "Please check your booking details.", variant: "destructive" });
+          toast({ title: "Booking failed", description: errData.error || errData.message || "Please check your booking details.", variant: "destructive" });
         } else {
           toast({ title: "Unable to create booking", description: "Please try again.", variant: "destructive" });
         }
