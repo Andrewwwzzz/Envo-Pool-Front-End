@@ -12,6 +12,7 @@ import BookingConfirmed from "./pages/BookingConfirmed";
 import BookingRefunded from "./pages/BookingRefunded";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
+import Settings from "./pages/Settings";
 import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
 
@@ -40,6 +41,7 @@ const App = () => (
             {/* Legacy redirect — preserves query params */}
             <Route path="/booking-success" element={<LegacyRedirect />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="*" element={<NotFound />} />
