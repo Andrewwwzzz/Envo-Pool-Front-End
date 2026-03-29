@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, CalendarDays, Tag, CreditCard, Wallet, ChevronRight, Shield } from "lucide-react";
+import { LogOut, CalendarDays, Tag, CreditCard, ChevronRight, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
 import { TimeSlotPicker } from "@/components/TimeSlotPicker";
@@ -51,7 +51,7 @@ const Booking = () => {
 
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<PromoValidation["promo"] | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<"wallet" | "stripe" | null>(null);
+  const [paymentMethod] = useState<"stripe">("stripe");
   const [showConfirm, setShowConfirm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -159,9 +159,7 @@ const Booking = () => {
     endDate &&
     endDate > startDate &&
     selectedTable &&
-    paymentMethod &&
-    !durationError &&
-    (paymentMethod !== "wallet" || (profile && profile.wallet_balance >= finalPrice));
+    !durationError;
 
   const handleBookClick = () => {
     setAgreedToTerms(false);
@@ -170,7 +168,7 @@ const Booking = () => {
 
 
   const handleConfirmBook = async () => {
-    if (!user || !selectedTable || !startDate || !endDate || !selectedTableData || !paymentMethod) return;
+    if (!user || !selectedTable || !startDate || !endDate || !selectedTableData) return;
 
     if (!selectedTableData.hardware_id) {
       toast({ title: "Table configuration error", description: "Please refresh the page.", variant: "destructive" });
@@ -183,123 +181,80 @@ const Booking = () => {
     const hardwareId = selectedTableData.hardware_id;
 
     try {
-      if (paymentMethod === "wallet") {
-        // Use atomic RPC for wallet — handles booking creation, wallet deduction, transactions, and rewards
-        const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-        const { data, error } = await supabase.rpc("create_booking_atomic", {
-          p_table_id: selectedTable,
-          p_start_time: startDate.toISOString(),
-          p_end_time: endDate.toISOString(),
-          p_duration_hours: durationHours,
-          p_original_price: originalPrice,
-          p_discount_amount: discountAmount,
-          p_final_price: finalPrice,
-          p_promo_id: appliedPromo?.id ?? undefined,
-          p_payment_method: "wallet",
-        });
+      // Single backend call: creates booking + initiates Stripe payment
+      const durationMinutes = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
 
-        if (error) throw new Error(error.message);
-        const result = data as unknown as { success?: boolean; error?: string; booking_id?: string };
-        if (result.error) throw new Error(result.error);
+      const response = await fetch(
+        "https://anytime-pool-api.onrender.com/api/bookings/create-with-payment",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: "69b29fd2945d95cf8f55c86a",
+            tableId: hardwareId,
+            startTime: startDate.toISOString(),
+            duration: durationMinutes,
+          }),
+        }
+      );
 
-        // Create in external API for hardware sync (time-based)
-        try {
-          const durationMinutes = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
-          await fetch("https://anytime-pool-api.onrender.com/api/bookings/create", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userId: "69b29fd2945d95cf8f55c86a",
-              tableId: hardwareId,
-              startTime: startDate.toISOString(),
-              duration: durationMinutes,
-            }),
+      if (!response.ok) {
+        if (response.status === 409) {
+          toast({
+            title: "Time slot already booked",
+            description: "This time slot has just been booked by another player. Please select another slot.",
+            variant: "destructive",
           });
-        } catch (extErr) {
-          console.warn("External API booking failed (non-critical):", extErr);
+          setStartSlot(null);
+          setEndSlot(null);
+          queryClient.invalidateQueries({ queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()] });
+        } else if (response.status === 400) {
+          const errData = await response.json().catch(() => ({}));
+          toast({ title: "Validation error", description: errData.message || "Please check your booking details.", variant: "destructive" });
+        } else {
+          toast({ title: "Unable to create booking", description: "Please try again.", variant: "destructive" });
         }
-
-        queryClient.invalidateQueries({ queryKey: ["profile"] });
-        queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
-        queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
-        queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] });
-        window.location.href = "/booking-confirmed";
-      } else {
-        // Stripe flow: single backend call that creates booking + payment
-        const durationMinutes = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
-
-        const response = await fetch(
-          "https://anytime-pool-api.onrender.com/api/bookings/create-with-payment",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userId: "69b29fd2945d95cf8f55c86a",
-              tableId: hardwareId,
-              startTime: startDate.toISOString(),
-              duration: durationMinutes,
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          if (response.status === 409) {
-            toast({
-              title: "Time slot already booked",
-              description: "This time slot has just been booked by another player. Please select another slot.",
-              variant: "destructive",
-            });
-            setStartSlot(null);
-            setEndSlot(null);
-            queryClient.invalidateQueries({ queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()] });
-          } else if (response.status === 400) {
-            const errData = await response.json().catch(() => ({}));
-            toast({ title: "Validation error", description: errData.message || "Please check your booking details.", variant: "destructive" });
-          } else {
-            toast({ title: "Unable to create booking", description: "Please try again.", variant: "destructive" });
-          }
-          return;
-        }
-
-        const { checkoutUrl, bookingId } = await response.json();
-
-        if (!checkoutUrl || !bookingId) {
-          toast({ title: "Invalid response", description: "Missing checkout URL from server.", variant: "destructive" });
-          return;
-        }
-
-        // Mirror booking locally for tracking
-        const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-        const { data: mirroredBooking, error: mirrorError } = await supabase
-          .from("bookings")
-          .insert({
-            user_id: user.id,
-            table_id: selectedTable,
-            start_time: startDate.toISOString(),
-            end_time: endDate.toISOString(),
-            duration_hours: durationHours,
-            price: finalPrice,
-            original_price: originalPrice,
-            discount_amount: discountAmount,
-            final_price: finalPrice,
-            promo_id: appliedPromo?.id ?? null,
-            payment_method: "stripe",
-            payment_id: bookingId,
-            status: "pending",
-          })
-          .select("id")
-          .single();
-
-        if (mirrorError) {
-          console.error("Failed to mirror booking locally:", mirrorError);
-        }
-
-        if (mirroredBooking) {
-          sessionStorage.setItem("pending_booking_id", mirroredBooking.id);
-        }
-
-        window.location.href = checkoutUrl;
+        return;
       }
+
+      const { checkoutUrl, bookingId } = await response.json();
+
+      if (!checkoutUrl || !bookingId) {
+        toast({ title: "Invalid response", description: "Missing checkout URL from server.", variant: "destructive" });
+        return;
+      }
+
+      // Mirror booking locally for tracking
+      const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+      const { data: mirroredBooking, error: mirrorError } = await supabase
+        .from("bookings")
+        .insert({
+          user_id: user.id,
+          table_id: selectedTable,
+          start_time: startDate.toISOString(),
+          end_time: endDate.toISOString(),
+          duration_hours: durationHours,
+          price: finalPrice,
+          original_price: originalPrice,
+          discount_amount: discountAmount,
+          final_price: finalPrice,
+          promo_id: appliedPromo?.id ?? null,
+          payment_method: "stripe",
+          payment_id: bookingId,
+          status: "pending",
+        })
+        .select("id")
+        .single();
+
+      if (mirrorError) {
+        console.error("Failed to mirror booking locally:", mirrorError);
+      }
+
+      if (mirroredBooking) {
+        sessionStorage.setItem("pending_booking_id", mirroredBooking.id);
+      }
+
+      window.location.href = checkoutUrl;
     } catch (error) {
 
       console.error(error);
@@ -495,55 +450,7 @@ const Booking = () => {
           </Card>
         )}
 
-        {/* Payment Method */}
-        {pricing && selectedTable && !durationError && startSlot && endSlot && (
-          <Card className="card-premium">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-accent" /> Payment Method
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2">
-              <button
-                onClick={() => setPaymentMethod("wallet")}
-                className={`rounded-xl border p-4 text-left transition-all duration-200 ${
-                  paymentMethod === "wallet"
-                    ? "border-accent ring-2 ring-accent/20 bg-accent/5"
-                    : "border-border hover:border-muted-foreground/30"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Wallet className="h-5 w-5 text-accent" />
-                  <div>
-                    <p className="font-medium">Wallet</p>
-                    <p className="text-sm text-muted-foreground">
-                      Balance: ${profile?.wallet_balance?.toFixed(2) ?? "0.00"}
-                    </p>
-                  </div>
-                </div>
-                {paymentMethod === "wallet" && profile && profile.wallet_balance < finalPrice && (
-                  <p className="mt-2 text-xs text-destructive">Insufficient balance</p>
-                )}
-              </button>
-              <button
-                onClick={() => setPaymentMethod("stripe")}
-                className={`rounded-xl border p-4 text-left transition-all duration-200 ${
-                  paymentMethod === "stripe"
-                    ? "border-accent ring-2 ring-accent/20 bg-accent/5"
-                    : "border-border hover:border-muted-foreground/30"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <CreditCard className="h-5 w-5 text-accent" />
-                  <div>
-                    <p className="font-medium">Paynow</p>
-                    <p className="text-sm text-muted-foreground">Scan and Pay</p>
-                  </div>
-                </div>
-              </button>
-            </CardContent>
-          </Card>
-        )}
+        {/* Payment via Paynow (Stripe) — auto-selected */}
 
         {/* Book Button */}
         <div className="flex justify-end">
