@@ -48,6 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       const data = await res.json();
       const u = data.user;
+      console.log("CURRENT USER:", u);
       localStorage.setItem("user", JSON.stringify(u));
       return u;
     } catch (err) {
