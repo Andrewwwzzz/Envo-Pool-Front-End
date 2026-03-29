@@ -67,6 +67,7 @@ const Admin = () => {
             <TabsTrigger value="promos">Promos</TabsTrigger>
             <TabsTrigger value="terms">T&C</TabsTrigger>
             <TabsTrigger value="verification">Verification</TabsTrigger>
+            <TabsTrigger value="logs">Logs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview"><OverviewTab /></TabsContent>
