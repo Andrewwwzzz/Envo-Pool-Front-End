@@ -182,54 +182,44 @@ const Booking = () => {
     const hardwareId = selectedTableData.hardware_id;
 
     try {
-      // Single backend call: creates booking + initiates Stripe payment
       const durationMinutes = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
+      const requestBody = {
+        userId: "69b29fd2945d95cf8f55c86a",
+        tableId: hardwareId,
+        startTime: startDate.toISOString(),
+        duration: durationMinutes,
+      };
 
-      const response = await fetch(
-        "https://anytime-pool-api.onrender.com/api/bookings/create-with-payment",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: "69b29fd2945d95cf8f55c86a",
-            tableId: hardwareId,
-            startTime: startDate.toISOString(),
-            duration: durationMinutes,
-          }),
+      if (paymentMethod === "wallet") {
+        // Wallet flow: backend creates confirmed booking immediately
+        const response = await fetch(
+          "https://anytime-pool-api.onrender.com/api/bookings/create-with-wallet",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody),
+          }
+        );
+
+        if (!response.ok) {
+          if (response.status === 409) {
+            toast({ title: "Time slot already booked", description: "Please select another slot.", variant: "destructive" });
+            setStartSlot(null);
+            setEndSlot(null);
+            queryClient.invalidateQueries({ queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()] });
+          } else if (response.status === 400) {
+            const errData = await response.json().catch(() => ({}));
+            toast({ title: "Validation error", description: errData.message || "Please check your booking details.", variant: "destructive" });
+          } else {
+            toast({ title: "Unable to create booking", description: "Please try again.", variant: "destructive" });
+          }
+          return;
         }
-      );
 
-      if (!response.ok) {
-        if (response.status === 409) {
-          toast({
-            title: "Time slot already booked",
-            description: "This time slot has just been booked by another player. Please select another slot.",
-            variant: "destructive",
-          });
-          setStartSlot(null);
-          setEndSlot(null);
-          queryClient.invalidateQueries({ queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()] });
-        } else if (response.status === 400) {
-          const errData = await response.json().catch(() => ({}));
-          toast({ title: "Validation error", description: errData.message || "Please check your booking details.", variant: "destructive" });
-        } else {
-          toast({ title: "Unable to create booking", description: "Please try again.", variant: "destructive" });
-        }
-        return;
-      }
-
-      const { checkoutUrl, bookingId } = await response.json();
-
-      if (!checkoutUrl || !bookingId) {
-        toast({ title: "Invalid response", description: "Missing checkout URL from server.", variant: "destructive" });
-        return;
-      }
-
-      // Mirror booking locally for tracking
-      const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-      const { data: mirroredBooking, error: mirrorError } = await supabase
-        .from("bookings")
-        .insert({
+        // Wallet booking confirmed by backend — mirror locally
+        const result = await response.json();
+        const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+        await supabase.from("bookings").insert({
           user_id: user.id,
           table_id: selectedTable,
           start_time: startDate.toISOString(),
@@ -240,22 +230,77 @@ const Booking = () => {
           discount_amount: discountAmount,
           final_price: finalPrice,
           promo_id: appliedPromo?.id ?? null,
-          payment_method: "stripe",
-          payment_id: bookingId,
-          status: "pending",
-        })
-        .select("id")
-        .single();
+          payment_method: "wallet",
+          payment_id: result.bookingId ?? null,
+          status: "confirmed",
+        });
 
-      if (mirrorError) {
-        console.error("Failed to mirror booking locally:", mirrorError);
+        queryClient.invalidateQueries({ queryKey: ["profile"] });
+        queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+        queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+        queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] });
+        toast({ title: "Booking confirmed!", description: "Your table has been reserved successfully." });
+        window.location.href = "/booking-confirmed";
+      } else {
+        // Stripe flow: backend creates booking + payment session
+        const response = await fetch(
+          "https://anytime-pool-api.onrender.com/api/bookings/create-with-payment",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody),
+          }
+        );
+
+        if (!response.ok) {
+          if (response.status === 409) {
+            toast({ title: "Time slot already booked", description: "Please select another slot.", variant: "destructive" });
+            setStartSlot(null);
+            setEndSlot(null);
+            queryClient.invalidateQueries({ queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()] });
+          } else if (response.status === 400) {
+            const errData = await response.json().catch(() => ({}));
+            toast({ title: "Validation error", description: errData.message || "Please check your booking details.", variant: "destructive" });
+          } else {
+            toast({ title: "Unable to create booking", description: "Please try again.", variant: "destructive" });
+          }
+          return;
+        }
+
+        const { checkoutUrl, bookingId } = await response.json();
+
+        if (!checkoutUrl || !bookingId) {
+          toast({ title: "Invalid response", description: "Missing checkout URL from server.", variant: "destructive" });
+          return;
+        }
+
+        // Mirror booking locally for tracking
+        const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+        const { data: mirroredBooking, error: mirrorError } = await supabase
+          .from("bookings")
+          .insert({
+            user_id: user.id,
+            table_id: selectedTable,
+            start_time: startDate.toISOString(),
+            end_time: endDate.toISOString(),
+            duration_hours: durationHours,
+            price: finalPrice,
+            original_price: originalPrice,
+            discount_amount: discountAmount,
+            final_price: finalPrice,
+            promo_id: appliedPromo?.id ?? null,
+            payment_method: "stripe",
+            payment_id: bookingId,
+            status: "pending",
+          })
+          .select("id")
+          .single();
+
+        if (mirrorError) console.error("Failed to mirror booking locally:", mirrorError);
+        if (mirroredBooking) sessionStorage.setItem("pending_booking_id", mirroredBooking.id);
+
+        window.location.href = checkoutUrl;
       }
-
-      if (mirroredBooking) {
-        sessionStorage.setItem("pending_booking_id", mirroredBooking.id);
-      }
-
-      window.location.href = checkoutUrl;
     } catch (error) {
 
       console.error(error);
