@@ -438,7 +438,8 @@ export function useDeleteCustomer() {
 
   return useMutation({
     mutationFn: async (userId: string) => {
-      const res = await apiFetch(`/api/admin/customers/${userId}`, { method: "DELETE" });
+      console.log("TOKEN:", localStorage.getItem("token"));
+      const res = await apiFetch(`/api/users/${userId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete customer");
     },
     onSuccess: () => {
