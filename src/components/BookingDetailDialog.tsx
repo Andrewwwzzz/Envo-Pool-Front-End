@@ -55,9 +55,13 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
   const startTime = b.startTime || b.start_time;
   const endTime = b.endTime || b.end_time;
   const createdAt = b.createdAt || b.created_at;
-  const durationHours = b.duration_hours || b.duration;
-  const finalPrice = b.finalPrice ?? b.final_price ?? b.price ?? 0;
-  const tableNum = b.tableId?.name || b.tables?.table_number || "?";
+  // duration: backend sends minutes, legacy sends hours
+  const rawDuration = b.duration ?? b.duration_hours;
+  const durationDisplay = b.duration
+    ? (b.duration >= 60 ? `${b.duration / 60}h` : `${b.duration}min`)
+    : (b.duration_hours ? `${b.duration_hours}h` : null);
+  const finalPrice = b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0;
+  const tableLabel = b.tableId?.name || `Table ${b.tables?.table_number || "?"}`;
   const paymentMethodRaw = b.paymentMethod || b.payment_method;
 
   const isCompleted = (booking.status === "confirmed" || booking.status === "completed") && new Date(endTime) < new Date();
@@ -84,10 +88,10 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
       <DialogContent className="sm:max-w-md bg-card border-border">
         <DialogHeader>
           <DialogTitle className="text-lg gold-gradient">
-            Table {tableNum} — Booking Details
+            {tableLabel} — Booking Details
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Details for your booking on table {tableNum}
+            Details for your booking on {tableLabel}
           </DialogDescription>
         </DialogHeader>
 
@@ -118,7 +122,7 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
               <p className="text-sm text-muted-foreground">Time</p>
               <p className="font-medium">
                 {fmtTime(startTime)} – {fmtTime(endTime)}
-                {durationHours && <span className="text-muted-foreground text-sm ml-2">({durationHours}h)</span>}
+                {durationDisplay && <span className="text-muted-foreground text-sm ml-2">({durationDisplay})</span>}
               </p>
             </div>
           </div>
