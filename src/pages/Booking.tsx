@@ -450,55 +450,7 @@ const Booking = () => {
           </Card>
         )}
 
-        {/* Payment Method */}
-        {pricing && selectedTable && !durationError && startSlot && endSlot && (
-          <Card className="card-premium">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-accent" /> Payment Method
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2">
-              <button
-                onClick={() => setPaymentMethod("wallet")}
-                className={`rounded-xl border p-4 text-left transition-all duration-200 ${
-                  paymentMethod === "wallet"
-                    ? "border-accent ring-2 ring-accent/20 bg-accent/5"
-                    : "border-border hover:border-muted-foreground/30"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Wallet className="h-5 w-5 text-accent" />
-                  <div>
-                    <p className="font-medium">Wallet</p>
-                    <p className="text-sm text-muted-foreground">
-                      Balance: ${profile?.wallet_balance?.toFixed(2) ?? "0.00"}
-                    </p>
-                  </div>
-                </div>
-                {paymentMethod === "wallet" && profile && profile.wallet_balance < finalPrice && (
-                  <p className="mt-2 text-xs text-destructive">Insufficient balance</p>
-                )}
-              </button>
-              <button
-                onClick={() => setPaymentMethod("stripe")}
-                className={`rounded-xl border p-4 text-left transition-all duration-200 ${
-                  paymentMethod === "stripe"
-                    ? "border-accent ring-2 ring-accent/20 bg-accent/5"
-                    : "border-border hover:border-muted-foreground/30"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <CreditCard className="h-5 w-5 text-accent" />
-                  <div>
-                    <p className="font-medium">Paynow</p>
-                    <p className="text-sm text-muted-foreground">Scan and Pay</p>
-                  </div>
-                </div>
-              </button>
-            </CardContent>
-          </Card>
-        )}
+        {/* Payment via Paynow (Stripe) — auto-selected */}
 
         {/* Book Button */}
         <div className="flex justify-end">
