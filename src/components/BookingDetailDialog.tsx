@@ -122,7 +122,7 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
               <p className="text-sm text-muted-foreground">Time</p>
               <p className="font-medium">
                 {fmtTime(startTime)} – {fmtTime(endTime)}
-                {durationHours && <span className="text-muted-foreground text-sm ml-2">({durationHours}h)</span>}
+                {durationDisplay && <span className="text-muted-foreground text-sm ml-2">({durationDisplay})</span>}
               </p>
             </div>
           </div>
