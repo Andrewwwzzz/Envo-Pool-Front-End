@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
 import { useDeviceState, useDeviceControl } from "@/hooks/useDeviceControl";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
@@ -65,6 +67,7 @@ const Admin = () => {
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="promos">Promos</TabsTrigger>
             <TabsTrigger value="terms">T&C</TabsTrigger>
+            <TabsTrigger value="verification">Verification</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview"><OverviewTab /></TabsContent>
@@ -75,6 +78,7 @@ const Admin = () => {
           <TabsContent value="pricing"><PricingTab /></TabsContent>
           <TabsContent value="promos"><PromosTab /></TabsContent>
           <TabsContent value="terms"><TermsTab /></TabsContent>
+          <TabsContent value="verification"><VerificationTab /></TabsContent>
         </Tabs>
       </main>
     </div>
@@ -1105,6 +1109,118 @@ function TermsTab() {
             </div>
             <Button onClick={startEdit}>Edit Terms</Button>
           </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function VerificationTab() {
+  const { user } = useAuth();
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [verifying, setVerifying] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const fetchUnverified = async () => {
+    try {
+      setLoading(true);
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      const res = await fetch("https://api.envopoolsg.com/api/admin/unverified-users", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to fetch unverified users");
+      const data = await res.json();
+      setUsers(Array.isArray(data) ? data : data.users || []);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnverified();
+  }, []);
+
+  const handleVerify = async (userId: string) => {
+    try {
+      setVerifying(userId);
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      const res = await fetch("https://api.envopoolsg.com/api/admin/verify-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ userId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Failed to verify user");
+      }
+      toast({ title: "User verified successfully" });
+      await fetchUnverified();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setVerifying(null);
+    }
+  };
+
+  if (loading) return <p className="text-muted-foreground">Loading unverified users...</p>;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>User Verification</CardTitle>
+          <Button variant="outline" size="sm" onClick={fetchUnverified}>
+            <RotateCcw className="mr-2 h-4 w-4" /> Refresh
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {users.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">No unverified users</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left">
+                  <th className="pb-2 pr-4">Name</th>
+                  <th className="pb-2 pr-4">Email</th>
+                  <th className="pb-2 pr-4">Created</th>
+                  <th className="pb-2">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u: any) => (
+                  <tr key={u._id || u.userId || u.id} className="border-b border-border last:border-0">
+                    <td className="py-3 pr-4">{u.name || "—"}</td>
+                    <td className="py-3 pr-4">{u.email || "—"}</td>
+                    <td className="py-3 pr-4">{u.createdAt ? fmtDateTimeSG(u.createdAt) : "—"}</td>
+                    <td className="py-3">
+                      <Button
+                        size="sm"
+                        onClick={() => handleVerify(u._id || u.userId || u.id)}
+                        disabled={verifying === (u._id || u.userId || u.id)}
+                      >
+                        {verifying === (u._id || u.userId || u.id) ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="mr-2 h-4 w-4" />
+                        )}
+                        Verify
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </CardContent>
     </Card>
