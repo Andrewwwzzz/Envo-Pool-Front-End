@@ -218,13 +218,15 @@ const Booking = () => {
       const data = await response.json();
 
       if (paymentMethod === "wallet") {
-        // Wallet: booking already confirmed by backend — show success, refresh state
-        queryClient.invalidateQueries({ queryKey: ["profile"] });
-        queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
-        queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
-        queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] });
+        // Wallet: booking already confirmed by backend — refetch from backend, then navigate
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["profile"] }),
+          queryClient.invalidateQueries({ queryKey: ["my-bookings"] }),
+          queryClient.invalidateQueries({ queryKey: ["tables-with-status"] }),
+          queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] }),
+        ]);
         toast({ title: "Booking confirmed!", description: "Your table has been reserved successfully." });
-        window.location.href = "/booking-confirmed";
+        navigate("/booking-confirmed");
       } else {
         // Stripe: redirect to checkout
         const { checkoutUrl, bookingId } = data;
