@@ -137,7 +137,7 @@ export function useAdminPricingRules() {
   const query = useQuery({
     queryKey: ["admin-pricing-rules"],
     queryFn: async () => {
-      const res = await apiFetch("/api/pricing-rules");
+      const res = await apiFetch("/api/admin/pricing-rules");
       if (!res.ok) throw new Error("Failed to fetch pricing rules");
       return await res.json();
     },
