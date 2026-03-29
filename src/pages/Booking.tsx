@@ -141,6 +141,8 @@ const Booking = () => {
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
 
+  const isVerified = user.isVerified !== false;
+
   const handleDateSelect = (date: Date | undefined) => {
     setSelectedDate(date);
     setStartSlot(null);
