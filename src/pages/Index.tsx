@@ -143,7 +143,7 @@ const Index = () => {
               <span className="text-foreground">Our Space</span>
             </h2>
             <p className="text-muted-foreground mt-4 max-w-xl mx-auto">
-              Whether you just picked up a cue or you're eyeing the tournament circuit, Anytime Pool is built for your growth.
+              Whether you just picked up a cue or you're eyeing the tournament circuit, Envo Pool is built for your growth.
             </p>
           </div>
 
