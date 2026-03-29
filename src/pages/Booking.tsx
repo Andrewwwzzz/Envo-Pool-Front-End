@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, CalendarDays, Tag, CreditCard, ChevronRight, Shield } from "lucide-react";
+import { LogOut, CalendarDays, Tag, CreditCard, Wallet, ChevronRight, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
 import { TimeSlotPicker } from "@/components/TimeSlotPicker";
