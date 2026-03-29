@@ -41,6 +41,7 @@ const App = () => (
             {/* Legacy redirect — preserves query params */}
             <Route path="/booking-success" element={<LegacyRedirect />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="*" element={<NotFound />} />
