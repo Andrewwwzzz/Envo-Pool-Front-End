@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
 
     // Verify with external payment API
     const verifyRes = await fetch(
-      `https://anytime-pool-back-end.onrender.com/api/payments/verify-session?session_id=${encodeURIComponent(session_id)}`
+      `https://api.envopoolsg.com/api/payments/verify-session?session_id=${encodeURIComponent(session_id)}`
     );
 
     if (!verifyRes.ok) {
