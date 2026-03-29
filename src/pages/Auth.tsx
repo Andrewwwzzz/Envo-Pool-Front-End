@@ -130,12 +130,9 @@ const Auth = () => {
                 <p className="text-sm text-muted-foreground">
                   {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
                   <button type="button" className="text-accent hover:text-accent/80 font-medium transition-colors" onClick={() => setIsLogin(!isLogin)}>
-                    {isLogin ? "Sign Up with Singpass" : "Sign In"}
+                    {isLogin ? "Sign Up" : "Sign In"}
                   </button>
                 </p>
-                <a href="https://anytime-pool-api.onrender.com/api/auth/singpass" className="inline-block">
-                  <img src={singpassBtn} alt="Sign up with Singpass" className="h-10 rounded-lg cursor-pointer hover:opacity-80 transition-opacity" />
-                </a>
               </div>
             </form>
           </CardContent>
