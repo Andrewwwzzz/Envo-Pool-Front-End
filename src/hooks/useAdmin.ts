@@ -439,6 +439,8 @@ export function useDeleteCustomer() {
     onSuccess: () => {
       toast({ title: "Customer deleted" });
       queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
