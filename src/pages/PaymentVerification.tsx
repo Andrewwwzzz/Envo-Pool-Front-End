@@ -29,10 +29,12 @@ const PaymentVerification = () => {
 
     const verify = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke(
-          "verify-stripe-booking",
-          { body: { session_id: sessionId } }
-        );
+        const res = await apiFetch("/api/bookings/verify-stripe", {
+          method: "POST",
+          body: JSON.stringify({ session_id: sessionId }),
+        });
+        const data = res.ok ? await res.json() : null;
+        const error = !res.ok;
 
         if (error) {
           if (retryCount < MAX_RETRIES && !cancelled) {
