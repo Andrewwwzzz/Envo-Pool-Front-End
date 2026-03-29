@@ -1125,8 +1125,7 @@ function VerificationTab() {
   const fetchUnverified = async () => {
     try {
       setLoading(true);
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
+      const token = localStorage.getItem("token");
       const res = await fetch("https://api.envopoolsg.com/api/admin/unverified-users", {
         headers: { Authorization: `Bearer ${token}` },
       });
