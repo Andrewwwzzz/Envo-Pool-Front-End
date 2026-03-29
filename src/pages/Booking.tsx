@@ -203,7 +203,7 @@ const Booking = () => {
     const hardwareId = selectedTableData.hardware_id;
     const durationMinutes = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
     const requestBody = {
-      userId: "69b29fd2945d95cf8f55c86a",
+      userId: user.id,
       tableId: hardwareId,
       startTime: startDate.toISOString(),
       duration: durationMinutes,
@@ -212,12 +212,11 @@ const Booking = () => {
 
     try {
       const endpoint = paymentMethod === "wallet"
-        ? "https://api.envopoolsg.com/api/bookings/create-with-wallet"
-        : "https://api.envopoolsg.com/api/bookings/create-with-payment";
+        ? "/api/bookings/create-with-wallet"
+        : "/api/bookings/create-with-payment";
 
-      const response = await fetch(endpoint, {
+      const response = await apiFetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
       });
 
