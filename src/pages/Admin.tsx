@@ -1146,8 +1146,7 @@ function VerificationTab() {
   const handleVerify = async (userId: string) => {
     try {
       setVerifying(userId);
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
+      const token = localStorage.getItem("token");
       const res = await fetch("https://api.envopoolsg.com/api/admin/verify-user", {
         method: "POST",
         headers: {
