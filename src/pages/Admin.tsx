@@ -65,6 +65,7 @@ const Admin = () => {
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="promos">Promos</TabsTrigger>
             <TabsTrigger value="terms">T&C</TabsTrigger>
+            <TabsTrigger value="verification">Verification</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview"><OverviewTab /></TabsContent>
@@ -75,6 +76,7 @@ const Admin = () => {
           <TabsContent value="pricing"><PricingTab /></TabsContent>
           <TabsContent value="promos"><PromosTab /></TabsContent>
           <TabsContent value="terms"><TermsTab /></TabsContent>
+          <TabsContent value="verification"><VerificationTab /></TabsContent>
         </Tabs>
       </main>
     </div>
