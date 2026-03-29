@@ -205,6 +205,7 @@ const Booking = () => {
       tableId: hardwareId,
       startTime: startDate.toISOString(),
       duration: durationMinutes,
+      price: finalPrice,
     };
 
     try {
