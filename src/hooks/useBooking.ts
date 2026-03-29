@@ -166,10 +166,8 @@ export function useCreateBooking() {
   });
 }
 
-const BACKEND_URL = "https://api.envopoolsg.com";
-
 export async function loadBookingsFromBackend() {
-  const res = await fetch(`${BACKEND_URL}/api/bookings`);
+  const res = await apiFetch("/api/bookings");
   if (!res.ok) throw new Error("Failed to fetch bookings");
   const data = await res.json();
   console.log("Bookings from backend:", data);
