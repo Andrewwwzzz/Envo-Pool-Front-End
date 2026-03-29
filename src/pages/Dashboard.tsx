@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Wallet, Star, Calendar, History, LogOut, ArrowLeft, XCircle, Settings } from "lucide-react";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
 import { useToast } from "@/hooks/use-toast";
+import { getAuthHeaders } from "@/lib/api";
 
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, fmtDateTimeSG as fmtDateTime } from "@/lib/sgTime";
 
@@ -34,7 +35,7 @@ const Dashboard = () => {
     mutationFn: async (bookingId: string) => {
       const res = await fetch(`https://api.envopoolsg.com/api/bookings/${bookingId}/cancel`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...getAuthHeaders() },
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

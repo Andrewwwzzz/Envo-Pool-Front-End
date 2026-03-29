@@ -4,7 +4,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { useTables, TableStatus, validateDuration } from "@/hooks/useBooking";
 import { usePricingRules } from "@/hooks/usePricing";
 import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
-import { useProfile, useUserRole } from "@/hooks/useProfile";
+import { useProfile } from "@/hooks/useProfile";
 import { calculateBookingPrice, calculateDiscount } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import { TimeSlotPicker } from "@/components/TimeSlotPicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
+import { apiFetch } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isBefore } from "date-fns";
 import { todaySG, sgSlotToUTC, sgDayBoundsUTC } from "@/lib/sgTime";
@@ -37,7 +38,7 @@ function slotToDate(date: Date, slot: string): Date {
 }
 
 const Booking = () => {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, token } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -75,7 +76,7 @@ const Booking = () => {
         endTime: dayEnd.toISOString(),
       });
 
-      const res = await fetch(`https://api.envopoolsg.com/api/bookings/availability?${params}`);
+      const res = await apiFetch(`/api/bookings/availability?${params}`);
       if (!res.ok) throw new Error("Failed to fetch availability");
       const allBookings = await res.json();
 
@@ -103,7 +104,7 @@ const Booking = () => {
 
   const { data: pricingRules } = usePricingRules();
   const { data: profile } = useProfile();
-  const { data: role } = useUserRole();
+  const isAdmin = user?.isAdmin === true;
   const validatePromo = useValidatePromo();
 
   // Compute start/end Date from slots
@@ -139,6 +140,8 @@ const Booking = () => {
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
+
+  const isVerified = user.isVerified !== false;
 
   const handleDateSelect = (date: Date | undefined) => {
     setSelectedDate(date);
@@ -203,7 +206,7 @@ const Booking = () => {
     const hardwareId = selectedTableData.hardware_id;
     const durationMinutes = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
     const requestBody = {
-      userId: "69b29fd2945d95cf8f55c86a",
+      userId: user.id,
       tableId: hardwareId,
       startTime: startDate.toISOString(),
       duration: durationMinutes,
@@ -212,12 +215,11 @@ const Booking = () => {
 
     try {
       const endpoint = paymentMethod === "wallet"
-        ? "https://api.envopoolsg.com/api/bookings/create-with-wallet"
-        : "https://api.envopoolsg.com/api/bookings/create-with-payment";
+        ? "/api/bookings/create-with-wallet"
+        : "/api/bookings/create-with-payment";
 
-      const response = await fetch(endpoint, {
+      const response = await apiFetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
       });
 
@@ -287,7 +289,7 @@ const Booking = () => {
           <span className="text-sm text-muted-foreground hidden sm:inline">Reserve a Table</span>
         </div>
         <div className="flex items-center gap-2">
-          {role === "admin" && (
+          {isAdmin && (
             <Link to="/admin">
               <Button variant="outline" size="sm" className="border-accent/30 text-accent hover:bg-accent/10"><Shield className="mr-2 h-4 w-4" /> Admin</Button>
             </Link>
@@ -302,6 +304,15 @@ const Booking = () => {
       </header>
 
       <main className="relative z-10 mx-auto max-w-4xl p-6 space-y-6">
+        {!isVerified && (
+          <Card className="card-premium border-yellow-500/30 bg-yellow-500/5">
+            <CardContent className="pt-6 text-center">
+              <p className="text-yellow-400 font-semibold">⏳ Awaiting admin verification</p>
+              <p className="text-sm text-muted-foreground mt-1">Your account is pending approval. You cannot book until verified.</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Step 1: Date Selection */}
         <Card className="card-premium">
           <CardHeader className="pb-4">
@@ -504,7 +515,7 @@ const Booking = () => {
         <div className="flex justify-end">
           <Button
             size="lg"
-            disabled={!canBook || isProcessing}
+            disabled={!canBook || isProcessing || !isVerified}
             onClick={handleBookClick}
             className="gap-2 h-12 px-8 text-sm font-semibold tracking-wide uppercase bg-accent text-accent-foreground hover:bg-accent/90"
           >

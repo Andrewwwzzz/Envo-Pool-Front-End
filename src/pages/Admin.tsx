@@ -6,7 +6,7 @@ import { useDeviceState, useDeviceControl } from "@/hooks/useDeviceControl";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
 import { useTermsContent, useUpdateTerms } from "@/hooks/useTerms";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUserRole } from "@/hooks/useProfile";
+
 import { Navigate, Link } from "react-router-dom";
 import {
   useAdminStats,
@@ -40,11 +40,10 @@ const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
-  const { data: role, isLoading: roleLoading } = useUserRole();
 
-  if (loading || roleLoading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>;
+  if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
-  if (role !== "admin") return <Navigate to="/booking" replace />;
+  if (!user.isAdmin) return <Navigate to="/booking" replace />;
 
   return (
     <div className="min-h-screen bg-background">
@@ -1125,8 +1124,7 @@ function VerificationTab() {
   const fetchUnverified = async () => {
     try {
       setLoading(true);
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
+      const token = localStorage.getItem("token");
       const res = await fetch("https://api.envopoolsg.com/api/admin/unverified-users", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -1147,8 +1145,7 @@ function VerificationTab() {
   const handleVerify = async (userId: string) => {
     try {
       setVerifying(userId);
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
+      const token = localStorage.getItem("token");
       const res = await fetch("https://api.envopoolsg.com/api/admin/verify-user", {
         method: "POST",
         headers: {

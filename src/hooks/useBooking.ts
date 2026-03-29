@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api";
 
 export type TableStatus = "Available" | "Booked" | "Pending Payment" | "In Use" | "Maintenance";
 
@@ -165,10 +166,8 @@ export function useCreateBooking() {
   });
 }
 
-const BACKEND_URL = "https://api.envopoolsg.com";
-
 export async function loadBookingsFromBackend() {
-  const res = await fetch(`${BACKEND_URL}/api/bookings`);
+  const res = await apiFetch("/api/bookings");
   if (!res.ok) throw new Error("Failed to fetch bookings");
   const data = await res.json();
   console.log("Bookings from backend:", data);

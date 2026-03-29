@@ -1,90 +1,68 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect } from "react";
-
+import { apiFetch } from "@/lib/api";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [dob, setDob] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, setAuth } = useAuth();
 
   useEffect(() => {
     if (user) navigate("/booking");
   }, [user, navigate]);
 
-  const calculateAge = (dateOfBirth: string): number => {
-    const today = new Date();
-    const birth = new Date(dateOfBirth);
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-    return age;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        toast({ title: "Login failed", description: error.message, variant: "destructive" });
-      } else {
+    try {
+      if (isLogin) {
+        const res = await apiFetch("/api/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Login failed");
+        }
+        setAuth(data.token, data.user);
+        toast({ title: "Login successful" });
         navigate("/booking");
-      }
-    } else {
-      if (!dob) {
-        toast({ title: "Date of birth required", description: "Please enter your date of birth for age verification.", variant: "destructive" });
-        setLoading(false);
-        return;
-      }
-
-      const age = calculateAge(dob);
-      if (age < 16) {
-        toast({ title: "Age restriction", description: "You must be at least 16 years old to create an account.", variant: "destructive" });
-        setLoading(false);
-        return;
-      }
-
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name, phone, date_of_birth: dob },
-          emailRedirectTo: window.location.origin,
-        },
-      });
-      if (error) {
-        toast({ title: "Signup failed", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Account created!", description: "You can now sign in." });
+        const res = await apiFetch("/api/auth/register", {
+          method: "POST",
+          body: JSON.stringify({ name, email, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Registration failed");
+        }
+        toast({ title: "Account created", description: "Await admin verification before booking." });
         setIsLogin(true);
       }
+    } catch (err: any) {
+      toast({ title: isLogin ? "Login failed" : "Signup failed", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4 dark">
-      {/* Subtle background pattern */}
       <div className="fixed inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, hsl(var(--foreground)) 1px, transparent 0)', backgroundSize: '40px 40px' }} />
 
       <div className="relative z-10 w-full max-w-md">
-        {/* Logo / Brand */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold tracking-tight gold-gradient">Envo Pool</h1>
           <p className="text-muted-foreground mt-2 text-sm tracking-widest uppercase">Premium Pool Experience</p>
@@ -100,20 +78,10 @@ const Auth = () => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="bg-background/50" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone (optional)</Label>
-                    <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="bg-background/50" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="dob">Date of Birth</Label>
-                    <Input id="dob" type="date" value={dob} onChange={(e) => setDob(e.target.value)} required className="bg-background/50" />
-                  </div>
-                </>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="bg-background/50" />
+                </div>
               )}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>

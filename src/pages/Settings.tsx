@@ -35,9 +35,11 @@ const Settings = () => {
   // Fetch name visibility preference
   useEffect(() => {
     if (!user) return;
-    fetch(`https://api.envopoolsg.com/api/bookings/name-visibility?userId=69b29fd2945d95cf8f55c86a`)
+    const userId = user.id;
+    fetch(`https://api.envopoolsg.com/api/bookings/name-visibility?userId=${userId}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    })
       .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data && typeof data.showName === "boolean") setShowName(data.showName); })
       .catch(() => {});
   }, [user]);
 
@@ -57,8 +59,11 @@ const Settings = () => {
     try {
       const res = await fetch("https://api.envopoolsg.com/api/bookings/toggle-name-visibility", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: "69b29fd2945d95cf8f55c86a", showName: checked }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ userId: user.id, showName: checked }),
       });
       if (!res.ok) {
         setShowName(!checked);
