@@ -467,8 +467,8 @@ const Booking = () => {
               {pricing.segments.map((seg, i) => (
                 <div key={i} className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {seg.startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} –{" "}
-                    {seg.endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {seg.startTime.toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "2-digit", minute: "2-digit" })} –{" "}
+                    {seg.endTime.toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "2-digit", minute: "2-digit" })}
                     <span className="ml-2 text-xs opacity-60">@ ${seg.hourlyRate}/hr</span>
                   </span>
                   <span className="font-medium">${seg.segmentCost.toFixed(2)}</span>
