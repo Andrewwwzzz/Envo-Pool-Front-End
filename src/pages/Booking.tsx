@@ -78,13 +78,16 @@ const Booking = () => {
       const res = await apiFetch(`/api/bookings/availability?${params}`);
       if (!res.ok) throw new Error("Failed to fetch availability");
       const allBookings = await res.json();
+      console.log("Availability API response:", allBookings, "hardwareId:", selectedTableData_pre.hardware_id, "tableId:", selectedTable);
 
-      // Filter to only bookings for the selected table's hardware_id
+      // Filter to only bookings for the selected table
       const hardwareId = selectedTableData_pre.hardware_id;
+      const tableId = selectedTable;
       const filtered = (allBookings || []).filter((b: any) => {
-        // Backend may return tableId as string hardware ID or object with hardware_id
-        const bTableId = typeof b.tableId === "object" ? b.tableId?.hardware_id || b.tableId?._id : b.tableId;
-        return bTableId === hardwareId;
+        const bTableId = typeof b.tableId === "object"
+          ? b.tableId?.hardware_id || b.tableId?._id || b.tableId?.id
+          : b.tableId;
+        return bTableId === hardwareId || bTableId === tableId;
       });
 
       return filtered.map((b: any) => ({
