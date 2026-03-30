@@ -193,7 +193,17 @@ export async function loadBookingsFromBackend() {
 
   if (!bookingsRes.ok) throw new Error("Failed to fetch bookings");
 
-  const bookings = await bookingsRes.json();
+  const allBookings = await bookingsRes.json();
+  const nowMs = Date.now();
+  
+  // Filter out expired pending_payment bookings
+  const bookings = (allBookings || []).filter((b: any) => {
+    if ((b.status === "pending_payment" || b.status === "pending") && b.expiresAt) {
+      if (new Date(b.expiresAt).getTime() < nowMs) return false;
+    }
+    return true;
+  });
+  
   const transactionsData = transactionsRes && transactionsRes.ok ? await transactionsRes.json().catch(() => null) : null;
   const walletTransactions = Array.isArray(transactionsData?.walletTransactions) ? transactionsData.walletTransactions : [];
   const stripePayments = Array.isArray(transactionsData?.stripePayments) ? transactionsData.stripePayments : [];
