@@ -2,99 +2,54 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQueryClient } from "@tanstack/react-query";
+import { onBookingUpdated } from "@/hooks/useSocket";
 
 const PaymentVerification = () => {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("session_id");
-  const [message, setMessage] = useState("Verifying your booking...");
+  const bookingId = searchParams.get("booking_id");
+  const [message, setMessage] = useState("Waiting for payment confirmation...");
 
   useEffect(() => {
-    if (!sessionId) {
-      navigate("/booking", { replace: true });
-      return;
-    }
-
     if (!user) return;
 
-    let cancelled = false;
-    let retryCount = 0;
-    const MAX_RETRIES = 30;
-    const RETRY_DELAY = 2000;
+    // If no booking_id to listen for, just show waiting and rely on socket
+    const targetBookingId = bookingId || sessionStorage.getItem("pending_booking_id");
 
-    const verify = async () => {
-      try {
-        const res = await apiFetch("/api/bookings/verify-stripe", {
-          method: "POST",
-          body: JSON.stringify({ session_id: sessionId }),
-        });
-        const data = res.ok ? await res.json() : null;
-        const error = !res.ok;
+    // Listen for socket events for this booking
+    const unsubscribe = onBookingUpdated((updatedBookingId, status) => {
+      // If we have a target booking ID, only react to that one
+      if (targetBookingId && updatedBookingId !== targetBookingId) return;
 
-        if (error) {
-          if (retryCount < MAX_RETRIES && !cancelled) {
-            retryCount++;
-            setTimeout(() => { if (!cancelled) verify(); }, RETRY_DELAY);
-            return;
-          }
-          if (!cancelled) navigate("/booking-confirmed?error=true", { replace: true });
-          return;
-        }
-
-        if (data.status === "confirmed") {
-          queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
-          queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] });
-          queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
-          queryClient.invalidateQueries({ queryKey: ["profile"] });
-          sessionStorage.removeItem("pending_booking_id");
-          if (!cancelled) navigate("/booking-confirmed", { replace: true });
-          return;
-        }
-
-        if (data.status === "expired") {
-          queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
-          queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
-          if (!cancelled) navigate("/booking-refunded", { replace: true });
-          return;
-        }
-
-        if (data.status === "processing") {
-          if (!cancelled) setMessage("Payment received, confirming your booking...");
-          if (retryCount < MAX_RETRIES && !cancelled) {
-            retryCount++;
-            setTimeout(() => { if (!cancelled) verify(); }, RETRY_DELAY);
-          } else {
-            if (!cancelled) navigate("/booking-confirmed?error=true", { replace: true });
-          }
-          return;
-        }
-
-        // Unknown status — retry
-        if (retryCount < MAX_RETRIES && !cancelled) {
-          retryCount++;
-          setTimeout(() => { if (!cancelled) verify(); }, RETRY_DELAY);
-        } else {
-          if (!cancelled) navigate("/booking-confirmed?error=true", { replace: true });
-        }
-      } catch {
-        if (retryCount < MAX_RETRIES && !cancelled) {
-          retryCount++;
-          setTimeout(() => { if (!cancelled) verify(); }, RETRY_DELAY);
-        } else {
-          if (!cancelled) navigate("/booking-confirmed?error=true", { replace: true });
-        }
+      if (status === "confirmed") {
+        sessionStorage.removeItem("pending_booking_id");
+        navigate("/booking-confirmed", { replace: true });
+      } else if (status === "expired") {
+        sessionStorage.removeItem("pending_booking_id");
+        navigate("/booking-refunded", { replace: true });
       }
+    });
+
+    // Timeout fallback — after 5 minutes, redirect to dashboard
+    const timeout = setTimeout(() => {
+      setMessage("Taking longer than expected. Please check your dashboard.");
+      setTimeout(() => {
+        navigate("/dashboard", { replace: true });
+      }, 3000);
+    }, 5 * 60 * 1000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timeout);
     };
+  }, [user, bookingId, navigate]);
 
-    verify();
-
-    return () => { cancelled = true; };
-  }, [user, sessionId, queryClient, navigate]);
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background dark flex items-center justify-center p-6">
@@ -106,6 +61,9 @@ const PaymentVerification = () => {
           <div className="space-y-2">
             <h1 className="text-2xl font-bold text-foreground">Please Wait</h1>
             <p className="text-muted-foreground">{message}</p>
+            <p className="text-xs text-muted-foreground mt-4">
+              Listening for payment confirmation via real-time updates...
+            </p>
           </div>
         </CardContent>
       </Card>
