@@ -131,12 +131,17 @@ function BookingsTab() {
   const todayEnd = new Date(now);
   todayEnd.setHours(23, 59, 59, 999);
 
-  const filtered = (bookings || []).filter((b) => {
-    const startDate = new Date(b.start_time);
+  const getField = (b: any, ...keys: string[]) => {
+    for (const k of keys) if (b[k] !== undefined) return b[k];
+    return undefined;
+  };
+
+  const filtered = (bookings || []).filter((b: any) => {
+    const startDate = new Date(getField(b, "startTime", "start_time"));
     switch (filter) {
       case "today": return startDate >= todayStart && startDate <= todayEnd;
       case "upcoming": return startDate > now && (b.status === "confirmed" || b.status === "pending");
-      case "completed": return b.status === "completed" || (b.status === "confirmed" && new Date(b.end_time) < now);
+      case "completed": return b.status === "completed" || (b.status === "confirmed" && new Date(getField(b, "endTime", "end_time")) < now);
       case "cancelled": return b.status === "cancelled";
       case "refunded": return b.status === "refunded";
       case "no_show": return b.status === "no_show";
