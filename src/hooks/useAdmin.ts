@@ -33,6 +33,7 @@ export function useDeleteBooking() {
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
       queryClient.invalidateQueries({ queryKey: ["admin-booking-logs"] });
       queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -343,14 +344,35 @@ export function useAdminStats() {
   return useQuery({
     queryKey: ["admin-stats"],
     queryFn: async () => {
+      // Try /api/admin/dashboard first, fall back to computing from bookings
+      try {
+        const res = await apiFetch("/api/admin/dashboard");
+        if (res.ok) {
+          const data = await res.json();
+          const stats = {
+            totalBookings: data.totalBookings ?? 0,
+            totalRevenue: data.totalRevenue ?? 0,
+            totalUsers: data.totalUsers ?? 0,
+            totalTransactions: data.totalTransactions ?? 0,
+            activeBookings: data.activeBookings ?? 0,
+            pendingBookings: data.pendingBookings ?? 0,
+          };
+          setCache("admin-stats", stats);
+          return stats;
+        }
+      } catch {}
+
+      // Fallback: compute from bookings
       const res = await apiFetch("/api/bookings");
       const bookings = res.ok ? await res.json() : [];
       const all = Array.isArray(bookings) ? bookings : [];
       const stats = {
         totalBookings: all.length,
         activeBookings: all.filter((b: any) => b.status === "confirmed").length,
-        totalRevenue: all.reduce((sum: number, b: any) => sum + (b.amount ?? b.price ?? 0), 0),
+        totalRevenue: all.reduce((sum: number, b: any) => sum + (b.amount ?? 0), 0),
         pendingBookings: all.filter((b: any) => b.status === "pending" || b.status === "pending_payment").length,
+        totalUsers: 0,
+        totalTransactions: 0,
       };
       setCache("admin-stats", stats);
       return stats;
@@ -488,7 +510,6 @@ export function useDeleteCustomer() {
 
   return useMutation({
     mutationFn: async (userId: string) => {
-      console.log("TOKEN:", localStorage.getItem("token"));
       const res = await apiFetch(`/api/users/${userId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete customer");
     },

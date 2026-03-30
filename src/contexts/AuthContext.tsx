@@ -9,7 +9,6 @@ interface BackendUser {
   isAdmin?: boolean;
   role?: string;
   walletBalance?: number;
-  rewardPoints?: number;
 }
 
 interface AuthContextType {

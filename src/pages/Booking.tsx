@@ -70,7 +70,7 @@ const Booking = () => {
       const allBookings = await res.json();
 
       const filtered = (allBookings || []).filter((b: any) => {
-        // Skip cancelled — expired bookings are deleted by backend, won't appear
+        // Skip cancelled — backend deletes expired
         if (b.status === "cancelled") return false;
         const bTableId = typeof b.tableId === "object" ? b.tableId?.hardware_id : b.tableId;
         if (bTableId !== hardwareId) return false;
@@ -82,7 +82,7 @@ const Booking = () => {
       return filtered.map((b: any) => ({
         start_time: b.startTime,
         end_time: b.endTime,
-        status: b.status === "confirmed" ? "confirmed" : b.status === "pending_payment" ? "pending" : "pending",
+        status: b.status === "confirmed" ? "confirmed" : "pending",
         created_at: b.createdAt || new Date().toISOString(),
         expires_at: b.expiresAt || null,
         user_name: b.userName || null,

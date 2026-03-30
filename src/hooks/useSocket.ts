@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import { io, Socket } from "socket.io-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,18 +11,9 @@ let socketInstance: Socket | null = null;
 type BookingListener = (bookingId: string, status: string) => void;
 const bookingListeners = new Set<BookingListener>();
 
-// Global listeners for points updates
-type PointsListener = (earned: number, total: number) => void;
-const pointsListeners = new Set<PointsListener>();
-
 export function onBookingUpdated(listener: BookingListener) {
   bookingListeners.add(listener);
   return () => { bookingListeners.delete(listener); };
-}
-
-export function onPointsUpdated(listener: PointsListener) {
-  pointsListeners.add(listener);
-  return () => { pointsListeners.delete(listener); };
 }
 
 export function useSocket() {
@@ -42,7 +33,6 @@ export function useSocket() {
       console.log("Socket connected:", socket.id);
     });
 
-    // New event name from backend
     socket.on("bookingUpdated", (payload: any) => {
       console.log("Socket: bookingUpdated", payload);
       const bookingId = payload?.bookingId;
@@ -60,6 +50,7 @@ export function useSocket() {
       queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["admin-booking-logs"] });
       queryClient.invalidateQueries({ queryKey: ["transaction-history"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
     });
 
     socket.on("walletUpdated", (payload: any) => {
@@ -71,18 +62,11 @@ export function useSocket() {
       queryClient.invalidateQueries({ queryKey: ["transaction-history"] });
     });
 
-    socket.on("pointsUpdated", (payload: any) => {
-      console.log("Socket: pointsUpdated", payload);
-      const earned = payload?.earned ?? 0;
-      const total = payload?.points ?? 0;
-
-      // Notify listeners (e.g. BookingConfirmed page)
-      pointsListeners.forEach((fn) => fn(earned, total));
-
-      // Refresh user data
-      refreshUser();
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
-      queryClient.invalidateQueries({ queryKey: ["transaction-history"] });
+    socket.on("dashboardUpdated", (payload: any) => {
+      console.log("Socket: dashboardUpdated", payload);
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
     });
 
     // Keep old events as fallback in case backend still emits them

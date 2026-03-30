@@ -230,7 +230,7 @@ const Index = () => {
                 We're bringing Singapore's pool scene into the future. Our tech-first approach means seamless online booking, real-time table availability, digital wallet and rewards — all so you can focus on what matters: your game.
               </p>
               <ul className="space-y-4">
-                {["Instant online table reservations", "Real-time availability tracking", "Digital wallet & reward points", "Transparent dynamic pricing"].map((item, i) => (
+                {["Instant online table reservations", "Real-time availability tracking", "Digital wallet payments", "Transparent dynamic pricing"].map((item, i) => (
                   <li key={i} className="flex items-center gap-3 text-foreground">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/10">
                       <Zap className="h-3 w-3 text-accent" />

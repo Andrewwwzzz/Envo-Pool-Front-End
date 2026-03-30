@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
@@ -11,7 +11,6 @@ const PaymentVerification = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const bookingId = searchParams.get("booking_id");
-  const [message, setMessage] = useState("Waiting for payment confirmation...");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -25,42 +24,34 @@ const PaymentVerification = () => {
 
       if (status === "confirmed") {
         sessionStorage.removeItem("pending_booking_id");
+        if (pollRef.current) clearInterval(pollRef.current);
         navigate("/booking-confirmed", { replace: true });
       }
     });
 
-    // Fallback: poll every 10s to check if booking still exists
-    // Backend DELETES expired bookings, so if it's gone → redirect to refunded
+    // Fallback: poll to detect deleted (expired) bookings after 12s
     if (targetBookingId) {
       pollRef.current = setInterval(async () => {
         try {
           const res = await apiFetch("/api/bookings");
           if (res.ok) {
             const allBookings = await res.json();
-            const found = (allBookings || []).find(
-              (b: any) => (b.id || b._id) === targetBookingId
-            );
+            const found = (allBookings || []).find((b: any) => (b.id || b._id) === targetBookingId);
             if (!found) {
-              // Booking was deleted by backend (expired)
               sessionStorage.removeItem("pending_booking_id");
+              if (pollRef.current) clearInterval(pollRef.current);
               navigate("/booking-refunded", { replace: true });
-            } else if (found.status === "confirmed") {
-              sessionStorage.removeItem("pending_booking_id");
-              navigate("/booking-confirmed", { replace: true });
             }
           }
-        } catch {
-          // Ignore fetch errors, keep waiting
+        } catch (err) {
+          console.error("Poll error:", err);
         }
-      }, 10000);
+      }, 12000);
     }
 
-    // Ultimate timeout — after 5 minutes, redirect to dashboard
+    // Timeout fallback — after 5 minutes, redirect to dashboard
     const timeout = setTimeout(() => {
-      setMessage("Taking longer than expected. Please check your dashboard.");
-      setTimeout(() => {
-        navigate("/dashboard", { replace: true });
-      }, 3000);
+      navigate("/dashboard", { replace: true });
     }, 5 * 60 * 1000);
 
     return () => {
@@ -83,7 +74,7 @@ const PaymentVerification = () => {
           </div>
           <div className="space-y-2">
             <h1 className="text-2xl font-bold text-foreground">Please Wait</h1>
-            <p className="text-muted-foreground">{message}</p>
+            <p className="text-muted-foreground">Waiting for payment confirmation...</p>
             <p className="text-xs text-muted-foreground mt-4">
               Listening for payment confirmation via real-time updates...
             </p>
