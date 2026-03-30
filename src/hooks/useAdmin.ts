@@ -250,8 +250,11 @@ export function useAdminPromoCodes() {
     queryFn: async () => {
       const res = await apiFetch("/api/admin/promo-codes");
       if (!res.ok) throw new Error("Failed to fetch promo codes");
-      return await res.json();
+      const data = await res.json();
+      setCache("admin-promo-codes", data);
+      return data;
     },
+    initialData: () => getCached("admin-promo-codes"),
   });
 
   const create = useMutation({
