@@ -56,7 +56,7 @@ function TransactionsView() {
             <tbody>
               {transactions.map((t: any, i: number) => (
                 <tr key={t._id || t.id || i} className="border-b border-border last:border-0">
-                  <td className="py-3 pr-4">{t.userName || t.user?.name || t.userId || "—"}</td>
+                  <td className="py-3 pr-4">{t.userName || t.user?.name || (typeof t.userId === "object" ? t.userId?.name || t.userId?.email || "—" : t.userId) || "—"}</td>
                   <td className="py-3 pr-4 font-medium">
                     <span className={t.amount >= 0 ? "text-primary" : "text-destructive"}>
                       ${Math.abs(t.amount ?? 0).toFixed(2)}
@@ -156,11 +156,11 @@ function AdminLogsView() {
             <tbody>
               {logs.map((l: any, i: number) => (
                 <tr key={l._id || l.id || i} className="border-b border-border last:border-0">
-                  <td className="py-3 pr-4">{l.adminName || l.admin?.name || l.adminId || "—"}</td>
+                  <td className="py-3 pr-4">{l.adminName || l.admin?.name || (typeof l.adminId === "object" ? l.adminId?.name || l.adminId?.email || "—" : l.adminId) || "—"}</td>
                   <td className="py-3 pr-4">
                     <Badge variant="outline" className="capitalize">{l.action || "—"}</Badge>
                   </td>
-                  <td className="py-3 pr-4">{l.targetUserName || l.targetUser?.name || l.targetUserId || "—"}</td>
+                  <td className="py-3 pr-4">{l.targetUserName || l.targetUser?.name || (typeof l.targetUserId === "object" ? l.targetUserId?.name || l.targetUserId?.email || "—" : l.targetUserId) || "—"}</td>
                   <td className="py-3 pr-4 text-xs text-muted-foreground max-w-[200px] truncate">
                     {l.details || "—"}
                   </td>
