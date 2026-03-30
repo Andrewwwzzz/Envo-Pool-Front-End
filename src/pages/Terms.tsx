@@ -20,9 +20,9 @@ const Terms = () => {
       </header>
 
       <main className="relative z-10 mx-auto max-w-3xl p-6">
-        {isLoading ? (
-          <p className="text-muted-foreground">Loading...</p>
-        ) : !terms?.content ? (
+        {!terms?.content ? (
+          <p className="text-muted-foreground">No terms and conditions available.</p>
+        ) : (
           <p className="text-muted-foreground">No terms and conditions available.</p>
         ) : (
           <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
