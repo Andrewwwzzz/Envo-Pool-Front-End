@@ -708,7 +708,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
       <Card>
         <CardHeader><CardTitle className="text-base">Booking History</CardTitle></CardHeader>
         <CardContent>
-          {bookingsLoading ? <p className="text-muted-foreground text-sm">Loading...</p> : !bookings?.length ? (
+          {!bookings?.length ? (
             <p className="text-muted-foreground text-sm">No bookings.</p>
           ) : (
             <div className="overflow-x-auto">
