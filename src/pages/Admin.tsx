@@ -187,7 +187,7 @@ function BookingsTab() {
                     <td className="py-3 pr-4">{fmtDateSG(getField(b, "startTime", "start_time"))}</td>
                     <td className="py-3 pr-4">{fmtTimeSG(getField(b, "startTime", "start_time"))} – {fmtTimeSG(getField(b, "endTime", "end_time"))}</td>
                     <td className="py-3 pr-4">{(() => { const mins = getField(b, "duration", "duration_hours"); return mins >= 60 ? `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}m` : ""}` : `${mins}m`; })()}</td>
-                    <td className="py-3 pr-4">${(getField(b, "finalPrice", "final_price", "price") ?? 0).toFixed(2)}</td>
+                    <td className="py-3 pr-4">${(getField(b, "amount", "finalPrice", "final_price", "price") ?? 0).toFixed(2)}</td>
                     <td className="py-3 pr-4 capitalize">{getField(b, "paymentMethod", "payment_method", "inferredPaymentMethod") ?? (b.paymentStatus === "paid" ? "paynow" : "—")}</td>
                     <td className="py-3 pr-4">
                       <Badge variant="outline" className={`capitalize ${
