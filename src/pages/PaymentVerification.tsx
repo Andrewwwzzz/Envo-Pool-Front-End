@@ -1,39 +1,61 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { onBookingUpdated } from "@/hooks/useSocket";
+import { apiFetch } from "@/lib/api";
 
 const PaymentVerification = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const sessionId = searchParams.get("session_id");
   const bookingId = searchParams.get("booking_id");
   const [message, setMessage] = useState("Waiting for payment confirmation...");
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!user) return;
 
-    // If no booking_id to listen for, just show waiting and rely on socket
     const targetBookingId = bookingId || sessionStorage.getItem("pending_booking_id");
 
     // Listen for socket events for this booking
     const unsubscribe = onBookingUpdated((updatedBookingId, status) => {
-      // If we have a target booking ID, only react to that one
       if (targetBookingId && updatedBookingId !== targetBookingId) return;
 
       if (status === "confirmed") {
         sessionStorage.removeItem("pending_booking_id");
         navigate("/booking-confirmed", { replace: true });
-      } else if (status === "expired") {
-        sessionStorage.removeItem("pending_booking_id");
-        navigate("/booking-refunded", { replace: true });
       }
     });
 
-    // Timeout fallback — after 5 minutes, redirect to dashboard
+    // Fallback: poll every 10s to check if booking still exists
+    // Backend DELETES expired bookings, so if it's gone → redirect to refunded
+    if (targetBookingId) {
+      pollRef.current = setInterval(async () => {
+        try {
+          const res = await apiFetch("/api/bookings");
+          if (res.ok) {
+            const allBookings = await res.json();
+            const found = (allBookings || []).find(
+              (b: any) => (b.id || b._id) === targetBookingId
+            );
+            if (!found) {
+              // Booking was deleted by backend (expired)
+              sessionStorage.removeItem("pending_booking_id");
+              navigate("/booking-refunded", { replace: true });
+            } else if (found.status === "confirmed") {
+              sessionStorage.removeItem("pending_booking_id");
+              navigate("/booking-confirmed", { replace: true });
+            }
+          }
+        } catch {
+          // Ignore fetch errors, keep waiting
+        }
+      }, 10000);
+    }
+
+    // Ultimate timeout — after 5 minutes, redirect to dashboard
     const timeout = setTimeout(() => {
       setMessage("Taking longer than expected. Please check your dashboard.");
       setTimeout(() => {
@@ -43,6 +65,7 @@ const PaymentVerification = () => {
 
     return () => {
       unsubscribe();
+      if (pollRef.current) clearInterval(pollRef.current);
       clearTimeout(timeout);
     };
   }, [user, bookingId, navigate]);
