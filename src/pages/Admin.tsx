@@ -734,18 +734,24 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           <CardContent>
             {!walletHistory?.length ? <p className="text-muted-foreground text-sm">No transactions.</p> : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {walletHistory.map((t: any) => (
-                  <div key={t.id} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
+                {walletHistory.map((t: any) => {
+                  const amt = typeof t.amount === "object" ? t.amount?.amount ?? 0 : (typeof t.amount === "number" ? t.amount : Number(t.amount) || 0);
+                  const bal = typeof t.balance_after === "object" ? t.balance_after?.amount ?? 0 : (typeof t.balance_after === "number" ? t.balance_after : Number(t.balanceAfter ?? t.balance_after) || 0);
+                  const txType = t.type || t.transactionType || "unknown";
+                  const dateStr = t.created_at || t.createdAt || "";
+                  return (
+                  <div key={t.id || t._id} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
                     <div>
-                      <p className="capitalize font-medium">{t.type.replace(/_/g, " ")}</p>
-                      <p className="text-xs text-muted-foreground">{fmtDateTimeSG(t.created_at)}</p>
+                      <p className="capitalize font-medium">{String(txType).replace(/_/g, " ")}</p>
+                      <p className="text-xs text-muted-foreground">{fmtDateTimeSG(dateStr)}</p>
                     </div>
                     <div className="text-right">
-                      <p className={t.amount >= 0 ? "text-green-600" : "text-destructive"}>{t.amount >= 0 ? "+" : ""}${t.amount.toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">Bal: ${t.balance_after.toFixed(2)}</p>
+                      <p className={amt >= 0 ? "text-green-600" : "text-destructive"}>{amt >= 0 ? "+" : ""}${Math.abs(amt).toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">Bal: ${bal.toFixed(2)}</p>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
