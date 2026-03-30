@@ -711,12 +711,12 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                 </tr></thead>
                 <tbody>
                   {bookings.map((b: any) => (
-                    <tr key={b.id} className="border-b border-border last:border-0">
-                      <td className="py-2 pr-4">Table {b.tables?.table_number ?? "?"}</td>
-                      <td className="py-2 pr-4">{fmtDateSG(b.start_time)}</td>
-                      <td className="py-2 pr-4">{fmtTimeSG(b.start_time)}</td>
-                      <td className="py-2 pr-4">{b.duration_hours}h</td>
-                      <td className="py-2 pr-4">${b.final_price?.toFixed(2)}</td>
+                    <tr key={b.id || b._id} className="border-b border-border last:border-0">
+                      <td className="py-2 pr-4">Table {typeof b.tableId === "string" ? b.tableId.replace("T", "") : b.tables?.table_number ?? "?"}</td>
+                      <td className="py-2 pr-4">{fmtDateSG(b.startTime || b.start_time)}</td>
+                      <td className="py-2 pr-4">{fmtTimeSG(b.startTime || b.start_time)}</td>
+                      <td className="py-2 pr-4">{(() => { const mins = b.duration || b.duration_hours; return mins >= 60 ? `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}m` : ""}` : `${mins}m`; })()}</td>
+                      <td className="py-2 pr-4">${(b.finalPrice ?? b.final_price ?? b.price ?? 0).toFixed(2)}</td>
                       <td className="py-2"><Badge variant="outline" className="capitalize">{b.status}</Badge></td>
                     </tr>
                   ))}
