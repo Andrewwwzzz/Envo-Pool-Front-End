@@ -761,15 +761,20 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           <CardContent>
             {!rewardHistory?.length ? <p className="text-muted-foreground text-sm">No transactions.</p> : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {rewardHistory.map((t: any) => (
-                  <div key={t.id} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
+                {rewardHistory.map((t: any) => {
+                  const pts = typeof t.points === "number" ? t.points : Number(t.points) || 0;
+                  const txType = t.type || t.transactionType || "unknown";
+                  const dateStr = t.created_at || t.createdAt || "";
+                  return (
+                  <div key={t.id || t._id} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
                     <div>
-                      <p className="capitalize font-medium">{t.type.replace(/_/g, " ")}</p>
-                      <p className="text-xs text-muted-foreground">{fmtDateTimeSG(t.created_at)}</p>
+                      <p className="capitalize font-medium">{String(txType).replace(/_/g, " ")}</p>
+                      <p className="text-xs text-muted-foreground">{fmtDateTimeSG(dateStr)}</p>
                     </div>
-                    <p className={t.points >= 0 ? "text-green-600" : "text-destructive"}>{t.points >= 0 ? "+" : ""}{t.points} pts</p>
+                    <p className={pts >= 0 ? "text-green-600" : "text-destructive"}>{pts >= 0 ? "+" : ""}{pts} pts</p>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
