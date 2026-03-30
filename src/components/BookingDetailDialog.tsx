@@ -60,7 +60,7 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
   const durationDisplay = b.duration
     ? (b.duration >= 60 ? `${b.duration / 60}h` : `${b.duration}min`)
     : (b.duration_hours ? `${b.duration_hours}h` : null);
-  const finalPrice = b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0;
+  const finalPrice = b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0;
   const tableLabel = typeof b.tableId === "string" ? `Table ${b.tableId.replace("T", "")}` : b.tableId?.name || `Table ${b.tables?.table_number || "?"}`;
   const paymentMethodRaw = b.paymentMethod || b.payment_method || b.inferredPaymentMethod || (b.paymentStatus === "paid" ? "paynow" : null);
 

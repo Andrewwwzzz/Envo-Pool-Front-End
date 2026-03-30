@@ -152,7 +152,7 @@ const Dashboard = () => {
   // Compute total_spent from confirmed bookings if backend returns 0
   const computedTotalSpent = (bookings || [])
     .filter((b: any) => b.status === "confirmed" || b.status === "completed")
-    .reduce((sum: number, b: any) => sum + (b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0), 0);
+    .reduce((sum: number, b: any) => sum + (b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0), 0);
   const displayTotalSpent = (profile?.total_spent && profile.total_spent > 0) ? profile.total_spent : computedTotalSpent;
 
   // Use backend points directly (from profile which comes from /api/auth/me)
@@ -167,7 +167,7 @@ const Dashboard = () => {
     if (tid?.tableNumber ?? tid?.table_number) return `Table ${tid.tableNumber ?? tid.table_number}`;
     return "Table ?";
   };
-  const getPrice = (b: any) => b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0;
+  const getPrice = (b: any) => b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0;
   const getStatus = (b: any) => b.status;
 
   const upcoming = (bookings || []).filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled" && getStatus(b) !== "expired");
