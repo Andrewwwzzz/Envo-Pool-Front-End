@@ -122,7 +122,9 @@ export function TimeSlotPicker({
         if (b.status !== "confirmed") return false;
         const bStart = new Date(b.start_time);
         const bEnd = new Date(b.end_time);
-        return !(slotStart >= bEnd || slotEnd <= bStart);
+        const overlaps = bStart < slotEnd && bEnd > slotStart;
+        if (overlaps) console.log("SLOT BLOCKED (confirmed):", slot.time, "by booking", b.start_time, "→", b.end_time);
+        return overlaps;
       });
 
       if (confirmedBooking) {
