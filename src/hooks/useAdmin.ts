@@ -344,9 +344,12 @@ export function useAdminStats() {
     queryFn: async () => {
       const res = await apiFetch("/api/admin/stats");
       if (!res.ok) throw new Error("Failed to fetch stats");
-      return await res.json();
+      const data = await res.json();
+      setCache("admin-stats", data);
+      return data;
     },
     refetchInterval: 60000,
+    initialData: () => getCached("admin-stats"),
   });
 }
 
