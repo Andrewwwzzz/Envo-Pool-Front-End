@@ -56,7 +56,7 @@ function TransactionsView() {
             <tbody>
               {transactions.map((t: any, i: number) => (
                 <tr key={t._id || t.id || i} className="border-b border-border last:border-0">
-                  <td className="py-3 pr-4">{t.userName || t.user?.name || t.userId || "—"}</td>
+                  <td className="py-3 pr-4">{t.userName || t.user?.name || (typeof t.userId === "object" ? t.userId?.name || t.userId?.email || "—" : t.userId) || "—"}</td>
                   <td className="py-3 pr-4 font-medium">
                     <span className={t.amount >= 0 ? "text-primary" : "text-destructive"}>
                       ${Math.abs(t.amount ?? 0).toFixed(2)}
