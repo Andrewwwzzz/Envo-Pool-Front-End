@@ -612,22 +612,39 @@ function CustomersTab() {
 }
 
 function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => void }) {
-  const updateProfile = useUpdateCustomerProfile();
+  const updateWallet = useUpdateCustomerWallet();
   const deleteCustomer = useDeleteCustomer();
   const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id);
   const { data: walletHistory } = useCustomerWalletHistory(customer.user_id);
   const { data: rewardHistory } = useCustomerRewardHistory(customer.user_id);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [walletInput, setWalletInput] = useState(String(customer.wallet_balance));
-  const [pointsInput, setPointsInput] = useState(String(customer.reward_points));
+
+  // Wallet editing state
+  const [walletMode, setWalletMode] = useState<"exact" | "delta">("delta");
+  const [walletExact, setWalletExact] = useState(String(customer.wallet_balance));
+  const [walletDelta, setWalletDelta] = useState("0");
+
+  // Points editing state
+  const [pointsMode, setPointsMode] = useState<"exact" | "delta">("delta");
+  const [pointsExact, setPointsExact] = useState(String(customer.reward_points));
+  const [pointsDelta, setPointsDelta] = useState("0");
 
   const saveEdit = () => {
-    updateProfile.mutate({
-      userId: customer.user_id,
-      wallet_balance: parseFloat(walletInput),
-      reward_points: parseFloat(pointsInput),
-    });
+    const payload: Parameters<typeof updateWallet.mutate>[0] = { userId: customer.user_id };
+    if (walletMode === "exact") {
+      payload.walletBalance = parseFloat(walletExact);
+    } else {
+      const d = parseFloat(walletDelta);
+      if (d !== 0) payload.walletDelta = d;
+    }
+    if (pointsMode === "exact") {
+      payload.points = parseInt(pointsExact);
+    } else {
+      const d = parseInt(pointsDelta);
+      if (d !== 0) payload.pointsDelta = d;
+    }
+    updateWallet.mutate(payload);
     setEditing(false);
   };
 
@@ -641,7 +658,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           <div className="flex items-center justify-between">
             <CardTitle>{customer.name || "No Name"}</CardTitle>
             <div className="flex gap-2">
-              {!editing && <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit</Button>}
+              {!editing && <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet / Points</Button>}
               {!confirmDelete ? (
                 <Button size="sm" variant="destructive" onClick={() => setConfirmDelete(true)}><Trash2 className="mr-1 h-3 w-3" /> Delete</Button>
               ) : (
@@ -668,25 +685,85 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           </div>
 
           {editing ? (
-            <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t border-border">
-              <div className="space-y-1">
-                <Label className="text-xs">Wallet Balance ($)</Label>
-                <Input type="number" step="0.01" value={walletInput} onChange={(e) => setWalletInput(e.target.value)} />
+            <div className="pt-3 border-t border-border space-y-4">
+              {/* Wallet Section */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="font-semibold">Wallet Balance (Current: ${(customer.wallet_balance ?? 0).toFixed(2)})</Label>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant={walletMode === "delta" ? "default" : "outline"} onClick={() => setWalletMode("delta")} className="text-xs h-7">+/− Adjust</Button>
+                    <Button size="sm" variant={walletMode === "exact" ? "default" : "outline"} onClick={() => setWalletMode("exact")} className="text-xs h-7">Set Exact</Button>
+                  </div>
+                </div>
+                {walletMode === "exact" ? (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Set wallet balance to:</Label>
+                    <Input type="number" step="0.01" min="0" value={walletExact} onChange={(e) => setWalletExact(e.target.value)} placeholder="e.g. 50.00" />
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Add or subtract from wallet (use negative to deduct):</Label>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setWalletDelta(String(parseFloat(walletDelta || "0") - 10))}>−$10</Button>
+                      <Button size="sm" variant="outline" onClick={() => setWalletDelta(String(parseFloat(walletDelta || "0") - 5))}>−$5</Button>
+                      <Input type="number" step="0.01" value={walletDelta} onChange={(e) => setWalletDelta(e.target.value)} className="w-28" placeholder="0.00" />
+                      <Button size="sm" variant="outline" onClick={() => setWalletDelta(String(parseFloat(walletDelta || "0") + 5))}>+$5</Button>
+                      <Button size="sm" variant="outline" onClick={() => setWalletDelta(String(parseFloat(walletDelta || "0") + 10))}>+$10</Button>
+                    </div>
+                    {parseFloat(walletDelta) !== 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        New balance: <strong>${((customer.wallet_balance ?? 0) + parseFloat(walletDelta || "0")).toFixed(2)}</strong>
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Reward Points</Label>
-                <Input type="number" step="1" value={pointsInput} onChange={(e) => setPointsInput(e.target.value)} />
+
+              {/* Points Section */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="font-semibold">Reward Points (Current: {customer.reward_points ?? 0})</Label>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant={pointsMode === "delta" ? "default" : "outline"} onClick={() => setPointsMode("delta")} className="text-xs h-7">+/− Adjust</Button>
+                    <Button size="sm" variant={pointsMode === "exact" ? "default" : "outline"} onClick={() => setPointsMode("exact")} className="text-xs h-7">Set Exact</Button>
+                  </div>
+                </div>
+                {pointsMode === "exact" ? (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Set points to:</Label>
+                    <Input type="number" step="1" min="0" value={pointsExact} onChange={(e) => setPointsExact(e.target.value)} placeholder="e.g. 100" />
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Add or subtract points (use negative to deduct):</Label>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0") - 50))}>−50</Button>
+                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0") - 10))}>−10</Button>
+                      <Input type="number" step="1" value={pointsDelta} onChange={(e) => setPointsDelta(e.target.value)} className="w-28" placeholder="0" />
+                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0") + 10))}>+10</Button>
+                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0") + 50))}>+50</Button>
+                    </div>
+                    {parseInt(pointsDelta) !== 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        New points: <strong>{(customer.reward_points ?? 0) + parseInt(pointsDelta || "0")}</strong>
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="sm:col-span-2 flex gap-2">
-                <Button size="sm" onClick={saveEdit} disabled={updateProfile.isPending}>Save</Button>
-                <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+
+              <div className="flex gap-2">
+                <Button size="sm" onClick={saveEdit} disabled={updateWallet.isPending}>
+                  {updateWallet.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />} Save Changes
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditing(false)}><X className="mr-1 h-3 w-3" /> Cancel</Button>
               </div>
             </div>
           ) : (
             <div className="flex gap-6 text-sm pt-2 border-t border-border">
-              <span>Wallet: <strong>${customer.wallet_balance.toFixed(2)}</strong></span>
-              <span>Points: <strong>{customer.reward_points}</strong></span>
-              <span>Total Spent: <strong>${customer.total_spent.toFixed(2)}</strong></span>
+              <span>Wallet: <strong>${(customer.wallet_balance ?? 0).toFixed(2)}</strong></span>
+              <span>Points: <strong>{customer.reward_points ?? 0}</strong></span>
+              <span>Total Spent: <strong>${(customer.total_spent ?? 0).toFixed(2)}</strong></span>
             </div>
           )}
         </CardContent>
