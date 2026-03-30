@@ -341,8 +341,6 @@ const Booking = () => {
               {!tables?.length ? (
                 <p className="text-muted-foreground">No tables available.</p>
               ) : (
-                <p className="text-muted-foreground">No tables available.</p>
-              ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {tables.map((table) => {
                     const bookable = isTableBookable(table);
