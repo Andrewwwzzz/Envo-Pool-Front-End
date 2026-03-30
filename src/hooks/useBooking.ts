@@ -188,10 +188,13 @@ export function useMyBookings() {
     queryFn: async () => {
       if (!user) return [];
       const data = await loadBookingsFromBackend();
-      return data || [];
+      const result = data || [];
+      setCache(`my-bookings-${user.id}`, result);
+      return result;
     },
     enabled: !!user,
     staleTime: 0,
     gcTime: 0,
+    initialData: () => user ? getCached(`my-bookings-${user.id}`) ?? [] : [],
   });
 }

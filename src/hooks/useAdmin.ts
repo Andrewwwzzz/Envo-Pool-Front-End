@@ -345,7 +345,7 @@ export function useAdminCustomers(searchTerm: string) {
       const data = await res.json();
       console.log("USERS:", data);
       const users = Array.isArray(data) ? data : data.users || [];
-      return users.map((c: any) => ({
+      const mapped = users.map((c: any) => ({
         id: c._id || c.id,
         user_id: c._id || c.id || c.user_id,
         name: c.name || "",
@@ -360,7 +360,10 @@ export function useAdminCustomers(searchTerm: string) {
         role: c.role ?? "user",
         created_at: c.createdAt ?? c.created_at ?? "",
       }));
+      setCache("admin-customers", mapped);
+      return mapped;
     },
+    initialData: () => getCached("admin-customers") ?? [],
   });
 }
 
