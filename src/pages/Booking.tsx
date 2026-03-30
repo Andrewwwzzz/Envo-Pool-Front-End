@@ -234,7 +234,7 @@ const Booking = () => {
       try { respData = JSON.parse(responseText); } catch { respData = {}; }
 
       if (!response.ok) {
-        const errMsg = data.error || data.message || `Server error (${response.status})`;
+        const errMsg = respData.error || respData.message || `Server error (${response.status})`;
         if (response.status === 409) {
           toast({ title: "Time slot already booked", description: "Please select another slot.", variant: "destructive" });
           setStartSlot(null);
