@@ -230,8 +230,8 @@ const Booking = () => {
       const responseText = await response.text();
       console.log("Booking response status:", response.status, "body:", responseText);
 
-      let data: any;
-      try { data = JSON.parse(responseText); } catch { data = {}; }
+      let respData: any;
+      try { respData = JSON.parse(responseText); } catch { respData = {}; }
 
       if (!response.ok) {
         const errMsg = data.error || data.message || `Server error (${response.status})`;
