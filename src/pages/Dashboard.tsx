@@ -106,7 +106,7 @@ const Dashboard = () => {
           id: `s-${b._id || b.id}`,
           date: b.createdAt || b.created_at,
           label: "Paynow Payment",
-          sublabel: `${b.tableName || "Table ?"} · ${fmtDateTime(b.createdAt || b.created_at)}`,
+          sublabel: `Table ${typeof b.tableId === "string" ? b.tableId.replace("T", "") : b.tableId?.name || "?"} · ${fmtDateTime(b.createdAt || b.created_at)}`,
           amount: `-$${(b.finalPrice ?? b.final_price ?? b.amount ?? 0).toFixed(2)}`,
           positive: false,
           sortKey: new Date(b.createdAt || b.created_at).getTime(),
