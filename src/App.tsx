@@ -44,6 +44,7 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/booking" element={<Booking />} />
               <Route path="/payment-verification" element={<PaymentVerification />} />
+              <Route path="/payment-success" element={<PaymentVerification />} />
               <Route path="/booking-confirmed" element={<BookingConfirmed />} />
               <Route path="/booking-refunded" element={<BookingRefunded />} />
               {/* Legacy redirects */}

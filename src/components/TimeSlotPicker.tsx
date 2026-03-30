@@ -34,7 +34,7 @@ interface TimeSlotPickerProps {
   onSelectEnd: (slot: string) => void;
 }
 
-const PENDING_LOCK_MINUTES = 5;
+const PENDING_LOCK_MINUTES = 10;
 
 function generateSlots(): { time: string; label: string }[] {
   const slots: { time: string; label: string }[] = [];
