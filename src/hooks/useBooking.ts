@@ -168,6 +168,7 @@ export function useCreateBooking() {
         : "Booking created. Complete payment to confirm.";
       toast({ title: "Booking created", description: msg });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+      queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
     },
