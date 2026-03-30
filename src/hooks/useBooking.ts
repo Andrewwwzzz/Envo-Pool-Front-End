@@ -78,8 +78,8 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
         }
 
         const overlapping = (bookings || []).filter((b: any) => {
-          const bTableId = typeof b.tableId === "object" ? b.tableId?.hardware_id || b.tableId?._id : b.tableId;
-          return bTableId === hardwareId || bTableId === tableId;
+          const bTableId = typeof b.tableId === "object" ? b.tableId?.hardware_id : b.tableId;
+          return bTableId === hardwareId;
         });
 
         const hasConfirmed = overlapping.some((b: any) => b.status === "confirmed");

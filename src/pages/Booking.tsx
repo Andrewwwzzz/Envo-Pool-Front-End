@@ -82,12 +82,12 @@ const Booking = () => {
 
       // Filter to only bookings for the selected table
       const hardwareId = selectedTableData_pre.hardware_id;
-      const tableId = selectedTable;
+      console.log("BOOKINGS:", allBookings);
       const filtered = (allBookings || []).filter((b: any) => {
         const bTableId = typeof b.tableId === "object"
-          ? b.tableId?.hardware_id || b.tableId?._id || b.tableId?.id
+          ? b.tableId?.hardware_id
           : b.tableId;
-        return bTableId === hardwareId || bTableId === tableId;
+        return bTableId === hardwareId;
       });
 
       return filtered.map((b: any) => ({
