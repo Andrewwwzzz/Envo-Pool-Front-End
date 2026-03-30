@@ -155,9 +155,8 @@ const Dashboard = () => {
     .reduce((sum: number, b: any) => sum + (b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0), 0);
   const displayTotalSpent = (profile?.total_spent && profile.total_spent > 0) ? profile.total_spent : computedTotalSpent;
 
-  // Compute reward points from bookings if backend returns 0
-  const computedRewardPoints = Math.floor(computedTotalSpent * 10);
-  const displayRewardPoints = (profile?.reward_points && profile.reward_points > 0) ? profile.reward_points : computedRewardPoints;
+  // Use backend points directly (from profile which comes from /api/auth/me)
+  const displayRewardPoints = profile?.reward_points ?? user?.rewardPoints ?? 0;
 
   const getStartTime = (b: any) => b.startTime || b.start_time;
   const getEndTime = (b: any) => b.endTime || b.end_time;

@@ -11,9 +11,18 @@ let socketInstance: Socket | null = null;
 type BookingListener = (bookingId: string, status: string) => void;
 const bookingListeners = new Set<BookingListener>();
 
+// Global listeners for points updates
+type PointsListener = (earned: number, total: number) => void;
+const pointsListeners = new Set<PointsListener>();
+
 export function onBookingUpdated(listener: BookingListener) {
   bookingListeners.add(listener);
   return () => { bookingListeners.delete(listener); };
+}
+
+export function onPointsUpdated(listener: PointsListener) {
+  pointsListeners.add(listener);
+  return () => { pointsListeners.delete(listener); };
 }
 
 export function useSocket() {
@@ -59,6 +68,20 @@ export function useSocket() {
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
       queryClient.invalidateQueries({ queryKey: ["admin-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["transaction-history"] });
+    });
+
+    socket.on("pointsUpdated", (payload: any) => {
+      console.log("Socket: pointsUpdated", payload);
+      const earned = payload?.earned ?? 0;
+      const total = payload?.points ?? 0;
+
+      // Notify listeners (e.g. BookingConfirmed page)
+      pointsListeners.forEach((fn) => fn(earned, total));
+
+      // Refresh user data
+      refreshUser();
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
       queryClient.invalidateQueries({ queryKey: ["transaction-history"] });
     });
 
