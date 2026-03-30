@@ -144,6 +144,17 @@ const Dashboard = () => {
   if (!user) return <Navigate to="/auth" replace />;
 
   const now = new Date();
+
+  // Compute total_spent from confirmed bookings if backend returns 0
+  const computedTotalSpent = (bookings || [])
+    .filter((b: any) => b.status === "confirmed" || b.status === "completed")
+    .reduce((sum: number, b: any) => sum + (b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0), 0);
+  const displayTotalSpent = (profile?.total_spent && profile.total_spent > 0) ? profile.total_spent : computedTotalSpent;
+
+  // Compute reward points from bookings if backend returns 0
+  const computedRewardPoints = Math.floor(computedTotalSpent * 10);
+  const displayRewardPoints = (profile?.reward_points && profile.reward_points > 0) ? profile.reward_points : computedRewardPoints;
+
   const getStartTime = (b: any) => b.startTime || b.start_time;
   const getEndTime = (b: any) => b.endTime || b.end_time;
   const getTableLabel = (b: any) => {
@@ -195,7 +206,7 @@ const Dashboard = () => {
           <Card className="card-premium">
             <CardContent className="pt-6 text-center">
               <Star className="h-6 w-6 mx-auto text-accent mb-2" />
-              <p className="text-2xl font-bold">{profile?.reward_points ?? 0}</p>
+              <p className="text-2xl font-bold">{displayRewardPoints}</p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Reward Points</p>
             </CardContent>
           </Card>
@@ -209,7 +220,7 @@ const Dashboard = () => {
           <Card className="card-premium">
             <CardContent className="pt-6 text-center">
               <History className="h-6 w-6 mx-auto text-accent mb-2" />
-              <p className="text-2xl font-bold">${profile?.total_spent?.toFixed(2) ?? "0.00"}</p>
+              <p className="text-2xl font-bold">${displayTotalSpent.toFixed(2)}</p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Total Spent</p>
             </CardContent>
           </Card>
