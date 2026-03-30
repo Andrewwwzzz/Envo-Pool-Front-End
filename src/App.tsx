@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { useSocket } from "@/hooks/useSocket";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Booking from "./pages/Booking";
@@ -24,30 +25,37 @@ const LegacyRedirect = () => {
 
 const queryClient = new QueryClient();
 
+const SocketProvider = ({ children }: { children: React.ReactNode }) => {
+  useSocket();
+  return <>{children}</>;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/booking" element={<Booking />} />
-            <Route path="/payment-verification" element={<PaymentVerification />} />
-            <Route path="/booking-confirmed" element={<BookingConfirmed />} />
-            <Route path="/booking-refunded" element={<BookingRefunded />} />
-            {/* Legacy redirect — preserves query params */}
-            <Route path="/booking-success" element={<LegacyRedirect />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <SocketProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/booking" element={<Booking />} />
+              <Route path="/payment-verification" element={<PaymentVerification />} />
+              <Route path="/booking-confirmed" element={<BookingConfirmed />} />
+              <Route path="/booking-refunded" element={<BookingRefunded />} />
+              {/* Legacy redirect — preserves query params */}
+              <Route path="/booking-success" element={<LegacyRedirect />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </SocketProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
