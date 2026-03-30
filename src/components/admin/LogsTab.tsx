@@ -33,7 +33,7 @@ function TransactionsView() {
   const { data, isLoading, refetch } = useAdminTransactions();
   const transactions = Array.isArray(data) ? data : data?.transactions || [];
 
-  if (isLoading) return <p className="text-muted-foreground">Loading transactions...</p>;
+  
 
   return (
     <Card>
