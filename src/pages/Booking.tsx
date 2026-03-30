@@ -32,7 +32,6 @@ const statusColor: Record<TableStatus, string> = {
 };
 
 function slotToDate(date: Date, slot: string): Date {
-  // Build a proper UTC Date representing this slot in Singapore time
   return sgSlotToUTC(date, slot);
 }
 
@@ -42,11 +41,8 @@ const Booking = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  // Step 1: Date
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  // Step 2: Table
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  // Step 3: Time slots
   const [startSlot, setStartSlot] = useState<string | null>(null);
   const [endSlot, setEndSlot] = useState<string | null>(null);
 
@@ -59,10 +55,8 @@ const Booking = () => {
 
   const today = useMemo(() => todaySG(), []);
 
-  // Fetch tables (basic info, no time filter needed for display)
   const { data: tables, isLoading: tablesLoading } = useTables(null, null);
 
-  // Fetch bookings for the selected table + date from backend availability API
   const selectedTableData_pre = tables?.find((t) => t.id === selectedTable);
   const { data: tableBookings } = useQuery({
     queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()],
@@ -74,21 +68,15 @@ const Booking = () => {
       const res = await apiFetch("/api/bookings");
       if (!res.ok) throw new Error("Failed to fetch bookings");
       const allBookings = await res.json();
-      console.log("BOOKINGS from /api/bookings:", allBookings);
 
-      // Filter by hardware_id and overlap with selected day
       const filtered = (allBookings || []).filter((b: any) => {
+        // Skip cancelled/expired — backend handles expiry
+        if (b.status === "cancelled" || b.status === "expired") return false;
         const bTableId = typeof b.tableId === "object" ? b.tableId?.hardware_id : b.tableId;
         if (bTableId !== hardwareId) return false;
-        // Check day overlap
         const bStart = new Date(b.startTime);
         const bEnd = new Date(b.endTime);
         return bStart < dayEnd && bEnd > dayStart;
-      });
-
-      console.log("Filtered bookings for table:", hardwareId, filtered);
-      filtered.forEach((b: any) => {
-        console.log("BOOKING:", b.startTime, b.endTime, "status:", b.status);
       });
 
       return filtered.map((b: any) => ({
@@ -110,7 +98,6 @@ const Booking = () => {
   const isAdmin = user?.isAdmin === true;
   const validatePromo = useValidatePromo();
 
-  // Compute start/end Date from slots
   const startDate = selectedDate && startSlot ? slotToDate(selectedDate, startSlot) : null;
   const endDate = selectedDate && endSlot ? slotToDate(selectedDate, endSlot) : null;
 
@@ -138,7 +125,6 @@ const Booking = () => {
     return validateDuration(startDate, endDate);
   }, [startDate, endDate]);
 
-  // Get table status for display
   const selectedTableData = tables?.find((t) => t.id === selectedTable);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
@@ -193,10 +179,9 @@ const Booking = () => {
     setShowConfirm(true);
   };
 
-
   const handleConfirmBook = async () => {
     if (!user || !selectedTable || !startDate || !endDate || !selectedTableData || !paymentMethod) return;
-    if (isProcessing) return; // double-click guard
+    if (isProcessing) return;
 
     if (!selectedTableData.hardware_id) {
       toast({ title: "Table configuration error", description: "Please refresh the page.", variant: "destructive" });
@@ -207,35 +192,26 @@ const Booking = () => {
     setShowConfirm(false);
 
     const hardwareId = selectedTableData.hardware_id;
-    const durationMinutes = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
-    const requestBody = {
-      userId: user.id,
-      tableId: hardwareId,
-      startTime: startDate.toISOString(),
-      duration: durationMinutes,
-      price: finalPrice,
-    };
 
     try {
-      const endpoint = paymentMethod === "wallet"
-        ? "/api/bookings/create-with-wallet"
-        : "/api/bookings/create-with-payment";
-
-      console.log("Booking request:", endpoint, requestBody);
-      const response = await apiFetch(endpoint, {
+      // STEP 1: Create booking via POST /api/bookings
+      const createRes = await apiFetch("/api/bookings", {
         method: "POST",
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          tableId: hardwareId,
+          startTime: startDate.toISOString(),
+          endTime: endDate.toISOString(),
+          amount: finalPrice,
+        }),
       });
 
-      const responseText = await response.text();
-      console.log("Booking response status:", response.status, "body:", responseText);
+      const createText = await createRes.text();
+      let createData: any;
+      try { createData = JSON.parse(createText); } catch { createData = {}; }
 
-      let respData: any;
-      try { respData = JSON.parse(responseText); } catch { respData = {}; }
-
-      if (!response.ok) {
-        const errMsg = respData.error || respData.message || `Server error (${response.status})`;
-        if (response.status === 409) {
+      if (!createRes.ok) {
+        const errMsg = createData.error || createData.message || `Server error (${createRes.status})`;
+        if (createRes.status === 409) {
           toast({ title: "Time slot already booked", description: "Please select another slot.", variant: "destructive" });
           setStartSlot(null);
           setEndSlot(null);
@@ -246,27 +222,61 @@ const Booking = () => {
         return;
       }
 
-      // respData already parsed above
+      const bookingId = createData.bookingId || createData.booking?.id || createData.booking?._id || createData.id || createData._id;
+      if (!bookingId) {
+        toast({ title: "Booking failed", description: "No booking ID returned.", variant: "destructive" });
+        return;
+      }
 
+      // Store for socket listener
+      sessionStorage.setItem("pending_booking_id", bookingId);
+
+      // STEP 2: Pay
       if (paymentMethod === "wallet") {
-        // Wallet: booking already confirmed by backend — refetch from backend, then navigate
+        // POST /api/payments/wallet
+        const walletRes = await apiFetch("/api/payments/wallet", {
+          method: "POST",
+          body: JSON.stringify({ bookingId }),
+        });
+
+        if (!walletRes.ok) {
+          const walletData = await walletRes.json().catch(() => ({}));
+          toast({ title: "Payment failed", description: walletData.error || walletData.message || "Wallet payment failed.", variant: "destructive" });
+          return;
+        }
+
+        // Success — refetch and redirect
+        sessionStorage.removeItem("pending_booking_id");
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["profile"] }),
           queryClient.invalidateQueries({ queryKey: ["my-bookings"] }),
           queryClient.invalidateQueries({ queryKey: ["tables-with-status"] }),
           queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] }),
+          queryClient.invalidateQueries({ queryKey: ["transaction-history"] }),
         ]);
         toast({ title: "Booking confirmed!", description: "Your table has been reserved successfully." });
         navigate("/booking-confirmed");
       } else {
-        // Stripe: redirect to checkout
-        const checkoutUrl = respData.checkoutUrl || respData.checkout_url;
+        // POST /api/payments/checkout (PayNow/Stripe)
+        const checkoutRes = await apiFetch("/api/payments/checkout", {
+          method: "POST",
+          body: JSON.stringify({ bookingId }),
+        });
 
+        const checkoutData = await checkoutRes.json().catch(() => ({}));
+
+        if (!checkoutRes.ok) {
+          toast({ title: "Payment failed", description: checkoutData.error || checkoutData.message || "Failed to initiate payment.", variant: "destructive" });
+          return;
+        }
+
+        const checkoutUrl = checkoutData.checkoutUrl || checkoutData.checkout_url;
         if (!checkoutUrl) {
           toast({ title: "Invalid response", description: "Missing checkout URL from server.", variant: "destructive" });
           return;
         }
 
+        // Redirect to Stripe/PayNow — socket will handle confirmation
         window.location.href = checkoutUrl;
       }
     } catch (error) {
@@ -281,7 +291,6 @@ const Booking = () => {
     }
   };
 
-  // Check if table is bookable (not maintenance/in-use)
   const isTableBookable = (table: typeof tables extends (infer T)[] ? T : never) => {
     return table.status !== "Maintenance" && table.status !== "In Use";
   };

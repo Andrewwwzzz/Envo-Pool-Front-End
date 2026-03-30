@@ -17,6 +17,7 @@ import Settings from "./pages/Settings";
 import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
 
+// Legacy redirects — send old URLs to payment-verification (socket-driven)
 const LegacyRedirect = () => {
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("session_id");
@@ -45,7 +46,7 @@ const App = () => (
               <Route path="/payment-verification" element={<PaymentVerification />} />
               <Route path="/booking-confirmed" element={<BookingConfirmed />} />
               <Route path="/booking-refunded" element={<BookingRefunded />} />
-              {/* Legacy redirect — preserves query params */}
+              {/* Legacy redirects */}
               <Route path="/booking-success" element={<LegacyRedirect />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/settings" element={<Settings />} />

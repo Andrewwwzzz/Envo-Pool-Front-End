@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { getCached, setCache } from "@/lib/queryCache";
 
@@ -14,22 +14,11 @@ export interface TableWithStatus {
   status: TableStatus;
 }
 
-const PENDING_LOCK_MINUTES = 5;
-
-function calculateDurationHours(start: Date, end: Date): number {
-  return (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-}
-
 export function validateDuration(start: Date, end: Date): string | null {
   const diffMs = end.getTime() - start.getTime();
   const diffMinutes = diffMs / (1000 * 60);
-
   if (diffMinutes < 60) return "Minimum booking duration is 1 hour.";
-
-  if (diffMinutes % 30 !== 0) {
-    return "Duration must be in 30-minute intervals.";
-  }
-
+  if (diffMinutes % 30 !== 0) return "Duration must be in 30-minute intervals.";
   return null;
 }
 
@@ -59,19 +48,15 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
       // Fetch all bookings and filter by time overlap
       const availRes = await apiFetch("/api/bookings");
       const allBookings = availRes.ok ? await availRes.json() : [];
-      
-      // Filter out expired pending_payment bookings and find overlapping ones
+
+      // Backend is source of truth — display whatever status backend says
       const bookings = (allBookings || []).filter((b: any) => {
-        // Skip expired pending_payment bookings
-        if ((b.status === "pending_payment" || b.status === "pending") && b.expiresAt) {
-          if (new Date(b.expiresAt).getTime() < nowMs) return false;
-        }
+        // Only show active bookings (not cancelled/expired)
+        if (b.status === "cancelled" || b.status === "expired") return false;
         const bStart = new Date(b.startTime);
         const bEnd = new Date(b.endTime);
         return bStart < endTime && bEnd > startTime;
       });
-
-      const nowMs = Date.now();
 
       const result = (tables || []).map((t: any) => {
         const tableId = t._id || t.id;
@@ -94,11 +79,7 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
           return { id: tableId, table_number: t.tableNumber ?? t.table_number, hardware_id: hardwareId, status: "Booked" as TableStatus };
         }
 
-        const hasPending = overlapping.some((b: any) => {
-          if (b.status !== "pending_payment" && b.status !== "pending") return false;
-          const createdAt = b.createdAt || b.created_at;
-          return createdAt ? new Date(createdAt).getTime() > nowMs - PENDING_LOCK_MINUTES * 60 * 1000 : true;
-        });
+        const hasPending = overlapping.some((b: any) => b.status === "pending_payment" || b.status === "pending");
         if (hasPending) {
           return { id: tableId, table_number: t.tableNumber ?? t.table_number, hardware_id: hardwareId, status: "Pending Payment" as TableStatus };
         }
@@ -114,77 +95,6 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
   });
 }
 
-export interface CreateBookingParams {
-  tableId: string;
-  startTime: Date;
-  endTime: Date;
-  originalPrice: number;
-  discountAmount: number;
-  finalPrice: number;
-  promoId: string | null;
-  paymentMethod: "wallet" | "stripe";
-}
-
-export function useCreateBooking() {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (params: CreateBookingParams) => {
-      if (!user) throw new Error("Must be logged in");
-
-      const { tableId, startTime, endTime, originalPrice, discountAmount, finalPrice, promoId, paymentMethod } = params;
-
-      const durationError = validateDuration(startTime, endTime);
-      if (durationError) throw new Error(durationError);
-
-      const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-
-      const endpoint = paymentMethod === "wallet"
-        ? "/api/bookings/create-with-wallet"
-        : "/api/bookings/create-with-payment";
-
-      const res = await apiFetch(endpoint, {
-        method: "POST",
-        body: JSON.stringify({
-          userId: user.id,
-          tableId,
-          startTime: startTime.toISOString(),
-          duration: durationMinutes,
-          price: finalPrice,
-          promoId,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || data.message || "Booking failed");
-      }
-
-      const data = await res.json();
-      return {
-        id: data.bookingId || data.id,
-        status: data.status || (paymentMethod === "wallet" ? "confirmed" : "pending"),
-        checkoutUrl: data.checkoutUrl,
-      };
-    },
-    onSuccess: (_data, variables) => {
-      const msg = variables.paymentMethod === "wallet"
-        ? "Booking confirmed! Payment deducted from wallet."
-        : "Booking created. Complete payment to confirm.";
-      toast({ title: "Booking created", description: msg });
-      queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
-      queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] });
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
-      queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
-    },
-    onError: (err: Error) => {
-      toast({ title: "Booking failed", description: err.message, variant: "destructive" });
-    },
-  });
-}
-
 export async function loadBookingsFromBackend() {
   const [bookingsRes, transactionsRes] = await Promise.all([
     apiFetch("/api/bookings"),
@@ -194,36 +104,10 @@ export async function loadBookingsFromBackend() {
   if (!bookingsRes.ok) throw new Error("Failed to fetch bookings");
 
   const allBookings = await bookingsRes.json();
-  const nowMs = Date.now();
-  
-  // Find expired pending_payment bookings and cancel them on the backend
-  const expiredBookings = (allBookings || []).filter((b: any) => {
-    if ((b.status === "pending_payment" || b.status === "pending") && b.expiresAt) {
-      return new Date(b.expiresAt).getTime() < nowMs;
-    }
-    return false;
-  });
 
-  // Cancel expired bookings on backend (fire and forget)
-  if (expiredBookings.length > 0) {
-    console.log(`Cancelling ${expiredBookings.length} expired bookings on backend...`);
-    await Promise.allSettled(
-      expiredBookings.map((b: any) =>
-        apiFetch(`/api/bookings/${b._id || b.id}/cancel`, { method: "POST" })
-          .then(() => console.log(`Cancelled expired booking ${b._id || b.id}`))
-          .catch((err) => console.warn(`Failed to cancel ${b._id || b.id}:`, err))
-      )
-    );
-  }
+  // NO frontend expiry cancellation — backend handles all status changes
+  const bookings = allBookings || [];
 
-  // Filter them out from the list
-  const bookings = (allBookings || []).filter((b: any) => {
-    if ((b.status === "pending_payment" || b.status === "pending") && b.expiresAt) {
-      if (new Date(b.expiresAt).getTime() < nowMs) return false;
-    }
-    return true;
-  });
-  
   const transactionsData = transactionsRes && transactionsRes.ok ? await transactionsRes.json().catch(() => null) : null;
   const walletTransactions = Array.isArray(transactionsData?.walletTransactions) ? transactionsData.walletTransactions : [];
   const stripePayments = Array.isArray(transactionsData?.stripePayments) ? transactionsData.stripePayments : [];
@@ -233,20 +117,15 @@ export async function loadBookingsFromBackend() {
     const walletMatch = walletTransactions.find((t: any) => t.reference === bookingId || t.relatedBookingId === bookingId || t.related_booking_id === bookingId);
     const stripeMatch = stripePayments.find((p: any) => (p.id || p._id) === bookingId || p.reference === bookingId);
 
-    // Determine payment method: prioritize explicit fields, then transaction matches
     const explicit = booking.paymentMethod || booking.payment_method || booking.inferredPaymentMethod;
     let resolvedMethod = explicit || null;
-    
-    // If explicit method says "wallet_deduct" or "booking_payment", normalize to "wallet"
+
     if (resolvedMethod === "wallet_deduct" || resolvedMethod === "booking_payment") {
       resolvedMethod = "wallet";
     }
-    
-    // If no explicit method, check transaction matches
+
     if (!resolvedMethod && walletMatch) resolvedMethod = "wallet";
     if (!resolvedMethod && stripeMatch) resolvedMethod = "stripe";
-    
-    // Only fall back to paynow if payment is marked paid and no other match
     if (!resolvedMethod && booking.paymentStatus === "paid") resolvedMethod = "paynow";
 
     return {
