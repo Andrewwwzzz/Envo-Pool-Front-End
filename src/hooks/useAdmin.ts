@@ -9,9 +9,12 @@ export function useAdminBookings() {
     queryFn: async () => {
       const res = await apiFetch("/api/admin/bookings");
       if (!res.ok) throw new Error("Failed to fetch bookings");
-      return await res.json();
+      const data = await res.json();
+      setCache("admin-bookings", data);
+      return data;
     },
     refetchInterval: 30000,
+    initialData: () => getCached("admin-bookings"),
   });
 }
 
@@ -47,7 +50,7 @@ export function useAdminTables() {
       const res = await apiFetch("/api/tables");
       if (!res.ok) throw new Error("Failed to fetch tables");
       const data = await res.json();
-      return (data || []).map((t: any) => ({
+      const mapped = (data || []).map((t: any) => ({
         id: t._id || t.id,
         table_number: t.tableNumber ?? t.table_number,
         hardware_id: t.hardwareId ?? t.hardware_id ?? null,
@@ -56,7 +59,10 @@ export function useAdminTables() {
         timer_started_at: t.timerStartedAt ?? t.timer_started_at ?? null,
         created_at: t.createdAt ?? t.created_at ?? "",
       }));
+      setCache("admin-tables", mapped);
+      return mapped;
     },
+    initialData: () => getCached("admin-tables") ?? [],
   });
 
   const updateStatus = useMutation({
@@ -128,8 +134,11 @@ export function useAdminTimerSessions() {
     queryFn: async () => {
       const res = await apiFetch("/api/admin/timer-sessions");
       if (!res.ok) throw new Error("Failed to fetch timer sessions");
-      return await res.json();
+      const data = await res.json();
+      setCache("admin-timer-sessions", data);
+      return data;
     },
+    initialData: () => getCached("admin-timer-sessions"),
   });
 }
 
@@ -142,8 +151,11 @@ export function useAdminPricingRules() {
     queryFn: async () => {
       const res = await apiFetch("/api/admin/pricing-rules");
       if (!res.ok) throw new Error("Failed to fetch pricing rules");
-      return await res.json();
+      const data = await res.json();
+      setCache("admin-pricing-rules", data);
+      return data;
     },
+    initialData: () => getCached("admin-pricing-rules"),
   });
 
   const create = useMutation({
@@ -238,8 +250,11 @@ export function useAdminPromoCodes() {
     queryFn: async () => {
       const res = await apiFetch("/api/admin/promo-codes");
       if (!res.ok) throw new Error("Failed to fetch promo codes");
-      return await res.json();
+      const data = await res.json();
+      setCache("admin-promo-codes", data);
+      return data;
     },
+    initialData: () => getCached("admin-promo-codes"),
   });
 
   const create = useMutation({
@@ -329,9 +344,12 @@ export function useAdminStats() {
     queryFn: async () => {
       const res = await apiFetch("/api/admin/stats");
       if (!res.ok) throw new Error("Failed to fetch stats");
-      return await res.json();
+      const data = await res.json();
+      setCache("admin-stats", data);
+      return data;
     },
     refetchInterval: 60000,
+    initialData: () => getCached("admin-stats"),
   });
 }
 
@@ -373,9 +391,12 @@ export function useCustomerBookings(userId: string) {
     queryFn: async () => {
       const res = await apiFetch(`/api/admin/customers/${userId}/bookings`);
       if (!res.ok) throw new Error("Failed to fetch customer bookings");
-      return await res.json();
+      const data = await res.json();
+      setCache(`customer-bookings-${userId}`, data);
+      return data;
     },
     enabled: !!userId,
+    initialData: () => userId ? getCached(`customer-bookings-${userId}`) : undefined,
   });
 }
 
@@ -385,9 +406,12 @@ export function useCustomerWalletHistory(userId: string) {
     queryFn: async () => {
       const res = await apiFetch(`/api/admin/customers/${userId}/wallet`);
       if (!res.ok) throw new Error("Failed to fetch wallet history");
-      return await res.json();
+      const data = await res.json();
+      setCache(`customer-wallet-${userId}`, data);
+      return data;
     },
     enabled: !!userId,
+    initialData: () => userId ? getCached(`customer-wallet-${userId}`) : undefined,
   });
 }
 
@@ -397,9 +421,12 @@ export function useCustomerRewardHistory(userId: string) {
     queryFn: async () => {
       const res = await apiFetch(`/api/admin/customers/${userId}/rewards`);
       if (!res.ok) throw new Error("Failed to fetch reward history");
-      return await res.json();
+      const data = await res.json();
+      setCache(`customer-rewards-${userId}`, data);
+      return data;
     },
     enabled: !!userId,
+    initialData: () => userId ? getCached(`customer-rewards-${userId}`) : undefined,
   });
 }
 

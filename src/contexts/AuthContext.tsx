@@ -90,6 +90,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    // Clear all cached query data
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith("cache:")) localStorage.removeItem(key);
+    });
     setToken(null);
     setUser(null);
   };

@@ -42,7 +42,7 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
       const tables = await res.json();
 
       if (!startTime || !endTime) {
-        return (tables || []).map((t: any) => ({
+        const result = (tables || []).map((t: any) => ({
           id: t._id || t.id,
           table_number: t.tableNumber ?? t.table_number,
           hardware_id: t.hardwareId ?? t.hardware_id ?? null,
@@ -52,6 +52,8 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
             ? "Maintenance" as TableStatus
             : "Available" as TableStatus,
         }));
+        setCache("tables-basic", result);
+        return result;
       }
 
       // Fetch availability to determine status
@@ -64,7 +66,7 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
 
       const nowMs = Date.now();
 
-      return (tables || []).map((t: any) => {
+      const result = (tables || []).map((t: any) => {
         const tableId = t._id || t.id;
         const hardwareId = t.hardwareId ?? t.hardware_id ?? null;
 
@@ -96,9 +98,12 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
 
         return { id: tableId, table_number: t.tableNumber ?? t.table_number, hardware_id: hardwareId, status: "Available" as TableStatus };
       });
+      setCache("tables-with-status", result);
+      return result;
     },
     enabled: true,
     refetchInterval: 30000,
+    initialData: () => getCached<TableWithStatus[]>("tables-with-status") ?? getCached<TableWithStatus[]>("tables-basic") ?? [],
   });
 }
 
