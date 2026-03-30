@@ -9,7 +9,7 @@ import { getCached, setCache } from "@/lib/queryCache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, Star, Calendar, History, LogOut, ArrowLeft, XCircle, Settings } from "lucide-react";
+import { Wallet, Calendar, History, LogOut, ArrowLeft, XCircle, Settings } from "lucide-react";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -78,7 +78,6 @@ const Dashboard = () => {
       console.log("TRANSACTIONS_API_RAW:", data);
 
       const walletTxs = Array.isArray(data?.walletTransactions) ? data.walletTransactions : [];
-      const rewardTxs = Array.isArray(data?.rewardTransactions) ? data.rewardTransactions : [];
 
       const items: Array<{
         id: string;
@@ -114,28 +113,6 @@ const Dashboard = () => {
         });
       });
 
-      rewardTxs.forEach((t: any) => {
-        const txType = t.type || t.transactionType || "";
-        const label = txType === "adjustment"
-          ? "Admin Points Adjustment"
-          : txType === "earn"
-          ? "Points Earned"
-          : txType === "redeem"
-          ? "Points Redeemed"
-          : txType ? txType : "Reward Transaction";
-        const pts = typeof t.points === "number" ? t.points : 0;
-        const dateStr = t.createdAt || t.created_at || t.date || "";
-        items.push({
-          id: `r-${t.id || t._id}`,
-          date: dateStr,
-          label,
-          sublabel: fmtDateTime(dateStr),
-          amount: `${pts >= 0 ? "+" : ""}${pts} pts`,
-          positive: pts >= 0,
-          sortKey: new Date(dateStr).getTime(),
-        });
-      });
-
       items.sort((a, b) => b.sortKey - a.sortKey);
       setCache("transactions", items);
       return items;
@@ -152,11 +129,8 @@ const Dashboard = () => {
   // Compute total_spent from confirmed bookings if backend returns 0
   const computedTotalSpent = (bookings || [])
     .filter((b: any) => b.status === "confirmed" || b.status === "completed")
-    .reduce((sum: number, b: any) => sum + (b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0), 0);
+    .reduce((sum: number, b: any) => sum + (b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? 0), 0);
   const displayTotalSpent = (profile?.total_spent && profile.total_spent > 0) ? profile.total_spent : computedTotalSpent;
-
-  // Use backend points directly (from profile which comes from /api/auth/me)
-  const displayRewardPoints = profile?.reward_points ?? user?.rewardPoints ?? 0;
 
   const getStartTime = (b: any) => b.startTime || b.start_time;
   const getEndTime = (b: any) => b.endTime || b.end_time;
@@ -167,11 +141,11 @@ const Dashboard = () => {
     if (tid?.tableNumber ?? tid?.table_number) return `Table ${tid.tableNumber ?? tid.table_number}`;
     return "Table ?";
   };
-  const getPrice = (b: any) => b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0;
+  const getPrice = (b: any) => b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? 0;
   const getStatus = (b: any) => b.status;
 
-  const upcoming = (bookings || []).filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled" && getStatus(b) !== "expired");
-  const past = (bookings || []).filter((b: any) => (new Date(getStartTime(b)) < now || getStatus(b) === "cancelled") && getStatus(b) !== "expired");
+  const upcoming = (bookings || []).filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled");
+  const past = (bookings || []).filter((b: any) => (new Date(getStartTime(b)) < now || getStatus(b) === "cancelled"));
 
   return (
     <div className="min-h-screen bg-background dark">
@@ -198,19 +172,12 @@ const Dashboard = () => {
 
       <main className="relative z-10 mx-auto max-w-4xl p-6 space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <Card className="card-premium">
             <CardContent className="pt-6 text-center">
               <Wallet className="h-6 w-6 mx-auto text-accent mb-2" />
               <p className="text-2xl font-bold">${profile?.wallet_balance?.toFixed(2) ?? "0.00"}</p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Wallet Balance</p>
-            </CardContent>
-          </Card>
-          <Card className="card-premium">
-            <CardContent className="pt-6 text-center">
-              <Star className="h-6 w-6 mx-auto text-accent mb-2" />
-              <p className="text-2xl font-bold">{displayRewardPoints}</p>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Reward Points</p>
             </CardContent>
           </Card>
           <Card className="card-premium">

@@ -51,8 +51,8 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
 
       // Backend is source of truth — display whatever status backend says
       const bookings = (allBookings || []).filter((b: any) => {
-        // Only show active bookings (not cancelled/expired)
-        if (b.status === "cancelled" || b.status === "expired") return false;
+        // Only show active bookings (not cancelled — expired are deleted by backend)
+        if (b.status === "cancelled") return false;
         const bStart = new Date(b.startTime);
         const bEnd = new Date(b.endTime);
         return bStart < endTime && bEnd > startTime;

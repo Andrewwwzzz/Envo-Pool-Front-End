@@ -70,8 +70,8 @@ const Booking = () => {
       const allBookings = await res.json();
 
       const filtered = (allBookings || []).filter((b: any) => {
-        // Skip cancelled/expired — backend handles expiry
-        if (b.status === "cancelled" || b.status === "expired") return false;
+        // Skip cancelled — backend deletes expired
+        if (b.status === "cancelled") return false;
         const bTableId = typeof b.tableId === "object" ? b.tableId?.hardware_id : b.tableId;
         if (bTableId !== hardwareId) return false;
         const bStart = new Date(b.startTime);

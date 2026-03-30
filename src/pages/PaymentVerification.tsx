@@ -1,48 +1,62 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { onBookingUpdated } from "@/hooks/useSocket";
+import { apiFetch } from "@/lib/api";
 
 const PaymentVerification = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const sessionId = searchParams.get("session_id");
   const bookingId = searchParams.get("booking_id");
-  const [message, setMessage] = useState("Waiting for payment confirmation...");
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!user) return;
 
-    // If no booking_id to listen for, just show waiting and rely on socket
     const targetBookingId = bookingId || sessionStorage.getItem("pending_booking_id");
 
     // Listen for socket events for this booking
     const unsubscribe = onBookingUpdated((updatedBookingId, status) => {
-      // If we have a target booking ID, only react to that one
       if (targetBookingId && updatedBookingId !== targetBookingId) return;
 
       if (status === "confirmed") {
         sessionStorage.removeItem("pending_booking_id");
+        if (pollRef.current) clearInterval(pollRef.current);
         navigate("/booking-confirmed", { replace: true });
-      } else if (status === "expired") {
-        sessionStorage.removeItem("pending_booking_id");
-        navigate("/booking-refunded", { replace: true });
       }
     });
 
+    // Fallback: poll to detect deleted (expired) bookings after 12s
+    if (targetBookingId) {
+      pollRef.current = setInterval(async () => {
+        try {
+          const res = await apiFetch("/api/bookings");
+          if (res.ok) {
+            const allBookings = await res.json();
+            const found = (allBookings || []).find((b: any) => (b.id || b._id) === targetBookingId);
+            if (!found) {
+              sessionStorage.removeItem("pending_booking_id");
+              if (pollRef.current) clearInterval(pollRef.current);
+              navigate("/booking-refunded", { replace: true });
+            }
+          }
+        } catch (err) {
+          console.error("Poll error:", err);
+        }
+      }, 12000);
+    }
+
     // Timeout fallback — after 5 minutes, redirect to dashboard
     const timeout = setTimeout(() => {
-      setMessage("Taking longer than expected. Please check your dashboard.");
-      setTimeout(() => {
-        navigate("/dashboard", { replace: true });
-      }, 3000);
+      navigate("/dashboard", { replace: true });
     }, 5 * 60 * 1000);
 
     return () => {
       unsubscribe();
+      if (pollRef.current) clearInterval(pollRef.current);
       clearTimeout(timeout);
     };
   }, [user, bookingId, navigate]);
@@ -60,7 +74,7 @@ const PaymentVerification = () => {
           </div>
           <div className="space-y-2">
             <h1 className="text-2xl font-bold text-foreground">Please Wait</h1>
-            <p className="text-muted-foreground">{message}</p>
+            <p className="text-muted-foreground">Waiting for payment confirmation...</p>
             <p className="text-xs text-muted-foreground mt-4">
               Listening for payment confirmation via real-time updates...
             </p>
