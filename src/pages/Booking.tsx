@@ -82,7 +82,7 @@ const Booking = () => {
       return filtered.map((b: any) => ({
         start_time: b.startTime,
         end_time: b.endTime,
-        status: b.status === "confirmed" ? "confirmed" : "pending",
+        status: b.status === "confirmed" ? "confirmed" : b.status === "pending_payment" ? "pending" : "pending",
         created_at: b.createdAt || new Date().toISOString(),
         expires_at: b.expiresAt || null,
         user_name: b.userName || null,
