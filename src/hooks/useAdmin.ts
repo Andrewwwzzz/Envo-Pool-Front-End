@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
+import { getCached, setCache } from "@/lib/queryCache";
 
 export function useAdminBookings() {
   return useQuery({
