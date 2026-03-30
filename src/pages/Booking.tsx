@@ -260,9 +260,9 @@ const Booking = () => {
         navigate("/booking-confirmed");
       } else {
         // Stripe: redirect to checkout
-        const { checkoutUrl, bookingId } = respData;
+        const checkoutUrl = respData.checkoutUrl || respData.checkout_url;
 
-        if (!checkoutUrl || !bookingId) {
+        if (!checkoutUrl) {
           toast({ title: "Invalid response", description: "Missing checkout URL from server.", variant: "destructive" });
           return;
         }
