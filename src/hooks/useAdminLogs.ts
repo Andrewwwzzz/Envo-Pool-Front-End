@@ -36,7 +36,7 @@ export function useAdminActivityLogs() {
   return useQuery({
     queryKey: ["admin-activity-logs"],
     queryFn: async () => {
-      const res = await apiFetch("/api/admin-logs");
+      const res = await apiFetch("/api/logs/admin");
       if (!res.ok) throw new Error("Failed to fetch admin logs");
       const data = await res.json();
       setCache("admin-activity-logs", data);

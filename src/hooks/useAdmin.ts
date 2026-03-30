@@ -396,11 +396,12 @@ export function useCustomerBookings(userId: string) {
   return useQuery({
     queryKey: ["admin-customer-bookings", userId],
     queryFn: async () => {
-      const res = await apiFetch(`/api/admin/customers/${userId}/bookings`);
-      if (!res.ok) throw new Error("Failed to fetch customer bookings");
-      const data = await res.json();
-      setCache(`customer-bookings-${userId}`, data);
-      return data;
+      const res = await apiFetch("/api/bookings");
+      if (!res.ok) throw new Error("Failed to fetch bookings");
+      const all = await res.json();
+      const filtered = (Array.isArray(all) ? all : []).filter((b: any) => b.userId === userId);
+      setCache(`customer-bookings-${userId}`, filtered);
+      return filtered;
     },
     enabled: !!userId,
     initialData: () => userId ? getCached(`customer-bookings-${userId}`) : undefined,
@@ -411,11 +412,13 @@ export function useCustomerWalletHistory(userId: string) {
   return useQuery({
     queryKey: ["admin-customer-wallet", userId],
     queryFn: async () => {
-      const res = await apiFetch(`/api/admin/customers/${userId}/wallet`);
-      if (!res.ok) throw new Error("Failed to fetch wallet history");
-      const data = await res.json();
-      setCache(`customer-wallet-${userId}`, data);
-      return data;
+      const res = await apiFetch("/api/transactions");
+      if (!res.ok) throw new Error("Failed to fetch transactions");
+      const all = await res.json();
+      const transactions = Array.isArray(all) ? all : [];
+      const filtered = transactions.filter((t: any) => t.userId === userId);
+      setCache(`customer-wallet-${userId}`, filtered);
+      return filtered;
     },
     enabled: !!userId,
     initialData: () => userId ? getCached(`customer-wallet-${userId}`) : undefined,
@@ -426,14 +429,10 @@ export function useCustomerRewardHistory(userId: string) {
   return useQuery({
     queryKey: ["admin-customer-rewards", userId],
     queryFn: async () => {
-      const res = await apiFetch(`/api/admin/customers/${userId}/rewards`);
-      if (!res.ok) throw new Error("Failed to fetch reward history");
-      const data = await res.json();
-      setCache(`customer-rewards-${userId}`, data);
-      return data;
+      // No dedicated rewards endpoint; return empty for now
+      return [];
     },
     enabled: !!userId,
-    initialData: () => userId ? getCached(`customer-rewards-${userId}`) : undefined,
   });
 }
 

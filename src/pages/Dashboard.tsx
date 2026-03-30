@@ -71,10 +71,13 @@ const Dashboard = () => {
     queryFn: async () => {
       if (!user) return [];
 
-      const [walletRes, rewardRes] = await Promise.all([
-        supabase.from("wallet_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("reward_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-      ]);
+      const res = await apiFetch("/api/transactions");
+      if (!res.ok) return [];
+      const rawData = await res.json();
+      const transactions = Array.isArray(rawData) ? rawData : [];
+
+      // Filter to current user
+      const userTxns = transactions.filter((t: any) => t.userId === user.id);
 
       const items: Array<{
         id: string;
@@ -86,41 +89,24 @@ const Dashboard = () => {
         sortKey: number;
       }> = [];
 
-      (walletRes.data || []).forEach((t) => {
-        const typeLabel = t.type === "adjustment"
+      userTxns.forEach((t: any) => {
+        const typeRaw = t.type || "unknown";
+        const typeLabel = typeRaw === "admin_adjustment"
           ? "Admin Adjustment"
-          : t.type === "booking_payment"
+          : typeRaw === "wallet_deduct" || typeRaw === "booking_payment"
           ? "Wallet Payment"
-          : t.type === "topup"
+          : typeRaw === "topup"
           ? "Wallet Top Up"
-          : t.type.replace(/_/g, " ");
+          : typeRaw.replace(/_/g, " ");
+        const amt = t.amount ?? 0;
         items.push({
-          id: `w-${t.id}`,
-          date: t.created_at,
+          id: `w-${t._id || t.id}`,
+          date: t.createdAt || t.created_at || "",
           label: typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1),
-          sublabel: fmtDateTime(t.created_at),
-          amount: `${t.amount >= 0 ? "+" : ""}$${Math.abs(t.amount).toFixed(2)}`,
-          positive: t.amount >= 0,
-          sortKey: new Date(t.created_at).getTime(),
-        });
-      });
-
-      (rewardRes.data || []).forEach((t) => {
-        const label = t.type === "adjustment"
-          ? "Admin Points Adjustment"
-          : t.type === "earn"
-          ? "Points Earned"
-          : t.type === "redeem"
-          ? "Points Redeemed"
-          : t.type;
-        items.push({
-          id: `r-${t.id}`,
-          date: t.created_at,
-          label,
-          sublabel: fmtDateTime(t.created_at),
-          amount: `${t.points >= 0 ? "+" : ""}${t.points} pts`,
-          positive: t.points >= 0,
-          sortKey: new Date(t.created_at).getTime(),
+          sublabel: fmtDateTime(t.createdAt || t.created_at || ""),
+          amount: `${amt >= 0 ? "+" : ""}$${Math.abs(amt).toFixed(2)}`,
+          positive: amt >= 0,
+          sortKey: new Date(t.createdAt || t.created_at || 0).getTime(),
         });
       });
 
