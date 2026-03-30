@@ -92,24 +92,24 @@ function OverviewTab() {
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card><CardContent className="pt-6 text-center">
-          <Calendar className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">{stats?.totalBookings ?? 0}</p>
-          <p className="text-sm text-muted-foreground">Total Bookings</p>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
           <p className="text-2xl font-bold">${(stats?.totalRevenue ?? 0).toFixed(2)}</p>
           <p className="text-sm text-muted-foreground">Total Revenue</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
-          <BarChart3 className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">{stats?.activeBookings ?? 0}</p>
-          <p className="text-sm text-muted-foreground">Active Bookings</p>
+          <Users className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">{stats?.totalUsers ?? 0}</p>
+          <p className="text-sm text-muted-foreground">Total Users</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
-          <Percent className="h-6 w-6 mx-auto text-accent mb-2" />
-          <p className="text-2xl font-bold">{stats?.pendingBookings ?? 0}</p>
-          <p className="text-sm text-muted-foreground">Pending Bookings</p>
+          <Calendar className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">{stats?.totalBookings ?? 0}</p>
+          <p className="text-sm text-muted-foreground">Total Bookings</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-6 text-center">
+          <BarChart3 className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">{stats?.totalTransactions ?? 0}</p>
+          <p className="text-sm text-muted-foreground">Total Transactions</p>
         </CardContent></Card>
       </div>
     </div>
