@@ -86,40 +86,49 @@ const Dashboard = () => {
         sortKey: number;
       }> = [];
 
+      console.log("WALLET_TX_RAW:", walletRes.data);
+      console.log("REWARD_TX_RAW:", rewardRes.data);
+
       (walletRes.data || []).forEach((t) => {
-        const typeLabel = t.type === "adjustment"
+        const txType = t.type || "";
+        const typeLabel = txType === "adjustment"
           ? "Admin Adjustment"
-          : t.type === "booking_payment"
+          : txType === "booking_payment"
           ? "Wallet Payment"
-          : t.type === "topup"
+          : txType === "topup"
           ? "Wallet Top Up"
-          : t.type.replace(/_/g, " ");
+          : txType === "refund"
+          ? "Refund"
+          : txType ? txType.replace(/_/g, " ") : "Wallet Transaction";
+        const amt = typeof t.amount === "number" ? t.amount : 0;
         items.push({
           id: `w-${t.id}`,
           date: t.created_at,
           label: typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1),
           sublabel: fmtDateTime(t.created_at),
-          amount: `${t.amount >= 0 ? "+" : ""}$${Math.abs(t.amount).toFixed(2)}`,
-          positive: t.amount >= 0,
+          amount: `${amt >= 0 ? "+" : ""}$${Math.abs(amt).toFixed(2)}`,
+          positive: amt >= 0,
           sortKey: new Date(t.created_at).getTime(),
         });
       });
 
       (rewardRes.data || []).forEach((t) => {
-        const label = t.type === "adjustment"
+        const txType = t.type || "";
+        const label = txType === "adjustment"
           ? "Admin Points Adjustment"
-          : t.type === "earn"
+          : txType === "earn"
           ? "Points Earned"
-          : t.type === "redeem"
+          : txType === "redeem"
           ? "Points Redeemed"
-          : t.type;
+          : txType ? txType : "Reward Transaction";
+        const pts = typeof t.points === "number" ? t.points : 0;
         items.push({
           id: `r-${t.id}`,
           date: t.created_at,
           label,
           sublabel: fmtDateTime(t.created_at),
-          amount: `${t.points >= 0 ? "+" : ""}${t.points} pts`,
-          positive: t.points >= 0,
+          amount: `${pts >= 0 ? "+" : ""}${pts} pts`,
+          positive: pts >= 0,
           sortKey: new Date(t.created_at).getTime(),
         });
       });
