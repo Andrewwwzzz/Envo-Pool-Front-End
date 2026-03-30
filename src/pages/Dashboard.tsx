@@ -206,7 +206,7 @@ const Dashboard = () => {
           <Card className="card-premium">
             <CardContent className="pt-6 text-center">
               <Star className="h-6 w-6 mx-auto text-accent mb-2" />
-              <p className="text-2xl font-bold">{profile?.reward_points ?? 0}</p>
+              <p className="text-2xl font-bold">{displayRewardPoints}</p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Reward Points</p>
             </CardContent>
           </Card>
