@@ -133,7 +133,7 @@ function AdminLogsView() {
   const { data, isLoading, refetch } = useAdminActivityLogs();
   const logs = Array.isArray(data) ? data : data?.logs || [];
 
-  if (isLoading) return <p className="text-muted-foreground">Loading admin logs...</p>;
+  
 
   return (
     <Card>

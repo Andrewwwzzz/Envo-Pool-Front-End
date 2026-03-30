@@ -1183,7 +1183,7 @@ function VerificationTab() {
     }
   };
 
-  if (loading) return <p className="text-muted-foreground">Loading unverified users...</p>;
+  
 
   return (
     <Card>
