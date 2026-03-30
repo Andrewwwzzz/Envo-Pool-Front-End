@@ -197,15 +197,25 @@ export async function loadBookingsFromBackend() {
     const walletMatch = walletTransactions.find((t: any) => t.reference === bookingId || t.relatedBookingId === bookingId || t.related_booking_id === bookingId);
     const stripeMatch = stripePayments.find((p: any) => (p.id || p._id) === bookingId || p.reference === bookingId);
 
+    // Determine payment method: prioritize explicit fields, then transaction matches
+    const explicit = booking.paymentMethod || booking.payment_method || booking.inferredPaymentMethod;
+    let resolvedMethod = explicit || null;
+    
+    // If explicit method says "wallet_deduct" or "booking_payment", normalize to "wallet"
+    if (resolvedMethod === "wallet_deduct" || resolvedMethod === "booking_payment") {
+      resolvedMethod = "wallet";
+    }
+    
+    // If no explicit method, check transaction matches
+    if (!resolvedMethod && walletMatch) resolvedMethod = "wallet";
+    if (!resolvedMethod && stripeMatch) resolvedMethod = "stripe";
+    
+    // Only fall back to paynow if payment is marked paid and no other match
+    if (!resolvedMethod && booking.paymentStatus === "paid") resolvedMethod = "paynow";
+
     return {
       ...booking,
-      paymentMethod:
-        booking.paymentMethod ||
-        booking.payment_method ||
-        booking.inferredPaymentMethod ||
-        (walletMatch ? "wallet" : null) ||
-        (stripeMatch ? "stripe" : null) ||
-        (booking.paymentStatus === "paid" ? "paynow" : null),
+      paymentMethod: resolvedMethod,
     };
   });
 
