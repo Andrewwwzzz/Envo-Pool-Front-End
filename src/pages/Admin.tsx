@@ -572,7 +572,7 @@ function CustomersTab() {
           />
         </div>
 
-        {isLoading && <p className="text-muted-foreground text-sm">Loading...</p>}
+        
 
         {customers && customers.length === 0 && (
           <p className="text-muted-foreground text-sm">No customers found.</p>
