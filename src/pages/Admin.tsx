@@ -87,46 +87,29 @@ const Admin = () => {
 };
 
 function OverviewTab() {
-  const { data: stats } = useAdminStats();
+  const { data: stats } = useAdminStats() as { data: any };
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card><CardContent className="pt-6 text-center">
           <Calendar className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">{stats?.todayBookings ?? 0}</p>
-          <p className="text-sm text-muted-foreground">Today's Bookings</p>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6 text-center">
-          <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">${stats?.todayRevenue?.toFixed(2) ?? "0.00"}</p>
-          <p className="text-sm text-muted-foreground">Revenue Today</p>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6 text-center">
-          <BarChart3 className="h-6 w-6 mx-auto text-primary mb-2" />
           <p className="text-2xl font-bold">{stats?.totalBookings ?? 0}</p>
           <p className="text-sm text-muted-foreground">Total Bookings</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
-          <Percent className="h-6 w-6 mx-auto text-accent mb-2" />
-          <p className="text-2xl font-bold">{stats?.utilisation ?? 0}%</p>
-          <p className="text-sm text-muted-foreground">Table Utilisation</p>
-        </CardContent></Card>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <Card><CardContent className="pt-6 text-center">
-          <TrendingUp className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">${stats?.weekRevenue?.toFixed(2) ?? "0.00"}</p>
-          <p className="text-sm text-muted-foreground">Revenue This Week</p>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">${stats?.monthRevenue?.toFixed(2) ?? "0.00"}</p>
-          <p className="text-sm text-muted-foreground">Revenue This Month</p>
+          <p className="text-2xl font-bold">${(stats?.totalRevenue ?? 0).toFixed(2)}</p>
+          <p className="text-sm text-muted-foreground">Total Revenue</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
-          <Clock className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">{stats?.avgSessionHours ?? 0}h</p>
-          <p className="text-sm text-muted-foreground">Avg Session Length</p>
+          <BarChart3 className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">{stats?.activeBookings ?? 0}</p>
+          <p className="text-sm text-muted-foreground">Active Bookings</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-6 text-center">
+          <Percent className="h-6 w-6 mx-auto text-accent mb-2" />
+          <p className="text-2xl font-bold">{stats?.pendingBookings ?? 0}</p>
+          <p className="text-sm text-muted-foreground">Pending Bookings</p>
         </CardContent></Card>
       </div>
     </div>

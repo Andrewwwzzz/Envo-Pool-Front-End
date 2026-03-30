@@ -146,7 +146,13 @@ const Dashboard = () => {
   const now = new Date();
   const getStartTime = (b: any) => b.startTime || b.start_time;
   const getEndTime = (b: any) => b.endTime || b.end_time;
-  const getTableLabel = (b: any) => b.tableId?.name || `Table ${(b as any).tables?.table_number || "?"}`;
+  const getTableLabel = (b: any) => {
+    const tid = b.tableId;
+    if (typeof tid === "string") return `Table ${tid.replace("T", "")}`;
+    if (tid?.name) return tid.name;
+    if (tid?.tableNumber ?? tid?.table_number) return `Table ${tid.tableNumber ?? tid.table_number}`;
+    return "Table ?";
+  };
   const getPrice = (b: any) => b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0;
   const getStatus = (b: any) => b.status;
 
