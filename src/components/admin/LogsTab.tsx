@@ -160,7 +160,7 @@ function AdminLogsView() {
                   <td className="py-3 pr-4">
                     <Badge variant="outline" className="capitalize">{l.action || "—"}</Badge>
                   </td>
-                  <td className="py-3 pr-4">{l.targetUserName || l.targetUser?.name || l.targetUserId || "—"}</td>
+                  <td className="py-3 pr-4">{l.targetUserName || l.targetUser?.name || (typeof l.targetUserId === "object" ? l.targetUserId?.name || l.targetUserId?.email || "—" : l.targetUserId) || "—"}</td>
                   <td className="py-3 pr-4 text-xs text-muted-foreground max-w-[200px] truncate">
                     {l.details || "—"}
                   </td>
