@@ -6,7 +6,7 @@ import { useMyBookings } from "@/hooks/useBooking";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { getCached, setCache } from "@/lib/queryCache";
-
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -71,13 +71,10 @@ const Dashboard = () => {
     queryFn: async () => {
       if (!user) return [];
 
-      const res = await apiFetch("/api/transactions");
-      if (!res.ok) return [];
-      const rawData = await res.json();
-      const transactions = Array.isArray(rawData) ? rawData : [];
-
-      // Filter to current user
-      const userTxns = transactions.filter((t: any) => t.userId === user.id);
+      const [walletRes, rewardRes] = await Promise.all([
+        supabase.from("wallet_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("reward_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+      ]);
 
       const items: Array<{
         id: string;
@@ -89,24 +86,50 @@ const Dashboard = () => {
         sortKey: number;
       }> = [];
 
-      userTxns.forEach((t: any) => {
-        const typeRaw = t.type || "unknown";
-        const typeLabel = typeRaw === "admin_adjustment"
+      console.log("WALLET_TX_RAW:", walletRes.data);
+      console.log("REWARD_TX_RAW:", rewardRes.data);
+
+      (walletRes.data || []).forEach((t) => {
+        const txType = t.type || "";
+        const typeLabel = txType === "adjustment"
           ? "Admin Adjustment"
-          : typeRaw === "wallet_deduct" || typeRaw === "booking_payment"
+          : txType === "booking_payment"
           ? "Wallet Payment"
-          : typeRaw === "topup"
+          : txType === "topup"
           ? "Wallet Top Up"
-          : typeRaw.replace(/_/g, " ");
-        const amt = t.amount ?? 0;
+          : txType === "refund"
+          ? "Refund"
+          : txType ? txType.replace(/_/g, " ") : "Wallet Transaction";
+        const amt = typeof t.amount === "number" ? t.amount : 0;
         items.push({
-          id: `w-${t._id || t.id}`,
-          date: t.createdAt || t.created_at || "",
+          id: `w-${t.id}`,
+          date: t.created_at,
           label: typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1),
-          sublabel: fmtDateTime(t.createdAt || t.created_at || ""),
+          sublabel: fmtDateTime(t.created_at),
           amount: `${amt >= 0 ? "+" : ""}$${Math.abs(amt).toFixed(2)}`,
           positive: amt >= 0,
-          sortKey: new Date(t.createdAt || t.created_at || 0).getTime(),
+          sortKey: new Date(t.created_at).getTime(),
+        });
+      });
+
+      (rewardRes.data || []).forEach((t) => {
+        const txType = t.type || "";
+        const label = txType === "adjustment"
+          ? "Admin Points Adjustment"
+          : txType === "earn"
+          ? "Points Earned"
+          : txType === "redeem"
+          ? "Points Redeemed"
+          : txType ? txType : "Reward Transaction";
+        const pts = typeof t.points === "number" ? t.points : 0;
+        items.push({
+          id: `r-${t.id}`,
+          date: t.created_at,
+          label,
+          sublabel: fmtDateTime(t.created_at),
+          amount: `${pts >= 0 ? "+" : ""}${pts} pts`,
+          positive: pts >= 0,
+          sortKey: new Date(t.created_at).getTime(),
         });
       });
 

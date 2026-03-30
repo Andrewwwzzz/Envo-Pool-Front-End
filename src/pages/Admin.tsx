@@ -614,9 +614,9 @@ function CustomersTab() {
 function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => void }) {
   const updateProfile = useUpdateCustomerProfile();
   const deleteCustomer = useDeleteCustomer();
-  const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id) as { data: any[]; isLoading: boolean };
-  const { data: walletHistory } = useCustomerWalletHistory(customer.user_id) as { data: any[] };
-  const { data: rewardHistory } = useCustomerRewardHistory(customer.user_id) as { data: any[] };
+  const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id);
+  const { data: walletHistory } = useCustomerWalletHistory(customer.user_id);
+  const { data: rewardHistory } = useCustomerRewardHistory(customer.user_id);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [walletInput, setWalletInput] = useState(String(customer.wallet_balance));
@@ -735,14 +735,14 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
             {!walletHistory?.length ? <p className="text-muted-foreground text-sm">No transactions.</p> : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {walletHistory.map((t: any) => (
-                  <div key={t._id || t.id} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
+                  <div key={t.id} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
                     <div>
-                      <p className="capitalize font-medium">{(t.type || "").replace(/_/g, " ")}</p>
-                      <p className="text-xs text-muted-foreground">{fmtDateTimeSG(t.createdAt || t.created_at)}</p>
+                      <p className="capitalize font-medium">{t.type.replace(/_/g, " ")}</p>
+                      <p className="text-xs text-muted-foreground">{fmtDateTimeSG(t.created_at)}</p>
                     </div>
                     <div className="text-right">
-                      <p className={(t.amount ?? 0) >= 0 ? "text-green-600" : "text-destructive"}>{(t.amount ?? 0) >= 0 ? "+" : ""}${Math.abs(t.amount ?? 0).toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">Bal: ${(t.balanceAfter ?? t.balance_after ?? 0).toFixed(2)}</p>
+                      <p className={t.amount >= 0 ? "text-green-600" : "text-destructive"}>{t.amount >= 0 ? "+" : ""}${t.amount.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">Bal: ${t.balance_after.toFixed(2)}</p>
                     </div>
                   </div>
                 ))}
