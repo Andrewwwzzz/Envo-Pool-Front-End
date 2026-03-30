@@ -221,27 +221,32 @@ const Booking = () => {
         ? "/api/bookings/create-with-wallet"
         : "/api/bookings/create-with-payment";
 
+      console.log("Booking request:", endpoint, requestBody);
       const response = await apiFetch(endpoint, {
         method: "POST",
         body: JSON.stringify(requestBody),
       });
 
+      const responseText = await response.text();
+      console.log("Booking response status:", response.status, "body:", responseText);
+
+      let respData: any;
+      try { respData = JSON.parse(responseText); } catch { respData = {}; }
+
       if (!response.ok) {
+        const errMsg = respData.error || respData.message || `Server error (${response.status})`;
         if (response.status === 409) {
           toast({ title: "Time slot already booked", description: "Please select another slot.", variant: "destructive" });
           setStartSlot(null);
           setEndSlot(null);
           queryClient.invalidateQueries({ queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()] });
-        } else if (response.status === 400) {
-          const errData = await response.json().catch(() => ({}));
-          toast({ title: "Booking failed", description: errData.error || errData.message || "Please check your booking details.", variant: "destructive" });
         } else {
-          toast({ title: "Unable to create booking", description: "Please try again.", variant: "destructive" });
+          toast({ title: "Booking failed", description: errMsg, variant: "destructive" });
         }
         return;
       }
 
-      const data = await response.json();
+      // respData already parsed above
 
       if (paymentMethod === "wallet") {
         // Wallet: booking already confirmed by backend — refetch from backend, then navigate
@@ -255,7 +260,7 @@ const Booking = () => {
         navigate("/booking-confirmed");
       } else {
         // Stripe: redirect to checkout
-        const { checkoutUrl, bookingId } = data;
+        const { checkoutUrl, bookingId } = respData;
 
         if (!checkoutUrl || !bookingId) {
           toast({ title: "Invalid response", description: "Missing checkout URL from server.", variant: "destructive" });
