@@ -50,7 +50,7 @@ export function useAdminTables() {
       const res = await apiFetch("/api/tables");
       if (!res.ok) throw new Error("Failed to fetch tables");
       const data = await res.json();
-      return (data || []).map((t: any) => ({
+      const mapped = (data || []).map((t: any) => ({
         id: t._id || t.id,
         table_number: t.tableNumber ?? t.table_number,
         hardware_id: t.hardwareId ?? t.hardware_id ?? null,
@@ -59,7 +59,10 @@ export function useAdminTables() {
         timer_started_at: t.timerStartedAt ?? t.timer_started_at ?? null,
         created_at: t.createdAt ?? t.created_at ?? "",
       }));
+      setCache("admin-tables", mapped);
+      return mapped;
     },
+    initialData: () => getCached("admin-tables") ?? [],
   });
 
   const updateStatus = useMutation({
