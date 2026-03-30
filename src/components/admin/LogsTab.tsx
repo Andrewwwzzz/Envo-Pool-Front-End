@@ -156,7 +156,7 @@ function AdminLogsView() {
             <tbody>
               {logs.map((l: any, i: number) => (
                 <tr key={l._id || l.id || i} className="border-b border-border last:border-0">
-                  <td className="py-3 pr-4">{l.adminName || l.admin?.name || l.adminId || "—"}</td>
+                  <td className="py-3 pr-4">{l.adminName || l.admin?.name || (typeof l.adminId === "object" ? l.adminId?.name || l.adminId?.email || "—" : l.adminId) || "—"}</td>
                   <td className="py-3 pr-4">
                     <Badge variant="outline" className="capitalize">{l.action || "—"}</Badge>
                   </td>
