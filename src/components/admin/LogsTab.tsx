@@ -33,7 +33,7 @@ function TransactionsView() {
   const { data, isLoading, refetch } = useAdminTransactions();
   const transactions = Array.isArray(data) ? data : data?.transactions || [];
 
-  if (isLoading) return <p className="text-muted-foreground">Loading transactions...</p>;
+  
 
   return (
     <Card>
@@ -86,7 +86,7 @@ function BookingLogsView() {
   const { data, isLoading, refetch } = useAdminBookingLogs();
   const logs = Array.isArray(data) ? data : data?.logs || [];
 
-  if (isLoading) return <p className="text-muted-foreground">Loading booking logs...</p>;
+  
 
   return (
     <Card>
@@ -133,7 +133,7 @@ function AdminLogsView() {
   const { data, isLoading, refetch } = useAdminActivityLogs();
   const logs = Array.isArray(data) ? data : data?.logs || [];
 
-  if (isLoading) return <p className="text-muted-foreground">Loading admin logs...</p>;
+  
 
   return (
     <Card>

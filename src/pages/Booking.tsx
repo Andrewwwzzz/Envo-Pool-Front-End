@@ -338,9 +338,7 @@ const Booking = () => {
               <CardTitle className="text-lg">2. Select a Table</CardTitle>
             </CardHeader>
             <CardContent>
-              {tablesLoading ? (
-                <p className="text-muted-foreground">Loading tables...</p>
-              ) : !tables?.length ? (
+              {!tables?.length ? (
                 <p className="text-muted-foreground">No tables available.</p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
