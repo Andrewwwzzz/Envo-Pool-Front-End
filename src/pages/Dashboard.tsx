@@ -55,6 +55,8 @@ const Dashboard = () => {
       toast({ title: "Booking cancelled successfully" });
       queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+      queryClient.invalidateQueries({ queryKey: ["transaction-history"] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
     onError: (err: Error, _bookingId, context) => {
       if (context?.previous) {
