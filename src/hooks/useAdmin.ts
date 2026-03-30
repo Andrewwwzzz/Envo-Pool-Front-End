@@ -349,7 +349,7 @@ export function useAdminStats() {
       const stats = {
         totalBookings: all.length,
         activeBookings: all.filter((b: any) => b.status === "confirmed").length,
-        totalRevenue: all.reduce((sum: number, b: any) => sum + (b.price || 0), 0),
+        totalRevenue: all.reduce((sum: number, b: any) => sum + (b.amount ?? b.price ?? 0), 0),
         pendingBookings: all.filter((b: any) => b.status === "pending" || b.status === "pending_payment").length,
       };
       setCache("admin-stats", stats);
