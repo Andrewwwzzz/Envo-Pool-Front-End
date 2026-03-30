@@ -56,13 +56,14 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
         return result;
       }
 
-      // Fetch availability to determine status
-      const params = new URLSearchParams({
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
+      // Fetch all bookings and filter by time overlap
+      const availRes = await apiFetch("/api/bookings");
+      const allBookings = availRes.ok ? await availRes.json() : [];
+      const bookings = (allBookings || []).filter((b: any) => {
+        const bStart = new Date(b.startTime);
+        const bEnd = new Date(b.endTime);
+        return bStart < endTime && bEnd > startTime;
       });
-      const availRes = await apiFetch(`/api/bookings/availability?${params}`);
-      const bookings = availRes.ok ? await availRes.json() : [];
 
       const nowMs = Date.now();
 

@@ -69,30 +69,26 @@ const Booking = () => {
     queryFn: async () => {
       if (!selectedTable || !selectedDate || !selectedTableData_pre?.hardware_id) return [];
       const { dayStart, dayEnd } = sgDayBoundsUTC(selectedDate);
-
-      const params = new URLSearchParams({
-        startTime: dayStart.toISOString(),
-        endTime: dayEnd.toISOString(),
-      });
-
-      const res = await apiFetch(`/api/bookings/availability?${params}`);
-      if (!res.ok) throw new Error("Failed to fetch availability");
-      const allBookings = await res.json();
-      console.log("Availability API response:", allBookings, "hardwareId:", selectedTableData_pre.hardware_id, "tableId:", selectedTable);
-
-      // Filter to only bookings for the selected table
       const hardwareId = selectedTableData_pre.hardware_id;
-      console.log("BOOKINGS:", allBookings);
+
+      const res = await apiFetch("/api/bookings");
+      if (!res.ok) throw new Error("Failed to fetch bookings");
+      const allBookings = await res.json();
+      console.log("BOOKINGS from /api/bookings:", allBookings);
+
+      // Filter by hardware_id and overlap with selected day
       const filtered = (allBookings || []).filter((b: any) => {
-        const bTableId = typeof b.tableId === "object"
-          ? b.tableId?.hardware_id
-          : b.tableId;
-        return bTableId === hardwareId;
+        const bTableId = typeof b.tableId === "object" ? b.tableId?.hardware_id : b.tableId;
+        if (bTableId !== hardwareId) return false;
+        // Check day overlap
+        const bStart = new Date(b.startTime);
+        const bEnd = new Date(b.endTime);
+        return bStart < dayEnd && bEnd > dayStart;
       });
 
       console.log("Filtered bookings for table:", hardwareId, filtered);
       filtered.forEach((b: any) => {
-        console.log("BOOKING:", b.startTime, b.endTime, "status:", b.status, "tableId:", b.tableId);
+        console.log("BOOKING:", b.startTime, b.endTime, "status:", b.status);
       });
 
       return filtered.map((b: any) => ({
