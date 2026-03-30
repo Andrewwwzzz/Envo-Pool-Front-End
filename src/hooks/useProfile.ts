@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
+import { getCached, setCache } from "@/lib/queryCache";
 
 export function useProfile() {
   const { user } = useAuth();
@@ -12,7 +13,7 @@ export function useProfile() {
       const res = await apiFetch("/api/auth/me");
       if (!res.ok) throw new Error("Failed to fetch profile");
       const data = await res.json();
-      return {
+      const profile = {
         ...data.user,
         wallet_balance: data.user.walletBalance ?? 0,
         reward_points: data.user.rewardPoints ?? 0,
@@ -20,8 +21,11 @@ export function useProfile() {
         date_of_birth: data.user.dateOfBirth ?? null,
         phone: data.user.phone ?? null,
       };
+      setCache(`profile-${user.id}`, profile);
+      return profile;
     },
     enabled: !!user,
+    initialData: () => user ? getCached(`profile-${user.id}`) : undefined,
   });
 }
 

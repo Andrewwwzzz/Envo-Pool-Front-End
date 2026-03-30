@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
+import { getCached, setCache } from "@/lib/queryCache";
 
 export type TableStatus = "Available" | "Booked" | "Pending Payment" | "In Use" | "Maintenance";
 
@@ -187,10 +188,13 @@ export function useMyBookings() {
     queryFn: async () => {
       if (!user) return [];
       const data = await loadBookingsFromBackend();
-      return data || [];
+      const result = data || [];
+      setCache(`my-bookings-${user.id}`, result);
+      return result;
     },
     enabled: !!user,
     staleTime: 0,
     gcTime: 0,
+    initialData: () => user ? getCached(`my-bookings-${user.id}`) ?? [] : [],
   });
 }

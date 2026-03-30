@@ -5,6 +5,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useMyBookings } from "@/hooks/useBooking";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
+import { getCached, setCache } from "@/lib/queryCache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,14 +64,6 @@ const Dashboard = () => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
-
-  const getCachedTransactions = () => {
-    try {
-      const cached = localStorage.getItem("transactions");
-      if (cached) return JSON.parse(cached);
-    } catch {}
-    return undefined;
-  };
 
   const { data: transactionHistory } = useQuery({
     queryKey: ["transaction-history", user?.id],
@@ -140,11 +133,11 @@ const Dashboard = () => {
       });
 
       items.sort((a, b) => b.sortKey - a.sortKey);
-      localStorage.setItem("transactions", JSON.stringify(items));
+      setCache("transactions", items);
       return items;
     },
     enabled: !!user,
-    initialData: getCachedTransactions,
+    initialData: () => getCached<Array<{ id: string; date: string; label: string; sublabel: string; amount: string; positive: boolean; sortKey: number }>>("transactions") ?? [],
   });
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
