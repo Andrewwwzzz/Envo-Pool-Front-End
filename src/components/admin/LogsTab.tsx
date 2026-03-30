@@ -86,7 +86,7 @@ function BookingLogsView() {
   const { data, isLoading, refetch } = useAdminBookingLogs();
   const logs = Array.isArray(data) ? data : data?.logs || [];
 
-  if (isLoading) return <p className="text-muted-foreground">Loading booking logs...</p>;
+  
 
   return (
     <Card>
