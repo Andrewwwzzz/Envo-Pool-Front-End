@@ -437,26 +437,38 @@ export function useCustomerRewardHistory(userId: string) {
   });
 }
 
-export function useUpdateCustomerProfile() {
+export function useUpdateCustomerWallet() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({
       userId,
-      wallet_balance,
-      reward_points,
+      walletBalance,
+      walletDelta,
+      points,
+      pointsDelta,
     }: {
       userId: string;
-      wallet_balance?: number;
-      reward_points?: number;
+      walletBalance?: number;
+      walletDelta?: number;
+      points?: number;
+      pointsDelta?: number;
     }) => {
-      console.log("TOKEN:", localStorage.getItem("token"));
+      const payload: Record<string, number> = {};
+      if (walletBalance !== undefined) payload.walletBalance = walletBalance;
+      if (walletDelta !== undefined) payload.walletDelta = walletDelta;
+      if (points !== undefined) payload.points = points;
+      if (pointsDelta !== undefined) payload.pointsDelta = pointsDelta;
+
       const res = await apiFetch(`/api/users/${userId}/wallet`, {
         method: "PATCH",
-        body: JSON.stringify({ amount: wallet_balance, rewardPoints: reward_points }),
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Failed to update customer");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to update wallet");
+      }
     },
     onSuccess: () => {
       toast({ title: "Customer updated" });
