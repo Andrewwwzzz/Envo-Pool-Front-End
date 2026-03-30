@@ -71,6 +71,20 @@ export function useSocket() {
       queryClient.invalidateQueries({ queryKey: ["transaction-history"] });
     });
 
+    socket.on("pointsUpdated", (payload: any) => {
+      console.log("Socket: pointsUpdated", payload);
+      const earned = payload?.earned ?? 0;
+      const total = payload?.points ?? 0;
+
+      // Notify listeners (e.g. BookingConfirmed page)
+      pointsListeners.forEach((fn) => fn(earned, total));
+
+      // Refresh user data
+      refreshUser();
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["transaction-history"] });
+    });
+
     // Keep old events as fallback in case backend still emits them
     socket.on("booking_updated", () => {
       console.log("Socket: booking_updated (legacy)");
