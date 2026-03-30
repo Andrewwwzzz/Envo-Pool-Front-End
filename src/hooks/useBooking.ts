@@ -180,11 +180,37 @@ export function useCreateBooking() {
 }
 
 export async function loadBookingsFromBackend() {
-  const res = await apiFetch("/api/bookings");
-  if (!res.ok) throw new Error("Failed to fetch bookings");
-  const data = await res.json();
-  console.log("Bookings from backend:", data);
-  return data;
+  const [bookingsRes, transactionsRes] = await Promise.all([
+    apiFetch("/api/bookings"),
+    apiFetch("/api/transactions").catch(() => null),
+  ]);
+
+  if (!bookingsRes.ok) throw new Error("Failed to fetch bookings");
+
+  const bookings = await bookingsRes.json();
+  const transactionsData = transactionsRes && transactionsRes.ok ? await transactionsRes.json().catch(() => null) : null;
+  const walletTransactions = Array.isArray(transactionsData?.walletTransactions) ? transactionsData.walletTransactions : [];
+  const stripePayments = Array.isArray(transactionsData?.stripePayments) ? transactionsData.stripePayments : [];
+
+  const enriched = (bookings || []).map((booking: any) => {
+    const bookingId = booking.id || booking._id;
+    const walletMatch = walletTransactions.find((t: any) => t.reference === bookingId || t.relatedBookingId === bookingId || t.related_booking_id === bookingId);
+    const stripeMatch = stripePayments.find((p: any) => (p.id || p._id) === bookingId || p.reference === bookingId);
+
+    return {
+      ...booking,
+      paymentMethod:
+        booking.paymentMethod ||
+        booking.payment_method ||
+        booking.inferredPaymentMethod ||
+        (walletMatch ? "wallet" : null) ||
+        (stripeMatch ? "stripe" : null) ||
+        (booking.paymentStatus === "paid" ? "paynow" : null),
+    };
+  });
+
+  console.log("Bookings from backend:", enriched);
+  return enriched;
 }
 
 export function useMyBookings() {
