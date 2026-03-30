@@ -9,9 +9,12 @@ export function useAdminBookings() {
     queryFn: async () => {
       const res = await apiFetch("/api/admin/bookings");
       if (!res.ok) throw new Error("Failed to fetch bookings");
-      return await res.json();
+      const data = await res.json();
+      setCache("admin-bookings", data);
+      return data;
     },
     refetchInterval: 30000,
+    initialData: () => getCached("admin-bookings"),
   });
 }
 
