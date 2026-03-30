@@ -7,7 +7,7 @@ export function useAdminBookings() {
   return useQuery({
     queryKey: ["admin-bookings"],
     queryFn: async () => {
-      const res = await apiFetch("/api/admin/bookings");
+      const res = await apiFetch("/api/bookings");
       if (!res.ok) throw new Error("Failed to fetch bookings");
       const data = await res.json();
       setCache("admin-bookings", data);
@@ -343,11 +343,17 @@ export function useAdminStats() {
   return useQuery({
     queryKey: ["admin-stats"],
     queryFn: async () => {
-      const res = await apiFetch("/api/admin/stats");
-      if (!res.ok) throw new Error("Failed to fetch stats");
-      const data = await res.json();
-      setCache("admin-stats", data);
-      return data;
+      const res = await apiFetch("/api/bookings");
+      const bookings = res.ok ? await res.json() : [];
+      const all = Array.isArray(bookings) ? bookings : [];
+      const stats = {
+        totalBookings: all.length,
+        activeBookings: all.filter((b: any) => b.status === "confirmed").length,
+        totalRevenue: all.reduce((sum: number, b: any) => sum + (b.price || 0), 0),
+        pendingBookings: all.filter((b: any) => b.status === "pending" || b.status === "pending_payment").length,
+      };
+      setCache("admin-stats", stats);
+      return stats;
     },
     refetchInterval: 60000,
     initialData: () => getCached("admin-stats"),
