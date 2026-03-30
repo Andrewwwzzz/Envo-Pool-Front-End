@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
+import { getCached, setCache } from "@/lib/queryCache";
 
 export function useTermsContent() {
   return useQuery({
@@ -8,8 +9,10 @@ export function useTermsContent() {
       const res = await apiFetch("/api/terms");
       if (!res.ok) throw new Error("Failed to fetch terms");
       const data = await res.json();
+      setCache("terms", data);
       return data as { id: string; content: string; updated_at: string };
     },
+    initialData: () => getCached<{ id: string; content: string; updated_at: string }>("terms"),
   });
 }
 
