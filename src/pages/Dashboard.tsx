@@ -64,6 +64,14 @@ const Dashboard = () => {
     },
   });
 
+  const getCachedTransactions = () => {
+    try {
+      const cached = localStorage.getItem("transactions");
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return undefined;
+  };
+
   const { data: transactionHistory } = useQuery({
     queryKey: ["transaction-history", user?.id],
     queryFn: async () => {
@@ -132,9 +140,11 @@ const Dashboard = () => {
       });
 
       items.sort((a, b) => b.sortKey - a.sortKey);
+      localStorage.setItem("transactions", JSON.stringify(items));
       return items;
     },
     enabled: !!user,
+    initialData: getCachedTransactions,
   });
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
