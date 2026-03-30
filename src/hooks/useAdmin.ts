@@ -146,16 +146,24 @@ export function useAdminPricingRules() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const STORAGE_KEY = "pricing-rules";
+
+  const loadRules = (): any[] => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+  };
+
+  const saveRules = (rules: any[]) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
+    queryClient.setQueryData(["admin-pricing-rules"], rules);
+  };
+
   const query = useQuery({
     queryKey: ["admin-pricing-rules"],
-    queryFn: async () => {
-      const res = await apiFetch("/api/admin/pricing-rules");
-      if (!res.ok) throw new Error("Failed to fetch pricing rules");
-      const data = await res.json();
-      setCache("admin-pricing-rules", data);
-      return data;
-    },
-    initialData: () => getCached("admin-pricing-rules"),
+    queryFn: async () => loadRules(),
+    initialData: () => loadRules(),
   });
 
   const create = useMutation({
@@ -170,11 +178,11 @@ export function useAdminPricingRules() {
       priority: number;
       is_active: boolean;
     }) => {
-      const res = await apiFetch("/api/admin/pricing-rules", {
-        method: "POST",
-        body: JSON.stringify(rule),
-      });
-      if (!res.ok) throw new Error("Failed to create pricing rule");
+      const rules = loadRules();
+      const newRule = { ...rule, id: crypto.randomUUID() };
+      rules.push(newRule);
+      saveRules(rules);
+      return newRule;
     },
     onSuccess: () => {
       toast({ title: "Pricing rule created" });
@@ -187,8 +195,8 @@ export function useAdminPricingRules() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiFetch(`/api/admin/pricing-rules/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete pricing rule");
+      const rules = loadRules().filter((r: any) => r.id !== id);
+      saveRules(rules);
     },
     onSuccess: () => {
       toast({ title: "Pricing rule deleted" });
@@ -198,11 +206,8 @@ export function useAdminPricingRules() {
 
   const toggle = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const res = await apiFetch(`/api/admin/pricing-rules/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ is_active }),
-      });
-      if (!res.ok) throw new Error("Failed to toggle pricing rule");
+      const rules = loadRules().map((r: any) => r.id === id ? { ...r, is_active } : r);
+      saveRules(rules);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-pricing-rules"] });
@@ -222,16 +227,12 @@ export function useAdminPricingRules() {
       priority: number;
     }) => {
       const { id, ...updates } = rule;
-      const res = await apiFetch(`/api/admin/pricing-rules/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(updates),
-      });
-      if (!res.ok) throw new Error("Failed to update pricing rule");
+      const rules = loadRules().map((r: any) => r.id === id ? { ...r, ...updates } : r);
+      saveRules(rules);
     },
     onSuccess: () => {
       toast({ title: "Pricing rule updated" });
       queryClient.invalidateQueries({ queryKey: ["admin-pricing-rules"] });
-      
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
