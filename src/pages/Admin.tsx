@@ -1129,25 +1129,28 @@ function TermsTab() {
 
 function VerificationTab() {
   const { user } = useAuth();
-  const [users, setUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem("cache:unverified-users");
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
   const [verifying, setVerifying] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchUnverified = async () => {
     try {
-      setLoading(true);
       const token = localStorage.getItem("token");
       const res = await fetch("https://api.envopoolsg.com/api/admin/unverified-users", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to fetch unverified users");
       const data = await res.json();
-      setUsers(Array.isArray(data) ? data : data.users || []);
+      const list = Array.isArray(data) ? data : data.users || [];
+      setUsers(list);
+      localStorage.setItem("cache:unverified-users", JSON.stringify(list));
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
     }
   };
 
