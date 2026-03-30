@@ -270,10 +270,15 @@ const Booking = () => {
           return;
         }
 
-        const checkoutUrl = checkoutData.checkoutUrl || checkoutData.checkout_url;
+        let checkoutUrl = checkoutData.checkoutUrl || checkoutData.checkout_url || checkoutData.url;
         if (!checkoutUrl) {
           toast({ title: "Invalid response", description: "Missing checkout URL from server.", variant: "destructive" });
           return;
+        }
+
+        // Ensure URL has a scheme
+        if (!checkoutUrl.startsWith("http://") && !checkoutUrl.startsWith("https://")) {
+          checkoutUrl = "https://" + checkoutUrl;
         }
 
         // Redirect to Stripe/PayNow — socket will handle confirmation
