@@ -21,7 +21,7 @@ export function useAdminBookingLogs() {
   return useQuery({
     queryKey: ["admin-booking-logs"],
     queryFn: async () => {
-      const res = await apiFetch("/api/booking-logs");
+      const res = await apiFetch("/api/logs/booking");
       if (!res.ok) throw new Error("Failed to fetch booking logs");
       const data = await res.json();
       setCache("admin-booking-logs", data);
