@@ -151,8 +151,11 @@ export function useAdminPricingRules() {
     queryFn: async () => {
       const res = await apiFetch("/api/admin/pricing-rules");
       if (!res.ok) throw new Error("Failed to fetch pricing rules");
-      return await res.json();
+      const data = await res.json();
+      setCache("admin-pricing-rules", data);
+      return data;
     },
+    initialData: () => getCached("admin-pricing-rules"),
   });
 
   const create = useMutation({
