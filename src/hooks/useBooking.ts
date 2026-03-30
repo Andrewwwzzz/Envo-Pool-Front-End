@@ -196,7 +196,27 @@ export async function loadBookingsFromBackend() {
   const allBookings = await bookingsRes.json();
   const nowMs = Date.now();
   
-  // Filter out expired pending_payment bookings
+  // Find expired pending_payment bookings and cancel them on the backend
+  const expiredBookings = (allBookings || []).filter((b: any) => {
+    if ((b.status === "pending_payment" || b.status === "pending") && b.expiresAt) {
+      return new Date(b.expiresAt).getTime() < nowMs;
+    }
+    return false;
+  });
+
+  // Cancel expired bookings on backend (fire and forget)
+  if (expiredBookings.length > 0) {
+    console.log(`Cancelling ${expiredBookings.length} expired bookings on backend...`);
+    await Promise.allSettled(
+      expiredBookings.map((b: any) =>
+        apiFetch(`/api/bookings/${b._id || b.id}/cancel`, { method: "POST" })
+          .then(() => console.log(`Cancelled expired booking ${b._id || b.id}`))
+          .catch((err) => console.warn(`Failed to cancel ${b._id || b.id}:`, err))
+      )
+    );
+  }
+
+  // Filter them out from the list
   const bookings = (allBookings || []).filter((b: any) => {
     if ((b.status === "pending_payment" || b.status === "pending") && b.expiresAt) {
       if (new Date(b.expiresAt).getTime() < nowMs) return false;
