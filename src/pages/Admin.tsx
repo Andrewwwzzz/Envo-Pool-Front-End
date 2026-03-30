@@ -161,7 +161,6 @@ function BookingsTab() {
     }
   });
 
-  if (isLoading) return <p className="text-muted-foreground">Loading...</p>;
   return (
     <>
     <Card>
@@ -494,7 +493,6 @@ function InvoicesTab() {
     return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  if (isLoading) return <p className="text-muted-foreground">Loading...</p>;
 
   return (
     <Card>
@@ -574,7 +572,7 @@ function CustomersTab() {
           />
         </div>
 
-        {isLoading && <p className="text-muted-foreground text-sm">Loading...</p>}
+        
 
         {customers && customers.length === 0 && (
           <p className="text-muted-foreground text-sm">No customers found.</p>
@@ -710,7 +708,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
       <Card>
         <CardHeader><CardTitle className="text-base">Booking History</CardTitle></CardHeader>
         <CardContent>
-          {bookingsLoading ? <p className="text-muted-foreground text-sm">Loading...</p> : !bookings?.length ? (
+          {!bookings?.length ? (
             <p className="text-muted-foreground text-sm">No bookings.</p>
           ) : (
             <div className="overflow-x-auto">
@@ -1091,7 +1089,7 @@ function TermsTab() {
     });
   };
 
-  if (isLoading) return <p className="text-muted-foreground">Loading...</p>;
+  
 
   return (
     <Card>
