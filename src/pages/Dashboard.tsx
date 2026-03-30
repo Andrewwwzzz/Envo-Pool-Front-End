@@ -4,16 +4,14 @@ import { Navigate, Link } from "react-router-dom";
 import { useProfile } from "@/hooks/useProfile";
 import { useMyBookings } from "@/hooks/useBooking";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getAuthHeaders } from "@/lib/api";
 import { getCached, setCache } from "@/lib/queryCache";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wallet, Star, Calendar, History, LogOut, ArrowLeft, XCircle, Settings } from "lucide-react";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
 import { useToast } from "@/hooks/use-toast";
-import { getAuthHeaders } from "@/lib/api";
 
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, fmtDateTimeSG as fmtDateTime } from "@/lib/sgTime";
 
