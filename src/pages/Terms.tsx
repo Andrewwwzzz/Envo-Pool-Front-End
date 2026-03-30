@@ -23,8 +23,6 @@ const Terms = () => {
         {!terms?.content ? (
           <p className="text-muted-foreground">No terms and conditions available.</p>
         ) : (
-          <p className="text-muted-foreground">No terms and conditions available.</p>
-        ) : (
           <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
             {terms.content.split("\n").map((line, i) => {
               if (line.startsWith("# ")) {
