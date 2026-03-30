@@ -62,13 +62,13 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
     : (b.duration_hours ? `${b.duration_hours}h` : null);
   const finalPrice = b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0;
   const tableLabel = typeof b.tableId === "string" ? `Table ${b.tableId.replace("T", "")}` : b.tableId?.name || `Table ${b.tables?.table_number || "?"}`;
-  const paymentMethodRaw = b.paymentMethod || b.payment_method;
+  const paymentMethodRaw = b.paymentMethod || b.payment_method || b.inferredPaymentMethod || (b.paymentStatus === "paid" ? "paynow" : null);
 
   const isCompleted = (booking.status === "confirmed" || booking.status === "completed") && new Date(endTime) < new Date();
   const displayStatus = isCompleted ? "completed" : booking.status;
   const statusLabel = displayStatus === "no_show" ? "No Show" : displayStatus;
   const payment = paymentMethodRaw
-    ? paymentLabel[paymentMethodRaw] ?? paymentMethodRaw
+    ? paymentLabel[paymentMethodRaw] ?? (paymentMethodRaw === "booking_payment" || paymentMethodRaw === "wallet_deduct" ? "Wallet" : paymentMethodRaw)
     : "N/A";
 
   const handleDownload = (type: "paid" | "watermark") => {
