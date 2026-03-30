@@ -246,7 +246,7 @@ const Booking = () => {
         return;
       }
 
-      const data = await response.json();
+      // respData already parsed above
 
       if (paymentMethod === "wallet") {
         // Wallet: booking already confirmed by backend — refetch from backend, then navigate
