@@ -69,10 +69,14 @@ const Dashboard = () => {
     queryFn: async () => {
       if (!user) return [];
 
-      const [walletRes, rewardRes] = await Promise.all([
-        supabase.from("wallet_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("reward_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-      ]);
+      const res = await apiFetch("/api/transactions");
+      if (!res.ok) return [];
+      const data = await res.json();
+
+      console.log("TRANSACTIONS_API_RAW:", data);
+
+      const walletTxs = Array.isArray(data?.walletTransactions) ? data.walletTransactions : [];
+      const rewardTxs = Array.isArray(data?.rewardTransactions) ? data.rewardTransactions : [];
 
       const items: Array<{
         id: string;
@@ -84,14 +88,11 @@ const Dashboard = () => {
         sortKey: number;
       }> = [];
 
-      console.log("WALLET_TX_RAW:", walletRes.data);
-      console.log("REWARD_TX_RAW:", rewardRes.data);
-
-      (walletRes.data || []).forEach((t) => {
-        const txType = t.type || "";
+      walletTxs.forEach((t: any) => {
+        const txType = t.type || t.transactionType || "";
         const typeLabel = txType === "adjustment"
           ? "Admin Adjustment"
-          : txType === "booking_payment"
+          : txType === "booking_payment" || txType === "wallet_deduct"
           ? "Wallet Payment"
           : txType === "topup"
           ? "Wallet Top Up"
@@ -99,19 +100,20 @@ const Dashboard = () => {
           ? "Refund"
           : txType ? txType.replace(/_/g, " ") : "Wallet Transaction";
         const amt = typeof t.amount === "number" ? t.amount : 0;
+        const dateStr = t.createdAt || t.created_at || t.date || "";
         items.push({
-          id: `w-${t.id}`,
-          date: t.created_at,
+          id: `w-${t.id || t._id}`,
+          date: dateStr,
           label: typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1),
-          sublabel: fmtDateTime(t.created_at),
+          sublabel: fmtDateTime(dateStr),
           amount: `${amt >= 0 ? "+" : ""}$${Math.abs(amt).toFixed(2)}`,
           positive: amt >= 0,
-          sortKey: new Date(t.created_at).getTime(),
+          sortKey: new Date(dateStr).getTime(),
         });
       });
 
-      (rewardRes.data || []).forEach((t) => {
-        const txType = t.type || "";
+      rewardTxs.forEach((t: any) => {
+        const txType = t.type || t.transactionType || "";
         const label = txType === "adjustment"
           ? "Admin Points Adjustment"
           : txType === "earn"
@@ -120,14 +122,15 @@ const Dashboard = () => {
           ? "Points Redeemed"
           : txType ? txType : "Reward Transaction";
         const pts = typeof t.points === "number" ? t.points : 0;
+        const dateStr = t.createdAt || t.created_at || t.date || "";
         items.push({
-          id: `r-${t.id}`,
-          date: t.created_at,
+          id: `r-${t.id || t._id}`,
+          date: dateStr,
           label,
-          sublabel: fmtDateTime(t.created_at),
+          sublabel: fmtDateTime(dateStr),
           amount: `${pts >= 0 ? "+" : ""}${pts} pts`,
           positive: pts >= 0,
-          sortKey: new Date(t.created_at).getTime(),
+          sortKey: new Date(dateStr).getTime(),
         });
       });
 
