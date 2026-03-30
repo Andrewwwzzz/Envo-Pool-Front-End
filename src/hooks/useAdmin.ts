@@ -7,7 +7,7 @@ export function useAdminBookings() {
   return useQuery({
     queryKey: ["admin-bookings"],
     queryFn: async () => {
-      const res = await apiFetch("/api/admin/bookings");
+      const res = await apiFetch("/api/bookings");
       if (!res.ok) throw new Error("Failed to fetch bookings");
       const data = await res.json();
       setCache("admin-bookings", data);
