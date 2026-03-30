@@ -11,9 +11,18 @@ let socketInstance: Socket | null = null;
 type BookingListener = (bookingId: string, status: string) => void;
 const bookingListeners = new Set<BookingListener>();
 
+// Global listeners for points updates
+type PointsListener = (earned: number, total: number) => void;
+const pointsListeners = new Set<PointsListener>();
+
 export function onBookingUpdated(listener: BookingListener) {
   bookingListeners.add(listener);
   return () => { bookingListeners.delete(listener); };
+}
+
+export function onPointsUpdated(listener: PointsListener) {
+  pointsListeners.add(listener);
+  return () => { pointsListeners.delete(listener); };
 }
 
 export function useSocket() {
