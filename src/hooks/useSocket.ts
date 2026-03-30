@@ -24,6 +24,7 @@ export function useSocket() {
     socket.on("booking_updated", () => {
       console.log("Socket: booking_updated");
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+      queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["admin-booking-logs"] });
