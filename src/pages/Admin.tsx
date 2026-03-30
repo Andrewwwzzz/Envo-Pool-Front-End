@@ -182,13 +182,13 @@ function BookingsTab() {
                 const canDelete = b.status === "pending" || b.status === "cancelled";
                 const canAction = b.status === "confirmed" || b.status === "pending";
                 return (
-                  <tr key={b.id} className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setSelectedBooking(b)}>
-                    <td className="py-3 pr-4">Table {(b as any).tables?.table_number ?? "?"}</td>
-                    <td className="py-3 pr-4">{fmtDateSG(b.start_time)}</td>
-                    <td className="py-3 pr-4">{fmtTimeSG(b.start_time)} – {fmtTimeSG(b.end_time)}</td>
-                    <td className="py-3 pr-4">{b.duration_hours}h</td>
-                    <td className="py-3 pr-4">${b.final_price?.toFixed(2) ?? b.price?.toFixed(2)}</td>
-                    <td className="py-3 pr-4 capitalize">{b.payment_method ?? "—"}</td>
+                  <tr key={b.id || b._id} className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setSelectedBooking(b)}>
+                    <td className="py-3 pr-4">Table {typeof b.tableId === "string" ? b.tableId.replace("T", "") : (b as any).tables?.table_number ?? b.tableId?.tableNumber ?? "?"}</td>
+                    <td className="py-3 pr-4">{fmtDateSG(getField(b, "startTime", "start_time"))}</td>
+                    <td className="py-3 pr-4">{fmtTimeSG(getField(b, "startTime", "start_time"))} – {fmtTimeSG(getField(b, "endTime", "end_time"))}</td>
+                    <td className="py-3 pr-4">{(() => { const mins = getField(b, "duration", "duration_hours"); return mins >= 60 ? `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}m` : ""}` : `${mins}m`; })()}</td>
+                    <td className="py-3 pr-4">${(getField(b, "finalPrice", "final_price", "price") ?? 0).toFixed(2)}</td>
+                    <td className="py-3 pr-4 capitalize">{getField(b, "paymentMethod", "payment_method") ?? "—"}</td>
                     <td className="py-3 pr-4">
                       <Badge variant="outline" className={`capitalize ${
                         b.status === "refunded" ? "text-orange-600 border-orange-300" :
