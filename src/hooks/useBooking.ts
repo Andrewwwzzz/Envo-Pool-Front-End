@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
+import { getCached, setCache } from "@/lib/queryCache";
 
 export type TableStatus = "Available" | "Booked" | "Pending Payment" | "In Use" | "Maintenance";
 
