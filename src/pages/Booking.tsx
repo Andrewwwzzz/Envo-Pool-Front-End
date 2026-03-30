@@ -90,10 +90,15 @@ const Booking = () => {
         return bTableId === hardwareId;
       });
 
+      console.log("Filtered bookings for table:", hardwareId, filtered);
+      filtered.forEach((b: any) => {
+        console.log("BOOKING:", b.startTime, b.endTime, "status:", b.status, "tableId:", b.tableId);
+      });
+
       return filtered.map((b: any) => ({
         start_time: b.startTime,
         end_time: b.endTime,
-        status: b.status === "pending_payment" ? "pending" : "confirmed",
+        status: b.status === "confirmed" ? "confirmed" : "pending",
         created_at: b.createdAt || new Date().toISOString(),
         expires_at: b.expiresAt || null,
         user_name: b.userName || null,
