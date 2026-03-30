@@ -61,7 +61,7 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
     ? (b.duration >= 60 ? `${b.duration / 60}h` : `${b.duration}min`)
     : (b.duration_hours ? `${b.duration_hours}h` : null);
   const finalPrice = b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0;
-  const tableLabel = b.tableId?.name || `Table ${b.tables?.table_number || "?"}`;
+  const tableLabel = typeof b.tableId === "string" ? `Table ${b.tableId.replace("T", "")}` : b.tableId?.name || `Table ${b.tables?.table_number || "?"}`;
   const paymentMethodRaw = b.paymentMethod || b.payment_method;
 
   const isCompleted = (booking.status === "confirmed" || booking.status === "completed") && new Date(endTime) < new Date();
