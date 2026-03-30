@@ -137,7 +137,7 @@ const Dashboard = () => {
       return items;
     },
     enabled: !!user,
-    initialData: () => getCached<typeof items>("transactions") ?? [],
+    initialData: () => getCached<Array<{ id: string; date: string; label: string; sublabel: string; amount: string; positive: boolean; sortKey: number }>>("transactions") ?? [],
   });
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
