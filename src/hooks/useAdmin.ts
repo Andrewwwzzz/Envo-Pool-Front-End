@@ -134,8 +134,11 @@ export function useAdminTimerSessions() {
     queryFn: async () => {
       const res = await apiFetch("/api/admin/timer-sessions");
       if (!res.ok) throw new Error("Failed to fetch timer sessions");
-      return await res.json();
+      const data = await res.json();
+      setCache("admin-timer-sessions", data);
+      return data;
     },
+    initialData: () => getCached("admin-timer-sessions"),
   });
 }
 
