@@ -391,9 +391,12 @@ export function useCustomerBookings(userId: string) {
     queryFn: async () => {
       const res = await apiFetch(`/api/admin/customers/${userId}/bookings`);
       if (!res.ok) throw new Error("Failed to fetch customer bookings");
-      return await res.json();
+      const data = await res.json();
+      setCache(`customer-bookings-${userId}`, data);
+      return data;
     },
     enabled: !!userId,
+    initialData: () => userId ? getCached(`customer-bookings-${userId}`) : undefined,
   });
 }
 
@@ -403,9 +406,12 @@ export function useCustomerWalletHistory(userId: string) {
     queryFn: async () => {
       const res = await apiFetch(`/api/admin/customers/${userId}/wallet`);
       if (!res.ok) throw new Error("Failed to fetch wallet history");
-      return await res.json();
+      const data = await res.json();
+      setCache(`customer-wallet-${userId}`, data);
+      return data;
     },
     enabled: !!userId,
+    initialData: () => userId ? getCached(`customer-wallet-${userId}`) : undefined,
   });
 }
 
@@ -415,9 +421,12 @@ export function useCustomerRewardHistory(userId: string) {
     queryFn: async () => {
       const res = await apiFetch(`/api/admin/customers/${userId}/rewards`);
       if (!res.ok) throw new Error("Failed to fetch reward history");
-      return await res.json();
+      const data = await res.json();
+      setCache(`customer-rewards-${userId}`, data);
+      return data;
     },
     enabled: !!userId,
+    initialData: () => userId ? getCached(`customer-rewards-${userId}`) : undefined,
   });
 }
 
