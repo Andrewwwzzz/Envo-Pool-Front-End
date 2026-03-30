@@ -161,7 +161,6 @@ function BookingsTab() {
     }
   });
 
-  if (isLoading) return <p className="text-muted-foreground">Loading...</p>;
   return (
     <>
     <Card>
