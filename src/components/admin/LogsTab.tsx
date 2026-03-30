@@ -54,23 +54,27 @@ function TransactionsView() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map((t: any, i: number) => (
+              {transactions.map((t: any, i: number) => {
+                const amt = typeof t.amount === "object" ? (t.amount?.amount ?? 0) : (typeof t.amount === "number" ? t.amount : Number(t.amount) || 0);
+                const bal = typeof t.balanceAfter === "object" ? (t.balanceAfter?.amount ?? 0) : typeof t.balance_after === "object" ? (t.balance_after?.amount ?? 0) : (Number(t.balanceAfter ?? t.balance_after) || 0);
+                return (
                 <tr key={t._id || t.id || i} className="border-b border-border last:border-0">
                   <td className="py-3 pr-4">{t.userName || t.user?.name || (typeof t.userId === "object" ? t.userId?.name || t.userId?.email || "—" : t.userId) || "—"}</td>
                   <td className="py-3 pr-4 font-medium">
-                    <span className={t.amount >= 0 ? "text-primary" : "text-destructive"}>
-                      ${Math.abs(t.amount ?? 0).toFixed(2)}
+                    <span className={amt >= 0 ? "text-primary" : "text-destructive"}>
+                      ${Math.abs(amt).toFixed(2)}
                     </span>
                   </td>
                   <td className="py-3 pr-4">
-                    <Badge variant="outline" className="capitalize">{t.type || "—"}</Badge>
+                    <Badge variant="outline" className="capitalize">{String(t.type || "—")}</Badge>
                   </td>
-                  <td className="py-3 pr-4">${(t.balanceAfter ?? t.balance_after ?? 0).toFixed(2)}</td>
+                  <td className="py-3 pr-4">${bal.toFixed(2)}</td>
                   <td className="py-3 text-muted-foreground">
                     {t.createdAt || t.created_at ? fmtDateTimeSG(t.createdAt || t.created_at) : "—"}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {transactions.length === 0 && (
                 <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No transactions found</td></tr>
               )}
