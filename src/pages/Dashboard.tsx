@@ -220,7 +220,7 @@ const Dashboard = () => {
           <Card className="card-premium">
             <CardContent className="pt-6 text-center">
               <History className="h-6 w-6 mx-auto text-accent mb-2" />
-              <p className="text-2xl font-bold">${profile?.total_spent?.toFixed(2) ?? "0.00"}</p>
+              <p className="text-2xl font-bold">${displayTotalSpent.toFixed(2)}</p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Total Spent</p>
             </CardContent>
           </Card>
