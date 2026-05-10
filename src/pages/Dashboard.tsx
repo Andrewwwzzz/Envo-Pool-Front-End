@@ -261,7 +261,7 @@ const Dashboard = () => {
                           variant="ghost"
                           size="sm"
                           className="text-destructive hover:text-destructive"
-                          onClick={(e) => { e.stopPropagation(); cancelBooking.mutate(b.id || b._id); }}
+                          onClick={(e) => { e.stopPropagation(); cancelBooking.mutate(b._id || b.id); }}
                           disabled={cancelBooking.isPending}
                         >
                           <XCircle className="h-4 w-4" />
