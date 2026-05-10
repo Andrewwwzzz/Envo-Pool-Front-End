@@ -689,6 +689,7 @@ function CustomersTab() {
           <table className="w-full text-sm">
             <thead><tr className="border-b border-border text-left">
               <th className="pb-2 pr-4">Name</th>
+              <th className="pb-2 pr-4">Short ID</th>
               <th className="pb-2 pr-4">Email</th>
               <th className="pb-2 pr-4">Status</th>
               <th className="pb-2 pr-4">Role</th>
