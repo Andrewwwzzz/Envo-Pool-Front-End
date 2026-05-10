@@ -34,7 +34,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { LogOut, ArrowLeft, DollarSign, Calendar, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download } from "lucide-react";
+import { LogOut, ArrowLeft, DollarSign, Calendar, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download, Copy } from "lucide-react";
 import { getAuthHeaders, apiFetch } from "@/lib/api";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -672,7 +672,7 @@ function CustomersTab() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name or email..."
+            placeholder="Search by name, email or Short ID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -689,6 +689,7 @@ function CustomersTab() {
           <table className="w-full text-sm">
             <thead><tr className="border-b border-border text-left">
               <th className="pb-2 pr-4">Name</th>
+              <th className="pb-2 pr-4">Short ID</th>
               <th className="pb-2 pr-4">Email</th>
               <th className="pb-2 pr-4">Status</th>
               <th className="pb-2 pr-4">Role</th>
@@ -705,6 +706,13 @@ function CustomersTab() {
                   onClick={() => setSelectedCustomer(c)}
                 >
                   <td className="py-3 pr-4 font-medium">{c.name || "—"}</td>
+                  <td className="py-3 pr-4">
+                    {c.shortId ? (
+                      <code className="px-2 py-0.5 rounded bg-muted font-mono text-xs">{c.shortId}</code>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
                   <td className="py-3 pr-4 text-muted-foreground">{c.email}</td>
                   <td className="py-3 pr-4">
                     <Badge variant={c.isVerified ? "default" : "destructive"} className="text-xs">
@@ -731,6 +739,7 @@ function CustomersTab() {
 }
 
 function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => void }) {
+  const { toast } = useToast();
   const updateWallet = useUpdateCustomerWallet();
   const deleteCustomer = useDeleteCustomer();
   const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id);
@@ -774,8 +783,29 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
       {/* Profile Card */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>{customer.name || "No Name"}</CardTitle>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap">
+              <CardTitle>{customer.name || "No Name"}</CardTitle>
+              {customer.shortId ? (
+                <div className="flex items-center gap-1">
+                  <span className="px-3 py-1 rounded-full bg-accent/20 text-accent-foreground border border-accent/30 font-mono text-sm font-semibold">
+                    {customer.shortId}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    title="Copy Short ID"
+                    onClick={() => {
+                      navigator.clipboard.writeText(String(customer.shortId));
+                      toast({ title: "Short ID copied" });
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : null}
+            </div>
             <div className="flex gap-2">
               {!editing && <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet / Points</Button>}
               {!confirmDelete ? (
@@ -926,7 +956,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
       {/* Wallet & Reward History */}
       <div className="grid md:grid-cols-2 gap-4">
         <Card>
-          <CardHeader><CardTitle className="text-base">Wallet Transactions</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Wallet Transactions{customer.shortId ? <span className="text-muted-foreground font-normal"> — Reference: <span className="font-mono">{customer.shortId}</span></span> : null}</CardTitle></CardHeader>
           <CardContent>
             {(() => {
               const txs = Array.isArray(walletHistory) ? walletHistory : (walletHistory?.transactions ?? []);
