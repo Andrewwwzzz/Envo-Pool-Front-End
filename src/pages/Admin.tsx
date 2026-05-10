@@ -185,7 +185,7 @@ function OverviewTab() {
   );
 }
 
-type BookingFilter = "all" | "today" | "upcoming" | "completed" | "cancelled" | "refunded" | "no_show";
+type BookingFilter = "all" | "today" | "upcoming" | "completed" | "cancelled";
 
 function BookingsTab() {
   const { data: bookings, isLoading } = useAdminBookings();
