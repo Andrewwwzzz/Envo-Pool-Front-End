@@ -3,8 +3,26 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 
+const fmtDate = (d?: string) => {
+  if (!d) return "";
+  try {
+    return new Date(d).toLocaleDateString("en-GB", {
+      timeZone: "Asia/Singapore",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  } catch {
+    return d;
+  }
+};
+
 const Terms = () => {
-  const { data: terms, isLoading } = useTermsContent();
+  const { data: terms, isLoading, isError } = useTermsContent();
+  const t = terms as any;
+  const sections: Array<{ heading: string; content: string }> = Array.isArray(t?.sections) ? t.sections : [];
+  const title: string = t?.title || "Terms & Conditions";
+  const lastUpdated: string | undefined = t?.lastUpdated || t?.updated_at || t?.updatedAt;
 
   return (
     <div className="min-h-screen bg-background dark">
@@ -20,23 +38,28 @@ const Terms = () => {
       </header>
 
       <main className="relative z-10 mx-auto max-w-3xl p-6">
-        {!terms?.content ? (
+        {isLoading && !terms ? (
+          <p className="text-muted-foreground">Loading…</p>
+        ) : isError ? (
+          <p className="text-muted-foreground">Unable to load terms. Please try again later.</p>
+        ) : sections.length === 0 && !t?.content ? (
           <p className="text-muted-foreground">No terms and conditions available.</p>
         ) : (
-          <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
-            {terms.content.split("\n").map((line, i) => {
-              if (line.startsWith("# ")) {
-                return <h1 key={i} className="text-2xl font-bold mb-4 gold-gradient">{line.slice(2)}</h1>;
-              }
-              const parts = line.split(/\*\*(.*?)\*\*/g);
-              return (
-                <p key={i} className="mb-2 text-foreground/80 leading-relaxed">
-                  {parts.map((part, j) =>
-                    j % 2 === 1 ? <strong key={j} className="text-foreground">{part}</strong> : part
-                  )}
-                </p>
-              );
-            })}
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            <h1 className="text-2xl font-bold mb-2 gold-gradient">{title}</h1>
+            {lastUpdated && (
+              <p className="text-sm text-muted-foreground mb-6">Last updated: {fmtDate(lastUpdated)}</p>
+            )}
+            {sections.length > 0 ? (
+              sections.map((s, i) => (
+                <section key={i} className="mb-5">
+                  <h2 className="font-bold text-foreground mb-2">{s.heading}</h2>
+                  <p className="text-foreground/80 leading-relaxed whitespace-pre-wrap">{s.content}</p>
+                </section>
+              ))
+            ) : (
+              <div className="whitespace-pre-wrap text-foreground/80 leading-relaxed">{t?.content}</div>
+            )}
           </div>
         )}
       </main>
