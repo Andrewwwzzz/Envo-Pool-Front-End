@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wallet, Calendar, History, LogOut, ArrowLeft, XCircle, Settings } from "lucide-react";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
+import PendingVerificationCard from "@/components/PendingVerificationCard";
 import { useToast } from "@/hooks/use-toast";
 
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, fmtDateTimeSG as fmtDateTime } from "@/lib/sgTime";
@@ -122,6 +123,7 @@ const Dashboard = () => {
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
+  if (user.isVerified === false) return <PendingVerificationCard onSignOut={signOut} />;
 
   const now = new Date();
 
