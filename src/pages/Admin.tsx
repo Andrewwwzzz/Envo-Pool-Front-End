@@ -817,6 +817,33 @@ function InvoicesTab() {
         )}
       </CardContent>
     </Card>
+
+    <Dialog open={!!deleteTargetId} onOpenChange={(o) => { if (!o) { setDeleteTargetId(null); setDeleteReason(""); } }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete Invoice</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">Please provide a reason for deleting this invoice. This action cannot be undone.</p>
+        <Textarea
+          value={deleteReason}
+          onChange={(e) => setDeleteReason(e.target.value)}
+          placeholder="Reason for deletion (min 5 characters)"
+          rows={4}
+          maxLength={500}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setDeleteTargetId(null); setDeleteReason(""); }}>Go Back</Button>
+          <Button
+            variant="destructive"
+            disabled={deleteReason.trim().length < 5 || deletingId === deleteTargetId}
+            onClick={() => { if (deleteTargetId) handleDelete(deleteTargetId, deleteReason.trim()); }}
+          >
+            Confirm Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
