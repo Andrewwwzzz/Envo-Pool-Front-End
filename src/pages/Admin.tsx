@@ -36,7 +36,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { LogOut, ArrowLeft, DollarSign, Calendar, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download } from "lucide-react";
 import { getAuthHeaders, apiFetch } from "@/lib/api";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -64,6 +65,7 @@ const Admin = () => {
             <TabsTrigger value="bookings">Bookings</TabsTrigger>
             <TabsTrigger value="tables">Tables</TabsTrigger>
             <TabsTrigger value="invoices">Invoices</TabsTrigger>
+            <TopUpsTabTrigger />
             <TabsTrigger value="customers">Customers</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="promos">Promos</TabsTrigger>
@@ -76,6 +78,7 @@ const Admin = () => {
           <TabsContent value="bookings"><BookingsTab /></TabsContent>
           <TabsContent value="tables"><TablesTab /></TabsContent>
           <TabsContent value="invoices"><InvoicesTab /></TabsContent>
+          <TabsContent value="topups"><TopUpsTab /></TabsContent>
           <TabsContent value="customers"><CustomersTab /></TabsContent>
           <TabsContent value="pricing"><PricingTab /></TabsContent>
           <TabsContent value="promos"><PromosTab /></TabsContent>
@@ -1486,6 +1489,207 @@ function VerificationTab() {
             </table>
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function useAdminTopUps(status: string) {
+  return useQuery({
+    queryKey: ["admin-topups", status],
+    queryFn: async () => {
+      const qs = status && status !== "all" ? `?status=${status}` : "";
+      const res = await apiFetch(`/api/topup/admin/requests${qs}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : data?.requests ?? [];
+    },
+    refetchInterval: 15000,
+  });
+}
+
+function TopUpsTabTrigger() {
+  const { data } = useAdminTopUps("pending");
+  const count = Array.isArray(data) ? data.length : 0;
+  return (
+    <TabsTrigger value="topups" className="relative">
+      Top Ups
+      {count > 0 && (
+        <Badge className="ml-2 bg-destructive text-destructive-foreground hover:bg-destructive">{count}</Badge>
+      )}
+    </TabsTrigger>
+  );
+}
+
+function TopUpsTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [status, setStatus] = useState<"pending" | "approved" | "rejected" | "all">("pending");
+  const { data: requests } = useAdminTopUps(status);
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["admin-topups"] });
+  };
+
+  const approve = async (id: string) => {
+    setBusyId(id);
+    try {
+      const res = await apiFetch(`/api/topup/admin/requests/${id}/approve`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      toast({ title: "Wallet credited successfully" });
+      refresh();
+    } catch {
+      toast({ title: "Failed to approve request", variant: "destructive" });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const reject = async () => {
+    if (!rejectId) return;
+    setBusyId(rejectId);
+    try {
+      const res = await apiFetch(`/api/topup/admin/requests/${rejectId}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ rejectionReason: rejectReason }),
+      });
+      if (!res.ok) throw new Error();
+      toast({ title: "Request rejected" });
+      setRejectId(null);
+      setRejectReason("");
+      refresh();
+    } catch {
+      toast({ title: "Failed to reject request", variant: "destructive" });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const statusBadge = (s: string) => {
+    const v = String(s || "").toLowerCase();
+    if (v === "approved") return "bg-green-500/10 text-green-400 border-green-500/30";
+    if (v === "rejected") return "bg-destructive/10 text-destructive border-destructive/30";
+    return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+  };
+
+  const getCustomer = (r: any) => {
+    const u = r.user || r.userId || {};
+    if (typeof u === "string") return { name: "—", email: "—", id: u };
+    return {
+      name: u.name || r.customerName || "—",
+      email: u.email || r.customerEmail || "—",
+      id: u._id || u.id || r.userId || "—",
+    };
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Top Up Requests</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Tabs value={status} onValueChange={(v) => setStatus(v as any)}>
+          <TabsList>
+            <TabsTrigger value="pending">Pending</TabsTrigger>
+            <TabsTrigger value="approved">Approved</TabsTrigger>
+            <TabsTrigger value="rejected">Rejected</TabsTrigger>
+            <TabsTrigger value="all">All</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {!requests?.length ? (
+          <p className="text-muted-foreground text-sm">No requests.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="py-2 pr-4">Date</th>
+                  <th className="py-2 pr-4">Customer</th>
+                  <th className="py-2 pr-4">Email</th>
+                  <th className="py-2 pr-4">User ID</th>
+                  <th className="py-2 pr-4">Amount</th>
+                  {status === "all" && <th className="py-2 pr-4">Status</th>}
+                  <th className="py-2 pr-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {requests.map((r: any) => {
+                  const c = getCustomer(r);
+                  const id = r._id || r.id;
+                  const isPending = String(r.status || "pending").toLowerCase() === "pending";
+                  return (
+                    <tr key={id} className="border-b border-border/50">
+                      <td className="py-2 pr-4">{fmtDateTimeSG(r.createdAt || r.created_at)}</td>
+                      <td className="py-2 pr-4">{c.name}</td>
+                      <td className="py-2 pr-4">{c.email}</td>
+                      <td className="py-2 pr-4 font-mono text-xs">{c.id}</td>
+                      <td className="py-2 pr-4 font-medium">${Number(r.amount || 0).toFixed(2)}</td>
+                      {status === "all" && (
+                        <td className="py-2 pr-4">
+                          <Badge variant="outline" className={statusBadge(r.status)}>
+                            {String(r.status || "pending").charAt(0).toUpperCase() + String(r.status || "pending").slice(1)}
+                          </Badge>
+                        </td>
+                      )}
+                      <td className="py-2 pr-4">
+                        {isPending ? (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              disabled={busyId === id}
+                              onClick={() => approve(id)}
+                            >
+                              <Check className="h-4 w-4 mr-1" /> Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={busyId === id}
+                              onClick={() => { setRejectId(id); setRejectReason(""); }}
+                            >
+                              <X className="h-4 w-4 mr-1" /> Reject
+                            </Button>
+                          </div>
+                        ) : (
+                          <Badge variant="outline" className={statusBadge(r.status)}>
+                            {String(r.status).charAt(0).toUpperCase() + String(r.status).slice(1)}
+                          </Badge>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <Dialog open={!!rejectId} onOpenChange={(o) => !o && setRejectId(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reject Top Up Request</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label>Rejection Reason</Label>
+              <Textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Reason for rejecting this request..."
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRejectId(null)}>Cancel</Button>
+              <Button variant="destructive" onClick={reject} disabled={!rejectReason.trim() || busyId === rejectId}>
+                Reject
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
