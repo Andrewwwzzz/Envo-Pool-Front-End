@@ -706,6 +706,13 @@ function CustomersTab() {
                   onClick={() => setSelectedCustomer(c)}
                 >
                   <td className="py-3 pr-4 font-medium">{c.name || "—"}</td>
+                  <td className="py-3 pr-4">
+                    {c.shortId ? (
+                      <code className="px-2 py-0.5 rounded bg-muted font-mono text-xs">{c.shortId}</code>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
                   <td className="py-3 pr-4 text-muted-foreground">{c.email}</td>
                   <td className="py-3 pr-4">
                     <Badge variant={c.isVerified ? "default" : "destructive"} className="text-xs">
