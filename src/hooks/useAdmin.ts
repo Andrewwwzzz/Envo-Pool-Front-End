@@ -363,11 +363,16 @@ export function useUpdateBookingStatus() {
   });
 }
 
-export function useAdminStats() {
+export function useAdminStats(from?: string, to?: string) {
+  const cacheKey = from || to ? `admin-stats:${from || ""}:${to || ""}` : "admin-stats";
   return useQuery({
-    queryKey: ["admin-stats"],
+    queryKey: ["admin-stats", from || null, to || null],
     queryFn: async () => {
-      const res = await apiFetch("/api/admin/stats");
+      const params = new URLSearchParams();
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      const qs = params.toString();
+      const res = await apiFetch(`/api/admin/stats${qs ? `?${qs}` : ""}`);
       if (!res.ok) throw new Error("Failed to fetch admin stats");
       const data = await res.json();
       const stats = {
@@ -375,12 +380,15 @@ export function useAdminStats() {
         totalBookings: data.totalBookings ?? 0,
         totalRevenue: data.totalRevenue ?? 0,
         totalTransactions: data.totalTransactions ?? 0,
+        walletTopups: data.walletTopups ?? data.totalTopups ?? null,
+        cashCollected: data.cashCollected ?? data.totalCash ?? null,
+        mostBookedTable: data.mostBookedTable ?? null,
       };
-      setCache("admin-stats", stats);
+      setCache(cacheKey, stats);
       return stats;
     },
     refetchInterval: 60000,
-    initialData: () => getCached("admin-stats"),
+    initialData: () => getCached(cacheKey),
   });
 }
 

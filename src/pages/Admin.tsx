@@ -24,6 +24,7 @@ import {
   useCustomerRewardHistory,
 } from "@/hooks/useAdmin";
 import LogsTab from "@/components/admin/LogsTab";
+import { useAdminTransactions } from "@/hooks/useAdminLogs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -91,22 +92,108 @@ const Admin = () => {
   );
 };
 
+type PeriodKey = "this_month" | "last_month" | "this_year" | "all_time";
+
+function getPeriodRange(period: PeriodKey): { from: string; to: string } {
+  const toISO = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const now = new Date();
+  if (period === "this_month") {
+    return { from: toISO(new Date(now.getFullYear(), now.getMonth(), 1)), to: toISO(new Date(now.getFullYear(), now.getMonth() + 1, 0)) };
+  }
+  if (period === "last_month") {
+    return { from: toISO(new Date(now.getFullYear(), now.getMonth() - 1, 1)), to: toISO(new Date(now.getFullYear(), now.getMonth(), 0)) };
+  }
+  if (period === "this_year") {
+    return { from: toISO(new Date(now.getFullYear(), 0, 1)), to: toISO(new Date(now.getFullYear(), 11, 31)) };
+  }
+  return { from: "2000-01-01", to: toISO(now) };
+}
+
 function OverviewTab() {
-  const { data: stats } = useAdminStats() as { data: any };
   const { toast } = useToast();
-  const today = new Date();
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-  const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const [from, setFrom] = useState(toISO(firstDay));
-  const [to, setTo] = useState(toISO(lastDay));
+  const [period, setPeriod] = useState<PeriodKey>("this_month");
+  const { from, to } = getPeriodRange(period);
+
+  const { data: stats } = useAdminStats(from, to) as { data: any };
+  const { data: bookings } = useAdminBookings() as { data: any };
+  const { data: transactions } = useAdminTransactions() as { data: any };
+  const { data: timerSessions } = useAdminTimerSessions() as { data: any };
+
+  const [reportFrom, setReportFrom] = useState(from);
+  const [reportTo, setReportTo] = useState(to);
+  useEffect(() => { setReportFrom(from); setReportTo(to); }, [from, to]);
   const [generating, setGenerating] = useState(false);
+
+  const inRange = (raw: any): boolean => {
+    if (!raw) return false;
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return false;
+    const startD = new Date(`${from}T00:00:00+08:00`);
+    const endD = new Date(`${to}T23:59:59+08:00`);
+    return d >= startD && d <= endD;
+  };
+
+  // Average booking value
+  const avgBookingValue = stats && stats.totalBookings > 0
+    ? stats.totalRevenue / stats.totalBookings
+    : 0;
+
+  // Most booked table (client-side from bookings in range)
+  const mostBookedTable = (() => {
+    if (stats?.mostBookedTable) return stats.mostBookedTable;
+    const counts: Record<string, number> = {};
+    for (const b of bookings || []) {
+      const created = b.createdAt || b.created_at || b.startTime || b.start_time;
+      if (!inRange(created)) continue;
+      const t = b.tableId;
+      const name = typeof t === "string"
+        ? `Table ${t.replace("T", "")}`
+        : (t?.name || (t?.tableNumber ? `Table ${t.tableNumber}` : null)) || "Unknown";
+      counts[name] = (counts[name] || 0) + 1;
+    }
+    let best: { name: string; count: number } | null = null;
+    for (const [name, count] of Object.entries(counts)) {
+      if (!best || count > best.count) best = { name, count };
+    }
+    return best ? `${best.name} (${best.count})` : "—";
+  })();
+
+  // Wallet top-ups this period
+  const walletTopups = (() => {
+    if (typeof stats?.walletTopups === "number") return stats.walletTopups;
+    const txs = Array.isArray(transactions) ? transactions : (transactions?.transactions ?? []);
+    let total = 0;
+    for (const t of txs) {
+      const type = String(t.type || "").toLowerCase();
+      if (type !== "topup" && type !== "top_up" && type !== "wallet_topup") continue;
+      const date = t.createdAt || t.created_at;
+      if (!inRange(date)) continue;
+      const status = String(t.status || "").toLowerCase();
+      if (status && status !== "approved" && status !== "completed" && status !== "success") continue;
+      total += Number(t.amount || 0);
+    }
+    return total;
+  })();
+
+  // Cash collected from timer sessions
+  const cashCollected = (() => {
+    if (typeof stats?.cashCollected === "number") return stats.cashCollected;
+    const sessions = Array.isArray(timerSessions) ? timerSessions : (timerSessions?.sessions ?? []);
+    let total = 0;
+    for (const s of sessions) {
+      const date = s.endedAt || s.ended_at || s.startedAt || s.started_at || s.createdAt || s.created_at;
+      if (!inRange(date)) continue;
+      total += Number(s.totalCost ?? s.total_cost ?? s.amount ?? 0);
+    }
+    return total;
+  })();
 
   const handleDownload = async () => {
     setGenerating(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`https://api.envopoolsg.com/api/admin/report/sales?from=${from}&to=${to}`, {
+      const res = await fetch(`https://api.envopoolsg.com/api/admin/report/sales?from=${reportFrom}&to=${reportTo}`, {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
@@ -120,7 +207,7 @@ function OverviewTab() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `EnvoPool-Report-${from}-to-${to}.pdf`;
+      a.download = `EnvoPool-Report-${reportFrom}-to-${reportTo}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -132,8 +219,31 @@ function OverviewTab() {
     }
   };
 
+  const periodOptions: { key: PeriodKey; label: string }[] = [
+    { key: "this_month", label: "This Month" },
+    { key: "last_month", label: "Last Month" },
+    { key: "this_year", label: "This Year" },
+    { key: "all_time", label: "All Time" },
+  ];
+
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex gap-1 flex-wrap">
+          {periodOptions.map((opt) => (
+            <Button
+              key={opt.key}
+              size="sm"
+              variant={period === opt.key ? "default" : "outline"}
+              onClick={() => setPeriod(opt.key)}
+            >
+              {opt.label}
+            </Button>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">{from} → {to}</p>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
@@ -157,6 +267,29 @@ function OverviewTab() {
         </CardContent></Card>
       </div>
 
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card><CardContent className="pt-6 text-center">
+          <TrendingUp className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">${avgBookingValue.toFixed(2)}</p>
+          <p className="text-sm text-muted-foreground">Avg Booking Value</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-6 text-center">
+          <Calendar className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-lg font-bold truncate">{mostBookedTable}</p>
+          <p className="text-sm text-muted-foreground">Most Booked Table</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-6 text-center">
+          <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">${walletTopups.toFixed(2)}</p>
+          <p className="text-sm text-muted-foreground">Wallet Top-Ups</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-6 text-center">
+          <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">${cashCollected.toFixed(2)}</p>
+          <p className="text-sm text-muted-foreground">Cash Collected</p>
+        </CardContent></Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Sales Report</CardTitle>
@@ -165,11 +298,11 @@ function OverviewTab() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="report-from">From</Label>
-              <Input id="report-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <Input id="report-from" type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="report-to">To</Label>
-              <Input id="report-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+              <Input id="report-to" type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} />
             </div>
           </div>
           <Button
