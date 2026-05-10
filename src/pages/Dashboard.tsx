@@ -33,9 +33,8 @@ const Dashboard = () => {
 
   const cancelBooking = useMutation({
     mutationFn: async (bookingId: string) => {
-      const res = await fetch(`https://api.envopoolsg.com/api/bookings/${bookingId}/cancel`, {
+      const res = await apiFetch(`/api/bookings/${bookingId}/cancel`, {
         method: "POST",
-        headers: { ...getAuthHeaders() },
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
