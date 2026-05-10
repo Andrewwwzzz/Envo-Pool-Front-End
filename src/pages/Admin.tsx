@@ -83,7 +83,7 @@ const Admin = () => {
           <TabsContent value="customers"><CustomersTab /></TabsContent>
           <TabsContent value="pricing"><PricingTab /></TabsContent>
           <TabsContent value="promos"><PromosTab /></TabsContent>
-          <TabsContent value="terms"><TermsTab /></TabsContent>
+          
           <TabsContent value="verification"><VerificationTab /></TabsContent>
           <TabsContent value="logs"><LogsTab /></TabsContent>
         </Tabs>
