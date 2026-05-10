@@ -34,7 +34,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { LogOut, ArrowLeft, DollarSign, Calendar, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download } from "lucide-react";
+import { LogOut, ArrowLeft, DollarSign, Calendar, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download, Copy } from "lucide-react";
 import { getAuthHeaders, apiFetch } from "@/lib/api";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
