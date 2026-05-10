@@ -3,7 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import AdminBookingDetailDialog from "@/components/admin/AdminBookingDetailDialog";
 import { useDeviceState, useDeviceControl } from "@/hooks/useDeviceControl";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
-import { useTermsContent, useUpdateTerms } from "@/hooks/useTerms";
+
 import { useAuth } from "@/contexts/AuthContext";
 
 import { Navigate, Link } from "react-router-dom";
