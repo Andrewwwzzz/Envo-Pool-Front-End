@@ -397,12 +397,17 @@ function TablesTab() {
     const seconds = elapsed[tableId] ?? 0;
     const cost = Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
     setCompletedSessions((prev) => ({ ...prev, [tableId]: { seconds, cost } }));
-    stopTimer.mutate({
+    const startedAt = table?.timer_started_at
+      ? new Date(table.timer_started_at).toISOString()
+      : new Date(Date.now() - seconds * 1000).toISOString();
+    const payload = {
       tableId,
       durationSeconds: seconds,
       hourlyRate: Number(tableRate),
-      startedAt: table?.timer_started_at!,
-    });
+      startedAt,
+    };
+    console.log("[closeTable] calling stopTimer.mutate with:", payload);
+    stopTimer.mutate(payload);
   };
 
   const formatTime = (totalSeconds: number) => {
