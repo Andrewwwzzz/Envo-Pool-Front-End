@@ -36,11 +36,9 @@ const Index = () => {
                 Sign In
               </Button>
             </Link>
-            <Link to="/booking">
-              <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
-                Book Now
-              </Button>
-            </Link>
+            <Button onClick={handleBookNow} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
+              Book Now
+            </Button>
           </div>
         </div>
       </nav>
@@ -64,11 +62,9 @@ const Index = () => {
             Competition-grade tables. Tournament-quality balls. A space built for players who take their craft seriously — from first break to championship run.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/booking">
-              <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 px-8 text-base">
-                Reserve a Table <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
+            <Button onClick={handleBookNow} size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 px-8 text-base">
+              Reserve a Table <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
             <a href="#about">
               <Button size="lg" variant="outline" className="border-accent/30 text-accent hover:bg-accent/10 px-8 text-base">
                 Learn More
@@ -271,11 +267,9 @@ const Index = () => {
           <p className="text-muted-foreground text-lg mb-10 max-w-xl mx-auto">
             Book your table in seconds. No calls, no waiting — just walk in and play on the best equipment in Singapore.
           </p>
-          <Link to="/booking">
-            <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 px-10 text-base">
-              Reserve Your Table <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Link>
+          <Button onClick={handleBookNow} size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 px-10 text-base">
+            Reserve Your Table <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
         </div>
       </section>
 
