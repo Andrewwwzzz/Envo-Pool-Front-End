@@ -163,8 +163,19 @@ const Dashboard = () => {
   const getPrice = (b: any) => b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? 0;
   const getStatus = (b: any) => b.status;
 
-  const upcoming = (bookings || []).filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled");
-  const past = (bookings || []).filter((b: any) => (new Date(getStartTime(b)) < now || getStatus(b) === "cancelled"));
+  const currentUserId = (user as any)?._id || user?.id;
+  const getBookingUserId = (b: any) => {
+    const uid = b.userId ?? b.user_id ?? b.user;
+    if (uid && typeof uid === "object") return uid._id || uid.id;
+    return uid;
+  };
+  const myBookings = (bookings || []).filter((b: any) => {
+    const uid = getBookingUserId(b);
+    return !uid || !currentUserId || String(uid) === String(currentUserId);
+  });
+
+  const upcoming = myBookings.filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled");
+  const past = myBookings.filter((b: any) => (new Date(getStartTime(b)) < now || getStatus(b) === "cancelled"));
 
   return (
     <div className="min-h-screen bg-background dark">
