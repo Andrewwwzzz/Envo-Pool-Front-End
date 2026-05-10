@@ -802,7 +802,7 @@ function InvoicesTab() {
                           size="icon"
                           className="h-8 w-8"
                           disabled={deletingId === (s._id || s.id)}
-                          onClick={() => handleDelete(s._id || s.id)}
+                          onClick={() => { setDeleteTargetId(s._id || s.id); setDeleteReason(""); }}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
