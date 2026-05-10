@@ -1555,61 +1555,6 @@ function PromosTab() {
   );
 }
 
-function TermsTab() {
-  const { data: terms, isLoading } = useTermsContent();
-  const updateTerms = useUpdateTerms();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-
-  const startEdit = () => {
-    setDraft(terms?.content ?? "");
-    setEditing(true);
-  };
-
-  const save = () => {
-    if (!terms) return;
-    updateTerms.mutate({ id: terms.id, content: draft }, {
-      onSuccess: () => setEditing(false),
-    });
-  };
-
-  
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ScrollText className="h-5 w-5 text-primary" /> Terms & Conditions
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {editing ? (
-          <>
-            <Textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={16}
-              className="font-mono text-sm"
-            />
-            <div className="flex gap-2">
-              <Button onClick={save} disabled={updateTerms.isPending}>
-                {updateTerms.isPending ? "Saving..." : "Save"}
-              </Button>
-              <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="whitespace-pre-wrap text-sm text-foreground border border-border rounded-lg p-4 max-h-96 overflow-y-auto">
-              {terms?.content || "No content yet."}
-            </div>
-            <Button onClick={startEdit}>Edit Terms</Button>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
 
 function VerificationTab() {
   const { user } = useAuth();
