@@ -1577,11 +1577,10 @@ function TopUpsTab() {
 
   const getCustomer = (r: any) => {
     const u = r.user || r.userId || {};
-    if (typeof u === "string") return { name: "—", email: "—", id: u };
+    if (typeof u === "string") return { name: "—", shortId: r.shortId || "—" };
     return {
       name: u.name || r.customerName || "—",
-      email: u.email || r.customerEmail || "—",
-      id: u._id || u.id || r.userId || "—",
+      shortId: u.shortId || r.shortId || "—",
     };
   };
 
@@ -1607,12 +1606,11 @@ function TopUpsTab() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-muted-foreground">
-                  <th className="py-2 pr-4">Date</th>
-                  <th className="py-2 pr-4">Customer</th>
-                  <th className="py-2 pr-4">Email</th>
-                  <th className="py-2 pr-4">User ID</th>
+                  <th className="py-2 pr-4">Date & Time</th>
+                  <th className="py-2 pr-4">Customer Name</th>
+                  <th className="py-2 pr-4">Short ID</th>
                   <th className="py-2 pr-4">Amount</th>
-                  {status === "all" && <th className="py-2 pr-4">Status</th>}
+                  <th className="py-2 pr-4">Status</th>
                   <th className="py-2 pr-4">Actions</th>
                 </tr>
               </thead>
@@ -1625,16 +1623,13 @@ function TopUpsTab() {
                     <tr key={id} className="border-b border-border/50">
                       <td className="py-2 pr-4">{fmtDateTimeSG(r.createdAt || r.created_at)}</td>
                       <td className="py-2 pr-4">{c.name}</td>
-                      <td className="py-2 pr-4">{c.email}</td>
-                      <td className="py-2 pr-4 font-mono text-xs">{c.id}</td>
+                      <td className="py-2 pr-4 font-mono">{c.shortId}</td>
                       <td className="py-2 pr-4 font-medium">${Number(r.amount || 0).toFixed(2)}</td>
-                      {status === "all" && (
-                        <td className="py-2 pr-4">
-                          <Badge variant="outline" className={statusBadge(r.status)}>
-                            {String(r.status || "pending").charAt(0).toUpperCase() + String(r.status || "pending").slice(1)}
-                          </Badge>
-                        </td>
-                      )}
+                      <td className="py-2 pr-4">
+                        <Badge variant="outline" className={statusBadge(r.status)}>
+                          {String(r.status || "pending").charAt(0).toUpperCase() + String(r.status || "pending").slice(1)}
+                        </Badge>
+                      </td>
                       <td className="py-2 pr-4">
                         {isPending ? (
                           <div className="flex gap-2">
