@@ -807,26 +807,35 @@ function InvoicesTab() {
                   const rate = Number(s.hourlyRate ?? s.hourly_rate ?? 0);
                   const amount = Number(s.amountCharged ?? s.amount_charged ?? s.total_cost ?? 0);
                   const staff = s.startedBy?.name || s.startedBy?.email || "—";
+                  const isDeleted = s.isDeleted === true;
+                  const deletedBy = s.deletedBy?.name || s.deletedBy?.email || (typeof s.deletedBy === "string" ? s.deletedBy : "");
+                  const tooltipText = isDeleted
+                    ? `Reason: ${s.deletionReason || "—"}\nDeleted by: ${deletedBy || "—"}${s.deletedAt ? `\nDeleted at: ${fmtDateTimeSG(s.deletedAt)}` : ""}`
+                    : undefined;
                   return (
-                    <tr key={s._id || s.id} className="border-b border-border last:border-0">
+                    <tr key={s._id || s.id} className={`border-b border-border last:border-0 ${isDeleted ? "opacity-60" : ""}`} title={tooltipText}>
                       <td className="py-3 pr-4">{startedAt ? formatDateLong(startedAt) : "—"}</td>
                       <td className="py-3 pr-4">{s.tableName || (s.tables?.table_number ? `Table ${s.tables.table_number}` : "—")}</td>
                       <td className="py-3 pr-4">{startedAt ? fmtTimeSG(startedAt) : "—"}</td>
                       <td className="py-3 pr-4">{endedAt ? fmtTimeSG(endedAt) : "—"}</td>
                       <td className="py-3 pr-4 font-mono">{formatDuration(duration)}</td>
                       <td className="py-3 pr-4">${rate.toFixed(0)}/hr</td>
-                      <td className="py-3 pr-4 font-medium">${amount.toFixed(2)}</td>
+                      <td className={`py-3 pr-4 font-medium ${isDeleted ? "line-through text-muted-foreground" : ""}`}>${amount.toFixed(2)}</td>
                       <td className="py-3 pr-4 text-muted-foreground">{staff}</td>
                       <td className="py-3 text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          disabled={deletingId === (s._id || s.id)}
-                          onClick={() => { setDeleteTargetId(s._id || s.id); setDeleteReason(""); }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {isDeleted ? (
+                          <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Deleted</Badge>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled={deletingId === (s._id || s.id)}
+                            onClick={() => { setDeleteTargetId(s._id || s.id); setDeleteReason(""); }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   );
