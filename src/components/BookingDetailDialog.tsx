@@ -149,6 +149,32 @@ const BookingDetailDialog = ({ booking, open, onOpenChange, onCancel, cancelling
             </div>
           </div>
 
+          {/* Promo */}
+          {(() => {
+            const promoObj = (b as any).appliedPromo || (b as any).promo;
+            const promoCode =
+              (typeof promoObj === "object" && promoObj?.code) ||
+              (b as any).promoCode ||
+              (b as any).promo_code ||
+              null;
+            const discountAmount = Number((b as any).discountAmount ?? (b as any).discount_amount ?? 0);
+            if (!promoCode && !(discountAmount > 0)) return null;
+            return (
+              <div className="flex items-center gap-3">
+                <span className="h-4 w-4 text-accent shrink-0 text-center font-bold text-sm">%</span>
+                <div>
+                  <p className="text-sm text-muted-foreground">Promo Applied</p>
+                  <p className="font-medium">
+                    {promoCode || "Discount"}
+                    {discountAmount > 0 && (
+                      <span className="text-green-400 ml-2">−${discountAmount.toFixed(2)}</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+
           <Separator className="bg-border/50" />
 
           {/* Order Created */}
