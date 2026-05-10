@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wallet, Calendar, History, LogOut, ArrowLeft, XCircle, Settings, Copy } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
 import PendingVerificationCard from "@/components/PendingVerificationCard";
