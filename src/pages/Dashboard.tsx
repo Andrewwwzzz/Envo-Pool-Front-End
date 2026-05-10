@@ -89,18 +89,24 @@ const Dashboard = () => {
     queryFn: async () => {
       if (!user) return [];
 
-      const res = await apiFetch("/api/transactions");
+      const res = await apiFetch("/api/transactions/me");
       if (!res.ok) return [];
       const data = await res.json();
 
-      console.log("TRANSACTIONS_API_RAW:", data);
-
-      const walletTxs = Array.isArray(data?.walletTransactions) ? data.walletTransactions : [];
+      const walletTxs = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.transactions)
+        ? data.transactions
+        : Array.isArray(data?.walletTransactions)
+        ? data.walletTransactions
+        : [];
 
       const items: Array<{
         id: string;
         date: string;
-        label: string;
+        typeKey: "payment" | "topup" | "refund" | "other";
+        typeLabel: string;
+        method: string;
         sublabel: string;
         amount: string;
         positive: boolean;
@@ -108,24 +114,45 @@ const Dashboard = () => {
       }> = [];
 
       walletTxs.forEach((t: any) => {
-        const txType = t.type || t.transactionType || "";
-        const typeLabel = txType === "adjustment"
-          ? "Admin Adjustment"
-          : txType === "booking_payment" || txType === "wallet_deduct"
-          ? "Wallet Payment"
-          : txType === "topup"
-          ? "Wallet Top Up"
-          : txType === "refund"
-          ? "Refund"
-          : txType ? txType.replace(/_/g, " ") : "Wallet Transaction";
-        const amt = typeof t.amount === "number" ? t.amount : 0;
+        const rawType = String(t.type || t.transactionType || "").toLowerCase();
+        let typeKey: "payment" | "topup" | "refund" | "other" = "other";
+        let typeLabel = rawType ? rawType.replace(/_/g, " ") : "Transaction";
+        if (rawType === "booking_payment" || rawType === "wallet_deduct" || rawType === "payment") {
+          typeKey = "payment"; typeLabel = "Payment";
+        } else if (rawType === "topup" || rawType === "top_up" || rawType === "deposit") {
+          typeKey = "topup"; typeLabel = "Top Up";
+        } else if (rawType === "refund") {
+          typeKey = "refund"; typeLabel = "Refund";
+        } else if (rawType === "adjustment") {
+          typeLabel = "Admin Adjustment";
+        }
+
+        const amtRaw = typeof t.amount === "number" ? t.amount : Number(t.amount) || 0;
+        // Normalize sign by type so payments are negative, topups positive
+        const amt = typeKey === "payment"
+          ? -Math.abs(amtRaw)
+          : typeKey === "topup" || typeKey === "refund"
+          ? Math.abs(amtRaw)
+          : amtRaw;
+
+        const rawMethod = String(t.paymentMethod || t.payment_method || t.method || "").toLowerCase();
+        const method = rawMethod === "wallet"
+          ? "Wallet"
+          : rawMethod === "paynow" || rawMethod === "stripe"
+          ? "PayNow"
+          : rawMethod
+          ? rawMethod.charAt(0).toUpperCase() + rawMethod.slice(1)
+          : "";
+
         const dateStr = t.createdAt || t.created_at || t.date || "";
         items.push({
           id: `w-${t.id || t._id}`,
           date: dateStr,
-          label: typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1),
+          typeKey,
+          typeLabel,
+          method,
           sublabel: fmtDateTime(dateStr),
-          amount: `${amt >= 0 ? "+" : ""}$${Math.abs(amt).toFixed(2)}`,
+          amount: `${amt >= 0 ? "+" : "-"}$${Math.abs(amt).toFixed(2)}`,
           positive: amt >= 0,
           sortKey: new Date(dateStr).getTime(),
         });
@@ -136,7 +163,7 @@ const Dashboard = () => {
       return items;
     },
     enabled: !!user,
-    initialData: () => getCached<Array<{ id: string; date: string; label: string; sublabel: string; amount: string; positive: boolean; sortKey: number }>>("transactions") ?? [],
+    initialData: () => getCached<any[]>("transactions") ?? [],
   });
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
