@@ -737,6 +737,7 @@ function InvoicesTab() {
       if (!res.ok) throw new Error("Failed");
       toast({ title: "Invoice deleted" });
       qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
+      qc.invalidateQueries({ queryKey: ["admin-timer-sessions", true] });
       setDeleteTargetId(null);
       setDeleteReason("");
     } catch {
