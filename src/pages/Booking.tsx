@@ -250,6 +250,12 @@ const Booking = () => {
 
         // Success — refetch and redirect
         sessionStorage.removeItem("pending_booking_id");
+        if (appliedPromo?.id) {
+          apiFetch("/api/promo/apply", {
+            method: "POST",
+            body: JSON.stringify({ promoId: appliedPromo.id }),
+          }).catch(() => {});
+        }
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["profile"] }),
           queryClient.invalidateQueries({ queryKey: ["my-bookings"] }),
@@ -285,6 +291,14 @@ const Booking = () => {
         }
 
         // Redirect to Stripe/PayNow — socket will handle confirmation
+        if (appliedPromo?.id) {
+          try {
+            await apiFetch("/api/promo/apply", {
+              method: "POST",
+              body: JSON.stringify({ promoId: appliedPromo.id }),
+            });
+          } catch {}
+        }
         window.location.href = checkoutUrl;
       }
     } catch (error) {
