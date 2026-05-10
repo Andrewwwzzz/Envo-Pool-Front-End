@@ -1528,6 +1528,9 @@ function TopUpsTab() {
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [inlineRejectMode, setInlineRejectMode] = useState(false);
+  const [inlineRejectReason, setInlineRejectReason] = useState("");
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["admin-topups"] });
