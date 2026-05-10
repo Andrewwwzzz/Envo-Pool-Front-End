@@ -215,8 +215,8 @@ function BookingsTab() {
                               <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId: b.id, status: "cancelled" })}>
                                 Cancel
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId: b.id, status: "no_show" })}>
-                                Mark No Show
+                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId: b.id, status: "completed" })}>
+                                Mark Completed
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
