@@ -620,7 +620,18 @@ function InvoicesTab() {
                       <td className="py-3 pr-4 font-mono">{formatDuration(duration)}</td>
                       <td className="py-3 pr-4">${rate.toFixed(0)}/hr</td>
                       <td className="py-3 pr-4 font-medium">${amount.toFixed(2)}</td>
-                      <td className="py-3 text-muted-foreground">{staff}</td>
+                      <td className="py-3 pr-4 text-muted-foreground">{staff}</td>
+                      <td className="py-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={deletingId === (s._id || s.id)}
+                          onClick={() => handleDelete(s._id || s.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </td>
                     </tr>
                   );
                 })}
