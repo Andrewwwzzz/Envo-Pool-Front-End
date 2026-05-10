@@ -53,9 +53,6 @@ const paymentLabel: Record<string, string> = {
 };
 
 const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
-  const updateStatus = useUpdateBookingStatus();
-  const [confirmCancel, setConfirmCancel] = useState(false);
-
   if (!booking) return null;
   const b = booking;
   const id: string = b._id || b.id || "";
