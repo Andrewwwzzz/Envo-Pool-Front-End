@@ -188,7 +188,7 @@ function BookingsTab() {
                     <td className="py-3 pr-4">Table {typeof b.tableId === "string" ? b.tableId.replace("T", "") : (b as any).tables?.table_number ?? b.tableId?.tableNumber ?? "?"}</td>
                     <td className="py-3 pr-4">{fmtDateSG(getField(b, "startTime", "start_time"))}</td>
                     <td className="py-3 pr-4">{fmtTimeSG(getField(b, "startTime", "start_time"))} – {fmtTimeSG(getField(b, "endTime", "end_time"))}</td>
-                    <td className="py-3 pr-4">{(() => { const mins = getField(b, "duration", "duration_hours"); return mins >= 60 ? `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}m` : ""}` : `${mins}m`; })()}</td>
+                    <td className="py-3 pr-4">{(() => { const s = b.startTime || b.start_time; const e = b.endTime || b.end_time; const mins = s && e ? Math.round((new Date(e).getTime() - new Date(s).getTime()) / 60000) : 0; const h = Math.floor(mins / 60); const m = mins % 60; return m > 0 ? `${h}h ${m}m` : `${h}h`; })()}</td>
                     <td className="py-3 pr-4">${(getField(b, "amount", "finalPrice", "final_price", "price") ?? 0).toFixed(2)}</td>
                     <td className="py-3 pr-4 capitalize">{getField(b, "paymentMethod", "payment_method", "inferredPaymentMethod") ?? (b.paymentStatus === "paid" ? "paynow" : "—")}</td>
                     <td className="py-3 pr-4">
