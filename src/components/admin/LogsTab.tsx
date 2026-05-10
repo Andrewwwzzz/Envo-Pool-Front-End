@@ -179,7 +179,13 @@ function AdminLogsView() {
                   </td>
                   <td className="py-3 pr-4">{l.targetUserName || l.targetUser?.name || (typeof l.targetUserId === "object" ? l.targetUserId?.name || l.targetUserId?.email || "—" : l.targetUserId) || "—"}</td>
                   <td className="py-3 pr-4 text-xs text-muted-foreground max-w-[200px] truncate">
-                    {l.details || "—"}
+                    {l.details == null
+                      ? "—"
+                      : typeof l.details === "object"
+                      ? Object.entries(l.details)
+                          .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
+                          .join(", ")
+                      : String(l.details)}
                   </td>
                   <td className="py-3 text-muted-foreground">
                     {l.createdAt || l.created_at || l.timestamp ? fmtDateTimeSG(l.createdAt || l.created_at || l.timestamp) : "—"}
