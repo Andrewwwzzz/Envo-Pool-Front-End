@@ -322,13 +322,14 @@ function OverviewTab() {
   );
 }
 
-type BookingFilter = "all" | "today" | "upcoming" | "completed" | "cancelled";
+type BookingFilter = "all" | "today" | "upcoming" | "completed" | "cancelled" | "deleted";
 
 function BookingsTab() {
-  const { data: bookings, isLoading } = useAdminBookings();
+  const [filter, setFilter] = useState<BookingFilter>("all");
+  const showDeleted = filter === "deleted";
+  const { data: bookings, isLoading } = useAdminBookings(showDeleted);
   const deleteBooking = useDeleteBooking();
   const updateStatus = useUpdateBookingStatus();
-  const [filter, setFilter] = useState<BookingFilter>("all");
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -346,6 +347,8 @@ function BookingsTab() {
   const getBookingId = (b: any) => b._id || b.id;
 
   const filtered = (bookings || []).filter((b: any) => {
+    if (filter === "deleted") return b.isDeleted === true;
+    if (b.isDeleted === true) return false;
     const startDate = new Date(getField(b, "startTime", "start_time"));
     switch (filter) {
       case "today": return startDate >= todayStart && startDate <= todayEnd;
