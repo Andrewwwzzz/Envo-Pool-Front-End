@@ -48,7 +48,7 @@ const paymentLabel: Record<string, string> = {
   stripe: "Paynow",
 };
 
-const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialogProps) => {
+const BookingDetailDialog = ({ booking, open, onOpenChange, onCancel, cancelling }: BookingDetailDialogProps) => {
   const [downloadMode, setDownloadMode] = useState<"choose" | null>(null);
 
   if (!booking) return null;
