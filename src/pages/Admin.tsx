@@ -766,9 +766,19 @@ function InvoicesTab() {
     <>
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5" /> Timer Session Invoices
-        </CardTitle>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" /> Timer Session Invoices
+          </CardTitle>
+          <Button
+            size="sm"
+            variant={showDeleted ? "default" : "outline"}
+            onClick={() => setShowDeleted((v) => !v)}
+            className="text-xs h-7"
+          >
+            {showDeleted ? "Hide Deleted" : "Show Deleted"}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {!sessions.length ? (
