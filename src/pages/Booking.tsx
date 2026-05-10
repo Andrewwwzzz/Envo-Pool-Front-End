@@ -19,6 +19,7 @@ import { TimeSlotPicker } from "@/components/TimeSlotPicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiFetch } from "@/lib/api";
+import PendingVerificationCard from "@/components/PendingVerificationCard";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isBefore } from "date-fns";
 import { todaySG, sgSlotToUTC, sgDayBoundsUTC } from "@/lib/sgTime";
@@ -131,6 +132,8 @@ const Booking = () => {
   if (!user) return <Navigate to="/auth" replace />;
 
   const isVerified = user.isVerified !== false;
+
+  if (!isVerified) return <PendingVerificationCard onSignOut={signOut} />;
 
   const handleDateSelect = (date: Date | undefined) => {
     setSelectedDate(date);
