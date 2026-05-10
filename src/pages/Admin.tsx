@@ -417,7 +417,7 @@ function BookingsTab() {
                     <td className="py-3">
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         {canDelete && (
-                          <Button variant="ghost" size="sm" onClick={() => deleteBooking.mutate(bookingId)} disabled={deleteBooking.isPending}>
+                          <Button variant="ghost" size="sm" onClick={() => { setDeleteTargetId(bookingId); setDeleteReason(""); }} disabled={deleteBooking.isPending}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         )}
