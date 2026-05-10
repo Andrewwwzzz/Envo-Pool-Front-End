@@ -55,11 +55,13 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
   const startTime = b.startTime || b.start_time;
   const endTime = b.endTime || b.end_time;
   const createdAt = b.createdAt || b.created_at;
-  // duration: backend sends minutes, legacy sends hours
-  const rawDuration = b.duration ?? b.duration_hours;
-  const durationDisplay = b.duration
-    ? (b.duration >= 60 ? `${b.duration / 60}h` : `${b.duration}min`)
-    : (b.duration_hours ? `${b.duration_hours}h` : null);
+  // duration: calculate from startTime / endTime
+  const _start = (b as any).startTime || (b as any).start_time;
+  const _end = (b as any).endTime || (b as any).end_time;
+  const _mins = _start && _end ? Math.round((new Date(_end).getTime() - new Date(_start).getTime()) / 60000) : 0;
+  const _h = Math.floor(_mins / 60);
+  const _m = _mins % 60;
+  const durationDisplay = _mins > 0 ? (_m > 0 ? `${_h}h ${_m}m` : `${_h}h`) : null;
   const finalPrice = b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0;
   const tableLabel = typeof b.tableId === "string" ? `Table ${b.tableId.replace("T", "")}` : b.tableId?.name || `Table ${b.tables?.table_number || "?"}`;
   const paymentMethodRaw = b.paymentMethod || b.payment_method || b.inferredPaymentMethod || (b.paymentStatus === "paid" ? "paynow" : null);
