@@ -535,15 +535,23 @@ function TablesTab() {
 }
 
 function InvoicesTab() {
-  const { data: sessions, isLoading } = useAdminTimerSessions();
+  const { data, isLoading } = useAdminTimerSessions();
+  const sessions: any[] = Array.isArray(data) ? data : (data?.sessions || data?.timerSessions || []);
 
   const formatDuration = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+    const total = Math.max(0, Math.floor(Number(seconds) || 0));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    return `${h}h ${m}m`;
   };
 
+  const formatDateLong = (d: string | Date) =>
+    new Date(d).toLocaleDateString("en-GB", {
+      timeZone: "Asia/Singapore",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
 
   return (
     <Card>
@@ -553,34 +561,44 @@ function InvoicesTab() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {!sessions?.length ? (
+        {!sessions.length ? (
           <p className="text-muted-foreground text-sm">No timer sessions yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left">
-                  <th className="pb-2 pr-4">Table</th>
                   <th className="pb-2 pr-4">Date</th>
-                  <th className="pb-2 pr-4">Start</th>
-                  <th className="pb-2 pr-4">End</th>
+                  <th className="pb-2 pr-4">Table</th>
+                  <th className="pb-2 pr-4">Start Time</th>
+                  <th className="pb-2 pr-4">End Time</th>
                   <th className="pb-2 pr-4">Duration</th>
                   <th className="pb-2 pr-4">Rate</th>
-                  <th className="pb-2">Total</th>
+                  <th className="pb-2 pr-4">Amount</th>
+                  <th className="pb-2">Staff</th>
                 </tr>
               </thead>
               <tbody>
-                {sessions.map((s: any) => (
-                  <tr key={s.id} className="border-b border-border last:border-0">
-                    <td className="py-3 pr-4">Table {s.tables?.table_number ?? "?"}</td>
-                    <td className="py-3 pr-4">{fmtDateSG(s.started_at)}</td>
-                    <td className="py-3 pr-4">{fmtTimeSG(s.started_at)}</td>
-                    <td className="py-3 pr-4">{fmtTimeSG(s.ended_at)}</td>
-                    <td className="py-3 pr-4 font-mono">{formatDuration(s.duration_seconds)}</td>
-                    <td className="py-3 pr-4">${Number(s.hourly_rate).toFixed(2)}/hr</td>
-                    <td className="py-3 font-medium">${Number(s.total_cost).toFixed(2)}</td>
-                  </tr>
-                ))}
+                {sessions.map((s: any) => {
+                  const startedAt = s.startedAt || s.started_at;
+                  const endedAt = s.endedAt || s.ended_at;
+                  const duration = s.durationSeconds ?? s.duration_seconds ?? 0;
+                  const rate = Number(s.hourlyRate ?? s.hourly_rate ?? 0);
+                  const amount = Number(s.amountCharged ?? s.amount_charged ?? s.total_cost ?? 0);
+                  const staff = s.startedBy?.name || s.startedBy?.email || "—";
+                  return (
+                    <tr key={s._id || s.id} className="border-b border-border last:border-0">
+                      <td className="py-3 pr-4">{startedAt ? formatDateLong(startedAt) : "—"}</td>
+                      <td className="py-3 pr-4">{s.tableName || (s.tables?.table_number ? `Table ${s.tables.table_number}` : "—")}</td>
+                      <td className="py-3 pr-4">{startedAt ? fmtTimeSG(startedAt) : "—"}</td>
+                      <td className="py-3 pr-4">{endedAt ? fmtTimeSG(endedAt) : "—"}</td>
+                      <td className="py-3 pr-4 font-mono">{formatDuration(duration)}</td>
+                      <td className="py-3 pr-4">${rate.toFixed(0)}/hr</td>
+                      <td className="py-3 pr-4 font-medium">${amount.toFixed(2)}</td>
+                      <td className="py-3 text-muted-foreground">{staff}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
