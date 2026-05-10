@@ -1498,7 +1498,7 @@ function useAdminTopUps(status: string) {
     queryKey: ["admin-topups", status],
     queryFn: async () => {
       const qs = status && status !== "all" ? `?status=${status}` : "";
-      const res = await apiFetch(`/api/topup/admin/requests${qs}`);
+      const res = await apiFetch(`/api/transactions/topup/admin/requests${qs}`);
       if (!res.ok) return [];
       const data = await res.json();
       return Array.isArray(data) ? data : data?.requests ?? [];
@@ -1536,7 +1536,7 @@ function TopUpsTab() {
   const approve = async (id: string) => {
     setBusyId(id);
     try {
-      const res = await apiFetch(`/api/topup/admin/requests/${id}/approve`, { method: "POST" });
+      const res = await apiFetch(`/api/transactions/topup/admin/requests/${id}/approve`, { method: "POST" });
       if (!res.ok) throw new Error();
       toast({ title: "Wallet credited successfully" });
       refresh();
@@ -1551,7 +1551,7 @@ function TopUpsTab() {
     if (!rejectId) return;
     setBusyId(rejectId);
     try {
-      const res = await apiFetch(`/api/topup/admin/requests/${rejectId}/reject`, {
+      const res = await apiFetch(`/api/transactions/topup/admin/requests/${rejectId}/reject`, {
         method: "POST",
         body: JSON.stringify({ rejectionReason: rejectReason }),
       });

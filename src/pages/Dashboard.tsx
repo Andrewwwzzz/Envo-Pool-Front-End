@@ -433,7 +433,7 @@ function TopUpWalletDialog({
   const { data: requests } = useQuery({
     queryKey: ["my-topup-requests"],
     queryFn: async () => {
-      const res = await apiFetch("/api/topup/my-requests");
+      const res = await apiFetch("/api/transactions/topup/my-requests");
       if (!res.ok) return [];
       const data = await res.json();
       return Array.isArray(data) ? data : data?.requests ?? [];
@@ -459,7 +459,7 @@ function TopUpWalletDialog({
     }
     setSubmitting(true);
     try {
-      const res = await apiFetch("/api/topup/request", {
+      const res = await apiFetch("/api/transactions/topup/request", {
         method: "POST",
         body: JSON.stringify({ amount: amt }),
       });
