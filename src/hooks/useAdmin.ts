@@ -253,7 +253,21 @@ export function useAdminPromoCodes() {
     queryFn: async () => {
       const res = await apiFetch("/api/admin/promo-codes");
       if (!res.ok) throw new Error("Failed to fetch promo codes");
-      const data = await res.json();
+      const raw = await res.json();
+      const list = Array.isArray(raw) ? raw : (raw?.promoCodes || raw?.promos || []);
+      const data = list.map((p: any) => ({
+        id: p._id || p.id,
+        code: p.code,
+        discount_type: p.discountType ?? p.discount_type,
+        discount_value: p.discountValue ?? p.discount_value ?? 0,
+        minimum_spend: p.minimumSpend ?? p.minimum_spend ?? null,
+        max_discount_amount: p.maxDiscountAmount ?? p.max_discount_amount ?? null,
+        usage_limit: p.usageLimit ?? p.usage_limit ?? null,
+        usage_count: p.usageCount ?? p.usage_count ?? 0,
+        per_user_limit: p.perUserLimit ?? p.per_user_limit ?? null,
+        expiry_date: p.expiryDate ?? p.expiry_date ?? null,
+        is_active: p.isActive ?? p.is_active ?? false,
+      }));
       setCache("admin-promo-codes", data);
       return data;
     },
