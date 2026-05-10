@@ -599,7 +599,8 @@ function InvoicesTab() {
                   <th className="pb-2 pr-4">Duration</th>
                   <th className="pb-2 pr-4">Rate</th>
                   <th className="pb-2 pr-4">Amount</th>
-                  <th className="pb-2">Staff</th>
+                  <th className="pb-2 pr-4">Staff</th>
+                  <th className="pb-2"></th>
                 </tr>
               </thead>
               <tbody>
