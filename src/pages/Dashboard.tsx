@@ -416,11 +416,18 @@ const Dashboard = () => {
 
 const PAYNOW_NUMBER = "+65 XXXXXXXX";
 
-function TopUpWalletSection({ userId }: { userId?: string }) {
+function TopUpWalletDialog({
+  open,
+  onOpenChange,
+  shortId,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  shortId?: string;
+}) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [amount, setAmount] = useState("");
-  const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const { data: requests } = useQuery({
@@ -434,11 +441,11 @@ function TopUpWalletSection({ userId }: { userId?: string }) {
     refetchInterval: 15000,
   });
 
-  const copyId = async () => {
-    if (!userId) return;
+  const copyRef = async () => {
+    if (!shortId) return;
     try {
-      await navigator.clipboard.writeText(userId);
-      toast({ title: "User ID copied" });
+      await navigator.clipboard.writeText(shortId);
+      toast({ title: "Reference copied" });
     } catch {
       toast({ title: "Copy failed", variant: "destructive" });
     }
@@ -456,12 +463,19 @@ function TopUpWalletSection({ userId }: { userId?: string }) {
         method: "POST",
         body: JSON.stringify({ amount: amt }),
       });
-      if (!res.ok) throw new Error("Failed");
-      setSubmitted(true);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || data?.error || "Failed to submit request");
+      }
       setAmount("");
       qc.invalidateQueries({ queryKey: ["my-topup-requests"] });
-    } catch {
-      toast({ title: "Failed to submit request", variant: "destructive" });
+      onOpenChange(false);
+      toast({
+        title: "Request submitted!",
+        description: "We'll credit your wallet within 24 hours.",
+      });
+    } catch (e: any) {
+      toast({ title: e?.message || "Failed to submit request", variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
@@ -479,78 +493,93 @@ function TopUpWalletSection({ userId }: { userId?: string }) {
   };
 
   return (
-    <Card className="card-premium">
-      <CardHeader>
-        <CardTitle className="text-lg">Top Up Wallet</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="rounded-lg border border-border/50 p-4 space-y-3">
-          <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Your User ID</p>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Top Up Wallet</DialogTitle>
+          <DialogDescription>Follow the steps below to top up your wallet via PayNow.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          {/* Step 1 */}
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">Step 1 — Your Payment Reference</p>
+            <p className="text-xs text-muted-foreground">Use this as your PayNow reference</p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 px-3 py-2 rounded bg-muted text-sm font-mono break-all">{userId || "—"}</code>
-              <Button variant="outline" size="icon" onClick={copyId} disabled={!userId}>
+              <div className="flex-1 px-4 py-3 rounded-lg bg-muted text-center">
+                <p className="text-2xl font-bold font-mono tracking-widest">{shortId || "—"}</p>
+              </div>
+              <Button variant="outline" size="icon" onClick={copyRef} disabled={!shortId}>
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">PayNow Number</p>
-            <p className="text-lg font-semibold">{PAYNOW_NUMBER}</p>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Transfer any amount via PayNow to the number above. Put your User ID in the payment reference so we can identify your payment.
-          </p>
-        </div>
 
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Amount (SGD)</label>
-          <Input
-            type="number"
-            min={10}
-            step="0.01"
-            placeholder="Minimum $10"
-            value={amount}
-            onChange={(e) => { setAmount(e.target.value); setSubmitted(false); }}
-          />
-          <Button onClick={handleSubmit} disabled={submitting} className="w-full">
-            I've Made Payment
-          </Button>
-          {submitted && (
-            <p className="text-sm text-green-400">
-              Request submitted! Your wallet will be credited once staff verifies your payment.
-            </p>
-          )}
-        </div>
-
-        <div>
-          <p className="text-sm font-medium mb-2">My Top Up History</p>
-          {!requests?.length ? (
-            <p className="text-muted-foreground text-sm">No top up requests yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {requests.map((r: any) => (
-                <div key={r._id || r.id} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
-                  <div>
-                    <p className="font-medium">${Number(r.amount || 0).toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(r.createdAt || r.created_at).toLocaleString("en-GB", {
-                        day: "2-digit", month: "short", year: "numeric",
-                        hour: "numeric", minute: "2-digit", hour12: true,
-                        timeZone: "Asia/Singapore",
-                      })}
-                    </p>
-                  </div>
-                  <Badge variant="outline" className={statusClass(r.status)}>
-                    {statusText(r.status)}
-                  </Badge>
-                </div>
-              ))}
+          {/* Step 2 */}
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">Step 2 — Make Payment</p>
+            <p className="text-sm text-muted-foreground">Transfer your desired amount via PayNow to:</p>
+            <div className="px-4 py-3 rounded-lg bg-muted text-center">
+              <p className="text-xl font-bold">{PAYNOW_NUMBER}</p>
             </div>
-          )}
+            <p className="text-xs text-muted-foreground">
+              Use your 6-digit reference code above so we can identify your payment.
+            </p>
+          </div>
+
+          {/* Step 3 */}
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">Step 3 — Confirm Your Request</p>
+            <Input
+              type="number"
+              min={10}
+              step="1"
+              placeholder="Amount (minimum $10)"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+            <Button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="w-full bg-green-600 hover:bg-green-700 text-white"
+            >
+              I've Made Payment — Submit Request
+            </Button>
+          </div>
+
+          {/* History */}
+          <div className="pt-2 border-t border-border/50">
+            <p className="text-sm font-medium mb-2">My Top Up History</p>
+            {!requests?.length ? (
+              <p className="text-muted-foreground text-sm">No top up requests yet.</p>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {requests.map((r: any) => (
+                  <div key={r._id || r.id} className="flex items-start justify-between text-sm py-2 border-b border-border/50 last:border-0 gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium">${Number(r.amount || 0).toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(r.createdAt || r.created_at).toLocaleString("en-GB", {
+                          day: "2-digit", month: "short", year: "numeric",
+                          hour: "numeric", minute: "2-digit", hour12: true,
+                          timeZone: "Asia/Singapore",
+                        })}
+                      </p>
+                      {String(r.status || "").toLowerCase() === "rejected" && r.rejectionReason && (
+                        <p className="text-xs text-destructive mt-1">Reason: {r.rejectionReason}</p>
+                      )}
+                    </div>
+                    <Badge variant="outline" className={statusClass(r.status)}>
+                      {statusText(r.status)}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }
 
