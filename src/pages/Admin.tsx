@@ -1528,6 +1528,9 @@ function TopUpsTab() {
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [inlineRejectMode, setInlineRejectMode] = useState(false);
+  const [inlineRejectReason, setInlineRejectReason] = useState("");
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["admin-topups"] });
@@ -1619,7 +1622,11 @@ function TopUpsTab() {
                   const id = r._id || r.id;
                   const isPending = String(r.status || "pending").toLowerCase() === "pending";
                   return (
-                    <tr key={id} className="border-b border-border/50">
+                    <tr
+                      key={id}
+                      className="border-b border-border/50 cursor-pointer hover:bg-muted/40"
+                      onClick={() => setDetailId(id)}
+                    >
                       <td className="py-2 pr-4">{fmtDateTimeSG(r.createdAt || r.created_at)}</td>
                       <td className="py-2 pr-4">{c.name}</td>
                       <td className="py-2 pr-4 font-mono">{c.shortId}</td>
@@ -1629,7 +1636,7 @@ function TopUpsTab() {
                           {String(r.status || "pending").charAt(0).toUpperCase() + String(r.status || "pending").slice(1)}
                         </Badge>
                       </td>
-                      <td className="py-2 pr-4">
+                      <td className="py-2 pr-4" onClick={(e) => e.stopPropagation()}>
                         {isPending ? (
                           <div className="flex gap-2">
                             <Button
@@ -1684,8 +1691,209 @@ function TopUpsTab() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <TopUpDetailDialog
+          request={(requests || []).find((r: any) => (r._id || r.id) === detailId) || null}
+          onClose={() => { setDetailId(null); setInlineRejectMode(false); setInlineRejectReason(""); }}
+          statusBadge={statusBadge}
+          getCustomer={getCustomer}
+          busy={busyId === detailId}
+          inlineRejectMode={inlineRejectMode}
+          setInlineRejectMode={setInlineRejectMode}
+          inlineRejectReason={inlineRejectReason}
+          setInlineRejectReason={setInlineRejectReason}
+          onApprove={async () => {
+            if (!detailId) return;
+            await approve(detailId);
+            setDetailId(null);
+          }}
+          onReject={async () => {
+            if (!detailId || !inlineRejectReason.trim()) return;
+            setBusyId(detailId);
+            try {
+              const res = await apiFetch(`/api/transactions/topup/admin/requests/${detailId}/reject`, {
+                method: "POST",
+                body: JSON.stringify({ rejectionReason: inlineRejectReason }),
+              });
+              if (!res.ok) throw new Error();
+              toast({ title: "Request rejected" });
+              setDetailId(null);
+              setInlineRejectMode(false);
+              setInlineRejectReason("");
+              refresh();
+            } catch {
+              toast({ title: "Failed to reject request", variant: "destructive" });
+            } finally {
+              setBusyId(null);
+            }
+          }}
+        />
       </CardContent>
     </Card>
+  );
+}
+
+function TopUpDetailDialog({
+  request,
+  onClose,
+  statusBadge,
+  getCustomer,
+  busy,
+  inlineRejectMode,
+  setInlineRejectMode,
+  inlineRejectReason,
+  setInlineRejectReason,
+  onApprove,
+  onReject,
+}: {
+  request: any;
+  onClose: () => void;
+  statusBadge: (s: string) => string;
+  getCustomer: (r: any) => { name: string; shortId: string };
+  busy: boolean;
+  inlineRejectMode: boolean;
+  setInlineRejectMode: (v: boolean) => void;
+  inlineRejectReason: string;
+  setInlineRejectReason: (v: string) => void;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  const r = request;
+  if (!r) return null;
+  const c = getCustomer(r);
+  const u = r.user || r.userId || {};
+  const isObj = typeof u !== "string";
+  const email = isObj ? (u.email || r.customerEmail || "—") : "—";
+  const walletBalance = isObj ? (u.walletBalance ?? u.wallet_balance) : undefined;
+  const id = r._id || r.id || "";
+  const shortReqId = String(id).slice(-8);
+  const amount = Number(r.amount || 0);
+  const statusStr = String(r.status || "pending");
+  const isPending = statusStr.toLowerCase() === "pending";
+  const reviewedAt = r.reviewedAt || r.reviewed_at;
+  const reviewedBy = r.reviewedBy || r.reviewed_by;
+  const reviewerName = reviewedBy && typeof reviewedBy === "object" ? reviewedBy.name : (typeof reviewedBy === "string" ? reviewedBy : null);
+  const adminNotes = r.adminNotes || r.notes;
+  const rejectionReason = r.rejectionReason || r.rejection_reason;
+
+  return (
+    <Dialog open={!!r} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Top Up Request Details</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Customer details */}
+          <section className="space-y-2">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Customer Details</h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div><div className="text-muted-foreground">Full Name</div><div className="font-medium">{c.name}</div></div>
+              <div><div className="text-muted-foreground">Email</div><div className="font-medium break-all">{email}</div></div>
+              <div><div className="text-muted-foreground">Short ID</div><div className="font-mono font-medium">{c.shortId}</div></div>
+              <div>
+                <div className="text-muted-foreground">Wallet Balance</div>
+                <div className="font-medium">{walletBalance !== undefined && walletBalance !== null ? `$${Number(walletBalance).toFixed(2)}` : "—"}</div>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                navigator.clipboard.writeText(String(c.shortId));
+              }}
+            >
+              Copy Short ID to find in Customers
+            </Button>
+          </section>
+
+          {/* Request details */}
+          <section className="space-y-2">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Request Details</h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div><div className="text-muted-foreground">Request ID</div><div className="font-mono font-medium">…{shortReqId}</div></div>
+              <div><div className="text-muted-foreground">Amount</div><div className="font-medium text-base">${amount.toFixed(2)}</div></div>
+              <div>
+                <div className="text-muted-foreground">Status</div>
+                <Badge variant="outline" className={statusBadge(statusStr)}>
+                  {statusStr.charAt(0).toUpperCase() + statusStr.slice(1)}
+                </Badge>
+              </div>
+              <div><div className="text-muted-foreground">Submitted</div><div className="font-medium">{fmtDateTimeSG(r.createdAt || r.created_at)}</div></div>
+            </div>
+          </section>
+
+          {/* Processing details */}
+          {!isPending && (
+            <section className="space-y-2">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Processing Details</h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><div className="text-muted-foreground">Processed</div><div className="font-medium">{reviewedAt ? fmtDateTimeSG(reviewedAt) : "—"}</div></div>
+                <div><div className="text-muted-foreground">Processed By</div><div className="font-medium">{reviewerName || "—"}</div></div>
+              </div>
+              {adminNotes && (
+                <div className="text-sm"><div className="text-muted-foreground">Admin Notes</div><div className="font-medium whitespace-pre-wrap">{adminNotes}</div></div>
+              )}
+              {rejectionReason && (
+                <div className="text-sm"><div className="text-muted-foreground">Rejection Reason</div><div className="font-medium whitespace-pre-wrap text-destructive">{rejectionReason}</div></div>
+              )}
+            </section>
+          )}
+
+          {/* Staff instructions */}
+          {isPending && (
+            <section className="space-y-1 rounded-md border border-yellow-500/30 bg-yellow-500/5 p-4">
+              <h3 className="text-sm font-semibold text-yellow-500 uppercase tracking-wide">Instructions for Staff</h3>
+              <ul className="text-sm space-y-1 list-disc pl-5">
+                <li>Check PayNow for a transfer of <span className="font-semibold">${amount.toFixed(2)}</span></li>
+                <li>The customer's reference code is <span className="font-mono font-semibold">{c.shortId}</span></li>
+                <li>Verify the amount matches before approving</li>
+              </ul>
+            </section>
+          )}
+
+          {/* Actions */}
+          {isPending && (
+            <section className="space-y-3">
+              {!inlineRejectMode ? (
+                <div className="flex flex-col gap-2">
+                  <Button
+                    size="lg"
+                    className="bg-green-600 hover:bg-green-700 text-white w-full"
+                    disabled={busy}
+                    onClick={onApprove}
+                  >
+                    <Check className="h-4 w-4 mr-2" /> Approve — Credit ${amount.toFixed(2)} to wallet
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    disabled={busy}
+                    onClick={() => setInlineRejectMode(true)}
+                  >
+                    <X className="h-4 w-4 mr-2" /> Reject
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Rejection Reason</Label>
+                  <Textarea
+                    value={inlineRejectReason}
+                    onChange={(e) => setInlineRejectReason(e.target.value)}
+                    placeholder="Reason for rejecting this request..."
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" onClick={() => { setInlineRejectMode(false); setInlineRejectReason(""); }}>Cancel</Button>
+                    <Button variant="destructive" disabled={!inlineRejectReason.trim() || busy} onClick={onReject}>
+                      Confirm Reject
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
