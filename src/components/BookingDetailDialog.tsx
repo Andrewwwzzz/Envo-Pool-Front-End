@@ -29,6 +29,8 @@ interface BookingDetailDialogProps {
   booking: BookingData | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCancel?: (bookingId: string) => void;
+  cancelling?: boolean;
 }
 
 const statusBadge: Record<string, string> = {
