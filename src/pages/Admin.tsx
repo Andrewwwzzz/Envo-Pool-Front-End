@@ -483,6 +483,38 @@ function BookingsTab() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <Dialog open={!!deleteTargetId} onOpenChange={(o) => { if (!o) { setDeleteTargetId(null); setDeleteReason(""); } }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete Booking</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">Please provide a reason for deleting this booking. This action will be logged.</p>
+        <Textarea
+          value={deleteReason}
+          onChange={(e) => setDeleteReason(e.target.value)}
+          placeholder="Reason for deletion (min 5 characters)"
+          rows={4}
+          maxLength={500}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setDeleteTargetId(null); setDeleteReason(""); }}>Cancel</Button>
+          <Button
+            variant="destructive"
+            disabled={deleteReason.trim().length < 5 || deleteBooking.isPending}
+            onClick={() => {
+              if (!deleteTargetId) return;
+              deleteBooking.mutate(
+                { bookingId: deleteTargetId, reason: deleteReason.trim() },
+                { onSuccess: () => { setDeleteTargetId(null); setDeleteReason(""); } },
+              );
+            }}
+          >
+            Confirm Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
