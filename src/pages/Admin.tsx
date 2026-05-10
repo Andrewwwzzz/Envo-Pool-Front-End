@@ -24,6 +24,7 @@ import {
   useCustomerRewardHistory,
 } from "@/hooks/useAdmin";
 import LogsTab from "@/components/admin/LogsTab";
+import { useAdminTransactions } from "@/hooks/useAdminLogs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
