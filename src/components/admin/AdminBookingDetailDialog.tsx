@@ -114,6 +114,16 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
         </DialogHeader>
 
         <div className="space-y-6 pt-2">
+          {b.isDeleted && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm space-y-1">
+              <div className="font-semibold text-destructive">This booking has been deleted</div>
+              {b.deletionReason && <div><span className="text-muted-foreground">Reason: </span>{b.deletionReason}</div>}
+              {(b.deletedBy?.name || b.deletedBy?.email || typeof b.deletedBy === "string") && (
+                <div><span className="text-muted-foreground">Deleted by: </span>{b.deletedBy?.name || b.deletedBy?.email || b.deletedBy}</div>
+              )}
+              {b.deletedAt && <div><span className="text-muted-foreground">Deleted at: </span>{fmtDateTimeSG(b.deletedAt)}</div>}
+            </div>
+          )}
           {/* Booking Information */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Booking Information</h3>
