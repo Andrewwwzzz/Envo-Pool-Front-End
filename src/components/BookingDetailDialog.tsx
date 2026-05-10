@@ -188,6 +188,18 @@ const BookingDetailDialog = ({ booking, open, onOpenChange, onCancel, cancelling
 
           <Separator className="bg-border/50" />
 
+          {/* Cancel (only for pending_payment / pending) */}
+          {onCancel && (booking.status === "pending" || booking.status === "pending_payment") && (
+            <Button
+              variant="destructive"
+              className="w-full"
+              disabled={cancelling}
+              onClick={() => onCancel(booking.id)}
+            >
+              Cancel Booking
+            </Button>
+          )}
+
           {/* Video Download */}
           {downloadMode === "choose" ? (
             <div className="space-y-2">
