@@ -782,8 +782,29 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
       {/* Profile Card */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>{customer.name || "No Name"}</CardTitle>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap">
+              <CardTitle>{customer.name || "No Name"}</CardTitle>
+              {customer.shortId ? (
+                <div className="flex items-center gap-1">
+                  <span className="px-3 py-1 rounded-full bg-accent/20 text-accent-foreground border border-accent/30 font-mono text-sm font-semibold">
+                    {customer.shortId}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    title="Copy Short ID"
+                    onClick={() => {
+                      navigator.clipboard.writeText(String(customer.shortId));
+                      toast({ title: "Short ID copied" });
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : null}
+            </div>
             <div className="flex gap-2">
               {!editing && <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet / Points</Button>}
               {!confirmDelete ? (
