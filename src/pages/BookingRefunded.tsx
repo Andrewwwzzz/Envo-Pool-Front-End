@@ -14,13 +14,13 @@ const BookingRefunded = () => {
           <div className="space-y-2">
             <h1 className="text-2xl font-bold text-foreground">Reservation Expired</h1>
             <p className="text-muted-foreground">
-              Your payment was received after the reservation expired. The payment has been automatically refunded. Please book again if you still want the table.
+              Your payment could not be confirmed in time. If you were charged, a refund has been initiated and will appear within 3-5 business days.
             </p>
           </div>
           <div className="flex flex-col gap-3 pt-4">
             <Link to="/booking">
               <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
-                Book Again
+                Try Again
               </Button>
             </Link>
             <Link to="/dashboard">
