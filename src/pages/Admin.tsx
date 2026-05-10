@@ -330,6 +330,8 @@ function BookingsTab() {
   const updateStatus = useUpdateBookingStatus();
   const [filter, setFilter] = useState<BookingFilter>("all");
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+  const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
 
   const now = new Date();
   const todayStart = new Date(now);
@@ -414,7 +416,7 @@ function BookingsTab() {
                             variant="ghost"
                             size="sm"
                             title="Cancel booking"
-                            onClick={() => updateStatus.mutate({ bookingId, status: "cancelled" })}
+                            onClick={() => { setCancelTargetId(bookingId); setCancelReason(""); }}
                             disabled={updateStatus.isPending}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -439,6 +441,38 @@ function BookingsTab() {
       open={!!selectedBooking}
       onOpenChange={(open) => { if (!open) setSelectedBooking(null); }}
     />
+
+    <Dialog open={!!cancelTargetId} onOpenChange={(o) => { if (!o) { setCancelTargetId(null); setCancelReason(""); } }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Cancel Booking</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">Please provide a reason for cancelling this booking.</p>
+        <Textarea
+          value={cancelReason}
+          onChange={(e) => setCancelReason(e.target.value)}
+          placeholder="Reason for cancellation (min 5 characters)"
+          rows={4}
+          maxLength={500}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setCancelTargetId(null); setCancelReason(""); }}>Go Back</Button>
+          <Button
+            variant="destructive"
+            disabled={cancelReason.trim().length < 5 || updateStatus.isPending}
+            onClick={() => {
+              if (!cancelTargetId) return;
+              updateStatus.mutate(
+                { bookingId: cancelTargetId, status: "cancelled", reason: cancelReason.trim() },
+                { onSuccess: () => { setCancelTargetId(null); setCancelReason(""); } },
+              );
+            }}
+          >
+            Confirm Cancellation
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
@@ -681,15 +715,21 @@ function InvoicesTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this invoice? This cannot be undone.")) return;
+  const handleDelete = async (id: string, reason: string) => {
     setDeletingId(id);
     try {
-      const res = await apiFetch(`/api/admin/timer-sessions/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/admin/timer-sessions/${id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason }),
+      });
       if (!res.ok) throw new Error("Failed");
       toast({ title: "Invoice deleted" });
       qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
+      setDeleteTargetId(null);
+      setDeleteReason("");
     } catch {
       toast({ title: "Failed to delete invoice", variant: "destructive" });
     } finally {
@@ -713,6 +753,7 @@ function InvoicesTab() {
     });
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -762,7 +803,7 @@ function InvoicesTab() {
                           size="icon"
                           className="h-8 w-8"
                           disabled={deletingId === (s._id || s.id)}
-                          onClick={() => handleDelete(s._id || s.id)}
+                          onClick={() => { setDeleteTargetId(s._id || s.id); setDeleteReason(""); }}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -776,6 +817,33 @@ function InvoicesTab() {
         )}
       </CardContent>
     </Card>
+
+    <Dialog open={!!deleteTargetId} onOpenChange={(o) => { if (!o) { setDeleteTargetId(null); setDeleteReason(""); } }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete Invoice</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">Please provide a reason for deleting this invoice. This action cannot be undone.</p>
+        <Textarea
+          value={deleteReason}
+          onChange={(e) => setDeleteReason(e.target.value)}
+          placeholder="Reason for deletion (min 5 characters)"
+          rows={4}
+          maxLength={500}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setDeleteTargetId(null); setDeleteReason(""); }}>Go Back</Button>
+          <Button
+            variant="destructive"
+            disabled={deleteReason.trim().length < 5 || deletingId === deleteTargetId}
+            onClick={() => { if (deleteTargetId) handleDelete(deleteTargetId, deleteReason.trim()); }}
+          >
+            Confirm Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
