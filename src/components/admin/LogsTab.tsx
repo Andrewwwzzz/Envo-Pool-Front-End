@@ -49,26 +49,39 @@ function TransactionsView() {
                 <th className="pb-2 pr-4">User</th>
                 <th className="pb-2 pr-4">Amount</th>
                 <th className="pb-2 pr-4">Type</th>
-                <th className="pb-2 pr-4">Balance After</th>
+                <th className="pb-2 pr-4">Method</th>
                 <th className="pb-2">Timestamp</th>
               </tr>
             </thead>
             <tbody>
               {transactions.map((t: any, i: number) => {
                 const amt = typeof t.amount === "object" ? (t.amount?.amount ?? 0) : (typeof t.amount === "number" ? t.amount : Number(t.amount) || 0);
-                const bal = typeof t.balanceAfter === "object" ? (t.balanceAfter?.amount ?? 0) : typeof t.balance_after === "object" ? (t.balance_after?.amount ?? 0) : (Number(t.balanceAfter ?? t.balance_after) || 0);
+                const userObj = typeof t.userId === "object" ? t.userId : null;
+                const rawId = typeof t.userId === "string" ? t.userId : (userObj?._id || userObj?.id || "");
+                const userDisplay = t.userName || t.user?.name || userObj?.name || userObj?.email || (rawId ? `${String(rawId).slice(0, 8)}...` : "—");
+                const rawType = String(t.type || t.transactionType || "").toLowerCase();
+                const typeLabel = rawType === "booking_payment" || rawType === "wallet_deduct" ? "payment" : rawType;
+                const typeClass = typeLabel === "payment"
+                  ? "bg-destructive/10 text-destructive border-destructive/30"
+                  : typeLabel === "topup"
+                  ? "bg-green-500/10 text-green-400 border-green-500/30"
+                  : typeLabel === "refund"
+                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                  : "";
+                const rawMethod = String(t.paymentMethod || t.payment_method || t.method || "").toLowerCase();
+                const methodLabel = rawMethod === "stripe" ? "paynow" : rawMethod;
                 return (
                 <tr key={t._id || t.id || i} className="border-b border-border last:border-0">
-                  <td className="py-3 pr-4">{t.userName || t.user?.name || (typeof t.userId === "object" ? t.userId?.name || t.userId?.email || "—" : t.userId) || "—"}</td>
+                  <td className="py-3 pr-4">{userDisplay}</td>
                   <td className="py-3 pr-4 font-medium">
                     <span className={amt >= 0 ? "text-primary" : "text-destructive"}>
                       ${Math.abs(amt).toFixed(2)}
                     </span>
                   </td>
                   <td className="py-3 pr-4">
-                    <Badge variant="outline" className="capitalize">{String(t.type || "—")}</Badge>
+                    {typeLabel ? <Badge variant="outline" className={`capitalize ${typeClass}`}>{typeLabel}</Badge> : <span className="text-muted-foreground">—</span>}
                   </td>
-                  <td className="py-3 pr-4">${bal.toFixed(2)}</td>
+                  <td className="py-3 pr-4 capitalize text-muted-foreground">{methodLabel || "—"}</td>
                   <td className="py-3 text-muted-foreground">
                     {t.createdAt || t.created_at ? fmtDateTimeSG(t.createdAt || t.created_at) : "—"}
                   </td>
