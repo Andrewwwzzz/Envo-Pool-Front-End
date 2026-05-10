@@ -247,61 +247,6 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
               )}
             </div>
           </section>
-
-          <Separator className="bg-border/50" />
-
-          {/* Actions */}
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Actions</h3>
-            {!hasActions ? (
-              <p className="text-sm text-muted-foreground">No actions available.</p>
-            ) : confirmCancel ? (
-              <div className="space-y-2">
-                <p className="text-sm">Are you sure you want to cancel this booking?</p>
-                <div className="flex gap-2 justify-end">
-                  <Button variant="outline" onClick={() => setConfirmCancel(false)}>Keep</Button>
-                  <Button
-                    variant="destructive"
-                    disabled={updateStatus.isPending}
-                    onClick={() => {
-                      updateStatus.mutate(
-                        { bookingId: id, status: "cancelled" },
-                        { onSuccess: () => close() },
-                      );
-                    }}
-                  >
-                    Confirm Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2 sm:flex-row">
-                {canMarkCompleted && (
-                  <Button
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                    disabled={updateStatus.isPending}
-                    onClick={() => {
-                      updateStatus.mutate(
-                        { bookingId: id, status: "completed" },
-                        { onSuccess: () => close() },
-                      );
-                    }}
-                  >
-                    Mark Completed
-                  </Button>
-                )}
-                {canCancel && (
-                  <Button
-                    variant="destructive"
-                    disabled={updateStatus.isPending}
-                    onClick={() => setConfirmCancel(true)}
-                  >
-                    Cancel Booking
-                  </Button>
-                )}
-              </div>
-            )}
-          </section>
         </div>
       </DialogContent>
     </Dialog>
