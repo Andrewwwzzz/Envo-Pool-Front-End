@@ -254,6 +254,9 @@ const Dashboard = () => {
               <Wallet className="h-6 w-6 mx-auto text-accent mb-2" />
               <p className="text-2xl font-bold">${profile?.wallet_balance?.toFixed(2) ?? "0.00"}</p>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Wallet Balance</p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={() => setTopUpOpen(true)}>
+                Top Up Wallet
+              </Button>
             </CardContent>
           </Card>
           <Card className="card-premium">
