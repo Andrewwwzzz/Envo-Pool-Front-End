@@ -358,6 +358,9 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
+        {/* Top Up Wallet */}
+        <TopUpWalletSection userId={(user as any)?._id || user?.id} />
+
         {/* Transaction History */}
         <Card className="card-premium">
           <CardHeader className="flex flex-row items-center justify-between">
