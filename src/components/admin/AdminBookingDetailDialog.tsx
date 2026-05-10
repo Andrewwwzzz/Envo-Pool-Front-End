@@ -105,14 +105,8 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
   const paymentKey = paymentMethodRaw ? String(paymentMethodRaw).toLowerCase() : null;
   const paidAt = b.paidAt || b.paid_at;
 
-  const canMarkCompleted = status === "confirmed";
-  const canCancel = status === "confirmed" || status === "pending" || status === "pending_payment";
-  const hasActions = canMarkCompleted || canCancel;
-
-  const close = () => {
-    onOpenChange(false);
-    setConfirmCancel(false);
-  };
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setConfirmCancel(false); }}>
