@@ -55,7 +55,7 @@ export function useAdminTables() {
         id: t._id || t.id,
         table_number: t.tableNumber ?? t.table_number,
         hardware_id: t.hardwareId ?? t.hardware_id ?? null,
-        hourly_rate: t.hourlyRate ?? t.hourly_rate ?? null,
+        hourly_rate: t.basePrice ?? t.hourlyRate ?? t.hourly_rate ?? 0,
         status: t.status ?? "available",
         timer_started_at: t.timerStartedAt ?? t.timer_started_at ?? null,
         created_at: t.createdAt ?? t.created_at ?? "",
@@ -143,6 +143,7 @@ export function useAdminTimerSessions() {
   });
 }
 
+// Pricing rules are stored locally — migrate to backend in future
 export function useAdminPricingRules() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -344,41 +345,45 @@ export function useAdminStats() {
   return useQuery({
     queryKey: ["admin-stats"],
     queryFn: async () => {
-      // Try /api/admin/dashboard first, fall back to computing from bookings
-      try {
-        const res = await apiFetch("/api/admin/dashboard");
-        if (res.ok) {
-          const data = await res.json();
-          const stats = {
-            totalBookings: data.totalBookings ?? 0,
-            totalRevenue: data.totalRevenue ?? 0,
-            totalUsers: data.totalUsers ?? 0,
-            totalTransactions: data.totalTransactions ?? 0,
-            activeBookings: data.activeBookings ?? 0,
-            pendingBookings: data.pendingBookings ?? 0,
-          };
-          setCache("admin-stats", stats);
-          return stats;
-        }
-      } catch {}
-
-      // Fallback: compute from bookings
-      const res = await apiFetch("/api/bookings");
-      const bookings = res.ok ? await res.json() : [];
-      const all = Array.isArray(bookings) ? bookings : [];
+      const res = await apiFetch("/api/admin/stats");
+      if (!res.ok) throw new Error("Failed to fetch admin stats");
+      const data = await res.json();
       const stats = {
-        totalBookings: all.length,
-        activeBookings: all.filter((b: any) => b.status === "confirmed").length,
-        totalRevenue: all.reduce((sum: number, b: any) => sum + (b.amount ?? 0), 0),
-        pendingBookings: all.filter((b: any) => b.status === "pending" || b.status === "pending_payment").length,
-        totalUsers: 0,
-        totalTransactions: 0,
+        totalUsers: data.totalUsers ?? 0,
+        totalBookings: data.totalBookings ?? 0,
+        totalRevenue: data.totalRevenue ?? 0,
+        totalTransactions: data.totalTransactions ?? 0,
       };
       setCache("admin-stats", stats);
       return stats;
     },
     refetchInterval: 60000,
     initialData: () => getCached("admin-stats"),
+  });
+}
+
+export function useVerifyUser() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await apiFetch("/api/admin/verify-user", {
+        method: "POST",
+        body: JSON.stringify({ userId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to verify user");
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "User verified successfully" });
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
   });
 }
 
