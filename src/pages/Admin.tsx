@@ -301,7 +301,7 @@ function BookingsTab() {
       </CardContent>
     </Card>
 
-    <BookingDetailDialog
+    <AdminBookingDetailDialog
       booking={selectedBooking}
       open={!!selectedBooking}
       onOpenChange={(open) => { if (!open) setSelectedBooking(null); }}
