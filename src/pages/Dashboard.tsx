@@ -46,6 +46,24 @@ const Dashboard = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [showAllTx, setShowAllTx] = useState(false);
+
+  const fmtNiceDate = (s: string) => {
+    if (!s) return "";
+    try {
+      return new Date(s).toLocaleString("en-GB", {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "numeric", minute: "2-digit", hour12: true,
+        timeZone: "Asia/Singapore",
+      });
+    } catch { return s; }
+  };
+
+  const txBadge = (key: string) =>
+    key === "payment" ? "bg-destructive/10 text-destructive border-destructive/30"
+    : key === "topup" ? "bg-green-500/10 text-green-400 border-green-500/30"
+    : key === "refund" ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+    : "bg-muted text-muted-foreground border-border";
 
   const cancelBooking = useMutation({
     mutationFn: async (bookingId: string) => {
