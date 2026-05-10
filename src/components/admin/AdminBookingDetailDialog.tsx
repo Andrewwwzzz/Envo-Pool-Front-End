@@ -83,7 +83,7 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
         (b.tables?.table_number ? `Table ${b.tables.table_number}` : "—");
 
   const customer = (() => {
-    const u = b.user || b.userId || {};
+    const u = b.userId || b.user || {};
     if (!u || typeof u === "string") {
       return { name: b.customerName || "—", email: b.customerEmail || "—", shortId: b.shortId || null };
     }
@@ -97,15 +97,10 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
   const finalAmount = Number(
     b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0,
   );
-  const originalPrice = Number(b.originalPrice ?? b.original_price ?? 0);
-  const discountAmount = Number(b.discountAmount ?? b.discount_amount ?? 0);
-  const promoObj = b.appliedPromo || b.promo || null;
-  const promoCode =
-    (typeof promoObj === "object" && promoObj?.code) ||
-    b.promoCode ||
-    b.promo_code ||
-    null;
-  const hasPromo = !!promoCode || discountAmount > 0;
+  const promoCode = b.promoCode ?? b.promo_code ?? null;
+  const discountAmount = Number(b.promoDiscount ?? b.promo_discount ?? b.discountAmount ?? b.discount_amount ?? 0);
+  const originalPrice = Number(b.originalAmount ?? b.original_amount ?? b.originalPrice ?? b.original_price ?? 0);
+  const hasPromo = !!promoCode;
 
   const paymentMethodRaw =
     b.paymentMethod ||
