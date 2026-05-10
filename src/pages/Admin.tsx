@@ -89,6 +89,36 @@ const Admin = () => {
 
 function OverviewTab() {
   const { data: stats } = useAdminStats() as { data: any };
+  const { toast } = useToast();
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const [from, setFrom] = useState(toISO(firstDay));
+  const [to, setTo] = useState(toISO(lastDay));
+  const [generating, setGenerating] = useState(false);
+
+  const handleDownload = async () => {
+    setGenerating(true);
+    try {
+      const res = await fetch(`https://api.envopoolsg.com/api/report/sales?from=${from}&to=${to}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error("Failed to generate report");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `EnvoPool-Report-${from}-to-${to}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to generate report. Please try again.", variant: "destructive" });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -113,6 +143,35 @@ function OverviewTab() {
           <p className="text-sm text-muted-foreground">Total Transactions</p>
         </CardContent></Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Sales Report</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="report-from">From</Label>
+              <Input id="report-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="report-to">To</Label>
+              <Input id="report-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            </div>
+          </div>
+          <Button
+            onClick={handleDownload}
+            disabled={generating}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            {generating ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</>
+            ) : (
+              <><Download className="mr-2 h-4 w-4" /> Download PDF Report</>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
