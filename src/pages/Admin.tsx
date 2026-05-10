@@ -101,8 +101,17 @@ function OverviewTab() {
   const handleDownload = async () => {
     setGenerating(true);
     try {
-      const res = await fetch(`https://api.envopoolsg.com/api/admin/report/sales?from=${from}&to=${to}`, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error("Failed to generate report");
+      const token = localStorage.getItem("token");
+      const res = await fetch(`https://api.envopoolsg.com/api/admin/report/sales?from=${from}&to=${to}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to generate report");
+      }
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
