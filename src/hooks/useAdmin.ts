@@ -324,11 +324,16 @@ export function useUpdateBookingStatus() {
     mutationFn: async ({ bookingId, status }: { bookingId: string; status: string }) => {
       if (!bookingId) throw new Error("Missing booking ID");
       if (!allowedStatuses.has(status)) throw new Error("Invalid booking status");
-      const res = await apiFetch(`/api/admin/bookings/${bookingId}/status`, {
+      const endpoint = `/api/admin/bookings/${bookingId}/status`;
+      const body = { status };
+      const res = await apiFetch(endpoint, {
         method: "POST",
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error("Failed to update booking status");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || err.error || "Failed to update booking status");
+      }
     },
     onSuccess: (_data, variables) => {
       toast({ title: `Booking marked as ${variables.status}` });
