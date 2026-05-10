@@ -1223,24 +1223,66 @@ function PromosTab() {
         <CardHeader><CardTitle>Existing Promo Codes</CardTitle></CardHeader>
         <CardContent>
           {!promos?.length ? <p className="text-muted-foreground text-sm">No promo codes.</p> : (
-            <div className="space-y-3">
-              {promos.map((p) => (
-                <div key={p.id} className="flex items-center justify-between rounded-lg border border-border p-4">
-                  <div>
-                    <p className="font-medium font-mono">{p.code}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {p.discount_type === "percentage" ? `${p.discount_value}%` : `$${p.discount_value}`} off
-                      {p.minimum_spend ? ` · Min $${p.minimum_spend}` : ""}
-                      {p.max_discount_amount ? ` · Max $${p.max_discount_amount}` : ""}
-                      {p.expiry_date ? ` · Expires ${fmtDateSG(p.expiry_date)}` : ""}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Switch checked={p.is_active} onCheckedChange={(v) => toggle.mutate({ id: p.id, is_active: v })} />
-                    <Button variant="ghost" size="sm" onClick={() => remove.mutate(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-muted-foreground">
+                    <th className="py-2 pr-3 font-medium">Code</th>
+                    <th className="py-2 pr-3 font-medium">Type</th>
+                    <th className="py-2 pr-3 font-medium">Value</th>
+                    <th className="py-2 pr-3 font-medium">Min Spend</th>
+                    <th className="py-2 pr-3 font-medium">Usage</th>
+                    <th className="py-2 pr-3 font-medium">Expiry</th>
+                    <th className="py-2 pr-3 font-medium">Status</th>
+                    <th className="py-2 pr-3 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {promos.map((p) => {
+                    const isPct = p.discount_type === "percentage";
+                    const valueLabel = isPct ? `${p.discount_value}%` : `$${Number(p.discount_value).toFixed(2)}`;
+                    const minSpend = p.minimum_spend ? `$${Number(p.minimum_spend).toFixed(2)}` : "—";
+                    const usageLabel = `${p.usage_count ?? 0} / ${p.usage_limit ?? "unlimited"}`;
+                    const expiryLabel = p.expiry_date ? fmtDateSG(p.expiry_date) : "No expiry";
+                    const handleDelete = () => {
+                      if (window.confirm(`Delete promo code "${p.code}"? This cannot be undone.`)) {
+                        remove.mutate(p.id);
+                      }
+                    };
+                    return (
+                      <tr key={p.id} className="border-b border-border/50">
+                        <td className="py-3 pr-3 font-mono font-medium">{p.code}</td>
+                        <td className="py-3 pr-3">{isPct ? "Percentage" : "Fixed"}</td>
+                        <td className="py-3 pr-3">{valueLabel}</td>
+                        <td className="py-3 pr-3">{minSpend}</td>
+                        <td className="py-3 pr-3">{usageLabel}</td>
+                        <td className="py-3 pr-3">{expiryLabel}</td>
+                        <td className="py-3 pr-3">
+                          <Badge
+                            variant="outline"
+                            className={p.is_active
+                              ? "border-transparent bg-green-500/15 text-green-500"
+                              : "border-transparent bg-muted text-muted-foreground"}
+                          >
+                            {p.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </td>
+                        <td className="py-3 pr-3">
+                          <div className="flex items-center justify-end gap-3">
+                            <Switch
+                              checked={p.is_active}
+                              onCheckedChange={() => toggle.mutate({ id: p.id, is_active: !p.is_active })}
+                            />
+                            <Button variant="ghost" size="sm" onClick={handleDelete}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>
