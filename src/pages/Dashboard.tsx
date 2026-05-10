@@ -362,8 +362,12 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Top Up Wallet */}
-        <TopUpWalletSection userId={(user as any)?._id || user?.id} />
+        {/* Top Up Wallet Dialog */}
+        <TopUpWalletDialog
+          open={topUpOpen}
+          onOpenChange={setTopUpOpen}
+          shortId={(user as any)?.shortId}
+        />
 
         {/* Transaction History */}
         <Card className="card-premium">
