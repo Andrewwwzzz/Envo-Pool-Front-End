@@ -1577,11 +1577,10 @@ function TopUpsTab() {
 
   const getCustomer = (r: any) => {
     const u = r.user || r.userId || {};
-    if (typeof u === "string") return { name: "—", email: "—", id: u };
+    if (typeof u === "string") return { name: "—", shortId: r.shortId || "—" };
     return {
       name: u.name || r.customerName || "—",
-      email: u.email || r.customerEmail || "—",
-      id: u._id || u.id || r.userId || "—",
+      shortId: u.shortId || r.shortId || "—",
     };
   };
 
