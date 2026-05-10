@@ -418,7 +418,7 @@ export function useCustomerBookings(userId: string) {
   return useQuery({
     queryKey: ["admin-customer-bookings", userId],
     queryFn: async () => {
-      const res = await apiFetch(`/api/admin/customers/${userId}/bookings`);
+      const res = await apiFetch(`/api/admin/bookings/customers/${userId}/bookings`);
       if (!res.ok) throw new Error("Failed to fetch customer bookings");
       const data = await res.json();
       setCache(`customer-bookings-${userId}`, data);
@@ -433,7 +433,7 @@ export function useCustomerWalletHistory(userId: string) {
   return useQuery({
     queryKey: ["admin-customer-wallet", userId],
     queryFn: async () => {
-      const res = await apiFetch(`/api/admin/customers/${userId}/wallet`);
+      const res = await apiFetch(`/api/admin/bookings/customers/${userId}/wallet`);
       if (!res.ok) throw new Error("Failed to fetch wallet history");
       const data = await res.json();
       setCache(`customer-wallet-${userId}`, data);
@@ -448,7 +448,7 @@ export function useCustomerRewardHistory(userId: string) {
   return useQuery({
     queryKey: ["admin-customer-rewards", userId],
     queryFn: async () => {
-      const res = await apiFetch(`/api/admin/customers/${userId}/rewards`);
+      const res = await apiFetch(`/api/admin/bookings/customers/${userId}/rewards`);
       if (!res.ok) throw new Error("Failed to fetch reward history");
       const data = await res.json();
       setCache(`customer-rewards-${userId}`, data);
