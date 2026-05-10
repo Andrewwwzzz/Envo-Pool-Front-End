@@ -493,24 +493,36 @@ const Booking = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
-              <button
-                onClick={() => setPaymentMethod("wallet")}
-                className={`rounded-xl border p-4 text-left transition-all duration-200 ${
-                  paymentMethod === "wallet"
-                    ? "border-accent ring-2 ring-accent/20 bg-accent/5"
-                    : "border-border hover:border-muted-foreground/30"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Wallet className="h-5 w-5 text-accent" />
+              {(() => {
+                const walletBalance = profile?.wallet_balance ?? 0;
+                const insufficient = walletBalance < finalPrice;
+                return (
                   <div>
-                    <p className="font-medium">Wallet</p>
-                    <p className="text-sm text-muted-foreground">
-                      Balance: ${profile?.wallet_balance?.toFixed(2) ?? "0.00"}
-                    </p>
+                    <button
+                      onClick={() => !insufficient && setPaymentMethod("wallet")}
+                      disabled={insufficient}
+                      className={`w-full rounded-xl border p-4 text-left transition-all duration-200 ${
+                        paymentMethod === "wallet"
+                          ? "border-accent ring-2 ring-accent/20 bg-accent/5"
+                          : "border-border hover:border-muted-foreground/30"
+                      } ${insufficient ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Wallet className="h-5 w-5 text-accent" />
+                        <div>
+                          <p className="font-medium">Wallet</p>
+                          <p className="text-sm text-muted-foreground">
+                            Balance: ${walletBalance.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                    {insufficient && (
+                      <p className="mt-1 text-xs text-destructive">Insufficient balance</p>
+                    )}
                   </div>
-                </div>
-              </button>
+                );
+              })()}
               <button
                 onClick={() => setPaymentMethod("stripe")}
                 className={`rounded-xl border p-4 text-left transition-all duration-200 ${
