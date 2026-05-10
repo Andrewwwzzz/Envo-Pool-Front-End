@@ -441,6 +441,38 @@ function BookingsTab() {
       open={!!selectedBooking}
       onOpenChange={(open) => { if (!open) setSelectedBooking(null); }}
     />
+
+    <Dialog open={!!cancelTargetId} onOpenChange={(o) => { if (!o) { setCancelTargetId(null); setCancelReason(""); } }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Cancel Booking</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">Please provide a reason for cancelling this booking.</p>
+        <Textarea
+          value={cancelReason}
+          onChange={(e) => setCancelReason(e.target.value)}
+          placeholder="Reason for cancellation (min 5 characters)"
+          rows={4}
+          maxLength={500}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setCancelTargetId(null); setCancelReason(""); }}>Go Back</Button>
+          <Button
+            variant="destructive"
+            disabled={cancelReason.trim().length < 5 || updateStatus.isPending}
+            onClick={() => {
+              if (!cancelTargetId) return;
+              updateStatus.mutate(
+                { bookingId: cancelTargetId, status: "cancelled", reason: cancelReason.trim() },
+                { onSuccess: () => { setCancelTargetId(null); setCancelReason(""); } },
+              );
+            }}
+          >
+            Confirm Cancellation
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
