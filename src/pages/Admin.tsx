@@ -185,7 +185,7 @@ function OverviewTab() {
   );
 }
 
-type BookingFilter = "all" | "today" | "upcoming" | "completed" | "cancelled" | "refunded" | "no_show";
+type BookingFilter = "all" | "today" | "upcoming" | "completed" | "cancelled";
 
 function BookingsTab() {
   const { data: bookings, isLoading } = useAdminBookings();
@@ -213,8 +213,6 @@ function BookingsTab() {
       case "upcoming": return startDate > now && (b.status === "confirmed" || b.status === "pending");
       case "completed": return b.status === "completed" || (b.status === "confirmed" && new Date(getField(b, "endTime", "end_time")) < now);
       case "cancelled": return b.status === "cancelled";
-      case "refunded": return b.status === "refunded";
-      case "no_show": return b.status === "no_show";
       default: return true;
     }
   });
@@ -226,9 +224,9 @@ function BookingsTab() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle>All Bookings</CardTitle>
           <div className="flex flex-wrap gap-1.5">
-            {(["all", "today", "upcoming", "completed", "cancelled", "refunded", "no_show"] as BookingFilter[]).map((f) => (
+            {(["all", "today", "upcoming", "completed", "cancelled"] as BookingFilter[]).map((f) => (
               <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} onClick={() => setFilter(f)} className="capitalize text-xs h-7 px-2.5">
-                {f === "no_show" ? "No Show" : f}
+                {f}
               </Button>
             ))}
           </div>
@@ -281,13 +279,7 @@ function BookingsTab() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId, status: "cancelled" })}>
-                                Refund
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId, status: "cancelled" })}>
                                 Cancel
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId, status: "completed" })}>
-                                Mark No Show
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
