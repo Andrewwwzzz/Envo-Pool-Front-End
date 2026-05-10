@@ -205,6 +205,9 @@ const Booking = () => {
           startTime: startDate.toISOString(),
           endTime: endDate.toISOString(),
           amount: finalPrice,
+          promoCode: appliedPromo?.code || null,
+          promoDiscount: discountAmount || 0,
+          originalAmount: originalPrice || finalPrice,
         }),
       });
 
