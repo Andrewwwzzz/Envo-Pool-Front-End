@@ -135,6 +135,7 @@ function BookingsTab() {
     for (const k of keys) if (b[k] !== undefined) return b[k];
     return undefined;
   };
+  const getBookingId = (b: any) => b._id || b.id;
 
   const filtered = (bookings || []).filter((b: any) => {
     const startDate = new Date(getField(b, "startTime", "start_time"));
@@ -179,10 +180,11 @@ function BookingsTab() {
             </tr></thead>
             <tbody>
               {filtered.map((b) => {
+                const bookingId = getBookingId(b);
                 const canDelete = b.status === "pending" || b.status === "cancelled";
                 const canAction = b.status === "confirmed" || b.status === "pending";
                 return (
-                  <tr key={b.id || b._id} className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setSelectedBooking(b)}>
+                  <tr key={bookingId} className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setSelectedBooking(b)}>
                     <td className="py-3 pr-4">Table {typeof b.tableId === "string" ? b.tableId.replace("T", "") : (b as any).tables?.table_number ?? b.tableId?.tableNumber ?? "?"}</td>
                     <td className="py-3 pr-4">{fmtDateSG(getField(b, "startTime", "start_time"))}</td>
                     <td className="py-3 pr-4">{fmtTimeSG(getField(b, "startTime", "start_time"))} – {fmtTimeSG(getField(b, "endTime", "end_time"))}</td>
@@ -199,7 +201,7 @@ function BookingsTab() {
                     <td className="py-3">
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         {canDelete && (
-                          <Button variant="ghost" size="sm" onClick={() => deleteBooking.mutate(b.id)} disabled={deleteBooking.isPending}>
+                          <Button variant="ghost" size="sm" onClick={() => deleteBooking.mutate(bookingId)} disabled={deleteBooking.isPending}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         )}
@@ -209,13 +211,13 @@ function BookingsTab() {
                               <Button variant="ghost" size="sm"><MoreHorizontal className="h-4 w-4" /></Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId: b.id, status: "refunded" })}>
+                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId, status: "cancelled" })}>
                                 Refund
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId: b.id, status: "cancelled" })}>
+                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId, status: "cancelled" })}>
                                 Cancel
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId: b.id, status: "completed" })}>
+                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId, status: "completed" })}>
                                 Mark Completed
                               </DropdownMenuItem>
                             </DropdownMenuContent>

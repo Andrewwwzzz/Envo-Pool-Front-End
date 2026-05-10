@@ -318,9 +318,12 @@ export function useAdminPromoCodes() {
 export function useUpdateBookingStatus() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const allowedStatuses = new Set(["confirmed", "cancelled", "completed", "expired"]);
 
   return useMutation({
     mutationFn: async ({ bookingId, status }: { bookingId: string; status: string }) => {
+      if (!bookingId) throw new Error("Missing booking ID");
+      if (!allowedStatuses.has(status)) throw new Error("Invalid booking status");
       const res = await apiFetch(`/api/admin/bookings/${bookingId}/status`, {
         method: "POST",
         body: JSON.stringify({ status }),
