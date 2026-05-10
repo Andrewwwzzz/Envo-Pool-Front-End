@@ -359,17 +359,27 @@ const Dashboard = () => {
 
         {/* Transaction History */}
         <Card className="card-premium">
-          <CardHeader><CardTitle className="text-lg">Transaction History</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg">Transaction History</CardTitle>
+            {transactionHistory && transactionHistory.length > 10 && (
+              <Button variant="ghost" size="sm" onClick={() => setShowAllTx((v) => !v)}>
+                {showAllTx ? "Show Less" : "View All"}
+              </Button>
+            )}
+          </CardHeader>
           <CardContent>
             {!transactionHistory?.length ? (
               <p className="text-muted-foreground text-sm">No transactions yet.</p>
             ) : (
               <div className="space-y-2">
-                {transactionHistory.map((t) => (
+                {(showAllTx ? transactionHistory : transactionHistory.slice(0, 10)).map((t: any) => (
                   <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
-                    <div>
-                      <p className="font-medium">{t.label}</p>
-                      <p className="text-xs text-muted-foreground">{t.sublabel}</p>
+                    <div className="flex items-center gap-3">
+                      <Badge variant="outline" className={txBadge(t.typeKey)}>{t.typeLabel}</Badge>
+                      <div>
+                        <p className="text-xs text-muted-foreground">{fmtNiceDate(t.date)}</p>
+                        {t.method && <p className="text-xs text-muted-foreground">{t.method}</p>}
+                      </div>
                     </div>
                     <span className={t.positive ? "text-primary font-medium" : "text-destructive font-medium"}>
                       {t.amount}
