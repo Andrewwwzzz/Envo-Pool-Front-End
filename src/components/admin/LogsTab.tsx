@@ -87,7 +87,13 @@ function TransactionsView() {
                   <td className="py-3 pr-4">
                     {typeLabel ? <Badge variant="outline" className={`capitalize ${typeClass}`}>{typeLabel}</Badge> : <span className="text-muted-foreground">—</span>}
                   </td>
-                  <td className="py-3 pr-4 capitalize text-muted-foreground">{methodLabel || "—"}</td>
+                  <td className="py-3 pr-4">
+                    {rawMethod === "cash"
+                      ? <Badge variant="outline" className={methodClass}>Cash</Badge>
+                      : methodLabel === "paynow"
+                      ? <span className="capitalize text-muted-foreground">PayNow</span>
+                      : <span className="capitalize text-muted-foreground">{methodLabel || "—"}</span>}
+                  </td>
                   <td className="py-3 text-muted-foreground">
                     {t.createdAt || t.created_at ? fmtDateTimeSG(t.createdAt || t.created_at) : "—"}
                   </td>
