@@ -24,9 +24,15 @@ export function useDeleteBooking() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (bookingId: string) => {
-      const res = await apiFetch(`/api/admin/bookings/${bookingId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete booking");
+    mutationFn: async ({ bookingId, reason }: { bookingId: string; reason: string }) => {
+      const res = await apiFetch(`/api/admin/bookings/${bookingId}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || err.message || "Failed to delete booking");
+      }
     },
     onSuccess: () => {
       toast({ title: "Booking deleted" });
