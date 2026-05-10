@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import BookingDetailDialog from "@/components/BookingDetailDialog";
+import AdminBookingDetailDialog from "@/components/admin/AdminBookingDetailDialog";
 import { useDeviceState, useDeviceControl } from "@/hooks/useDeviceControl";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
 import { useTermsContent, useUpdateTerms } from "@/hooks/useTerms";
