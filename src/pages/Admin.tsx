@@ -322,13 +322,14 @@ function OverviewTab() {
   );
 }
 
-type BookingFilter = "all" | "today" | "upcoming" | "completed" | "cancelled";
+type BookingFilter = "all" | "today" | "upcoming" | "completed" | "cancelled" | "deleted";
 
 function BookingsTab() {
-  const { data: bookings, isLoading } = useAdminBookings();
+  const [filter, setFilter] = useState<BookingFilter>("all");
+  const showDeleted = filter === "deleted";
+  const { data: bookings, isLoading } = useAdminBookings(showDeleted);
   const deleteBooking = useDeleteBooking();
   const updateStatus = useUpdateBookingStatus();
-  const [filter, setFilter] = useState<BookingFilter>("all");
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -346,6 +347,8 @@ function BookingsTab() {
   const getBookingId = (b: any) => b._id || b.id;
 
   const filtered = (bookings || []).filter((b: any) => {
+    if (filter === "deleted") return b.isDeleted === true;
+    if (b.isDeleted === true) return false;
     const startDate = new Date(getField(b, "startTime", "start_time"));
     switch (filter) {
       case "today": return startDate >= todayStart && startDate <= todayEnd;
@@ -363,7 +366,7 @@ function BookingsTab() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle>All Bookings</CardTitle>
           <div className="flex flex-wrap gap-1.5">
-            {(["all", "today", "upcoming", "completed", "cancelled"] as BookingFilter[]).map((f) => (
+            {(["all", "today", "upcoming", "completed", "cancelled", "deleted"] as BookingFilter[]).map((f) => (
               <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} onClick={() => setFilter(f)} className="capitalize text-xs h-7 px-2.5">
                 {f}
               </Button>
@@ -387,10 +390,11 @@ function BookingsTab() {
             <tbody>
               {filtered.map((b) => {
                 const bookingId = getBookingId(b);
-                const canDelete = b.status === "pending" || b.status === "cancelled";
-                const canAction = b.status === "confirmed" || b.status === "pending";
+                const isDeleted = b.isDeleted === true;
+                const canDelete = !isDeleted && (b.status === "pending" || b.status === "cancelled");
+                const canAction = !isDeleted && (b.status === "confirmed" || b.status === "pending");
                 return (
-                  <tr key={bookingId} className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setSelectedBooking(b)}>
+                  <tr key={bookingId} className={`border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors ${isDeleted ? "opacity-60" : ""}`} onClick={() => setSelectedBooking(b)}>
                     <td className="py-3 pr-4">Table {typeof b.tableId === "string" ? b.tableId.replace("T", "") : (b as any).tables?.table_number ?? b.tableId?.tableNumber ?? "?"}</td>
                     <td className="py-3 pr-4">{fmtDateSG(getField(b, "startTime", "start_time"))}</td>
                     <td className="py-3 pr-4">{fmtTimeSG(getField(b, "startTime", "start_time"))} – {fmtTimeSG(getField(b, "endTime", "end_time"))}</td>
@@ -398,11 +402,15 @@ function BookingsTab() {
                     <td className="py-3 pr-4">${(getField(b, "amount", "finalPrice", "final_price", "price") ?? 0).toFixed(2)}</td>
                     <td className="py-3 pr-4 capitalize">{getField(b, "paymentMethod", "payment_method", "inferredPaymentMethod") ?? (b.paymentStatus === "paid" ? "paynow" : "—")}</td>
                     <td className="py-3 pr-4">
-                      <Badge variant="outline" className={`capitalize ${
-                        b.status === "refunded" ? "text-orange-600 border-orange-300" :
-                        b.status === "no_show" ? "text-red-600 border-red-300" :
-                        b.status === "cancelled" ? "text-destructive border-destructive/30" : ""
-                      }`}>{b.status === "no_show" ? "No Show" : b.status}</Badge>
+                      {isDeleted ? (
+                        <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Deleted</Badge>
+                      ) : (
+                        <Badge variant="outline" className={`capitalize ${
+                          b.status === "refunded" ? "text-orange-600 border-orange-300" :
+                          b.status === "no_show" ? "text-red-600 border-red-300" :
+                          b.status === "cancelled" ? "text-destructive border-destructive/30" : ""
+                        }`}>{b.status === "no_show" ? "No Show" : b.status}</Badge>
+                      )}
                     </td>
                     <td className="py-3">
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -710,7 +718,8 @@ function TablesTab() {
 }
 
 function InvoicesTab() {
-  const { data, isLoading } = useAdminTimerSessions();
+  const [showDeleted, setShowDeleted] = useState(false);
+  const { data, isLoading } = useAdminTimerSessions(showDeleted);
   const sessions: any[] = Array.isArray(data) ? data : (data?.sessions || data?.timerSessions || []);
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -728,6 +737,7 @@ function InvoicesTab() {
       if (!res.ok) throw new Error("Failed");
       toast({ title: "Invoice deleted" });
       qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
+      qc.invalidateQueries({ queryKey: ["admin-timer-sessions", true] });
       setDeleteTargetId(null);
       setDeleteReason("");
     } catch {
@@ -756,9 +766,19 @@ function InvoicesTab() {
     <>
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5" /> Timer Session Invoices
-        </CardTitle>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" /> Timer Session Invoices
+          </CardTitle>
+          <Button
+            size="sm"
+            variant={showDeleted ? "default" : "outline"}
+            onClick={() => setShowDeleted((v) => !v)}
+            className="text-xs h-7"
+          >
+            {showDeleted ? "Hide Deleted" : "Show Deleted"}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {!sessions.length ? (
@@ -787,26 +807,35 @@ function InvoicesTab() {
                   const rate = Number(s.hourlyRate ?? s.hourly_rate ?? 0);
                   const amount = Number(s.amountCharged ?? s.amount_charged ?? s.total_cost ?? 0);
                   const staff = s.startedBy?.name || s.startedBy?.email || "—";
+                  const isDeleted = s.isDeleted === true;
+                  const deletedBy = s.deletedBy?.name || s.deletedBy?.email || (typeof s.deletedBy === "string" ? s.deletedBy : "");
+                  const tooltipText = isDeleted
+                    ? `Reason: ${s.deletionReason || "—"}\nDeleted by: ${deletedBy || "—"}${s.deletedAt ? `\nDeleted at: ${fmtDateTimeSG(s.deletedAt)}` : ""}`
+                    : undefined;
                   return (
-                    <tr key={s._id || s.id} className="border-b border-border last:border-0">
+                    <tr key={s._id || s.id} className={`border-b border-border last:border-0 ${isDeleted ? "opacity-60" : ""}`} title={tooltipText}>
                       <td className="py-3 pr-4">{startedAt ? formatDateLong(startedAt) : "—"}</td>
                       <td className="py-3 pr-4">{s.tableName || (s.tables?.table_number ? `Table ${s.tables.table_number}` : "—")}</td>
                       <td className="py-3 pr-4">{startedAt ? fmtTimeSG(startedAt) : "—"}</td>
                       <td className="py-3 pr-4">{endedAt ? fmtTimeSG(endedAt) : "—"}</td>
                       <td className="py-3 pr-4 font-mono">{formatDuration(duration)}</td>
                       <td className="py-3 pr-4">${rate.toFixed(0)}/hr</td>
-                      <td className="py-3 pr-4 font-medium">${amount.toFixed(2)}</td>
+                      <td className={`py-3 pr-4 font-medium ${isDeleted ? "line-through text-muted-foreground" : ""}`}>${amount.toFixed(2)}</td>
                       <td className="py-3 pr-4 text-muted-foreground">{staff}</td>
                       <td className="py-3 text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          disabled={deletingId === (s._id || s.id)}
-                          onClick={() => { setDeleteTargetId(s._id || s.id); setDeleteReason(""); }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {isDeleted ? (
+                          <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Deleted</Badge>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled={deletingId === (s._id || s.id)}
+                            onClick={() => { setDeleteTargetId(s._id || s.id); setDeleteReason(""); }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   );

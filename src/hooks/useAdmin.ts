@@ -3,18 +3,19 @@ import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 import { getCached, setCache } from "@/lib/queryCache";
 
-export function useAdminBookings() {
+export function useAdminBookings(showDeleted = false) {
+  const key = showDeleted ? "admin-bookings-deleted" : "admin-bookings";
   return useQuery({
-    queryKey: ["admin-bookings"],
+    queryKey: ["admin-bookings", showDeleted],
     queryFn: async () => {
-      const res = await apiFetch("/api/bookings");
+      const res = await apiFetch(`/api/bookings${showDeleted ? "?showDeleted=true" : ""}`);
       if (!res.ok) throw new Error("Failed to fetch bookings");
       const data = await res.json();
-      setCache("admin-bookings", data);
+      setCache(key, data);
       return data;
     },
     refetchInterval: 30000,
-    initialData: () => getCached("admin-bookings"),
+    initialData: () => getCached(key),
   });
 }
 
@@ -129,17 +130,18 @@ export function useAdminTables() {
   return { ...tablesQuery, updateStatus, startTimer, stopTimer, setMaintenance };
 }
 
-export function useAdminTimerSessions() {
+export function useAdminTimerSessions(showDeleted = false) {
+  const key = showDeleted ? "admin-timer-sessions-deleted" : "admin-timer-sessions";
   return useQuery({
-    queryKey: ["admin-timer-sessions"],
+    queryKey: ["admin-timer-sessions", showDeleted],
     queryFn: async () => {
-      const res = await apiFetch("/api/admin/timer-sessions");
+      const res = await apiFetch(`/api/admin/timer-sessions${showDeleted ? "?showDeleted=true" : ""}`);
       if (!res.ok) throw new Error("Failed to fetch timer sessions");
       const data = await res.json();
-      setCache("admin-timer-sessions", data);
+      setCache(key, data);
       return data;
     },
-    initialData: () => getCached("admin-timer-sessions"),
+    initialData: () => getCached(key),
   });
 }
 
