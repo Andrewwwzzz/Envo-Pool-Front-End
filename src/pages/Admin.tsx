@@ -715,15 +715,21 @@ function InvoicesTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this invoice? This cannot be undone.")) return;
+  const handleDelete = async (id: string, reason: string) => {
     setDeletingId(id);
     try {
-      const res = await apiFetch(`/api/admin/timer-sessions/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/admin/timer-sessions/${id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason }),
+      });
       if (!res.ok) throw new Error("Failed");
       toast({ title: "Invoice deleted" });
       qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
+      setDeleteTargetId(null);
+      setDeleteReason("");
     } catch {
       toast({ title: "Failed to delete invoice", variant: "destructive" });
     } finally {
