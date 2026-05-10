@@ -107,9 +107,6 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setConfirmCancel(false); }}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-card border-border">
         <DialogHeader>
           <DialogTitle className="text-lg gold-gradient">Booking Details</DialogTitle>
