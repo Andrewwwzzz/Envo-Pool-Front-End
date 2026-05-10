@@ -9,7 +9,8 @@ import { getCached, setCache } from "@/lib/queryCache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, Calendar, History, LogOut, ArrowLeft, XCircle, Settings } from "lucide-react";
+import { Wallet, Calendar, History, LogOut, ArrowLeft, XCircle, Settings, Copy } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
 import PendingVerificationCard from "@/components/PendingVerificationCard";
 import { useToast } from "@/hooks/use-toast";
@@ -357,6 +358,9 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
+        {/* Top Up Wallet */}
+        <TopUpWalletSection userId={(user as any)?._id || user?.id} />
+
         {/* Transaction History */}
         <Card className="card-premium">
           <CardHeader className="flex flex-row items-center justify-between">
@@ -400,5 +404,145 @@ const Dashboard = () => {
     </div>
   );
 };
+
+const PAYNOW_NUMBER = "+65 XXXXXXXX";
+
+function TopUpWalletSection({ userId }: { userId?: string }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [amount, setAmount] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const { data: requests } = useQuery({
+    queryKey: ["my-topup-requests"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/topup/my-requests");
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : data?.requests ?? [];
+    },
+    refetchInterval: 15000,
+  });
+
+  const copyId = async () => {
+    if (!userId) return;
+    try {
+      await navigator.clipboard.writeText(userId);
+      toast({ title: "User ID copied" });
+    } catch {
+      toast({ title: "Copy failed", variant: "destructive" });
+    }
+  };
+
+  const handleSubmit = async () => {
+    const amt = Number(amount);
+    if (!amt || amt < 10) {
+      toast({ title: "Minimum top up is $10", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await apiFetch("/api/topup/request", {
+        method: "POST",
+        body: JSON.stringify({ amount: amt }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setSubmitted(true);
+      setAmount("");
+      qc.invalidateQueries({ queryKey: ["my-topup-requests"] });
+    } catch {
+      toast({ title: "Failed to submit request", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const statusClass = (s: string) => {
+    const v = String(s || "").toLowerCase();
+    if (v === "approved") return "bg-green-500/10 text-green-400 border-green-500/30";
+    if (v === "rejected") return "bg-destructive/10 text-destructive border-destructive/30";
+    return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+  };
+  const statusText = (s: string) => {
+    const v = String(s || "pending").toLowerCase();
+    return v.charAt(0).toUpperCase() + v.slice(1);
+  };
+
+  return (
+    <Card className="card-premium">
+      <CardHeader>
+        <CardTitle className="text-lg">Top Up Wallet</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="rounded-lg border border-border/50 p-4 space-y-3">
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Your User ID</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 px-3 py-2 rounded bg-muted text-sm font-mono break-all">{userId || "—"}</code>
+              <Button variant="outline" size="icon" onClick={copyId} disabled={!userId}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">PayNow Number</p>
+            <p className="text-lg font-semibold">{PAYNOW_NUMBER}</p>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Transfer any amount via PayNow to the number above. Put your User ID in the payment reference so we can identify your payment.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm text-muted-foreground">Amount (SGD)</label>
+          <Input
+            type="number"
+            min={10}
+            step="0.01"
+            placeholder="Minimum $10"
+            value={amount}
+            onChange={(e) => { setAmount(e.target.value); setSubmitted(false); }}
+          />
+          <Button onClick={handleSubmit} disabled={submitting} className="w-full">
+            I've Made Payment
+          </Button>
+          {submitted && (
+            <p className="text-sm text-green-400">
+              Request submitted! Your wallet will be credited once staff verifies your payment.
+            </p>
+          )}
+        </div>
+
+        <div>
+          <p className="text-sm font-medium mb-2">My Top Up History</p>
+          {!requests?.length ? (
+            <p className="text-muted-foreground text-sm">No top up requests yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {requests.map((r: any) => (
+                <div key={r._id || r.id} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
+                  <div>
+                    <p className="font-medium">${Number(r.amount || 0).toFixed(2)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(r.createdAt || r.created_at).toLocaleString("en-GB", {
+                        day: "2-digit", month: "short", year: "numeric",
+                        hour: "numeric", minute: "2-digit", hour12: true,
+                        timeZone: "Asia/Singapore",
+                      })}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className={statusClass(r.status)}>
+                    {statusText(r.status)}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default Dashboard;
