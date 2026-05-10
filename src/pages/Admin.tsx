@@ -277,16 +277,15 @@ function BookingsTab() {
                           </Button>
                         )}
                         {canAction && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm"><MoreHorizontal className="h-4 w-4" /></Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId, status: "cancelled" })}>
-                                Cancel
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Cancel booking"
+                            onClick={() => updateStatus.mutate({ bookingId, status: "cancelled" })}
+                            disabled={updateStatus.isPending}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                         )}
                       </div>
                     </td>
