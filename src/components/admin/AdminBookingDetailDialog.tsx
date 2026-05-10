@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
-import { useUpdateBookingStatus } from "@/hooks/useAdmin";
 
 interface Props {
   booking: any | null;
@@ -55,9 +53,6 @@ const paymentLabel: Record<string, string> = {
 };
 
 const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
-  const updateStatus = useUpdateBookingStatus();
-  const [confirmCancel, setConfirmCancel] = useState(false);
-
   if (!booking) return null;
   const b = booking;
   const id: string = b._id || b.id || "";
@@ -110,17 +105,8 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
   const paymentKey = paymentMethodRaw ? String(paymentMethodRaw).toLowerCase() : null;
   const paidAt = b.paidAt || b.paid_at;
 
-  const canMarkCompleted = status === "confirmed";
-  const canCancel = status === "confirmed" || status === "pending" || status === "pending_payment";
-  const hasActions = canMarkCompleted || canCancel;
-
-  const close = () => {
-    onOpenChange(false);
-    setConfirmCancel(false);
-  };
-
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setConfirmCancel(false); }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-card border-border">
         <DialogHeader>
           <DialogTitle className="text-lg gold-gradient">Booking Details</DialogTitle>
@@ -260,61 +246,6 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
                 <div className="text-muted-foreground">No promo applied</div>
               )}
             </div>
-          </section>
-
-          <Separator className="bg-border/50" />
-
-          {/* Actions */}
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Actions</h3>
-            {!hasActions ? (
-              <p className="text-sm text-muted-foreground">No actions available.</p>
-            ) : confirmCancel ? (
-              <div className="space-y-2">
-                <p className="text-sm">Are you sure you want to cancel this booking?</p>
-                <div className="flex gap-2 justify-end">
-                  <Button variant="outline" onClick={() => setConfirmCancel(false)}>Keep</Button>
-                  <Button
-                    variant="destructive"
-                    disabled={updateStatus.isPending}
-                    onClick={() => {
-                      updateStatus.mutate(
-                        { bookingId: id, status: "cancelled" },
-                        { onSuccess: () => close() },
-                      );
-                    }}
-                  >
-                    Confirm Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2 sm:flex-row">
-                {canMarkCompleted && (
-                  <Button
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                    disabled={updateStatus.isPending}
-                    onClick={() => {
-                      updateStatus.mutate(
-                        { bookingId: id, status: "completed" },
-                        { onSuccess: () => close() },
-                      );
-                    }}
-                  >
-                    Mark Completed
-                  </Button>
-                )}
-                {canCancel && (
-                  <Button
-                    variant="destructive"
-                    disabled={updateStatus.isPending}
-                    onClick={() => setConfirmCancel(true)}
-                  >
-                    Cancel Booking
-                  </Button>
-                )}
-              </div>
-            )}
           </section>
         </div>
       </DialogContent>
