@@ -543,6 +543,24 @@ function TablesTab() {
 function InvoicesTab() {
   const { data, isLoading } = useAdminTimerSessions();
   const sessions: any[] = Array.isArray(data) ? data : (data?.sessions || data?.timerSessions || []);
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this invoice? This cannot be undone.")) return;
+    setDeletingId(id);
+    try {
+      const res = await apiFetch(`/api/admin/timer-sessions/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed");
+      toast({ title: "Invoice deleted" });
+      qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
+    } catch {
+      toast({ title: "Failed to delete invoice", variant: "destructive" });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const formatDuration = (seconds: number) => {
     const total = Math.max(0, Math.floor(Number(seconds) || 0));
