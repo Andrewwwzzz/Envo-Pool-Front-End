@@ -279,13 +279,7 @@ function BookingsTab() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId, status: "cancelled" })}>
-                                Refund
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId, status: "cancelled" })}>
                                 Cancel
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => updateStatus.mutate({ bookingId, status: "completed" })}>
-                                Mark No Show
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
