@@ -739,6 +739,7 @@ function CustomersTab() {
 }
 
 function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => void }) {
+  const { toast } = useToast();
   const updateWallet = useUpdateCustomerWallet();
   const deleteCustomer = useDeleteCustomer();
   const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id);
