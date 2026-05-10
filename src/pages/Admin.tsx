@@ -718,7 +718,8 @@ function TablesTab() {
 }
 
 function InvoicesTab() {
-  const { data, isLoading } = useAdminTimerSessions();
+  const [showDeleted, setShowDeleted] = useState(false);
+  const { data, isLoading } = useAdminTimerSessions(showDeleted);
   const sessions: any[] = Array.isArray(data) ? data : (data?.sessions || data?.timerSessions || []);
   const { toast } = useToast();
   const qc = useQueryClient();
