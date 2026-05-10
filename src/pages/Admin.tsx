@@ -3,7 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import AdminBookingDetailDialog from "@/components/admin/AdminBookingDetailDialog";
 import { useDeviceState, useDeviceControl } from "@/hooks/useDeviceControl";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
-import { useTermsContent, useUpdateTerms } from "@/hooks/useTerms";
+
 import { useAuth } from "@/contexts/AuthContext";
 
 import { Navigate, Link } from "react-router-dom";
@@ -70,7 +70,7 @@ const Admin = () => {
             <TabsTrigger value="customers">Customers</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="promos">Promos</TabsTrigger>
-            <TabsTrigger value="terms">T&C</TabsTrigger>
+            
             <TabsTrigger value="verification">Verification</TabsTrigger>
             <TabsTrigger value="logs">Logs</TabsTrigger>
           </TabsList>
@@ -83,7 +83,7 @@ const Admin = () => {
           <TabsContent value="customers"><CustomersTab /></TabsContent>
           <TabsContent value="pricing"><PricingTab /></TabsContent>
           <TabsContent value="promos"><PromosTab /></TabsContent>
-          <TabsContent value="terms"><TermsTab /></TabsContent>
+          
           <TabsContent value="verification"><VerificationTab /></TabsContent>
           <TabsContent value="logs"><LogsTab /></TabsContent>
         </Tabs>
@@ -1555,61 +1555,6 @@ function PromosTab() {
   );
 }
 
-function TermsTab() {
-  const { data: terms, isLoading } = useTermsContent();
-  const updateTerms = useUpdateTerms();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-
-  const startEdit = () => {
-    setDraft(terms?.content ?? "");
-    setEditing(true);
-  };
-
-  const save = () => {
-    if (!terms) return;
-    updateTerms.mutate({ id: terms.id, content: draft }, {
-      onSuccess: () => setEditing(false),
-    });
-  };
-
-  
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ScrollText className="h-5 w-5 text-primary" /> Terms & Conditions
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {editing ? (
-          <>
-            <Textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={16}
-              className="font-mono text-sm"
-            />
-            <div className="flex gap-2">
-              <Button onClick={save} disabled={updateTerms.isPending}>
-                {updateTerms.isPending ? "Saving..." : "Save"}
-              </Button>
-              <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="whitespace-pre-wrap text-sm text-foreground border border-border rounded-lg p-4 max-h-96 overflow-y-auto">
-              {terms?.content || "No content yet."}
-            </div>
-            <Button onClick={startEdit}>Edit Terms</Button>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
 
 function VerificationTab() {
   const { user } = useAuth();
