@@ -956,7 +956,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
       {/* Wallet & Reward History */}
       <div className="grid md:grid-cols-2 gap-4">
         <Card>
-          <CardHeader><CardTitle className="text-base">Wallet Transactions</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Wallet Transactions{customer.shortId ? <span className="text-muted-foreground font-normal"> — Reference: <span className="font-mono">{customer.shortId}</span></span> : null}</CardTitle></CardHeader>
           <CardContent>
             {(() => {
               const txs = Array.isArray(walletHistory) ? walletHistory : (walletHistory?.transactions ?? []);
