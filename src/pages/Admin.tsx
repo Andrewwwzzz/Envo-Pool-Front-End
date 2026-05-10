@@ -101,7 +101,7 @@ function OverviewTab() {
   const handleDownload = async () => {
     setGenerating(true);
     try {
-      const res = await fetch(`https://api.envopoolsg.com/api/report/sales?from=${from}&to=${to}`, { headers: getAuthHeaders() });
+      const res = await fetch(`https://api.envopoolsg.com/api/admin/report/sales?from=${from}&to=${to}`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error("Failed to generate report");
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
