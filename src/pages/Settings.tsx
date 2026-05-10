@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Settings as SettingsIcon, Eye, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiFetch } from "@/lib/api";
 
 const Settings = () => {
   const { user, loading } = useAuth();
@@ -36,9 +37,7 @@ const Settings = () => {
   useEffect(() => {
     if (!user) return;
     const userId = user.id;
-    fetch(`https://api.envopoolsg.com/api/bookings/name-visibility?userId=${userId}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-    })
+    apiFetch(`/api/bookings/name-visibility?userId=${userId}`)
       .then(res => res.ok ? res.json() : null)
       .catch(() => {});
   }, [user]);
@@ -57,12 +56,8 @@ const Settings = () => {
     setShowName(checked);
     setNameToggleLoading(true);
     try {
-      const res = await fetch("https://api.envopoolsg.com/api/bookings/toggle-name-visibility", {
+      const res = await apiFetch("/api/bookings/toggle-name-visibility", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
         body: JSON.stringify({ userId: user.id, showName: checked }),
       });
       if (!res.ok) {
