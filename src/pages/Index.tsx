@@ -1,11 +1,29 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Target, Cpu, Trophy, Users, ArrowRight, ChevronDown, Star, Zap } from "lucide-react";
 import heroImage from "@/assets/hero-pool.jpg";
 import poolBalls from "@/assets/pool-balls.jpg";
 import poolTech from "@/assets/pool-tech.jpg";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const handleBookNow = () => {
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
+    if (user.isVerified === false) {
+      toast({ title: "Your account is pending verification" });
+      navigate("/dashboard");
+      return;
+    }
+    navigate("/booking");
+  };
   return (
     <div className="min-h-screen bg-background dark">
       {/* Navigation */}
