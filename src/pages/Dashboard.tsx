@@ -48,6 +48,7 @@ const Dashboard = () => {
   const { toast } = useToast();
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [showAllTx, setShowAllTx] = useState(false);
+  const [topUpOpen, setTopUpOpen] = useState(false);
 
   const fmtNiceDate = (s: string) => {
     if (!s) return "";
