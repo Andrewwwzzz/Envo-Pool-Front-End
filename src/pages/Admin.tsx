@@ -35,7 +35,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { LogOut, ArrowLeft, DollarSign, Calendar, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download } from "lucide-react";
-import { getAuthHeaders } from "@/lib/api";
+import { getAuthHeaders, apiFetch } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -542,6 +543,24 @@ function TablesTab() {
 function InvoicesTab() {
   const { data, isLoading } = useAdminTimerSessions();
   const sessions: any[] = Array.isArray(data) ? data : (data?.sessions || data?.timerSessions || []);
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this invoice? This cannot be undone.")) return;
+    setDeletingId(id);
+    try {
+      const res = await apiFetch(`/api/admin/timer-sessions/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed");
+      toast({ title: "Invoice deleted" });
+      qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
+    } catch {
+      toast({ title: "Failed to delete invoice", variant: "destructive" });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const formatDuration = (seconds: number) => {
     const total = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -580,7 +599,8 @@ function InvoicesTab() {
                   <th className="pb-2 pr-4">Duration</th>
                   <th className="pb-2 pr-4">Rate</th>
                   <th className="pb-2 pr-4">Amount</th>
-                  <th className="pb-2">Staff</th>
+                  <th className="pb-2 pr-4">Staff</th>
+                  <th className="pb-2"></th>
                 </tr>
               </thead>
               <tbody>
@@ -600,7 +620,18 @@ function InvoicesTab() {
                       <td className="py-3 pr-4 font-mono">{formatDuration(duration)}</td>
                       <td className="py-3 pr-4">${rate.toFixed(0)}/hr</td>
                       <td className="py-3 pr-4 font-medium">${amount.toFixed(2)}</td>
-                      <td className="py-3 text-muted-foreground">{staff}</td>
+                      <td className="py-3 pr-4 text-muted-foreground">{staff}</td>
+                      <td className="py-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={deletingId === (s._id || s.id)}
+                          onClick={() => handleDelete(s._id || s.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </td>
                     </tr>
                   );
                 })}
