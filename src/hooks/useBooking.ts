@@ -37,7 +37,7 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
           hardware_id: t.hardwareId ?? t.hardware_id ?? null,
           status: t.timerStartedAt || t.timer_started_at
             ? "In Use" as TableStatus
-            : t.status === "maintenance"
+            : (t.status === "maintenance" || t.isActive === false)
             ? "Maintenance" as TableStatus
             : "Available" as TableStatus,
         }));
