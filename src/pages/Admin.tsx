@@ -390,10 +390,11 @@ function BookingsTab() {
             <tbody>
               {filtered.map((b) => {
                 const bookingId = getBookingId(b);
-                const canDelete = b.status === "pending" || b.status === "cancelled";
-                const canAction = b.status === "confirmed" || b.status === "pending";
+                const isDeleted = b.isDeleted === true;
+                const canDelete = !isDeleted && (b.status === "pending" || b.status === "cancelled");
+                const canAction = !isDeleted && (b.status === "confirmed" || b.status === "pending");
                 return (
-                  <tr key={bookingId} className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setSelectedBooking(b)}>
+                  <tr key={bookingId} className={`border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors ${isDeleted ? "opacity-60" : ""}`} onClick={() => setSelectedBooking(b)}>
                     <td className="py-3 pr-4">Table {typeof b.tableId === "string" ? b.tableId.replace("T", "") : (b as any).tables?.table_number ?? b.tableId?.tableNumber ?? "?"}</td>
                     <td className="py-3 pr-4">{fmtDateSG(getField(b, "startTime", "start_time"))}</td>
                     <td className="py-3 pr-4">{fmtTimeSG(getField(b, "startTime", "start_time"))} – {fmtTimeSG(getField(b, "endTime", "end_time"))}</td>
@@ -401,11 +402,15 @@ function BookingsTab() {
                     <td className="py-3 pr-4">${(getField(b, "amount", "finalPrice", "final_price", "price") ?? 0).toFixed(2)}</td>
                     <td className="py-3 pr-4 capitalize">{getField(b, "paymentMethod", "payment_method", "inferredPaymentMethod") ?? (b.paymentStatus === "paid" ? "paynow" : "—")}</td>
                     <td className="py-3 pr-4">
-                      <Badge variant="outline" className={`capitalize ${
-                        b.status === "refunded" ? "text-orange-600 border-orange-300" :
-                        b.status === "no_show" ? "text-red-600 border-red-300" :
-                        b.status === "cancelled" ? "text-destructive border-destructive/30" : ""
-                      }`}>{b.status === "no_show" ? "No Show" : b.status}</Badge>
+                      {isDeleted ? (
+                        <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Deleted</Badge>
+                      ) : (
+                        <Badge variant="outline" className={`capitalize ${
+                          b.status === "refunded" ? "text-orange-600 border-orange-300" :
+                          b.status === "no_show" ? "text-red-600 border-red-300" :
+                          b.status === "cancelled" ? "text-destructive border-destructive/30" : ""
+                        }`}>{b.status === "no_show" ? "No Show" : b.status}</Badge>
+                      )}
                     </td>
                     <td className="py-3">
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
