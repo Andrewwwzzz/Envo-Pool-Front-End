@@ -62,7 +62,7 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
         const tableId = t._id || t.id;
         const hardwareId = t.hardwareId ?? t.hardware_id ?? null;
 
-        if (t.status === "maintenance") {
+        if (t.status === "maintenance" || t.isActive === false) {
           return { id: tableId, table_number: t.tableNumber ?? t.table_number, hardware_id: hardwareId, status: "Maintenance" as TableStatus };
         }
         if (t.timerStartedAt || t.timer_started_at) {
