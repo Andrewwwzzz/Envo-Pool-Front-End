@@ -238,8 +238,12 @@ const Dashboard = () => {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-medium">${getPrice(b).toFixed(2)}</span>
+                      {(() => {
+                        const pb = paymentBadge(b.paymentMethod ?? b.payment_method);
+                        return pb ? <Badge variant="outline" className={pb.className}>{pb.label}</Badge> : null;
+                      })()}
                       <Badge variant="outline" className={statusBadge[getStatus(b)] ?? ""}>
-                        {getStatus(b) === "pending_payment" ? "Pending Payment" : getStatus(b)}
+                        {statusLabel(getStatus(b))}
                       </Badge>
                       {(getStatus(b) === "pending" || getStatus(b) === "pending_payment") && (
                         <Button
@@ -284,7 +288,11 @@ const Dashboard = () => {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-medium">${getPrice(b).toFixed(2)}</span>
-                      <Badge variant="outline" className={statusBadge[getStatus(b)] ?? ""}>{getStatus(b) === "pending_payment" ? "Pending Payment" : getStatus(b)}</Badge>
+                      {(() => {
+                        const pb = paymentBadge(b.paymentMethod ?? b.payment_method);
+                        return pb ? <Badge variant="outline" className={pb.className}>{pb.label}</Badge> : null;
+                      })()}
+                      <Badge variant="outline" className={statusBadge[getStatus(b)] ?? ""}>{statusLabel(getStatus(b))}</Badge>
                     </div>
                   </div>
                 ))}
