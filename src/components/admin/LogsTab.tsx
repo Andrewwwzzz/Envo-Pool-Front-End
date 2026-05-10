@@ -59,17 +59,23 @@ function TransactionsView() {
                 const userObj = typeof t.userId === "object" ? t.userId : null;
                 const rawId = typeof t.userId === "string" ? t.userId : (userObj?._id || userObj?.id || "");
                 const userDisplay = t.userName || t.user?.name || userObj?.name || userObj?.email || (rawId ? `${String(rawId).slice(0, 8)}...` : "—");
+                const rawMethod = String(t.paymentMethod || t.payment_method || t.method || "").toLowerCase();
+                const methodLabel = rawMethod === "stripe" ? "paynow" : rawMethod;
                 const rawType = String(t.type || t.transactionType || "").toLowerCase();
-                const typeLabel = rawType === "booking_payment" || rawType === "wallet_deduct" ? "payment" : rawType;
-                const typeClass = typeLabel === "payment"
+                let typeLabel = rawType === "booking_payment" || rawType === "wallet_deduct" ? "payment" : rawType;
+                if (rawMethod === "cash") typeLabel = "timer session";
+                const typeClass = rawMethod === "cash"
+                  ? "bg-muted text-muted-foreground border-border"
+                  : typeLabel === "payment"
                   ? "bg-destructive/10 text-destructive border-destructive/30"
                   : typeLabel === "topup"
                   ? "bg-green-500/10 text-green-400 border-green-500/30"
                   : typeLabel === "refund"
                   ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
                   : "";
-                const rawMethod = String(t.paymentMethod || t.payment_method || t.method || "").toLowerCase();
-                const methodLabel = rawMethod === "stripe" ? "paynow" : rawMethod;
+                const methodClass = rawMethod === "cash"
+                  ? "bg-muted text-muted-foreground border-border"
+                  : "";
                 return (
                 <tr key={t._id || t.id || i} className="border-b border-border last:border-0">
                   <td className="py-3 pr-4">{userDisplay}</td>
@@ -81,7 +87,13 @@ function TransactionsView() {
                   <td className="py-3 pr-4">
                     {typeLabel ? <Badge variant="outline" className={`capitalize ${typeClass}`}>{typeLabel}</Badge> : <span className="text-muted-foreground">—</span>}
                   </td>
-                  <td className="py-3 pr-4 capitalize text-muted-foreground">{methodLabel || "—"}</td>
+                  <td className="py-3 pr-4">
+                    {rawMethod === "cash"
+                      ? <Badge variant="outline" className={methodClass}>Cash</Badge>
+                      : methodLabel === "paynow"
+                      ? <span className="capitalize text-muted-foreground">PayNow</span>
+                      : <span className="capitalize text-muted-foreground">{methodLabel || "—"}</span>}
+                  </td>
                   <td className="py-3 text-muted-foreground">
                     {t.createdAt || t.created_at ? fmtDateTimeSG(t.createdAt || t.created_at) : "—"}
                   </td>
