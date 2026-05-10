@@ -213,8 +213,6 @@ function BookingsTab() {
       case "upcoming": return startDate > now && (b.status === "confirmed" || b.status === "pending");
       case "completed": return b.status === "completed" || (b.status === "confirmed" && new Date(getField(b, "endTime", "end_time")) < now);
       case "cancelled": return b.status === "cancelled";
-      case "refunded": return b.status === "refunded";
-      case "no_show": return b.status === "no_show";
       default: return true;
     }
   });
