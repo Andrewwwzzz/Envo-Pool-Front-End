@@ -333,6 +333,8 @@ function BookingsTab() {
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
 
   const now = new Date();
   const todayStart = new Date(now);
@@ -415,7 +417,7 @@ function BookingsTab() {
                     <td className="py-3">
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         {canDelete && (
-                          <Button variant="ghost" size="sm" onClick={() => deleteBooking.mutate(bookingId)} disabled={deleteBooking.isPending}>
+                          <Button variant="ghost" size="sm" onClick={() => { setDeleteTargetId(bookingId); setDeleteReason(""); }} disabled={deleteBooking.isPending}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         )}
@@ -477,6 +479,38 @@ function BookingsTab() {
             }}
           >
             Confirm Cancellation
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={!!deleteTargetId} onOpenChange={(o) => { if (!o) { setDeleteTargetId(null); setDeleteReason(""); } }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete Booking</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">Please provide a reason for deleting this booking. This action will be logged.</p>
+        <Textarea
+          value={deleteReason}
+          onChange={(e) => setDeleteReason(e.target.value)}
+          placeholder="Reason for deletion (min 5 characters)"
+          rows={4}
+          maxLength={500}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setDeleteTargetId(null); setDeleteReason(""); }}>Cancel</Button>
+          <Button
+            variant="destructive"
+            disabled={deleteReason.trim().length < 5 || deleteBooking.isPending}
+            onClick={() => {
+              if (!deleteTargetId) return;
+              deleteBooking.mutate(
+                { bookingId: deleteTargetId, reason: deleteReason.trim() },
+                { onSuccess: () => { setDeleteTargetId(null); setDeleteReason(""); } },
+              );
+            }}
+          >
+            Confirm Delete
           </Button>
         </DialogFooter>
       </DialogContent>
