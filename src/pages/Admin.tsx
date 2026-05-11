@@ -323,12 +323,11 @@ function OverviewTab() {
   );
 }
 
-type BookingFilter = "all" | "today" | "upcoming" | "past" | "completed" | "cancelled" | "deleted";
+type BookingFilter = "all" | "today" | "upcoming" | "past" | "completed" | "cancelled";
 
 function BookingsTab() {
   const [filter, setFilter] = useState<BookingFilter>("all");
-  const showDeleted = filter === "deleted";
-  const { data: bookings, isLoading } = useAdminBookings(showDeleted);
+  const { data: bookings, isLoading } = useAdminBookings(false);
   const updateStatus = useUpdateBookingStatus();
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
