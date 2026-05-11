@@ -1780,10 +1780,7 @@ function VerificationTab() {
 
   const fetchUnverified = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("https://api.envopoolsg.com/api/admin/unverified-users", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch("/api/admin/unverified-users");
       if (!res.ok) throw new Error("Failed to fetch unverified users");
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.users || [];
@@ -1801,13 +1798,8 @@ function VerificationTab() {
   const handleVerify = async (userId: string) => {
     try {
       setVerifying(userId);
-      const token = localStorage.getItem("token");
-      const res = await fetch("https://api.envopoolsg.com/api/admin/verify-user", {
+      const res = await apiFetch("/api/admin/verify-user", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ userId }),
       });
       if (!res.ok) {
