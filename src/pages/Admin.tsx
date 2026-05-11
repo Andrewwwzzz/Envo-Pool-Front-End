@@ -72,7 +72,7 @@ const Admin = () => {
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="promos">Promos</TabsTrigger>
             
-            <TabsTrigger value="verification">Verification</TabsTrigger>
+            <VerificationTabTrigger />
             <TabsTrigger value="logs">Logs</TabsTrigger>
           </TabsList>
 
@@ -1885,7 +1885,33 @@ function TopUpsTabTrigger() {
     <TabsTrigger value="topups" className="relative">
       Top Ups
       {count > 0 && (
-        <Badge className="ml-2 bg-destructive text-destructive-foreground hover:bg-destructive">{count}</Badge>
+        <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center shadow-md">
+          {count}
+        </span>
+      )}
+    </TabsTrigger>
+  );
+}
+
+function VerificationTabTrigger() {
+  const { data } = useQuery({
+    queryKey: ["admin-unverified-users"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/admin/unverified-users");
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : data?.users ?? [];
+    },
+    refetchInterval: 15000,
+  });
+  const count = Array.isArray(data) ? data.length : 0;
+  return (
+    <TabsTrigger value="verification" className="relative">
+      Verification
+      {count > 0 && (
+        <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center shadow-md">
+          {count}
+        </span>
       )}
     </TabsTrigger>
   );
