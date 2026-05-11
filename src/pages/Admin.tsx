@@ -1572,6 +1572,30 @@ function PricingTab() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!deleteRuleId} onOpenChange={(o) => { if (!o) setDeleteRuleId(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Pricing Rule</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Are you sure you want to delete this pricing rule? This cannot be undone.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteRuleId(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={remove.isPending}
+              onClick={() => {
+                if (deleteRuleId) {
+                  remove.mutate(deleteRuleId);
+                  setDeleteRuleId(null);
+                }
+              }}
+            >
+              Confirm Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
