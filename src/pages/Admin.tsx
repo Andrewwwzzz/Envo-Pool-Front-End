@@ -1562,7 +1562,7 @@ function PricingTab() {
                       <div className="flex items-center gap-2">
                         <Button variant="ghost" size="sm" onClick={() => startEdit(r)}><Pencil className="h-4 w-4" /></Button>
                         <Switch checked={r.is_active} onCheckedChange={(v) => toggle.mutate({ id: r.id, is_active: v })} />
-                        <Button variant="ghost" size="sm" onClick={() => remove.mutate(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => setDeleteRuleId(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
                     </div>
                   )}
