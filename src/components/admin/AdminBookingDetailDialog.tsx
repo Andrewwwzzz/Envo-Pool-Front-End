@@ -117,7 +117,7 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
           {b.isDeleted && (
             <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm space-y-1">
               <div className="font-semibold text-destructive">This booking has been deleted</div>
-              {b.deletionReason && <div><span className="text-muted-foreground">Reason: </span>{b.deletionReason}</div>}
+              {(b.deletionReason || b.deletedReason) && <div><span className="text-muted-foreground">Reason: </span>{b.deletionReason || b.deletedReason}</div>}
               {(b.deletedBy?.name || b.deletedBy?.email || typeof b.deletedBy === "string") && (
                 <div><span className="text-muted-foreground">Deleted by: </span>{b.deletedBy?.name || b.deletedBy?.email || b.deletedBy}</div>
               )}
