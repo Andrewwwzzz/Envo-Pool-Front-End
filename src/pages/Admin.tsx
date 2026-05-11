@@ -1697,11 +1697,7 @@ function PromosTab() {
                     const minSpend = p.minimum_spend ? `$${Number(p.minimum_spend).toFixed(2)}` : "—";
                     const usageLabel = `${p.usage_count ?? 0} / ${p.usage_limit ?? "unlimited"}`;
                     const expiryLabel = p.expiry_date ? fmtDateSG(p.expiry_date) : "No expiry";
-                    const handleDelete = () => {
-                      if (window.confirm(`Delete promo code "${p.code}"? This cannot be undone.`)) {
-                        remove.mutate(p.id);
-                      }
-                    };
+                    const handleDelete = () => setDeletePromo({ id: p.id, code: p.code });
                     return (
                       <tr key={p.id} className="border-b border-border/50">
                         <td className="py-3 pr-3 font-mono font-medium">{p.code}</td>
