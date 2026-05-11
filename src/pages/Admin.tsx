@@ -1606,6 +1606,7 @@ function PromosTab() {
     code: "", discount_type: "percentage" as string, discount_value: "", minimum_spend: "",
     max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
   });
+  const [deletePromo, setDeletePromo] = useState<{ id: string; code: string } | null>(null);
 
   const handleCreate = () => {
     create.mutate({
