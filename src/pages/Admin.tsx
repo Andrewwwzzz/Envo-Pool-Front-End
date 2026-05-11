@@ -887,6 +887,18 @@ function InvoicesTab() {
       </CardContent>
     </Card>
 
+    <InvoiceDetailDialog
+      session={selectedSession}
+      onClose={() => setSelectedSession(null)}
+      onDelete={() => {
+        if (selectedSession) {
+          setDeleteTargetId(selectedSession._id || selectedSession.id);
+          setDeleteReason("");
+          setSelectedSession(null);
+        }
+      }}
+    />
+
     <Dialog open={!!deleteTargetId} onOpenChange={(o) => { if (!o) { setDeleteTargetId(null); setDeleteReason(""); } }}>
       <DialogContent>
         <DialogHeader>
