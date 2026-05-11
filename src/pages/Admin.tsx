@@ -1736,6 +1736,32 @@ function PromosTab() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!deletePromo} onOpenChange={(o) => { if (!o) setDeletePromo(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Promo Code</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete promo code <span className="font-mono font-semibold">{deletePromo?.code}</span>? This cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletePromo(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={remove.isPending}
+              onClick={() => {
+                if (deletePromo) {
+                  remove.mutate(deletePromo.id);
+                  setDeletePromo(null);
+                }
+              }}
+            >
+              Confirm Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
