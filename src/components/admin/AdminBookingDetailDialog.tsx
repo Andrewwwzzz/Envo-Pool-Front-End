@@ -257,6 +257,15 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
               )}
             </div>
           </section>
+
+          {status === "cancelled" && (
+            <section className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-1">
+              <div className="font-semibold text-amber-500">Cancellation Details</div>
+              <div><span className="text-muted-foreground">Reason: </span>{b.cancellationReason || b.cancelled_reason || "No reason provided"}</div>
+              <div><span className="text-muted-foreground">Cancelled by: </span>{b.cancelledBy?.name || b.cancelledBy?.email || "—"}</div>
+              <div><span className="text-muted-foreground">Cancelled at: </span>{b.updatedAt ? fmtDateTimeSG(b.updatedAt) : "—"}</div>
+            </section>
+          )}
         </div>
       </DialogContent>
     </Dialog>

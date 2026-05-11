@@ -35,7 +35,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { LogOut, ArrowLeft, DollarSign, Calendar, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download, Copy } from "lucide-react";
+import { LogOut, ArrowLeft, DollarSign, Calendar, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download, Copy, XCircle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getAuthHeaders, apiFetch } from "@/lib/api";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -322,19 +323,16 @@ function OverviewTab() {
   );
 }
 
-type BookingFilter = "all" | "today" | "upcoming" | "completed" | "cancelled" | "deleted";
+type BookingFilter = "all" | "today" | "upcoming" | "past" | "completed" | "cancelled" | "deleted";
 
 function BookingsTab() {
   const [filter, setFilter] = useState<BookingFilter>("all");
   const showDeleted = filter === "deleted";
   const { data: bookings, isLoading } = useAdminBookings(showDeleted);
-  const deleteBooking = useDeleteBooking();
   const updateStatus = useUpdateBookingStatus();
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [deleteReason, setDeleteReason] = useState("");
 
   const now = new Date();
   const todayStart = new Date(now);
@@ -352,10 +350,12 @@ function BookingsTab() {
     if (filter === "deleted") return b.isDeleted === true;
     if (b.isDeleted === true) return false;
     const startDate = new Date(getField(b, "startTime", "start_time"));
+    const endDate = new Date(getField(b, "endTime", "end_time"));
     switch (filter) {
       case "today": return startDate >= todayStart && startDate <= todayEnd;
       case "upcoming": return startDate > now && (b.status === "confirmed" || b.status === "pending");
-      case "completed": return b.status === "completed" || (b.status === "confirmed" && new Date(getField(b, "endTime", "end_time")) < now);
+      case "past": return b.status === "confirmed" && endDate < now;
+      case "completed": return b.status === "completed";
       case "cancelled": return b.status === "cancelled";
       default: return true;
     }
@@ -368,7 +368,7 @@ function BookingsTab() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle>All Bookings</CardTitle>
           <div className="flex flex-wrap gap-1.5">
-            {(["all", "today", "upcoming", "completed", "cancelled", "deleted"] as BookingFilter[]).map((f) => (
+            {(["all", "today", "upcoming", "past", "completed", "cancelled", "deleted"] as BookingFilter[]).map((f) => (
               <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} onClick={() => setFilter(f)} className="capitalize text-xs h-7 px-2.5">
                 {f}
               </Button>
@@ -390,11 +390,20 @@ function BookingsTab() {
               <th className="pb-2">Actions</th>
             </tr></thead>
             <tbody>
+              {isLoading && (bookings || []).length === 0 ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`sk-${i}`} className="border-b border-border last:border-0">
+                    {Array.from({ length: 8 }).map((__, j) => (
+                      <td key={j} className="py-3 pr-4"><Skeleton className="h-4 w-20" /></td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+              <>
               {filtered.map((b) => {
                 const bookingId = getBookingId(b);
                 const isDeleted = b.isDeleted === true;
-                const canDelete = !isDeleted && (b.status === "pending" || b.status === "cancelled");
-                const canAction = !isDeleted && (b.status === "confirmed" || b.status === "pending");
+                const canCancel = !isDeleted && b.status === "confirmed";
                 return (
                   <tr key={bookingId} className={`border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors ${isDeleted ? "opacity-60" : ""}`} onClick={() => setSelectedBooking(b)}>
                     <td className="py-3 pr-4">Table {typeof b.tableId === "string" ? b.tableId.replace("T", "") : (b as any).tables?.table_number ?? b.tableId?.tableNumber ?? "?"}</td>
@@ -416,20 +425,16 @@ function BookingsTab() {
                     </td>
                     <td className="py-3">
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                        {canDelete && (
-                          <Button variant="ghost" size="sm" onClick={() => { setDeleteTargetId(bookingId); setDeleteReason(""); }} disabled={deleteBooking.isPending}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                        {canAction && (
+                        {canCancel && (
                           <Button
                             variant="ghost"
                             size="sm"
                             title="Cancel booking"
                             onClick={() => { setCancelTargetId(bookingId); setCancelReason(""); }}
                             disabled={updateStatus.isPending}
+                            className="text-destructive hover:text-destructive gap-1"
                           >
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <X className="h-4 w-4" /> Cancel
                           </Button>
                         )}
                       </div>
@@ -439,6 +444,8 @@ function BookingsTab() {
               })}
               {filtered.length === 0 && (
                 <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">No bookings found</td></tr>
+              )}
+              </>
               )}
             </tbody>
           </table>
@@ -479,38 +486,6 @@ function BookingsTab() {
             }}
           >
             Confirm Cancellation
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <Dialog open={!!deleteTargetId} onOpenChange={(o) => { if (!o) { setDeleteTargetId(null); setDeleteReason(""); } }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete Booking</DialogTitle>
-        </DialogHeader>
-        <p className="text-sm text-muted-foreground">Please provide a reason for deleting this booking. This action will be logged.</p>
-        <Textarea
-          value={deleteReason}
-          onChange={(e) => setDeleteReason(e.target.value)}
-          placeholder="Reason for deletion (min 5 characters)"
-          rows={4}
-          maxLength={500}
-        />
-        <DialogFooter>
-          <Button variant="outline" onClick={() => { setDeleteTargetId(null); setDeleteReason(""); }}>Cancel</Button>
-          <Button
-            variant="destructive"
-            disabled={deleteReason.trim().length < 5 || deleteBooking.isPending}
-            onClick={() => {
-              if (!deleteTargetId) return;
-              deleteBooking.mutate(
-                { bookingId: deleteTargetId, reason: deleteReason.trim() },
-                { onSuccess: () => { setDeleteTargetId(null); setDeleteReason(""); } },
-              );
-            }}
-          >
-            Confirm Delete
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -920,7 +895,13 @@ function InvoicesTab() {
         </div>
       </CardHeader>
       <CardContent>
-        {!sessions.length ? (
+        {isLoading && !sessions.length ? (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        ) : !sessions.length ? (
           <p className="text-muted-foreground text-sm">No timer sessions yet.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -1085,7 +1066,15 @@ function CustomersTab() {
               <th className="pb-2">Joined</th>
             </tr></thead>
             <tbody>
-              {(customers || []).map((c: any) => (
+              {isLoading && (!customers || customers.length === 0) ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`csk-${i}`} className="border-b border-border last:border-0">
+                    {Array.from({ length: 9 }).map((__, j) => (
+                      <td key={j} className="py-3 pr-4"><Skeleton className="h-4 w-20" /></td>
+                    ))}
+                  </tr>
+                ))
+              ) : (customers || []).map((c: any) => (
                 <tr
                   key={c.id}
                   className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors"
@@ -1127,12 +1116,10 @@ function CustomersTab() {
 function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => void }) {
   const { toast } = useToast();
   const updateWallet = useUpdateCustomerWallet();
-  const deleteCustomer = useDeleteCustomer();
   const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id);
   const { data: walletHistory } = useCustomerWalletHistory(customer.user_id);
   const { data: rewardHistory } = useCustomerRewardHistory(customer.user_id);
   const [editing, setEditing] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Wallet editing state
   const [walletMode, setWalletMode] = useState<"exact" | "delta">("delta");
@@ -1194,15 +1181,6 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
             </div>
             <div className="flex gap-2">
               {!editing && <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet / Points</Button>}
-              {!confirmDelete ? (
-                <Button size="sm" variant="destructive" onClick={() => setConfirmDelete(true)}><Trash2 className="mr-1 h-3 w-3" /> Delete</Button>
-              ) : (
-                <div className="flex gap-1 items-center">
-                  <span className="text-sm text-destructive mr-1">Confirm?</span>
-                  <Button size="sm" variant="destructive" onClick={() => { deleteCustomer.mutate(customer.user_id); onBack(); }} disabled={deleteCustomer.isPending}>Yes</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>No</Button>
-                </div>
-              )}
             </div>
           </div>
         </CardHeader>
@@ -1419,6 +1397,7 @@ function PricingTab() {
     priority: "0", weekdays: [...WEEKDAYS] as string[], specific_date: "", table_id: "",
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteRuleId, setDeleteRuleId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     name: "", start_time: "", end_time: "", hourly_rate: "",
     priority: "", weekdays: [] as string[], specific_date: "",
@@ -1583,7 +1562,7 @@ function PricingTab() {
                       <div className="flex items-center gap-2">
                         <Button variant="ghost" size="sm" onClick={() => startEdit(r)}><Pencil className="h-4 w-4" /></Button>
                         <Switch checked={r.is_active} onCheckedChange={(v) => toggle.mutate({ id: r.id, is_active: v })} />
-                        <Button variant="ghost" size="sm" onClick={() => remove.mutate(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => setDeleteRuleId(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
                     </div>
                   )}
@@ -1593,6 +1572,30 @@ function PricingTab() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!deleteRuleId} onOpenChange={(o) => { if (!o) setDeleteRuleId(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Pricing Rule</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Are you sure you want to delete this pricing rule? This cannot be undone.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteRuleId(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={remove.isPending}
+              onClick={() => {
+                if (deleteRuleId) {
+                  remove.mutate(deleteRuleId);
+                  setDeleteRuleId(null);
+                }
+              }}
+            >
+              Confirm Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1603,6 +1606,7 @@ function PromosTab() {
     code: "", discount_type: "percentage" as string, discount_value: "", minimum_spend: "",
     max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
   });
+  const [deletePromo, setDeletePromo] = useState<{ id: string; code: string } | null>(null);
 
   const handleCreate = () => {
     create.mutate({
@@ -1693,11 +1697,7 @@ function PromosTab() {
                     const minSpend = p.minimum_spend ? `$${Number(p.minimum_spend).toFixed(2)}` : "—";
                     const usageLabel = `${p.usage_count ?? 0} / ${p.usage_limit ?? "unlimited"}`;
                     const expiryLabel = p.expiry_date ? fmtDateSG(p.expiry_date) : "No expiry";
-                    const handleDelete = () => {
-                      if (window.confirm(`Delete promo code "${p.code}"? This cannot be undone.`)) {
-                        remove.mutate(p.id);
-                      }
-                    };
+                    const handleDelete = () => setDeletePromo({ id: p.id, code: p.code });
                     return (
                       <tr key={p.id} className="border-b border-border/50">
                         <td className="py-3 pr-3 font-mono font-medium">{p.code}</td>
@@ -1736,6 +1736,32 @@ function PromosTab() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!deletePromo} onOpenChange={(o) => { if (!o) setDeletePromo(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Promo Code</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete promo code <span className="font-mono font-semibold">{deletePromo?.code}</span>? This cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletePromo(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={remove.isPending}
+              onClick={() => {
+                if (deletePromo) {
+                  remove.mutate(deletePromo.id);
+                  setDeletePromo(null);
+                }
+              }}
+            >
+              Confirm Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1754,10 +1780,7 @@ function VerificationTab() {
 
   const fetchUnverified = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("https://api.envopoolsg.com/api/admin/unverified-users", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch("/api/admin/unverified-users");
       if (!res.ok) throw new Error("Failed to fetch unverified users");
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.users || [];
@@ -1775,13 +1798,8 @@ function VerificationTab() {
   const handleVerify = async (userId: string) => {
     try {
       setVerifying(userId);
-      const token = localStorage.getItem("token");
-      const res = await fetch("https://api.envopoolsg.com/api/admin/verify-user", {
+      const res = await apiFetch("/api/admin/verify-user", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ userId }),
       });
       if (!res.ok) {
