@@ -751,6 +751,116 @@ function TablesTab() {
   );
 }
 
+function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | null; onClose: () => void; onDelete: () => void }) {
+  if (!session) return null;
+  const s = session;
+  const id = String(s._id || s.id || "");
+  const shortId = id.slice(-8).toUpperCase();
+  const isDeleted = s.isDeleted === true;
+  const startedAt = s.startedAt || s.started_at;
+  const endedAt = s.endedAt || s.ended_at;
+  const createdAt = s.createdAt || s.created_at || startedAt;
+  const durationSeconds = Number(s.durationSeconds ?? s.duration_seconds ?? 0);
+  const h = Math.floor(durationSeconds / 3600);
+  const m = Math.floor((durationSeconds % 3600) / 60);
+  const durationLabel = `${h}h ${m}m`;
+  const hours = durationSeconds / 3600;
+  const rate = Number(s.hourlyRate ?? s.hourly_rate ?? 0);
+  const amount = Number(s.amountCharged ?? s.amount_charged ?? s.total_cost ?? 0);
+  const staff = s.startedBy?.name || s.startedBy?.email || "—";
+  const tableName = s.tableName || (s.tables?.table_number ? `Table ${s.tables.table_number}` : "—");
+  const deletedBy = s.deletedBy?.name || s.deletedBy?.email || (typeof s.deletedBy === "string" ? s.deletedBy : "");
+  const deletionReason = s.deletionReason || s.deletedReason || "—";
+
+  const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div className="flex justify-between items-center gap-4 text-sm py-1">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-right">{value}</span>
+    </div>
+  );
+
+  const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{children}</h3>
+  );
+
+  return (
+    <Dialog open={!!session} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Invoice Details</DialogTitle>
+        </DialogHeader>
+
+        {isDeleted && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 text-destructive px-3 py-2 text-sm font-medium">
+            This invoice has been deleted
+          </div>
+        )}
+
+        <div className="space-y-5">
+          <div>
+            <SectionTitle>Session Information</SectionTitle>
+            <Row label="Invoice ID" value={<span className="font-mono">#{shortId}</span>} />
+            <Row label="Status" value={
+              isDeleted
+                ? <Badge variant="outline" className="bg-destructive/15 text-destructive border-destructive/40">Deleted</Badge>
+                : <Badge variant="outline" className="bg-emerald-500/15 text-emerald-500 border-emerald-500/40">Active</Badge>
+            } />
+            <Row label="Created at" value={createdAt ? fmtDateTimeSG(createdAt) : "—"} />
+          </div>
+
+          <div>
+            <SectionTitle>Table & Time</SectionTitle>
+            <Row label="Table" value={tableName} />
+            <Row label="Date" value={startedAt ? fmtDateSG(startedAt) : "—"} />
+            <Row label="Start time" value={startedAt ? fmtTimeSG(startedAt) : "—"} />
+            <Row label="End time" value={endedAt ? fmtTimeSG(endedAt) : "—"} />
+            <Row label="Duration" value={<span className="font-mono">{durationLabel}</span>} />
+          </div>
+
+          <div>
+            <SectionTitle>Billing Details</SectionTitle>
+            <Row label="Hourly rate" value={`$${rate.toFixed(2)} / hr`} />
+            <Row label="Duration" value={`${hours.toFixed(2)} hrs`} />
+            <Row label="Amount charged" value={
+              <span className={isDeleted ? "line-through text-muted-foreground" : "font-semibold"}>${amount.toFixed(2)}</span>
+            } />
+            <Row label="Payment method" value={
+              <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Cash</Badge>
+            } />
+          </div>
+
+          <div>
+            <SectionTitle>Staff Details</SectionTitle>
+            <Row label="Opened by" value={staff} />
+            <Row label="Closed at" value={endedAt ? fmtDateTimeSG(endedAt) : "—"} />
+          </div>
+
+          {isDeleted && (
+            <div>
+              <SectionTitle>Deletion Details</SectionTitle>
+              <Row label="Deleted at" value={s.deletedAt ? fmtDateTimeSG(s.deletedAt) : "—"} />
+              <Row label="Deleted by" value={deletedBy || "—"} />
+              <div className="text-sm pt-1">
+                <div className="text-muted-foreground mb-1">Reason</div>
+                <div className="rounded-md border border-border bg-muted/30 p-2 whitespace-pre-wrap">{deletionReason}</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+          {!isDeleted && (
+            <Button variant="destructive" onClick={onDelete}>
+              <Trash2 className="h-4 w-4 mr-1" /> Delete Invoice
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function InvoicesTab() {
   const [showDeleted, setShowDeleted] = useState(false);
   const { data, isLoading } = useAdminTimerSessions(showDeleted);
