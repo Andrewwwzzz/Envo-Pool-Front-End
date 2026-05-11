@@ -1102,12 +1102,10 @@ function CustomersTab() {
 function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => void }) {
   const { toast } = useToast();
   const updateWallet = useUpdateCustomerWallet();
-  const deleteCustomer = useDeleteCustomer();
   const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id);
   const { data: walletHistory } = useCustomerWalletHistory(customer.user_id);
   const { data: rewardHistory } = useCustomerRewardHistory(customer.user_id);
   const [editing, setEditing] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Wallet editing state
   const [walletMode, setWalletMode] = useState<"exact" | "delta">("delta");
