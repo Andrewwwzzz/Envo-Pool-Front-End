@@ -98,6 +98,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
+  // Inactivity timeout — sign user out after 30 minutes of no activity
+  const lastActivityRef = useRef<number>(Date.now());
+  useEffect(() => {
+    if (!token) return;
+    const TIMEOUT_MS = 30 * 60 * 1000;
+    lastActivityRef.current = Date.now();
+    const onActivity = () => { lastActivityRef.current = Date.now(); };
+    const events = ["mousemove", "keydown", "click", "touchstart"] as const;
+    events.forEach((e) => window.addEventListener(e, onActivity, { passive: true }));
+    const interval = setInterval(() => {
+      if (Date.now() - lastActivityRef.current > TIMEOUT_MS) {
+        toast("You have been signed out due to inactivity");
+        signOut();
+      }
+    }, 60 * 1000);
+    return () => {
+      clearInterval(interval);
+      events.forEach((e) => window.removeEventListener(e, onActivity));
+    };
+  }, [token]);
+
   const refreshUser = async () => {
     const u = await fetchCurrentUser();
     if (u) {
