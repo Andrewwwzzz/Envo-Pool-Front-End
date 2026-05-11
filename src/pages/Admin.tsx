@@ -760,6 +760,7 @@ function InvoicesTab() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
+  const [selectedSession, setSelectedSession] = useState<any | null>(null);
 
   const handleDelete = async (id: string, reason: string) => {
     setDeletingId(id);
