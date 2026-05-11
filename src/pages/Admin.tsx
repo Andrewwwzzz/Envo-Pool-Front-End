@@ -1397,6 +1397,7 @@ function PricingTab() {
     priority: "0", weekdays: [...WEEKDAYS] as string[], specific_date: "", table_id: "",
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteRuleId, setDeleteRuleId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     name: "", start_time: "", end_time: "", hourly_rate: "",
     priority: "", weekdays: [] as string[], specific_date: "",
