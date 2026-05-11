@@ -271,17 +271,6 @@ const Dashboard = () => {
                       <Badge variant="outline" className={statusBadge[getStatus(b)] ?? ""}>
                         {statusLabel(getStatus(b))}
                       </Badge>
-                      {(getStatus(b) === "pending" || getStatus(b) === "pending_payment") && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={(e) => { e.stopPropagation(); cancelBooking.mutate(b._id || b.id); }}
-                          disabled={cancelBooking.isPending}
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </Button>
-                      )}
                     </div>
                   </div>
                 ))}
