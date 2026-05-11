@@ -791,8 +791,13 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
         </DialogHeader>
 
         {isDeleted && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/10 text-destructive px-3 py-2 text-sm font-medium">
-            This invoice has been deleted
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm space-y-1">
+            <div className="font-semibold text-destructive">This invoice has been deleted</div>
+            {s.deletedReason && <div><span className="text-muted-foreground">Reason: </span>{s.deletedReason}</div>}
+            {(s.deletedBy?.name || s.deletedBy?.email || typeof s.deletedBy === "string") && (
+              <div><span className="text-muted-foreground">Deleted by: </span>{s.deletedBy?.name || s.deletedBy?.email || s.deletedBy}</div>
+            )}
+            {s.deletedAt && <div><span className="text-muted-foreground">Deleted at: </span>{fmtDateTimeSG(s.deletedAt)}</div>}
           </div>
         )}
 
