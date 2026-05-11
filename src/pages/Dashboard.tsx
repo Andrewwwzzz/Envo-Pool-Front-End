@@ -367,7 +367,7 @@ const Dashboard = () => {
   );
 };
 
-const PAYNOW_NUMBER = "+65 XXXXXXXX";
+import paynowQr from "@/assets/paynow-qr.png";
 
 function TopUpWalletDialog({
   open,
@@ -471,9 +471,9 @@ function TopUpWalletDialog({
           {/* Step 2 */}
           <div className="space-y-2">
             <p className="text-sm font-semibold">Step 2 — Make Payment</p>
-            <p className="text-sm text-muted-foreground">Transfer your desired amount via PayNow to:</p>
-            <div className="px-4 py-3 rounded-lg bg-muted text-center">
-              <p className="text-xl font-bold">{PAYNOW_NUMBER}</p>
+            <p className="text-sm text-muted-foreground">Scan the PayNow QR code below to transfer your desired amount:</p>
+            <div className="px-4 py-3 rounded-lg bg-white flex justify-center">
+              <img src={paynowQr} alt="PayNow QR code" className="w-56 h-auto" />
             </div>
             <p className="text-xs text-muted-foreground">
               Use your 6-digit reference code above so we can identify your payment.
