@@ -848,7 +848,12 @@ function InvoicesTab() {
                     ? `Reason: ${s.deletionReason || "—"}\nDeleted by: ${deletedBy || "—"}${s.deletedAt ? `\nDeleted at: ${fmtDateTimeSG(s.deletedAt)}` : ""}`
                     : undefined;
                   return (
-                    <tr key={s._id || s.id} className={`border-b border-border last:border-0 ${isDeleted ? "opacity-60" : ""}`} title={tooltipText}>
+                    <tr
+                      key={s._id || s.id}
+                      className={`border-b border-border last:border-0 cursor-pointer hover:bg-muted/30 ${isDeleted ? "opacity-60" : ""}`}
+                      title={tooltipText}
+                      onClick={() => setSelectedSession(s)}
+                    >
                       <td className="py-3 pr-4">{startedAt ? formatDateLong(startedAt) : "—"}</td>
                       <td className="py-3 pr-4">{s.tableName || (s.tables?.table_number ? `Table ${s.tables.table_number}` : "—")}</td>
                       <td className="py-3 pr-4">{startedAt ? fmtTimeSG(startedAt) : "—"}</td>
@@ -857,7 +862,7 @@ function InvoicesTab() {
                       <td className="py-3 pr-4">${rate.toFixed(0)}/hr</td>
                       <td className={`py-3 pr-4 font-medium ${isDeleted ? "line-through text-muted-foreground" : ""}`}>${amount.toFixed(2)}</td>
                       <td className="py-3 pr-4 text-muted-foreground">{staff}</td>
-                      <td className="py-3 text-right">
+                      <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         {isDeleted ? (
                           <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Deleted</Badge>
                         ) : (
