@@ -323,12 +323,11 @@ function OverviewTab() {
   );
 }
 
-type BookingFilter = "all" | "today" | "upcoming" | "past" | "completed" | "cancelled" | "deleted";
+type BookingFilter = "all" | "today" | "upcoming" | "past" | "completed" | "cancelled";
 
 function BookingsTab() {
   const [filter, setFilter] = useState<BookingFilter>("all");
-  const showDeleted = filter === "deleted";
-  const { data: bookings, isLoading } = useAdminBookings(showDeleted);
+  const { data: bookings, isLoading } = useAdminBookings(false);
   const updateStatus = useUpdateBookingStatus();
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
@@ -347,7 +346,6 @@ function BookingsTab() {
   const getBookingId = (b: any) => b._id || b.id;
 
   const filtered = (bookings || []).filter((b: any) => {
-    if (filter === "deleted") return b.isDeleted === true;
     if (b.isDeleted === true) return false;
     const startDate = new Date(getField(b, "startTime", "start_time"));
     const endDate = new Date(getField(b, "endTime", "end_time"));
@@ -368,7 +366,7 @@ function BookingsTab() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle>All Bookings</CardTitle>
           <div className="flex flex-wrap gap-1.5">
-            {(["all", "today", "upcoming", "past", "completed", "cancelled", "deleted"] as BookingFilter[]).map((f) => (
+            {(["all", "today", "upcoming", "past", "completed", "cancelled"] as BookingFilter[]).map((f) => (
               <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} onClick={() => setFilter(f)} className="capitalize text-xs h-7 px-2.5">
                 {f}
               </Button>
@@ -402,10 +400,9 @@ function BookingsTab() {
               <>
               {filtered.map((b) => {
                 const bookingId = getBookingId(b);
-                const isDeleted = b.isDeleted === true;
-                const canCancel = !isDeleted && b.status === "confirmed";
+                const canCancel = b.status === "confirmed";
                 return (
-                  <tr key={bookingId} className={`border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors ${isDeleted ? "opacity-60" : ""}`} onClick={() => setSelectedBooking(b)}>
+                  <tr key={bookingId} className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setSelectedBooking(b)}>
                     <td className="py-3 pr-4">Table {typeof b.tableId === "string" ? b.tableId.replace("T", "") : (b as any).tables?.table_number ?? b.tableId?.tableNumber ?? "?"}</td>
                     <td className="py-3 pr-4">{fmtDateSG(getField(b, "startTime", "start_time"))}</td>
                     <td className="py-3 pr-4">{fmtTimeSG(getField(b, "startTime", "start_time"))} – {fmtTimeSG(getField(b, "endTime", "end_time"))}</td>
@@ -413,15 +410,11 @@ function BookingsTab() {
                     <td className="py-3 pr-4">${(getField(b, "amount", "finalPrice", "final_price", "price") ?? 0).toFixed(2)}</td>
                     <td className="py-3 pr-4 capitalize">{getField(b, "paymentMethod", "payment_method", "inferredPaymentMethod") ?? (b.paymentStatus === "paid" ? "paynow" : "—")}</td>
                     <td className="py-3 pr-4">
-                      {isDeleted ? (
-                        <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Deleted</Badge>
-                      ) : (
-                        <Badge variant="outline" className={`capitalize ${
-                          b.status === "refunded" ? "text-orange-600 border-orange-300" :
-                          b.status === "no_show" ? "text-red-600 border-red-300" :
-                          b.status === "cancelled" ? "text-destructive border-destructive/30" : ""
-                        }`}>{b.status === "no_show" ? "No Show" : b.status}</Badge>
-                      )}
+                      <Badge variant="outline" className={`capitalize ${
+                        b.status === "refunded" ? "text-orange-600 border-orange-300" :
+                        b.status === "no_show" ? "text-red-600 border-red-300" :
+                        b.status === "cancelled" ? "text-destructive border-destructive/30" : ""
+                      }`}>{b.status === "no_show" ? "No Show" : b.status}</Badge>
                     </td>
                     <td className="py-3">
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
