@@ -840,17 +840,6 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
             <Row label="Closed at" value={endedAt ? fmtDateTimeSG(endedAt) : "—"} />
           </div>
 
-          {isDeleted && (
-            <div>
-              <SectionTitle>Deletion Details</SectionTitle>
-              <Row label="Deleted at" value={s.deletedAt ? fmtDateTimeSG(s.deletedAt) : "—"} />
-              <Row label="Deleted by" value={deletedBy || "—"} />
-              <div className="text-sm pt-1">
-                <div className="text-muted-foreground mb-1">Reason</div>
-                <div className="rounded-md border border-border bg-muted/30 p-2 whitespace-pre-wrap">{deletionReason}</div>
-              </div>
-            </div>
-          )}
         </div>
 
         <DialogFooter>
