@@ -108,7 +108,9 @@ export function TimeSlotPicker({
       const slotMin = slotToMinutes(slot.time);
       const slotEndMin = slotMin + 30;
 
-      if (isToday && slotMin < nowMinutes) {
+      // A slot is only "past" once it has fully ended. The slot containing the
+      // current minute (e.g. 9:00 slot at 9:01) remains selectable.
+      if (isToday && slotEndMin <= nowMinutes) {
         return { ...slot, available: false, state: "past" as const, userName: null, expiresAt: null };
       }
 
