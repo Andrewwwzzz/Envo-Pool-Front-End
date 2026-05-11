@@ -895,7 +895,13 @@ function InvoicesTab() {
         </div>
       </CardHeader>
       <CardContent>
-        {!sessions.length ? (
+        {isLoading && !sessions.length ? (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        ) : !sessions.length ? (
           <p className="text-muted-foreground text-sm">No timer sessions yet.</p>
         ) : (
           <div className="overflow-x-auto">
