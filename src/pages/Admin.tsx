@@ -1060,7 +1060,15 @@ function CustomersTab() {
               <th className="pb-2">Joined</th>
             </tr></thead>
             <tbody>
-              {(customers || []).map((c: any) => (
+              {isLoading && (!customers || customers.length === 0) ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`csk-${i}`} className="border-b border-border last:border-0">
+                    {Array.from({ length: 9 }).map((__, j) => (
+                      <td key={j} className="py-3 pr-4"><Skeleton className="h-4 w-20" /></td>
+                    ))}
+                  </tr>
+                ))
+              ) : (customers || []).map((c: any) => (
                 <tr
                   key={c.id}
                   className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors"
