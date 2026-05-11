@@ -68,42 +68,6 @@ const Dashboard = () => {
     : key === "refund" ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
     : "bg-muted text-muted-foreground border-border";
 
-  const cancelBooking = useMutation({
-    mutationFn: async (bookingId: string) => {
-      const res = await apiFetch(`/api/bookings/${bookingId}/cancel`, {
-        method: "PATCH",
-      });
-      if (!res.ok) {
-        throw new Error("Failed to cancel booking. Only pending bookings can be cancelled.");
-      }
-      return bookingId;
-    },
-    onMutate: async (bookingId) => {
-      await queryClient.cancelQueries({ queryKey: ["my-bookings", user?.id] });
-      const previous = queryClient.getQueryData(["my-bookings", user?.id]);
-      queryClient.setQueryData(["my-bookings", user?.id], (old: any[] | undefined) =>
-        old ? old.filter((b) => b.id !== bookingId && b._id !== bookingId) : []
-      );
-      return { previous };
-    },
-    onSuccess: () => {
-      toast({ title: "Booking cancelled successfully" });
-      queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
-      queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
-      queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] });
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
-      queryClient.invalidateQueries({ queryKey: ["transaction-history"] });
-    },
-    onError: (err: Error, _bookingId, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(["my-bookings", user?.id], context.previous);
-      }
-      toast({
-        title: "Failed to cancel booking. Only pending bookings can be cancelled.",
-        variant: "destructive",
-      });
-    },
-  });
 
   const { data: transactionHistory } = useQuery({
     queryKey: ["transaction-history", user?.id],
