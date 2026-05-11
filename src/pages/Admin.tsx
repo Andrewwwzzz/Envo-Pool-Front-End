@@ -323,7 +323,7 @@ function OverviewTab() {
   );
 }
 
-type BookingFilter = "all" | "today" | "upcoming" | "past" | "completed" | "cancelled";
+type BookingFilter = "all" | "today" | "upcoming" | "completed" | "cancelled";
 
 function BookingsTab() {
   const [filter, setFilter] = useState<BookingFilter>("all");
@@ -352,8 +352,7 @@ function BookingsTab() {
     switch (filter) {
       case "today": return startDate >= todayStart && startDate <= todayEnd;
       case "upcoming": return startDate > now && (b.status === "confirmed" || b.status === "pending");
-      case "past": return b.status === "confirmed" && endDate < now;
-      case "completed": return b.status === "completed";
+      case "completed": return b.status === "completed" || (b.status === "confirmed" && endDate < now);
       case "cancelled": return b.status === "cancelled";
       default: return true;
     }
@@ -366,7 +365,7 @@ function BookingsTab() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle>All Bookings</CardTitle>
           <div className="flex flex-wrap gap-1.5">
-            {(["all", "today", "upcoming", "past", "completed", "cancelled"] as BookingFilter[]).map((f) => (
+            {(["all", "today", "upcoming", "completed", "cancelled"] as BookingFilter[]).map((f) => (
               <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} onClick={() => setFilter(f)} className="capitalize text-xs h-7 px-2.5">
                 {f}
               </Button>
