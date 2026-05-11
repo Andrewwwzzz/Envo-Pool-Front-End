@@ -362,11 +362,6 @@ const Dashboard = () => {
         booking={selectedBooking}
         open={!!selectedBooking}
         onOpenChange={(open) => !open && setSelectedBooking(null)}
-        onCancel={(bookingId) => {
-          cancelBooking.mutate(bookingId);
-          setSelectedBooking(null);
-        }}
-        cancelling={cancelBooking.isPending}
       />
     </div>
   );
