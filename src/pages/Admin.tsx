@@ -346,7 +346,6 @@ function BookingsTab() {
   const getBookingId = (b: any) => b._id || b.id;
 
   const filtered = (bookings || []).filter((b: any) => {
-    if (filter === "deleted") return b.isDeleted === true;
     if (b.isDeleted === true) return false;
     const startDate = new Date(getField(b, "startTime", "start_time"));
     const endDate = new Date(getField(b, "endTime", "end_time"));
