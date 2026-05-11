@@ -368,7 +368,7 @@ function BookingsTab() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle>All Bookings</CardTitle>
           <div className="flex flex-wrap gap-1.5">
-            {(["all", "today", "upcoming", "completed", "cancelled", "deleted"] as BookingFilter[]).map((f) => (
+            {(["all", "today", "upcoming", "past", "completed", "cancelled", "deleted"] as BookingFilter[]).map((f) => (
               <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} onClick={() => setFilter(f)} className="capitalize text-xs h-7 px-2.5">
                 {f}
               </Button>
@@ -390,11 +390,20 @@ function BookingsTab() {
               <th className="pb-2">Actions</th>
             </tr></thead>
             <tbody>
+              {isLoading && (bookings || []).length === 0 ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`sk-${i}`} className="border-b border-border last:border-0">
+                    {Array.from({ length: 8 }).map((__, j) => (
+                      <td key={j} className="py-3 pr-4"><Skeleton className="h-4 w-20" /></td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+              <>
               {filtered.map((b) => {
                 const bookingId = getBookingId(b);
                 const isDeleted = b.isDeleted === true;
-                const canDelete = !isDeleted && (b.status === "pending" || b.status === "cancelled");
-                const canAction = !isDeleted && (b.status === "confirmed" || b.status === "pending");
+                const canCancel = !isDeleted && b.status === "confirmed";
                 return (
                   <tr key={bookingId} className={`border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors ${isDeleted ? "opacity-60" : ""}`} onClick={() => setSelectedBooking(b)}>
                     <td className="py-3 pr-4">Table {typeof b.tableId === "string" ? b.tableId.replace("T", "") : (b as any).tables?.table_number ?? b.tableId?.tableNumber ?? "?"}</td>
@@ -416,20 +425,16 @@ function BookingsTab() {
                     </td>
                     <td className="py-3">
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                        {canDelete && (
-                          <Button variant="ghost" size="sm" onClick={() => { setDeleteTargetId(bookingId); setDeleteReason(""); }} disabled={deleteBooking.isPending}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                        {canAction && (
+                        {canCancel && (
                           <Button
                             variant="ghost"
                             size="sm"
                             title="Cancel booking"
                             onClick={() => { setCancelTargetId(bookingId); setCancelReason(""); }}
                             disabled={updateStatus.isPending}
+                            className="text-destructive hover:text-destructive gap-1"
                           >
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <X className="h-4 w-4" /> Cancel
                           </Button>
                         )}
                       </div>
@@ -439,6 +444,8 @@ function BookingsTab() {
               })}
               {filtered.length === 0 && (
                 <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">No bookings found</td></tr>
+              )}
+              </>
               )}
             </tbody>
           </table>
@@ -479,38 +486,6 @@ function BookingsTab() {
             }}
           >
             Confirm Cancellation
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <Dialog open={!!deleteTargetId} onOpenChange={(o) => { if (!o) { setDeleteTargetId(null); setDeleteReason(""); } }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete Booking</DialogTitle>
-        </DialogHeader>
-        <p className="text-sm text-muted-foreground">Please provide a reason for deleting this booking. This action will be logged.</p>
-        <Textarea
-          value={deleteReason}
-          onChange={(e) => setDeleteReason(e.target.value)}
-          placeholder="Reason for deletion (min 5 characters)"
-          rows={4}
-          maxLength={500}
-        />
-        <DialogFooter>
-          <Button variant="outline" onClick={() => { setDeleteTargetId(null); setDeleteReason(""); }}>Cancel</Button>
-          <Button
-            variant="destructive"
-            disabled={deleteReason.trim().length < 5 || deleteBooking.isPending}
-            onClick={() => {
-              if (!deleteTargetId) return;
-              deleteBooking.mutate(
-                { bookingId: deleteTargetId, reason: deleteReason.trim() },
-                { onSuccess: () => { setDeleteTargetId(null); setDeleteReason(""); } },
-              );
-            }}
-          >
-            Confirm Delete
           </Button>
         </DialogFooter>
       </DialogContent>
