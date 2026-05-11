@@ -323,19 +323,16 @@ function OverviewTab() {
   );
 }
 
-type BookingFilter = "all" | "today" | "upcoming" | "completed" | "cancelled" | "deleted";
+type BookingFilter = "all" | "today" | "upcoming" | "past" | "completed" | "cancelled" | "deleted";
 
 function BookingsTab() {
   const [filter, setFilter] = useState<BookingFilter>("all");
   const showDeleted = filter === "deleted";
   const { data: bookings, isLoading } = useAdminBookings(showDeleted);
-  const deleteBooking = useDeleteBooking();
   const updateStatus = useUpdateBookingStatus();
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [deleteReason, setDeleteReason] = useState("");
 
   const now = new Date();
   const todayStart = new Date(now);
@@ -353,10 +350,12 @@ function BookingsTab() {
     if (filter === "deleted") return b.isDeleted === true;
     if (b.isDeleted === true) return false;
     const startDate = new Date(getField(b, "startTime", "start_time"));
+    const endDate = new Date(getField(b, "endTime", "end_time"));
     switch (filter) {
       case "today": return startDate >= todayStart && startDate <= todayEnd;
       case "upcoming": return startDate > now && (b.status === "confirmed" || b.status === "pending");
-      case "completed": return b.status === "completed" || (b.status === "confirmed" && new Date(getField(b, "endTime", "end_time")) < now);
+      case "past": return b.status === "confirmed" && endDate < now;
+      case "completed": return b.status === "completed";
       case "cancelled": return b.status === "cancelled";
       default: return true;
     }
