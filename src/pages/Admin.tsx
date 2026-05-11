@@ -323,7 +323,7 @@ function OverviewTab() {
   );
 }
 
-type BookingFilter = "all" | "today" | "upcoming" | "past" | "completed" | "cancelled";
+type BookingFilter = "all" | "today" | "upcoming" | "completed" | "cancelled";
 
 function BookingsTab() {
   const [filter, setFilter] = useState<BookingFilter>("all");
@@ -352,8 +352,7 @@ function BookingsTab() {
     switch (filter) {
       case "today": return startDate >= todayStart && startDate <= todayEnd;
       case "upcoming": return startDate > now && (b.status === "confirmed" || b.status === "pending");
-      case "past": return b.status === "confirmed" && endDate < now;
-      case "completed": return b.status === "completed";
+      case "completed": return b.status === "completed" || (b.status === "confirmed" && endDate < now);
       case "cancelled": return b.status === "cancelled";
       default: return true;
     }
