@@ -1,1 +1,0 @@
-DELETE FROM bookings WHERE id = '632aa2ab-1017-4a5f-bc2b-584944ce00eb';
