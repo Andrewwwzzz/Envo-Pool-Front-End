@@ -460,7 +460,6 @@ export function useAdminCustomers(searchTerm: string) {
       const res = await apiFetch(`/api/users${params}`);
       if (!res.ok) throw new Error("Failed to fetch users");
       const data = await res.json();
-      console.log("USERS:", data);
       const users = Array.isArray(data) ? data : data.users || [];
       const mapped = users.map((c: any) => ({
         id: c._id || c.id,
