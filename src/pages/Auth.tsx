@@ -107,7 +107,7 @@ const Auth = () => {
         {showChooser ? (
           <div className="space-y-4">
             <div className="text-center mb-2">
-              <h2 className="text-2xl font-semibold tracking-tight">Join Us</h2>
+              <h2 className="text-2xl tracking-tight font-bold text-slate-400">Join Us</h2>
               <p className="text-sm text-muted-foreground mt-1">Choose how you'd like to verify your identity</p>
             </div>
 
