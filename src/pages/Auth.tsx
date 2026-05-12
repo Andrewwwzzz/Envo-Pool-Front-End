@@ -97,7 +97,11 @@ const Auth = () => {
                       id="dob"
                       type="date"
                       value={dateOfBirth}
-                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      onChange={(e) => {
+                        (e.target as HTMLInputElement).setCustomValidity("");
+                        setDateOfBirth(e.target.value);
+                      }}
+                      onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity("You must be at least 16 years old to register an account.")}
                       required
                       max={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 16); return d.toISOString().split("T")[0]; })()}
                       className="bg-background/50"
