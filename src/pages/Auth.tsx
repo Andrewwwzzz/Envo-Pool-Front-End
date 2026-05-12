@@ -154,7 +154,7 @@ const Auth = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <CardDescription>
-                  Fill in your details and admin will verify your identity within 24 hours.
+                  Head over to the counter to create account with our staff. (ID Verification)
                 </CardDescription>
                 <Button
                   variant="outline"
