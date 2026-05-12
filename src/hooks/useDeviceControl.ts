@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-
-const BASE_URL = "https://api.envopoolsg.com";
-const API_KEY = "supersecret123";
+import { supabase } from "@/integrations/supabase/client";
 
 type DeviceState = "ON" | "OFF" | null;
 
@@ -9,6 +7,12 @@ interface DeviceStatus {
   state: DeviceState;
   loading: boolean;
   error: string | null;
+}
+
+async function callDeviceControl(payload: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke("device-control", { body: payload });
+  if (error) throw new Error(error.message || "Device control request failed");
+  return data;
 }
 
 export function useDeviceState(hardwareId: string | null | undefined, pollInterval = 3000) {
@@ -23,13 +27,9 @@ export function useDeviceState(hardwareId: string | null | undefined, pollInterv
   const fetchState = useCallback(async () => {
     if (!hardwareId) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/device/${hardwareId}`, {
-        headers: { "x-api-key": API_KEY },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data: any = await callDeviceControl({ action: "status", hardwareId });
       if (mountedRef.current) {
-        setStatus({ state: data.state as DeviceState, loading: false, error: null });
+        setStatus({ state: (data?.state ?? null) as DeviceState, loading: false, error: null });
       }
     } catch (err: any) {
       if (mountedRef.current) {
@@ -59,12 +59,7 @@ export function useDeviceControl(hardwareId: string | null | undefined) {
     if (!hardwareId) return;
     setPending(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/device-control/control/${hardwareId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": API_KEY },
-        body: JSON.stringify({ state }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await callDeviceControl({ action: "control", hardwareId, state });
     } catch (err: any) {
       console.error("Device control error:", err.message);
     } finally {
@@ -76,11 +71,7 @@ export function useDeviceControl(hardwareId: string | null | undefined) {
     if (!hardwareId) return;
     setPending(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/device-control/clear/${hardwareId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": API_KEY },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await callDeviceControl({ action: "clear", hardwareId });
     } catch (err: any) {
       console.error("Clear override error:", err.message);
     } finally {
