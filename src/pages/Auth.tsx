@@ -128,7 +128,7 @@ const Auth = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <CardDescription>
-                  Instant identity verification using your Singpass account. No documents needed.
+                  Instant identity verification using your Singpass account.
                 </CardDescription>
                 <Button
                   onClick={handleSingpass}
@@ -154,7 +154,7 @@ const Auth = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <CardDescription>
-                  Fill in your details and verify your identity later by submitting documents.
+                  Fill in your details and admin will verify your identity within 24 hours.
                 </CardDescription>
                 <Button
                   variant="outline"
