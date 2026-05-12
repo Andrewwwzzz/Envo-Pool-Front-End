@@ -46,7 +46,7 @@ const Auth = () => {
         const minDate = new Date();
         minDate.setFullYear(minDate.getFullYear() - 16);
         if (isNaN(dob.getTime()) || dob > minDate) {
-          throw new Error("You must be at least 16 years old to register");
+          throw new Error("You must be at least 16 years old to register an account.");
         }
         const res = await apiFetch("/api/auth/register", {
           method: "POST",
