@@ -41,9 +41,16 @@ const Auth = () => {
         toast({ title: "Login successful" });
         navigate("/booking");
       } else {
+        // Age check: must be at least 16
+        const dob = new Date(dateOfBirth);
+        const minDate = new Date();
+        minDate.setFullYear(minDate.getFullYear() - 16);
+        if (isNaN(dob.getTime()) || dob > minDate) {
+          throw new Error("You must be at least 16 years old to register");
+        }
         const res = await apiFetch("/api/auth/register", {
           method: "POST",
-          body: JSON.stringify({ name, email, password }),
+          body: JSON.stringify({ name, email, password, dateOfBirth }),
         });
         const data = await res.json();
         if (!res.ok) {
