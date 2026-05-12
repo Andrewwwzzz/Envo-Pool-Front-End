@@ -50,7 +50,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const u = data.user;
       // Derive isAdmin from role
       u.isAdmin = u.role === "admin";
-      console.log("CURRENT USER:", u);
       localStorage.setItem("user", JSON.stringify(u));
       return u;
     } catch (err) {

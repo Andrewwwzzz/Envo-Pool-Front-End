@@ -134,7 +134,6 @@ export async function loadBookingsFromBackend() {
     };
   });
 
-  console.log("Bookings from backend:", enriched);
   return enriched;
 }
 
