@@ -1,2 +1,0 @@
-ALTER TABLE public.tables ADD COLUMN timer_started_at TIMESTAMPTZ DEFAULT NULL;
-ALTER TABLE public.tables ADD COLUMN hourly_rate NUMERIC DEFAULT 20;
