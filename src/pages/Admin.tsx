@@ -1180,7 +1180,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div><p className="text-muted-foreground">Email</p><p className="font-medium">{customer.email}</p></div>
             <div><p className="text-muted-foreground">Phone</p><p className="font-medium">{customer.phone || "—"}</p></div>
-            <div><p className="text-muted-foreground">DOB</p><p className="font-medium">{customer.date_of_birth || "—"}</p></div>
+            <div><p className="text-muted-foreground">Date of Birth (KYC)</p><p className="font-medium text-accent">{customer.date_of_birth || "—"}</p></div>
             <div><p className="text-muted-foreground">Joined</p><p className="font-medium">{fmtDateSG(customer.created_at)}</p></div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -1828,6 +1828,7 @@ function VerificationTab() {
               <thead>
                 <tr className="border-b border-border text-left">
                   <th className="pb-2 pr-4">Name</th>
+                  <th className="pb-2 pr-4">Date of Birth</th>
                   <th className="pb-2 pr-4">Email</th>
                   <th className="pb-2 pr-4">Created</th>
                   <th className="pb-2">Action</th>
@@ -1837,6 +1838,7 @@ function VerificationTab() {
                 {users.map((u: any) => (
                   <tr key={u._id || u.userId || u.id} className="border-b border-border last:border-0">
                     <td className="py-3 pr-4">{u.name || "—"}</td>
+                    <td className="py-3 pr-4 text-accent font-medium">{u.dateOfBirth || u.date_of_birth || "—"}</td>
                     <td className="py-3 pr-4">{u.email || "—"}</td>
                     <td className="py-3 pr-4">{u.createdAt ? fmtDateTimeSG(u.createdAt) : "—"}</td>
                     <td className="py-3">

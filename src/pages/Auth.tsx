@@ -13,6 +13,7 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -40,9 +41,16 @@ const Auth = () => {
         toast({ title: "Login successful" });
         navigate("/booking");
       } else {
+        // Age check: must be at least 16
+        const dob = new Date(dateOfBirth);
+        const minDate = new Date();
+        minDate.setFullYear(minDate.getFullYear() - 16);
+        if (isNaN(dob.getTime()) || dob > minDate) {
+          throw new Error("You must be at least 16 years old to register");
+        }
         const res = await apiFetch("/api/auth/register", {
           method: "POST",
-          body: JSON.stringify({ name, email, password }),
+          body: JSON.stringify({ name, email, password, dateOfBirth }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -78,10 +86,24 @@ const Auth = () => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="bg-background/50" />
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="bg-background/50" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dob">Date of Birth</Label>
+                    <Input
+                      id="dob"
+                      type="date"
+                      value={dateOfBirth}
+                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      required
+                      max={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 16); return d.toISOString().split("T")[0]; })()}
+                      className="bg-background/50"
+                    />
+                  </div>
+                </>
               )}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
