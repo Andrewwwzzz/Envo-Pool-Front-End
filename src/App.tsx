@@ -15,6 +15,7 @@ import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
 import Settings from "./pages/Settings";
 import Terms from "./pages/Terms";
+import Kyc from "./pages/Kyc";
 import NotFound from "./pages/NotFound";
 
 // Legacy redirects — send old URLs to payment-verification (socket-driven)
@@ -53,6 +54,7 @@ const App = () => (
               <Route path="/settings" element={<Settings />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/terms" element={<Terms />} />
+              <Route path="/kyc" element={<Kyc />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
