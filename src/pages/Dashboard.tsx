@@ -706,6 +706,39 @@ function TopUpWalletDialog({
             )}
           </div>
         </div>
+
+        {/* PayNow submission confirmation overlay */}
+        <Dialog
+          open={!!paynowConfirmation}
+          onOpenChange={(v) => { if (!v) { setPaynowConfirmation(null); resetState(); } }}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Request Submitted</DialogTitle>
+              <DialogDescription>
+                Thanks! We've received your top up request.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4 text-sm space-y-2">
+                <p>
+                  Your PayNow top up of{" "}
+                  <span className="font-bold">${paynowConfirmation?.amount.toFixed(2)}</span>{" "}
+                  is pending verification.
+                </p>
+                <p className="text-muted-foreground">
+                  We'll credit your wallet within 24 hours. You can send a chaser from Step 4 if it's taking too long.
+                </p>
+              </div>
+              <Button
+                className="w-full"
+                onClick={() => { setPaynowConfirmation(null); resetState(); }}
+              >
+                Done
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );
