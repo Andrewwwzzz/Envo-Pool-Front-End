@@ -35,7 +35,17 @@ const Kyc = () => {
     try {
       const res = await apiFetch("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({ name: verifiedName, email, password, kycVerified: true }),
+        body: JSON.stringify({
+          name: verifiedName,
+          email,
+          password,
+          kycVerified: true,
+          kycData: {
+            name: searchParams.get("name"),
+            dob: searchParams.get("dob"),
+            mobile: searchParams.get("mobile"),
+          },
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
