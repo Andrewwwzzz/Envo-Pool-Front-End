@@ -642,7 +642,7 @@ const Booking = () => {
         )}
 
         {/* Payment Method */}
-        {pricing && selectedTable && !durationError && startSlot && endSlot && (
+        {pricing && selectedTable && !durationError && startSlot && endSlot && !isFreeReward && (
           <Card className="card-premium">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg flex items-center gap-2">
