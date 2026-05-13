@@ -1990,6 +1990,24 @@ function VerificationTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Verification Request?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This will permanently delete the unverified account for <span className="font-medium text-foreground">{deleteTarget?.email}</span>. This action cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={!!deleting}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={!!deleting}>
+              {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
