@@ -1840,7 +1840,7 @@ function VerificationTab() {
     const userId = deleteTarget._id || deleteTarget.userId || deleteTarget.id;
     try {
       setDeleting(userId);
-      const res = await apiFetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/users/${userId}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.message || "Failed to delete request");
