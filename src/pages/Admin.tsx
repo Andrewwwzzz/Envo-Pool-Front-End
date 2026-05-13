@@ -1381,7 +1381,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
         <CardHeader>
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3 flex-wrap">
-              <CardTitle>{customer.name || "No Name"}</CardTitle>
+              <CardTitle>{customer.legal_name || customer.name || "No Name"}</CardTitle>
               {customer.shortId ? (
                 <div className="flex items-center gap-1">
                   <span className="px-3 py-1 rounded-full bg-accent/20 text-accent-foreground border border-accent/30 font-mono text-sm font-semibold">
