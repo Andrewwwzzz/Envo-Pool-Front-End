@@ -645,6 +645,29 @@ function TopUpWalletDialog({
             </div>
           )}
 
+          {/* Step 4 — Send chaser (only when there's a pending request) */}
+          {pendingRequest && (
+            <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+              <p className="text-sm font-semibold">Step 4 — Waiting Too Long?</p>
+              <p className="text-xs text-muted-foreground">
+                If your pending top up of{" "}
+                <span className="font-medium text-foreground">
+                  ${Number(pendingRequest.amount || 0).toFixed(2)}
+                </span>{" "}
+                hasn't been approved yet, send a chaser to notify admins.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-amber-500/50 hover:bg-amber-500/10"
+                onClick={() => handleChase(pendingRequest._id || pendingRequest.id)}
+                disabled={chasing}
+              >
+                {chasing ? "Sending…" : "Send Chaser to Admin"}
+              </Button>
+            </div>
+          )}
+
           {/* History */}
           <div className="pt-2 border-t border-border/50">
             <p className="text-sm font-medium mb-2">My Top Up History</p>
