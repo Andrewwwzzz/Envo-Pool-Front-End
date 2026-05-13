@@ -13,18 +13,17 @@ import { useToast } from "@/hooks/use-toast";
 import { fmtDateSG } from "@/lib/sgTime";
 
 const TYPE_LABELS: Record<RewardType, string> = {
-  free_session: "Free Session (1hr)",
+  free_session: "Free Session (30 mins)",
   wallet_credit: "Wallet Credit",
   free_item: "Free Item",
   booking_discount: "Booking Discount",
 };
 
 const REASON_LABELS: Record<RewardReason, string> = {
-  google_review: "Google Review",
+  reviews: "Reviews",
   social_follow: "Social Follow",
   birthday: "Birthday",
-  referral: "Referral",
-  manual: "Manual",
+  refund: "Refund",
   other: "Other",
 };
 
@@ -37,17 +36,18 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const [type, setType] = useState<RewardType>("free_session");
   const [value, setValue] = useState("1");
   const [description, setDescription] = useState("");
-  const [reason, setReason] = useState<RewardReason>("manual");
+  const [reason, setReason] = useState<RewardReason>("reviews");
+  const [otherReason, setOtherReason] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [issuedCode, setIssuedCode] = useState<string | null>(null);
 
   const valueLabel =
-    type === "free_session" ? "Hours" :
+    type === "free_session" ? "Sessions (30 mins each)" :
     type === "wallet_credit" ? "Amount ($)" :
     type === "booking_discount" ? "Percent off (%)" : null;
 
   const reset = () => {
-    setType("free_session"); setValue("1"); setDescription(""); setReason("manual"); setExpiresAt("");
+    setType("free_session"); setValue("1"); setDescription(""); setReason("reviews"); setOtherReason(""); setExpiresAt("");
   };
 
   const submit = async () => {
