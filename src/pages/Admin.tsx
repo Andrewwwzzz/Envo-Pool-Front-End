@@ -1288,7 +1288,6 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const updateProfile = useUpdateCustomerProfile();
   const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id);
   const { data: walletHistory } = useCustomerWalletHistory(customer.user_id);
-  const { data: rewardHistory } = useCustomerRewardHistory(customer.user_id);
   const { data: activityLogs } = useAdminActivityLogs();
   const { data: allCustomers } = useAdminCustomers("");
 
