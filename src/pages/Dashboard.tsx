@@ -402,6 +402,10 @@ function TopUpWalletDialog({
   const pendingRequest = Array.isArray(requests)
     ? requests.find((r: any) => String(r.status || "").toLowerCase() === "pending") || null
     : null;
+  const pendingMethod = String(
+    pendingRequest?.method || pendingRequest?.paymentMethod || pendingRequest?.payment_method || ""
+  ).toLowerCase();
+  const pendingIsPaynow = pendingMethod === "paynow";
 
   const handleChase = async (reqId: string) => {
     const last = lastChaseAt[reqId] || 0;
@@ -645,8 +649,8 @@ function TopUpWalletDialog({
             </div>
           )}
 
-          {/* Step 4 — Send chaser (only when there's a pending request) */}
-          {pendingRequest && (
+          {/* Step 4 — Send chaser (PayNow only, after a pending request exists) */}
+          {pendingRequest && pendingIsPaynow && (
             <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
               <p className="text-sm font-semibold">Step 4 — Waiting Too Long?</p>
               <p className="text-xs text-muted-foreground">
