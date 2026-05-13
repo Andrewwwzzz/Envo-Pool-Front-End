@@ -727,14 +727,21 @@ function TopUpWalletDialog({
                   is pending verification.
                 </p>
                 <p className="text-muted-foreground">
-                  We'll credit your wallet within 24 hours. You can send a chaser from Step 4 if it's taking too long.
+                  We'll credit your wallet within 24 hours. If it's taking too long, you can send a chaser to notify our admins.
                 </p>
               </div>
               <Button
-                className="w-full"
+                asChild
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
                 onClick={() => { setPaynowConfirmation(null); resetState(); }}
               >
-                Done
+                <a
+                  href="https://wa.me/6587627064"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Contact us on WhatsApp
+                </a>
               </Button>
             </div>
           </DialogContent>
