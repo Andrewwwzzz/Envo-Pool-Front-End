@@ -1,11 +1,35 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminTransactions, useAdminBookingLogs, useAdminActivityLogs } from "@/hooks/useAdminLogs";
+import { useAdminCustomers } from "@/hooks/useAdmin";
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { ScrollText, FileText, Users } from "lucide-react";
+
+function useUserNameMap() {
+  const { data: customers } = useAdminCustomers("");
+  return useMemo(() => {
+    const map: Record<string, string> = {};
+    (customers || []).forEach((c: any) => {
+      const display = c.legal_name || c.name || c.email;
+      if (c.user_id) map[String(c.user_id)] = display;
+      if (c.id) map[String(c.id)] = display;
+    });
+    return map;
+  }, [customers]);
+}
+
+function resolveUserDisplay(field: any, fallback: any, nameMap: Record<string, string>): string {
+  if (fallback) return String(fallback);
+  if (field == null) return "—";
+  if (typeof field === "object") {
+    return field.legalName || field.legal_name || field.name || field.email || nameMap[String(field._id || field.id)] || "—";
+  }
+  const id = String(field);
+  return nameMap[id] || id;
+}
 
 export default function LogsTab() {
   return (
