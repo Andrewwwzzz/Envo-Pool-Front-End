@@ -267,7 +267,8 @@ const Booking = () => {
   };
 
   const handleConfirmBook = async () => {
-    if (!user || !selectedTable || !startDate || !endDate || !selectedTableData || !paymentMethod) return;
+    if (!user || !selectedTable || !startDate || !endDate || !selectedTableData) return;
+    if (!paymentMethod && !isFreeReward) return;
     if (isProcessing) return;
 
     if (!selectedTableData.hardware_id) {
@@ -292,6 +293,7 @@ const Booking = () => {
           promoCode: appliedPromo?.code || null,
           promoDiscount: discountAmount || 0,
           originalAmount: originalPrice || finalPrice,
+          rewardCode: appliedReward?.code || null,
         }),
       });
 
@@ -320,6 +322,21 @@ const Booking = () => {
 
       // Store for socket listener
       sessionStorage.setItem("pending_booking_id", bookingId);
+
+      // Free reward — backend auto-confirms, no payment needed
+      if (isFreeReward) {
+        sessionStorage.removeItem("pending_booking_id");
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["profile"] }),
+          queryClient.invalidateQueries({ queryKey: ["my-bookings"] }),
+          queryClient.invalidateQueries({ queryKey: ["tables-with-status"] }),
+          queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] }),
+          queryClient.invalidateQueries({ queryKey: ["my-rewards"] }),
+        ]);
+        toast({ title: "Booking confirmed!", description: "Your free session has been booked." });
+        navigate("/booking-confirmed");
+        return;
+      }
 
       // STEP 2: Pay
       if (paymentMethod === "wallet") {
