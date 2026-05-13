@@ -381,6 +381,12 @@ function TopUpWalletDialog({
   const [method, setMethod] = useState<"paynow" | "cash" | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cashConfirmation, setCashConfirmation] = useState<{ amount: number } | null>(null);
+  const [chasing, setChasing] = useState(false);
+  const [lastChaseAt, setLastChaseAt] = useState<Record<string, number>>(() => {
+    try { return JSON.parse(localStorage.getItem("topup-chase-times") || "{}"); }
+    catch { return {}; }
+  });
+  const CHASE_COOLDOWN_MS = 10 * 60 * 1000; // 10 min between chases per request
 
   const { data: requests } = useQuery({
     queryKey: ["my-topup-requests"],
@@ -392,6 +398,42 @@ function TopUpWalletDialog({
     },
     refetchInterval: 15000,
   });
+
+  const pendingRequest = Array.isArray(requests)
+    ? requests.find((r: any) => String(r.status || "").toLowerCase() === "pending") || null
+    : null;
+
+  const handleChase = async (reqId: string) => {
+    const last = lastChaseAt[reqId] || 0;
+    const remaining = CHASE_COOLDOWN_MS - (Date.now() - last);
+    if (remaining > 0) {
+      const mins = Math.ceil(remaining / 60000);
+      toast({ title: `Please wait ${mins} min before sending another chaser`, variant: "destructive" });
+      return;
+    }
+    setChasing(true);
+    try {
+      const res = await apiFetch("/api/transactions/topup/chase", {
+        method: "POST",
+        body: JSON.stringify({ requestId: reqId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.message || data?.error || "Failed to send chaser");
+      }
+      const updated = { ...lastChaseAt, [reqId]: Date.now() };
+      setLastChaseAt(updated);
+      try { localStorage.setItem("topup-chase-times", JSON.stringify(updated)); } catch {}
+      toast({
+        title: "Chaser sent!",
+        description: "Admins have been notified to review your top up.",
+      });
+    } catch (e: any) {
+      toast({ title: e?.message || "Failed to send chaser", variant: "destructive" });
+    } finally {
+      setChasing(false);
+    }
+  };
 
   const resetState = () => {
     setAmount("");
@@ -599,6 +641,29 @@ function TopUpWalletDialog({
                 {method === "cash"
                   ? "Request Cash Top Up"
                   : "I've Made Payment — Submit Request"}
+              </Button>
+            </div>
+          )}
+
+          {/* Step 4 — Send chaser (only when there's a pending request) */}
+          {pendingRequest && (
+            <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+              <p className="text-sm font-semibold">Step 4 — Waiting Too Long?</p>
+              <p className="text-xs text-muted-foreground">
+                If your pending top up of{" "}
+                <span className="font-medium text-foreground">
+                  ${Number(pendingRequest.amount || 0).toFixed(2)}
+                </span>{" "}
+                hasn't been approved yet, send a chaser to notify admins.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-amber-500/50 hover:bg-amber-500/10"
+                onClick={() => handleChase(pendingRequest._id || pendingRequest.id)}
+                disabled={chasing}
+              >
+                {chasing ? "Sending…" : "Send Chaser to Admin"}
               </Button>
             </div>
           )}
