@@ -3,7 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 
 export type RewardType = "free_session" | "wallet_credit" | "free_item" | "booking_discount";
-export type RewardReason = "google_review" | "social_follow" | "birthday" | "referral" | "manual" | "other";
+export type RewardReason = "reviews" | "social_follow" | "birthday" | "refund" | "other";
 
 export interface Reward {
   id?: string;
@@ -42,7 +42,7 @@ export function useIssueReward() {
       type: RewardType;
       value?: number;
       description: string;
-      reason: RewardReason;
+      reason: RewardReason | string;
       expiresAt?: string | null;
     }) => {
       const res = await apiFetch("/api/rewards/issue", {
