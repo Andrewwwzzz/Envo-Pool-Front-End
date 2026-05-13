@@ -18,6 +18,8 @@ const Settings = () => {
   const { toast } = useToast();
 
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [phone, setPhone] = useState("");
   const [dob, setDob] = useState("");
   const [showName, setShowName] = useState(true);
