@@ -2412,7 +2412,9 @@ function TopUpsTab() {
                   const c = getCustomer(r);
                   const id = r._id || r.id;
                   const isPending = String(r.status || "pending").toLowerCase() === "pending";
-                  const methodRaw = String(r.method || "paynow").toLowerCase();
+                  const methodRaw = String(
+                    r.method || r.paymentMethod || r.payment_method || r.method_name || "paynow"
+                  ).toLowerCase();
                   const methodIsCash = methodRaw === "cash";
                   const methodClass = methodIsCash
                     ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
