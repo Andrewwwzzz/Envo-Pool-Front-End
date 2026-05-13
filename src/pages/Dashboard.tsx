@@ -211,7 +211,7 @@ const Dashboard = () => {
 
       <main className="relative z-10 mx-auto max-w-4xl p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <Card className="card-premium">
             <CardContent className="pt-6 text-center">
               <Wallet className="h-6 w-6 mx-auto text-accent mb-2" />
