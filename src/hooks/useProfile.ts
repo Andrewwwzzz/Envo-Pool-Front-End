@@ -49,15 +49,18 @@ export function useUpdateProfile() {
   return useMutation({
     mutationFn: async (updates: { name?: string; username?: string; phone?: string; date_of_birth?: string }) => {
       if (!user) throw new Error("Not authenticated");
+      const payload: Record<string, string> = { userId: user.id };
+      // Backend stores the editable display name under `name`; legal name lives in kyc.name
+      if (updates.username !== undefined) {
+        payload.name = updates.username;
+        payload.username = updates.username;
+      }
+      if (updates.name !== undefined) payload.name = updates.name;
+      if (updates.phone !== undefined) payload.phone = updates.phone;
+      if (updates.date_of_birth !== undefined) payload.dateOfBirth = updates.date_of_birth;
       const res = await apiFetch("/api/auth/update-profile", {
         method: "POST",
-        body: JSON.stringify({
-          userId: user.id,
-          name: updates.name,
-          username: updates.username,
-          phone: updates.phone,
-          dateOfBirth: updates.date_of_birth,
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
