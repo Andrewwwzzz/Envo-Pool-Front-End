@@ -161,7 +161,7 @@ const Booking = () => {
     );
   }, [appliedPromo, originalPrice]);
 
-  const finalPrice = Math.max(0, originalPrice - discountAmount);
+  const finalPrice = appliedReward?.type === "free_session" ? 0 : Math.max(0, originalPrice - discountAmount);
 
   const durationError = useMemo(() => {
     if (!startDate || !endDate || endDate <= startDate) return null;
