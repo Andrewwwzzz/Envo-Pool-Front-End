@@ -357,11 +357,14 @@ const Booking = () => {
       </header>
 
       <main className="relative z-10 mx-auto max-w-4xl p-6 space-y-6">
-        {!isVerified && (
+        {!kycVerified && (
           <Card className="card-premium border-yellow-500/30 bg-yellow-500/5">
-            <CardContent className="pt-6 text-center">
-              <p className="text-yellow-400 font-semibold">⏳ Awaiting admin verification</p>
-              <p className="text-sm text-muted-foreground mt-1">Your account is pending approval. You cannot book until verified.</p>
+            <CardContent className="pt-6 text-center space-y-3">
+              <p className="text-yellow-400 font-semibold">Identity verification required</p>
+              <p className="text-sm text-muted-foreground">Please verify your identity via Singpass before booking</p>
+              <Button onClick={handleStartSingpass} className="bg-[#E3002B] hover:bg-[#c20025] text-white">
+                Verify with Singpass
+              </Button>
             </CardContent>
           </Card>
         )}
