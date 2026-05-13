@@ -157,11 +157,8 @@ const Dashboard = () => {
 
   const now = new Date();
 
-  // Compute total_spent from confirmed bookings if backend returns 0
-  const computedTotalSpent = (bookings || [])
-    .filter((b: any) => b.status === "confirmed" || b.status === "completed")
-    .reduce((sum: number, b: any) => sum + (b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? 0), 0);
-  const displayTotalSpent = (profile?.total_spent && profile.total_spent > 0) ? profile.total_spent : computedTotalSpent;
+  // Total spent comes directly from backend; 0 is a valid value
+  const displayTotalSpent = profile?.total_spent ?? 0;
 
   const getStartTime = (b: any) => b.startTime || b.start_time;
   const getEndTime = (b: any) => b.endTime || b.end_time;
