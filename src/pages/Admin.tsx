@@ -1241,7 +1241,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div><p className="text-muted-foreground">Email</p><p className="font-medium">{customer.email}</p></div>
             <div><p className="text-muted-foreground">Phone</p><p className="font-medium">{customer.phone || "—"}</p></div>
-            <div><p className="text-muted-foreground">Date of Birth</p><p className="font-medium text-accent">{customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : "—"}</p></div>
+            <div><p className="text-muted-foreground">Date of Birth</p><p className="font-medium">{fmtDob(customer.date_of_birth)}</p></div>
             <div><p className="text-muted-foreground">Joined</p><p className="font-medium">{fmtDateSG(customer.created_at)}</p></div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
