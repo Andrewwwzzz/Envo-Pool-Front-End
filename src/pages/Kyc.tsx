@@ -19,9 +19,15 @@ const Kyc = () => {
   const error = searchParams.get("error");
   const verifiedName = searchParams.get("name") || "";
 
+  const [name, setName] = useState(verifiedName);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setName(verifiedName);
+  }, [verifiedName]);
 
   useEffect(() => {
     if (status === "success" || error) {
