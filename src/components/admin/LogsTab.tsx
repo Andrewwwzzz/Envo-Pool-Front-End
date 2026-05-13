@@ -186,8 +186,7 @@ function BookingLogsView() {
 function AdminLogsView() {
   const { data, isLoading, refetch } = useAdminActivityLogs();
   const logs = Array.isArray(data) ? data : data?.logs || [];
-
-  
+  const nameMap = useUserNameMap();
 
   return (
     <Card>
@@ -208,27 +207,32 @@ function AdminLogsView() {
               </tr>
             </thead>
             <tbody>
-              {logs.map((l: any, i: number) => (
+              {logs.map((l: any, i: number) => {
+                const adminDisplay = resolveUserDisplay(l.adminId, l.adminName || l.admin?.legalName || l.admin?.legal_name || l.admin?.name, nameMap);
+                const targetDisplay = resolveUserDisplay(l.targetUserId, l.targetUserName || l.targetUser?.legalName || l.targetUser?.legal_name || l.targetUser?.name, nameMap);
+                return (
                 <tr key={l._id || l.id || i} className="border-b border-border last:border-0">
-                  <td className="py-3 pr-4">{l.adminName || l.admin?.name || (typeof l.adminId === "object" ? l.adminId?.name || l.adminId?.email || "—" : l.adminId) || "—"}</td>
+                  <td className="py-3 pr-4">{adminDisplay}</td>
                   <td className="py-3 pr-4">
                     <Badge variant="outline" className="capitalize">{l.action || "—"}</Badge>
                   </td>
-                  <td className="py-3 pr-4">{l.targetUserName || l.targetUser?.name || (typeof l.targetUserId === "object" ? l.targetUserId?.name || l.targetUserId?.email || "—" : l.targetUserId) || "—"}</td>
+                  <td className="py-3 pr-4">{targetDisplay}</td>
                   <td className="py-3 pr-4 text-xs text-muted-foreground max-w-[200px] truncate">
                     {l.details == null
                       ? "—"
                       : typeof l.details === "object"
                       ? Object.entries(l.details)
+                          .filter(([k]) => k !== "pointsChange" && k !== "points" && k !== "pointsDelta")
                           .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
-                          .join(", ")
+                          .join(", ") || "—"
                       : String(l.details)}
                   </td>
                   <td className="py-3 text-muted-foreground">
                     {l.createdAt || l.created_at || l.timestamp ? fmtDateTimeSG(l.createdAt || l.created_at || l.timestamp) : "—"}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {logs.length === 0 && (
                 <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No admin logs found</td></tr>
               )}
