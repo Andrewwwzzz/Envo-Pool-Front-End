@@ -70,8 +70,9 @@ const Settings = () => {
   // Track changes
   useEffect(() => {
     if (!profile) return;
+    const currentUsername = profile.username ?? profile.name ?? "";
     const changed =
-      username !== (profile.username ?? "") ||
+      username !== currentUsername ||
       phone !== (profile.phone ?? "") ||
       dob !== (profile.date_of_birth ?? "");
     setHasChanges(changed && !usernameError);
@@ -113,7 +114,7 @@ const Settings = () => {
       const updates: { username?: string; phone?: string; date_of_birth?: string } = {};
       const trimmedUsername = username.trim();
       const trimmedPhone = phone.trim();
-      if (trimmedUsername !== (profile?.username ?? "")) updates.username = trimmedUsername;
+      if (trimmedUsername !== (profile?.username ?? profile?.name ?? "")) updates.username = trimmedUsername;
       if (trimmedPhone !== (profile?.phone ?? "")) updates.phone = trimmedPhone;
       if (dob && dob !== (profile?.date_of_birth ?? "")) updates.date_of_birth = dob;
 
