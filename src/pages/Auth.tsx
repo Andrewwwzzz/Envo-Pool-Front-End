@@ -19,6 +19,7 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [singpassLoading, setSingpassLoading] = useState(false);
   const { toast } = useToast();
@@ -75,7 +76,7 @@ const Auth = () => {
         }
         const res = await apiFetch("/api/auth/register", {
           method: "POST",
-          body: JSON.stringify({ name, username: name, email, password, dateOfBirth }),
+          body: JSON.stringify({ name, username: name, email, password, phone, dateOfBirth }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -224,6 +225,12 @@ const Auth = () => {
                   <Label htmlFor="password">Password</Label>
                   <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="bg-background/50" />
                 </div>
+                {!isLogin && (
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 91234567" className="bg-background/50" />
+                  </div>
+                )}
                 <Button type="submit" className="w-full h-11 text-sm font-semibold tracking-wide uppercase" disabled={loading}>
                   {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
                 </Button>
