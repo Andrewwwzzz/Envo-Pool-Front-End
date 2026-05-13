@@ -322,23 +322,6 @@ export function TimeSlotPicker({
         })}
       </div>
 
-      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-1">
-        <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded border border-emerald-500/60 bg-emerald-500/20" /> Available
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-accent" /> Selected
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded border border-destructive/40 bg-destructive/10" /> Booked
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded border border-amber-500/40 bg-amber-500/10" /> Pending Payment
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded border border-orange-500/40 bg-orange-500/10" /> Maintenance
-        </span>
-      </div>
     </div>
     </TooltipProvider>
   );
