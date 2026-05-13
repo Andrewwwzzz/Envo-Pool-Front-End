@@ -290,7 +290,7 @@ export function TimeSlotPicker({
           if (slot.state === "maintenance" || slot.state === "pending" || slot.state === "booked") {
             const tooltipText =
               slot.state === "maintenance"
-                ? `Maintenance${slot.maintenanceReason && slot.maintenanceReason !== "Maintenance" ? `: ${slot.maintenanceReason}` : ""}`
+                ? `Under maintenance${slot.maintenanceReason ? ` — Reason: ${slot.maintenanceReason}` : ""}`
                 : displayName
                   ? slot.state === "pending" && slot.expiresAt
                     ? `${displayName} — may become available soon`
