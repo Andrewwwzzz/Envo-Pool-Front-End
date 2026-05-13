@@ -402,6 +402,10 @@ function TopUpWalletDialog({
   const pendingRequest = Array.isArray(requests)
     ? requests.find((r: any) => String(r.status || "").toLowerCase() === "pending") || null
     : null;
+  const pendingMethod = String(
+    pendingRequest?.method || pendingRequest?.paymentMethod || pendingRequest?.payment_method || ""
+  ).toLowerCase();
+  const pendingIsPaynow = pendingMethod === "paynow" || pendingMethod === "";
 
   const handleChase = async (reqId: string) => {
     const last = lastChaseAt[reqId] || 0;
