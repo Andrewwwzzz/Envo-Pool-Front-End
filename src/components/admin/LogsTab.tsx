@@ -56,6 +56,7 @@ export default function LogsTab() {
 function TransactionsView() {
   const { data, isLoading, refetch } = useAdminTransactions();
   const transactions = Array.isArray(data) ? data : data?.transactions || [];
+  const nameMap = useUserNameMap();
 
   
 
