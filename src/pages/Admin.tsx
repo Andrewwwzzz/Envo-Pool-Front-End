@@ -1457,39 +1457,6 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                 )}
               </div>
 
-              {/* Points Section */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="font-semibold">Reward Points (Current: {customer.reward_points ?? 0})</Label>
-                  <div className="flex gap-1">
-                    <Button size="sm" variant={pointsMode === "delta" ? "default" : "outline"} onClick={() => setPointsMode("delta")} className="text-xs h-7">+/− Adjust</Button>
-                    <Button size="sm" variant={pointsMode === "exact" ? "default" : "outline"} onClick={() => setPointsMode("exact")} className="text-xs h-7">Set Exact</Button>
-                  </div>
-                </div>
-                {pointsMode === "exact" ? (
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Set points to:</Label>
-                    <Input type="number" step="1" min="0" value={pointsExact} onChange={(e) => setPointsExact(e.target.value)} placeholder="e.g. 100" />
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Add or subtract points (use negative to deduct):</Label>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0") - 50))}>−50</Button>
-                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0") - 10))}>−10</Button>
-                      <Input type="number" step="1" value={pointsDelta} onChange={(e) => setPointsDelta(e.target.value)} className="w-28" placeholder="0" />
-                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0") + 10))}>+10</Button>
-                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0") + 50))}>+50</Button>
-                    </div>
-                    {parseInt(pointsDelta) !== 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        New points: <strong>{(customer.reward_points ?? 0) + parseInt(pointsDelta || "0")}</strong>
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
               <div className="flex gap-2">
                 <Button size="sm" onClick={saveEdit} disabled={updateWallet.isPending}>
                   {updateWallet.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />} Save Changes
