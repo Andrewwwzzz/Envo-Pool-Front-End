@@ -328,6 +328,7 @@ type BookingFilter = "all" | "today" | "upcoming" | "completed" | "cancelled";
 
 function BookingsTab() {
   const [filter, setFilter] = useState<BookingFilter>("all");
+  const [search, setSearch] = useState("");
   const { data: bookings, isLoading } = useAdminBookings(false);
   const updateStatus = useUpdateBookingStatus();
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
