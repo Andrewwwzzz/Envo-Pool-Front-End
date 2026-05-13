@@ -2604,6 +2604,19 @@ function TopUpDetailDialog({
                 </Badge>
               </div>
               <div><div className="text-muted-foreground">Submitted</div><div className="font-medium">{fmtDateTimeSG(r.createdAt || r.created_at)}</div></div>
+              <div>
+                <div className="text-muted-foreground">Method</div>
+                {(() => {
+                  const m = String(r.method || "paynow").toLowerCase();
+                  const isCash = m === "cash";
+                  const cls = isCash
+                    ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                    : "bg-purple-500/10 text-purple-400 border-purple-500/30";
+                  return (
+                    <Badge variant="outline" className={cls}>{isCash ? "Cash" : "PayNow"}</Badge>
+                  );
+                })()}
+              </div>
             </div>
           </section>
 
