@@ -155,13 +155,17 @@ export function useScheduleMaintenance() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async ({ tableId, startTime, endTime, reason }: { tableId: string; startTime: string; endTime: string; reason?: string }) => {
+    mutationFn: async ({ tableId, startTime, endTime, reason }: { tableId: string; startTime: string; endTime: string; reason: string }) => {
+      const trimmedReason = reason.trim();
+      if (!trimmedReason) {
+        throw new Error("Reason is required.");
+      }
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
       try {
         const res = await apiFetch(`/api/admin/maintenance`, {
           method: "POST",
-          body: JSON.stringify({ tableId, startTime, endTime, reason: reason || undefined }),
+          body: JSON.stringify({ tableId, startTime, endTime, reason: trimmedReason }),
           signal: controller.signal,
         });
         if (!res.ok) {
@@ -171,7 +175,7 @@ export function useScheduleMaintenance() {
         return await res.json().catch(() => ({}));
       } catch (e: any) {
         if (e?.name === "AbortError") {
-          throw new Error("Request timed out — the backend maintenance endpoint is not responding.");
+          throw new Error("Request timed out — the backend /api/admin/maintenance endpoint is not responding after auth. Check that the backend POST route returns a response, validates tableId/startTime/endTime/reason, and that its database query is not hanging.");
         }
         throw e;
       } finally {
