@@ -79,14 +79,39 @@ const Booking = () => {
         return bStart < dayEnd && bEnd > dayStart;
       });
 
-      return filtered.map((b: any) => ({
-        start_time: b.startTime,
-        end_time: b.endTime,
-        status: b.status === "confirmed" ? "confirmed" : "pending",
-        created_at: b.createdAt || new Date().toISOString(),
-        expires_at: b.expiresAt || null,
-        user_name: b.userName || null,
+      // Resolve display name based on each booker's privacy preference
+      const uniqueUserIds = Array.from(new Set(filtered.map((b: any) => {
+        return typeof b.userId === "object" ? b.userId?._id : b.userId;
+      }).filter(Boolean)));
+
+      const visibilityMap: Record<string, boolean> = {};
+      await Promise.all(uniqueUserIds.map(async (uid: string) => {
+        try {
+          const r = await apiFetch(`/api/bookings/name-visibility?userId=${uid}`);
+          if (r.ok) {
+            const d = await r.json();
+            visibilityMap[uid] = d?.showName !== false;
+          } else {
+            visibilityMap[uid] = false;
+          }
+        } catch {
+          visibilityMap[uid] = false;
+        }
       }));
+
+      return filtered.map((b: any) => {
+        const uid = typeof b.userId === "object" ? b.userId?._id : b.userId;
+        const rawName = typeof b.userId === "object" ? (b.userId?.name || b.userId?.email) : null;
+        const showName = uid ? visibilityMap[uid] : false;
+        return {
+          start_time: b.startTime,
+          end_time: b.endTime,
+          status: b.status === "confirmed" ? "confirmed" : "pending",
+          created_at: b.createdAt || new Date().toISOString(),
+          expires_at: b.expiresAt || null,
+          user_name: showName ? (b.userName || rawName || null) : null,
+        };
+      });
     },
     enabled: !!selectedTable && !!selectedDate && !!selectedTableData_pre?.hardware_id,
     refetchInterval: 30000,
