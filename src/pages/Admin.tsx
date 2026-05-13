@@ -390,6 +390,15 @@ function BookingsTab() {
             ))}
           </div>
         </div>
+        <div className="relative mt-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, email, short ID, table, booking ID, or date (e.g. 14/05)"
+            className="pl-9 h-9"
+          />
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
