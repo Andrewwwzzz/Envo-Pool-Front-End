@@ -1512,75 +1512,50 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
         </CardContent>
       </Card>
 
-      {/* Wallet & Reward History */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader><CardTitle className="text-base">Wallet Transactions{customer.shortId ? <span className="text-muted-foreground font-normal"> — Reference: <span className="font-mono">{customer.shortId}</span></span> : null}</CardTitle></CardHeader>
-          <CardContent>
-            {(() => {
-              const txs = Array.isArray(walletHistory) ? walletHistory : (walletHistory?.transactions ?? []);
-              if (!txs.length) return <p className="text-muted-foreground text-sm">No wallet activity yet</p>;
-              return (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {txs.map((t: any) => {
-                    const amt = typeof t.amount === "number" ? t.amount : Number(t.amount) || 0;
-                    const txType = t.type || "unknown";
-                    const dateStr = t.createdAt || t.created_at || "";
-                    const direction = t.direction || (txType === "payment" ? "debit" : "credit");
-                    const isCredit = direction === "credit";
-                    const method = t.method || "—";
-                    const typeLabel = txType === "topup" ? "Top Up" : txType === "payment" ? "Payment" : txType === "refund" ? "Refund" : txType;
-                    const badgeClass = txType === "topup"
-                      ? "bg-green-500/15 text-green-600 border-green-500/30"
-                      : txType === "payment"
-                      ? "bg-destructive/15 text-destructive border-destructive/30"
-                      : "bg-amber-500/15 text-amber-600 border-amber-500/30";
-                    return (
-                      <div key={t._id || t.id} className="flex justify-between items-center text-sm border-b border-border pb-2 last:border-0">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className={badgeClass}>{typeLabel}</Badge>
-                            <span className="text-xs text-muted-foreground capitalize">{method}</span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">{fmtDateTimeSG(dateStr)}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className={isCredit ? "text-green-600 font-medium" : "text-destructive font-medium"}>
-                            {isCredit ? "+" : "-"}${Math.abs(amt).toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-base">Reward Transactions</CardTitle></CardHeader>
-          <CardContent>
-            {!rewardHistory?.length ? <p className="text-muted-foreground text-sm">No transactions.</p> : (
+      {/* Wallet History */}
+      <Card>
+        <CardHeader><CardTitle className="text-base">Wallet Transactions{customer.shortId ? <span className="text-muted-foreground font-normal"> — Reference: <span className="font-mono">{customer.shortId}</span></span> : null}</CardTitle></CardHeader>
+        <CardContent>
+          {(() => {
+            const txs = Array.isArray(walletHistory) ? walletHistory : (walletHistory?.transactions ?? []);
+            if (!txs.length) return <p className="text-muted-foreground text-sm">No wallet activity yet</p>;
+            return (
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {rewardHistory.map((t: any) => {
-                  const pts = typeof t.points === "number" ? t.points : Number(t.points) || 0;
-                  const txType = t.type || t.transactionType || "unknown";
-                  const dateStr = t.created_at || t.createdAt || "";
+                {txs.map((t: any) => {
+                  const amt = typeof t.amount === "number" ? t.amount : Number(t.amount) || 0;
+                  const txType = t.type || "unknown";
+                  const dateStr = t.createdAt || t.created_at || "";
+                  const direction = t.direction || (txType === "payment" ? "debit" : "credit");
+                  const isCredit = direction === "credit";
+                  const method = t.method || "—";
+                  const typeLabel = txType === "topup" ? "Top Up" : txType === "payment" ? "Payment" : txType === "refund" ? "Refund" : txType;
+                  const badgeClass = txType === "topup"
+                    ? "bg-green-500/15 text-green-600 border-green-500/30"
+                    : txType === "payment"
+                    ? "bg-destructive/15 text-destructive border-destructive/30"
+                    : "bg-amber-500/15 text-amber-600 border-amber-500/30";
                   return (
-                  <div key={t.id || t._id} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
-                    <div>
-                      <p className="capitalize font-medium">{String(txType).replace(/_/g, " ")}</p>
-                      <p className="text-xs text-muted-foreground">{fmtDateTimeSG(dateStr)}</p>
+                    <div key={t._id || t.id} className="flex justify-between items-center text-sm border-b border-border pb-2 last:border-0">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={badgeClass}>{typeLabel}</Badge>
+                          <span className="text-xs text-muted-foreground capitalize">{method}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">{fmtDateTimeSG(dateStr)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={isCredit ? "text-green-600 font-medium" : "text-destructive font-medium"}>
+                          {isCredit ? "+" : "-"}${Math.abs(amt).toFixed(2)}
+                        </p>
+                      </div>
                     </div>
-                    <p className={pts >= 0 ? "text-green-600" : "text-destructive"}>{pts >= 0 ? "+" : ""}{pts} pts</p>
-                  </div>
                   );
                 })}
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
 
       <Dialog open={editDetailsOpen} onOpenChange={(o) => { if (!o) setEditDetailsOpen(false); }}>
         <DialogContent>
