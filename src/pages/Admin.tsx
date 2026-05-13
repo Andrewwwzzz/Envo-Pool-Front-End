@@ -1129,6 +1129,18 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   })();
   const [editing, setEditing] = useState(false);
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+
+  const fmtDob = (v: any) => {
+    if (!v) return "—";
+    const s = String(v).slice(0, 10);
+    const [y, m, d] = s.split("-");
+    if (!y || !m || !d) return s;
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const mi = parseInt(m, 10) - 1;
+    if (mi < 0 || mi > 11) return s;
+    return `${d.padStart(2, "0")} ${months[mi]} ${y}`;
+  };
   const [editName, setEditName] = useState(customer.name ?? "");
   const [editEmail, setEditEmail] = useState(customer.email ?? "");
   const [editPhone, setEditPhone] = useState(customer.phone ?? "");
@@ -1229,7 +1241,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div><p className="text-muted-foreground">Email</p><p className="font-medium">{customer.email}</p></div>
             <div><p className="text-muted-foreground">Phone</p><p className="font-medium">{customer.phone || "—"}</p></div>
-            <div><p className="text-muted-foreground">Date of Birth</p><p className="font-medium text-accent">{customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : "—"}</p></div>
+            <div><p className="text-muted-foreground">Date of Birth</p><p className="font-medium">{fmtDob(customer.date_of_birth)}</p></div>
             <div><p className="text-muted-foreground">Joined</p><p className="font-medium">{fmtDateSG(customer.created_at)}</p></div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -1350,7 +1362,11 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                 </tr></thead>
                 <tbody>
                   {bookings.map((b: any) => (
-                    <tr key={b.id || b._id} className="border-b border-border last:border-0">
+                    <tr
+                      key={b.id || b._id}
+                      className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/40 transition-colors"
+                      onClick={() => setSelectedBooking(b)}
+                    >
                       <td className="py-2 pr-4">Table {typeof b.tableId === "string" ? b.tableId.replace("T", "") : b.tables?.table_number ?? "?"}</td>
                       <td className="py-2 pr-4">{fmtDateSG(b.startTime || b.start_time)}</td>
                       <td className="py-2 pr-4">{fmtTimeSG(b.startTime || b.start_time)}</td>
@@ -1469,6 +1485,12 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AdminBookingDetailDialog
+        booking={selectedBooking}
+        open={!!selectedBooking}
+        onOpenChange={(open) => { if (!open) setSelectedBooking(null); }}
+      />
     </div>
   );
 }
