@@ -361,7 +361,7 @@ const Booking = () => {
           <Card className="card-premium border-yellow-500/30 bg-yellow-500/5">
             <CardContent className="pt-6 text-center space-y-3">
               <p className="text-yellow-400 font-semibold">Identity verification required</p>
-              <p className="text-sm text-muted-foreground">Please verify your identity via Singpass before booking</p>
+              <p className="text-sm text-muted-foreground">Please verify your identity via singpass or with our staff before booking.</p>
               <Button onClick={handleStartSingpass} className="bg-[#E3002B] hover:bg-[#c20025] text-white">
                 Verify with Singpass
               </Button>
