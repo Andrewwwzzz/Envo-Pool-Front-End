@@ -50,9 +50,8 @@ export function useUpdateProfile() {
     mutationFn: async (updates: { name?: string; username?: string; phone?: string; date_of_birth?: string }) => {
       if (!user) throw new Error("Not authenticated");
       const payload: Record<string, string> = { userId: user.id };
-      // The backend uses `name` as the public booking/display name; KYC legal
-      // name remains separate under `kyc.name`.
-      if (updates.username !== undefined) payload.name = updates.username;
+      // Username is a separate display field — never overwrite the legal `name`.
+      if (updates.username !== undefined) payload.username = updates.username;
       if (updates.name !== undefined) payload.name = updates.name;
       if (updates.phone !== undefined) payload.phone = updates.phone;
       if (updates.date_of_birth !== undefined) payload.dateOfBirth = updates.date_of_birth;
