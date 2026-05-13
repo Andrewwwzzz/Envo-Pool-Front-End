@@ -381,6 +381,7 @@ function TopUpWalletDialog({
   const [method, setMethod] = useState<"paynow" | "cash" | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cashConfirmation, setCashConfirmation] = useState<{ amount: number } | null>(null);
+  const [paynowConfirmation, setPaynowConfirmation] = useState<{ amount: number } | null>(null);
   const [chasing, setChasing] = useState(false);
   const [lastChaseAt, setLastChaseAt] = useState<Record<string, number>>(() => {
     try { return JSON.parse(localStorage.getItem("topup-chase-times") || "{}"); }
