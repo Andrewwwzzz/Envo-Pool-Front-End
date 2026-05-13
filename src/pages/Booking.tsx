@@ -581,7 +581,7 @@ const Booking = () => {
         <div className="flex justify-end">
           <Button
             size="lg"
-            disabled={!canBook || isProcessing || !isVerified}
+            disabled={!canBook || isProcessing || !kycVerified}
             onClick={handleBookClick}
             className="gap-2 h-12 px-8 text-sm font-semibold tracking-wide uppercase bg-accent text-accent-foreground hover:bg-accent/90"
           >
