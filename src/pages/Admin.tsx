@@ -1238,9 +1238,9 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
             <div>
               <p className="text-muted-foreground">Verified By</p>
               <p className="font-medium">
-                {customer.verified_by || (customer.isVerified ? "—" : "Not verified")}
-                {customer.verified_at && (
-                  <span className="block text-xs text-muted-foreground">{fmtDateTimeSG(customer.verified_at)}</span>
+                {verifyInfo?.name || (customer.isVerified ? "—" : "Not verified")}
+                {verifyInfo?.at && (
+                  <span className="block text-xs text-muted-foreground">{fmtDateTimeSG(verifyInfo.at)}</span>
                 )}
               </p>
             </div>
