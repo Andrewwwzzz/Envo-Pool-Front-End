@@ -378,7 +378,9 @@ function TopUpWalletDialog({
   const { toast } = useToast();
   const qc = useQueryClient();
   const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState<"paynow" | "cash" | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [cashConfirmation, setCashConfirmation] = useState<{ amount: number } | null>(null);
 
   const { data: requests } = useQuery({
     queryKey: ["my-topup-requests"],
@@ -390,6 +392,17 @@ function TopUpWalletDialog({
     },
     refetchInterval: 15000,
   });
+
+  const resetState = () => {
+    setAmount("");
+    setMethod(null);
+    setCashConfirmation(null);
+  };
+
+  const handleClose = (v: boolean) => {
+    if (!v) resetState();
+    onOpenChange(v);
+  };
 
   const copyRef = async () => {
     if (!shortId) return;
@@ -407,23 +420,31 @@ function TopUpWalletDialog({
       toast({ title: "Minimum top up is $10", variant: "destructive" });
       return;
     }
+    if (!method) {
+      toast({ title: "Please select a payment method", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await apiFetch("/api/transactions/topup/request", {
         method: "POST",
-        body: JSON.stringify({ amount: amt }),
+        body: JSON.stringify({ amount: amt, method }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data?.message || data?.error || "Failed to submit request");
       }
-      setAmount("");
       qc.invalidateQueries({ queryKey: ["my-topup-requests"] });
-      onOpenChange(false);
-      toast({
-        title: "Request submitted!",
-        description: "We'll credit your wallet within 24 hours.",
-      });
+      if (method === "cash") {
+        setCashConfirmation({ amount: amt });
+      } else {
+        resetState();
+        onOpenChange(false);
+        toast({
+          title: "Request submitted!",
+          description: "We'll credit your wallet within 24 hours.",
+        });
+      }
     } catch (e: any) {
       toast({ title: e?.message || "Failed to submit request", variant: "destructive" });
     } finally {
@@ -441,20 +462,61 @@ function TopUpWalletDialog({
     const v = String(s || "pending").toLowerCase();
     return v.charAt(0).toUpperCase() + v.slice(1);
   };
+  const methodBadgeClass = (m?: string | null) => {
+    const v = String(m || "").toLowerCase();
+    if (v === "cash") return "bg-blue-500/10 text-blue-400 border-blue-500/30";
+    if (v === "paynow") return "bg-purple-500/10 text-purple-400 border-purple-500/30";
+    return "bg-muted text-muted-foreground border-border";
+  };
+  const methodLabel = (m?: string | null) => {
+    const v = String(m || "").toLowerCase();
+    if (v === "cash") return "Cash";
+    if (v === "paynow") return "PayNow";
+    return "—";
+  };
+
+  // Cash confirmation screen
+  if (cashConfirmation) {
+    return (
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Cash Top Up Requested</DialogTitle>
+            <DialogDescription>Please complete payment at the counter.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 space-y-3 text-sm">
+              <p>
+                Please head to the counter with your Short ID{" "}
+                <span className="font-mono font-bold">#{shortId || "—"}</span> to pay{" "}
+                <span className="font-bold">${cashConfirmation.amount.toFixed(2)}</span>.
+              </p>
+              <p className="text-muted-foreground">
+                Staff will credit your wallet once payment is received.
+              </p>
+            </div>
+            <Button className="w-full" onClick={() => handleClose(false)}>
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Top Up Wallet</DialogTitle>
-          <DialogDescription>Follow the steps below to top up your wallet via PayNow.</DialogDescription>
+          <DialogDescription>Follow the steps below to top up your wallet.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
           {/* Step 1 */}
           <div className="space-y-2">
             <p className="text-sm font-semibold">Step 1 — Your Payment Reference</p>
-            <p className="text-xs text-muted-foreground">Use this as your PayNow reference</p>
+            <p className="text-xs text-muted-foreground">Use this as your payment reference</p>
             <div className="flex items-center gap-2">
               <div className="flex-1 px-4 py-3 rounded-lg bg-muted text-center">
                 <p className="text-2xl font-bold font-mono tracking-widest">{shortId || "—"}</p>
@@ -465,37 +527,81 @@ function TopUpWalletDialog({
             </div>
           </div>
 
-          {/* Step 2 */}
+          {/* Step 2 — Method selection */}
           <div className="space-y-2">
-            <p className="text-sm font-semibold">Step 2 — Make Payment</p>
-            <p className="text-sm text-muted-foreground">Scan the PayNow QR code below to transfer your desired amount:</p>
-            <div className="px-4 py-3 rounded-lg bg-white flex justify-center">
-              <img src={paynowQr} alt="PayNow QR code" className="w-56 h-auto" />
+            <p className="text-sm font-semibold">Step 2 — Choose Payment Method</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setMethod("paynow")}
+                className={`rounded-lg border p-4 text-left transition-all ${
+                  method === "paynow"
+                    ? "border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/30"
+                    : "border-border hover:border-purple-500/50 hover:bg-muted/50"
+                }`}
+              >
+                <div className="text-2xl mb-1">🏦</div>
+                <div className="font-semibold">PayNow</div>
+                <div className="text-xs text-muted-foreground">Scan QR code to transfer</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMethod("cash")}
+                className={`rounded-lg border p-4 text-left transition-all ${
+                  method === "cash"
+                    ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/30"
+                    : "border-border hover:border-blue-500/50 hover:bg-muted/50"
+                }`}
+              >
+                <div className="text-2xl mb-1">💵</div>
+                <div className="font-semibold">Cash</div>
+                <div className="text-xs text-muted-foreground">Pay at the counter</div>
+              </button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Use your 6-digit reference code above so we can identify your payment.
-            </p>
           </div>
 
-          {/* Step 3 */}
-          <div className="space-y-2">
-            <p className="text-sm font-semibold">Step 3 — Confirm Your Request</p>
-            <Input
-              type="number"
-              min={10}
-              step="1"
-              placeholder="Amount (minimum $10)"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-            <Button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="w-full bg-green-600 hover:bg-green-700 text-white"
-            >
-              I've Made Payment — Submit Request
-            </Button>
-          </div>
+          {/* PayNow QR — only when paynow selected */}
+          {method === "paynow" && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Scan to Pay</p>
+              <div className="px-4 py-3 rounded-lg bg-white flex justify-center">
+                <img src={paynowQr} alt="PayNow QR code" className="w-56 h-auto" />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Use your reference code above so we can identify your payment.
+              </p>
+            </div>
+          )}
+
+          {/* Step 3 — Amount + submit (only after method chosen) */}
+          {method && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">
+                Step 3 — {method === "cash" ? "Confirm Amount" : "Confirm Your Request"}
+              </p>
+              <Input
+                type="number"
+                min={10}
+                step="1"
+                placeholder="Amount (minimum $10)"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className={`w-full text-white ${
+                  method === "cash"
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
+              >
+                {method === "cash"
+                  ? "Request Cash Top Up"
+                  : "I've Made Payment — Submit Request"}
+              </Button>
+            </div>
+          )}
 
           {/* History */}
           <div className="pt-2 border-t border-border/50">
@@ -519,9 +625,16 @@ function TopUpWalletDialog({
                         <p className="text-xs text-destructive mt-1">Reason: {r.rejectionReason}</p>
                       )}
                     </div>
-                    <Badge variant="outline" className={statusClass(r.status)}>
-                      {statusText(r.status)}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge variant="outline" className={statusClass(r.status)}>
+                        {statusText(r.status)}
+                      </Badge>
+                      {r.method && (
+                        <Badge variant="outline" className={methodBadgeClass(r.method)}>
+                          {methodLabel(r.method)}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
