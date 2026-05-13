@@ -374,7 +374,7 @@ const Booking = () => {
     <div className="min-h-screen bg-background dark">
       <div className="fixed inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, hsl(var(--foreground)) 1px, transparent 0)', backgroundSize: '40px 40px' }} />
 
-      <header className="relative z-10 border-b border-border/50 bg-card/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
+      <header className="relative z-10 border-b border-border/50 bg-card/80 backdrop-blur-md px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold tracking-tight gold-gradient">Envo Pool</h1>
           <span className="text-muted-foreground text-sm hidden sm:inline">|</span>
@@ -395,7 +395,7 @@ const Booking = () => {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-4xl p-6 space-y-6">
+      <main className="relative z-10 mx-auto max-w-4xl p-4 sm:p-6 space-y-4 sm:space-y-6">
         {!kycVerified && (
           <Card className="card-premium border-yellow-500/30 bg-yellow-500/5">
             <CardContent className="pt-6 text-center space-y-3">

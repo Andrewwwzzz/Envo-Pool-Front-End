@@ -190,7 +190,7 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background dark">
       <div className="fixed inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, hsl(var(--foreground)) 1px, transparent 0)', backgroundSize: '40px 40px' }} />
 
-      <header className="relative z-10 border-b border-border/50 bg-card/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
+      <header className="relative z-10 border-b border-border/50 bg-card/80 backdrop-blur-md px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <Link to="/booking">
             <Button variant="outline" size="sm" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
@@ -209,9 +209,9 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-4xl p-6 space-y-6">
+      <main className="relative z-10 mx-auto max-w-4xl p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <Card className="card-premium">
             <CardContent className="pt-6 text-center">
               <Wallet className="h-6 w-6 mx-auto text-accent mb-2" />
@@ -248,18 +248,18 @@ const Dashboard = () => {
                 {upcoming.map((b: any) => (
                   <div
                     key={b.id || b._id}
-                    className={`flex items-center justify-between rounded-lg border border-border/50 p-4 transition-colors ${
+                    className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-lg border border-border/50 p-3 sm:p-4 transition-colors ${
                       getStatus(b) === "confirmed" ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : "hover:bg-card/50"
                     }`}
                     onClick={() => getStatus(b) === "confirmed" && setSelectedBooking(b)}
                   >
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-medium">{getTableLabel(b)}</p>
                       <p className="text-sm text-muted-foreground">
                         {fmtDate(getStartTime(b))} {fmtTime(getStartTime(b))} – {fmtTime(getEndTime(b))}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                       <span className="font-medium">${getPrice(b).toFixed(2)}</span>
                       {(() => {
                         const pb = paymentBadge(b.paymentMethod ?? b.payment_method);
@@ -287,18 +287,18 @@ const Dashboard = () => {
                 {past.slice(0, 10).map((b: any) => (
                   <div
                     key={b.id || b._id}
-                    className={`flex items-center justify-between rounded-lg border border-border/50 p-4 transition-colors ${
+                    className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-lg border border-border/50 p-3 sm:p-4 transition-colors ${
                       getStatus(b) === "confirmed" || getStatus(b) === "completed" ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : ""
                     }`}
                     onClick={() => (getStatus(b) === "confirmed" || getStatus(b) === "completed") && setSelectedBooking(b)}
                   >
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-medium">{getTableLabel(b)}</p>
                       <p className="text-sm text-muted-foreground">
                         {fmtDate(getStartTime(b))} {fmtTime(getStartTime(b))} – {fmtTime(getEndTime(b))}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                       <span className="font-medium">${getPrice(b).toFixed(2)}</span>
                       {(() => {
                         const pb = paymentBadge(b.paymentMethod ?? b.payment_method);

@@ -56,7 +56,7 @@ const Admin = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-border px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <Link to="/booking"><Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button></Link>
           <h1 className="text-xl font-semibold text-foreground tracking-tight">Admin Dashboard</h1>
@@ -64,7 +64,7 @@ const Admin = () => {
         <Button variant="ghost" size="sm" onClick={signOut}><LogOut className="mr-2 h-4 w-4" /> Sign Out</Button>
       </header>
 
-      <main className="mx-auto max-w-6xl p-6">
+      <main className="mx-auto max-w-6xl p-4 sm:p-6">
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="flex-wrap">
             <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -249,7 +249,7 @@ function OverviewTab() {
         <p className="text-xs text-muted-foreground">{from} → {to}</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
           <p className="text-2xl font-bold">${(stats?.totalRevenue ?? 0).toFixed(2)}</p>
@@ -272,7 +272,7 @@ function OverviewTab() {
         </CardContent></Card>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card><CardContent className="pt-6 text-center">
           <TrendingUp className="h-6 w-6 mx-auto text-primary mb-2" />
           <p className="text-2xl font-bold">${avgBookingValue.toFixed(2)}</p>
@@ -1396,13 +1396,13 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-sm">
             <div><p className="text-muted-foreground">Email</p><p className="font-medium">{customer.email}</p></div>
             <div><p className="text-muted-foreground">Phone</p><p className="font-medium">{customer.phone || "—"}</p></div>
             <div><p className="text-muted-foreground">Date of Birth</p><p className="font-medium">{fmtDob(customer.date_of_birth)}</p></div>
             <div><p className="text-muted-foreground">Joined</p><p className="font-medium">{fmtDateSG(customer.created_at)}</p></div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-sm">
             <div><p className="text-muted-foreground">Verified</p><p className="font-medium">{customer.isVerified ? <Badge>Yes</Badge> : <Badge variant="destructive">No</Badge>}</p></div>
             <div><p className="text-muted-foreground">Role</p><p className="font-medium capitalize">{customer.role}</p></div>
             <div>
