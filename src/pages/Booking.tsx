@@ -118,6 +118,20 @@ const Booking = () => {
     staleTime: 0,
   });
 
+  const { data: tableMaintenance } = useQuery({
+    queryKey: ["table-maintenance", selectedTable],
+    queryFn: async () => {
+      if (!selectedTable) return [];
+      const res = await apiFetch(`/api/admin/maintenance/${selectedTable}`);
+      if (!res.ok) return [];
+      const data = await res.json().catch(() => []);
+      return Array.isArray(data) ? data : (data?.maintenance || data?.windows || []);
+    },
+    enabled: !!selectedTable,
+    refetchInterval: 60000,
+    staleTime: 0,
+  });
+
   const { data: pricingRules } = usePricingRules();
   const { data: profile } = useProfile();
   const isAdmin = user?.isAdmin === true;
