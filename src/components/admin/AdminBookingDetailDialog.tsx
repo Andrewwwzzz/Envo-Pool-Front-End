@@ -8,6 +8,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Copy, Check } from "lucide-react";
+import { useState } from "react";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
 
 interface Props {
