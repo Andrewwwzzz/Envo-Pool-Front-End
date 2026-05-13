@@ -150,7 +150,10 @@ const Kyc = () => {
                     <Label htmlFor="phone">Phone Number <span className="text-muted-foreground font-normal">(optional)</span></Label>
                     <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 91234567" className="bg-background/50" />
                   </div>
-                  <Button type="submit" className="w-full h-11 text-sm font-semibold tracking-wide uppercase" disabled={loading}>
+                  {underage && (
+                    <p className="text-xs text-destructive">You must be at least 16 years old to create an account.</p>
+                  )}
+                  <Button type="submit" className="w-full h-11 text-sm font-semibold tracking-wide uppercase" disabled={loading || underage}>
                     {loading ? "Creating account..." : "Create Account"}
                   </Button>
                 </form>
