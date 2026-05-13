@@ -302,7 +302,7 @@ const CopyIdButton = ({ value }: { value: string }) => {
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
           </Button>
         </TooltipTrigger>
-        <TooltipContent>{copied ? "Copied!" : "Copy full Booking ID"}</TooltipContent>
+        <TooltipContent side="right" align="center">{copied ? "Copied!" : "Copy full Booking ID"}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
