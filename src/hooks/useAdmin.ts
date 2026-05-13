@@ -614,19 +614,19 @@ export function useUpdateCustomerProfile() {
       phone?: string;
       dateOfBirth?: string;
     }) => {
-      const payload: Record<string, string> = {};
+      const payload: Record<string, string> = { userId };
       if (name !== undefined) payload.name = name;
       if (email !== undefined) payload.email = email;
       if (phone !== undefined) payload.phone = phone;
       if (dateOfBirth !== undefined) payload.dateOfBirth = dateOfBirth;
 
-      const res = await apiFetch(`/api/users/${userId}`, {
-        method: "PATCH",
+      const res = await apiFetch(`/api/auth/update-profile`, {
+        method: "POST",
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to update customer details");
+        throw new Error(err.message || err.error || "Failed to update customer details");
       }
     },
     onSuccess: () => {
