@@ -182,6 +182,25 @@ const Settings = () => {
             </div>
 
             <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="username">Username</Label>
+                <span className="text-xs text-muted-foreground">{username.length}/20</span>
+              </div>
+              <Input
+                id="username"
+                value={username}
+                onChange={(e) => handleUsernameChange(e.target.value)}
+                placeholder="Optional"
+                maxLength={20}
+              />
+              {usernameError ? (
+                <p className="text-xs text-destructive">{usernameError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Your username is shown on bookings instead of your real name</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
               <Input
                 id="phone"
