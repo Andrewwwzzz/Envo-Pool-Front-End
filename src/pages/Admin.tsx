@@ -1771,6 +1771,9 @@ function VerificationTab() {
   const [verifyTarget, setVerifyTarget] = useState<any | null>(null);
   const [legalName, setLegalName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [search, setSearch] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchUnverified = async () => {
