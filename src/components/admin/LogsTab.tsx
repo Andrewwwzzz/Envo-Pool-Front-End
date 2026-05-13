@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAdminTransactions, useAdminBookingLogs, useAdminActivityLogs } from "@/hooks/useAdminLogs";
-import { useAdminCustomers } from "@/hooks/useAdmin";
+import { useAdminCustomers, useAdminBookings } from "@/hooks/useAdmin";
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { ScrollText, FileText, Users } from "lucide-react";
+import AdminBookingDetailDialog from "@/components/admin/AdminBookingDetailDialog";
 
 function useUserNameMap() {
   const { data: customers } = useAdminCustomers("");
@@ -224,7 +225,17 @@ function TransactionsView() {
 function BookingLogsView() {
   const { data, refetch } = useAdminBookingLogs();
   const logs = Array.isArray(data) ? data : data?.logs || [];
-  const [selected, setSelected] = useState<any | null>(null);
+  const { data: bookingsData } = useAdminBookings(true) as { data: any };
+  const bookings = Array.isArray(bookingsData) ? bookingsData : bookingsData?.bookings || [];
+  const bookingMap = useMemo(() => {
+    const m: Record<string, any> = {};
+    bookings.forEach((b: any) => {
+      const id = b._id || b.id;
+      if (id) m[String(id)] = b;
+    });
+    return m;
+  }, [bookings]);
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
 
   return (
     <Card>
@@ -243,21 +254,25 @@ function BookingLogsView() {
               </tr>
             </thead>
             <tbody>
-              {logs.map((l: any, i: number) => (
-                <tr
-                  key={l._id || l.id || i}
-                  className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/40 transition-colors"
-                  onClick={() => setSelected(l)}
-                >
-                  <td className="py-3 pr-4 font-mono text-xs">{l.bookingId || l.booking_id || "—"}</td>
-                  <td className="py-3 pr-4">
-                    <Badge variant="outline">{actionLabel(l.action)}</Badge>
-                  </td>
-                  <td className="py-3 text-muted-foreground">
-                    {l.createdAt || l.created_at || l.timestamp ? fmtDateTimeSG(l.createdAt || l.created_at || l.timestamp) : "—"}
-                  </td>
-                </tr>
-              ))}
+              {logs.map((l: any, i: number) => {
+                const bid = l.bookingId || l.booking_id;
+                const found = bid ? bookingMap[String(bid)] : null;
+                return (
+                  <tr
+                    key={l._id || l.id || i}
+                    className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/40 transition-colors"
+                    onClick={() => setSelectedBooking(found || { _id: bid, id: bid, status: l.action, details: l.details, createdAt: l.createdAt || l.created_at || l.timestamp })}
+                  >
+                    <td className="py-3 pr-4 font-mono text-xs">{bid || "—"}</td>
+                    <td className="py-3 pr-4">
+                      <Badge variant="outline">{actionLabel(l.action)}</Badge>
+                    </td>
+                    <td className="py-3 text-muted-foreground">
+                      {l.createdAt || l.created_at || l.timestamp ? fmtDateTimeSG(l.createdAt || l.created_at || l.timestamp) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
               {logs.length === 0 && (
                 <tr><td colSpan={3} className="py-8 text-center text-muted-foreground">No booking logs found</td></tr>
               )}
@@ -265,21 +280,10 @@ function BookingLogsView() {
           </table>
         </div>
       </CardContent>
-      <DetailsDialog
-        open={!!selected}
-        onClose={() => setSelected(null)}
-        title="Booking Log Details"
-        rows={selected ? [
-          { label: "Booking ID", value: selected.bookingId || selected.booking_id || "—", mono: true },
-          { label: "Action", value: actionLabel(selected.action) },
-          { label: "Timestamp", value: selected.createdAt || selected.created_at || selected.timestamp ? fmtDateTimeSG(selected.createdAt || selected.created_at || selected.timestamp) : "—" },
-          ...(selected.details && typeof selected.details === "object"
-            ? Object.entries(selected.details)
-                .filter(([k]) => !HIDDEN_DETAIL_KEYS.has(k))
-                .map(([k, v]) => ({ label: DETAIL_LABELS[k] || humanize(k), value: formatDetailValue(k, v) }))
-            : selected.details ? [{ label: "Details", value: String(selected.details) }] : []),
-        ] : []}
-        raw={selected}
+      <AdminBookingDetailDialog
+        booking={selectedBooking}
+        open={!!selectedBooking}
+        onOpenChange={(open) => { if (!open) setSelectedBooking(null); }}
       />
     </Card>
   );
