@@ -18,6 +18,7 @@ import {
   useAdminPromoCodes,
   useAdminCustomers,
   useUpdateCustomerWallet,
+  useUpdateCustomerProfile,
   useDeleteCustomer,
   useCustomerBookings,
   useCustomerWalletHistory,
@@ -1108,10 +1109,39 @@ function CustomersTab() {
 function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => void }) {
   const { toast } = useToast();
   const updateWallet = useUpdateCustomerWallet();
+  const updateProfile = useUpdateCustomerProfile();
   const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id);
   const { data: walletHistory } = useCustomerWalletHistory(customer.user_id);
   const { data: rewardHistory } = useCustomerRewardHistory(customer.user_id);
   const [editing, setEditing] = useState(false);
+  const [editDetailsOpen, setEditDetailsOpen] = useState(false);
+  const [editName, setEditName] = useState(customer.name ?? "");
+  const [editEmail, setEditEmail] = useState(customer.email ?? "");
+  const [editPhone, setEditPhone] = useState(customer.phone ?? "");
+  const [editDob, setEditDob] = useState(
+    customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : ""
+  );
+
+  const openEditDetails = () => {
+    setEditName(customer.name ?? "");
+    setEditEmail(customer.email ?? "");
+    setEditPhone(customer.phone ?? "");
+    setEditDob(customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : "");
+    setEditDetailsOpen(true);
+  };
+
+  const saveDetails = async () => {
+    try {
+      await updateProfile.mutateAsync({
+        userId: customer.user_id,
+        name: editName.trim(),
+        email: editEmail.trim(),
+        phone: editPhone.trim(),
+        dateOfBirth: editDob || undefined,
+      });
+      setEditDetailsOpen(false);
+    } catch {/* toast handled in hook */}
+  };
 
   // Wallet editing state
   const [walletMode, setWalletMode] = useState<"exact" | "delta">("delta");
@@ -1172,7 +1202,12 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
               ) : null}
             </div>
             <div className="flex gap-2">
-              {!editing && <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet / Points</Button>}
+              {!editing && (
+                <>
+                  <Button size="sm" variant="outline" onClick={openEditDetails}><Pencil className="mr-1 h-3 w-3" /> Edit Details</Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet / Points</Button>
+                </>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -1180,13 +1215,21 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div><p className="text-muted-foreground">Email</p><p className="font-medium">{customer.email}</p></div>
             <div><p className="text-muted-foreground">Phone</p><p className="font-medium">{customer.phone || "—"}</p></div>
-            <div><p className="text-muted-foreground">Date of Birth (KYC)</p><p className="font-medium text-accent">{customer.date_of_birth || "—"}</p></div>
+            <div><p className="text-muted-foreground">Date of Birth</p><p className="font-medium text-accent">{customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : "—"}</p></div>
             <div><p className="text-muted-foreground">Joined</p><p className="font-medium">{fmtDateSG(customer.created_at)}</p></div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div><p className="text-muted-foreground">Verified</p><p className="font-medium">{customer.isVerified ? <Badge>Yes</Badge> : <Badge variant="destructive">No</Badge>}</p></div>
             <div><p className="text-muted-foreground">Role</p><p className="font-medium capitalize">{customer.role}</p></div>
-            <div><p className="text-muted-foreground">Age Verified</p><p className="font-medium">{customer.age_verified ? "Yes" : "No"}</p></div>
+            <div>
+              <p className="text-muted-foreground">Verified By</p>
+              <p className="font-medium">
+                {customer.verified_by || (customer.isVerified ? "—" : "Not verified")}
+                {customer.verified_at && (
+                  <span className="block text-xs text-muted-foreground">{fmtDateTimeSG(customer.verified_at)}</span>
+                )}
+              </p>
+            </div>
           </div>
 
           {editing ? (
@@ -1378,6 +1421,40 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={editDetailsOpen} onOpenChange={(o) => { if (!o) setEditDetailsOpen(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Customer Details</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="cust-name">Name</Label>
+              <Input id="cust-name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cust-email">Email</Label>
+              <Input id="cust-email" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cust-phone">Phone</Label>
+              <Input id="cust-phone" type="tel" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="e.g. 91234567" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cust-dob">Date of Birth</Label>
+              <Input id="cust-dob" type="date" value={editDob} onChange={(e) => setEditDob(e.target.value)} />
+            </div>
+            <p className="text-xs text-muted-foreground">Changes will be recorded in the activity log.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDetailsOpen(false)} disabled={updateProfile.isPending}>Cancel</Button>
+            <Button onClick={saveDetails} disabled={updateProfile.isPending}>
+              {updateProfile.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
