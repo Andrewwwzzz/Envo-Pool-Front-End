@@ -278,4 +278,34 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
   );
 };
 
+const CopyIdButton = ({ value }: { value: string }) => {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    if (!value) return;
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <TooltipProvider>
+      <Tooltip open={copied || undefined}>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={handleCopy}
+            disabled={!value}
+            aria-label="Copy booking ID"
+          >
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{copied ? "Copied!" : "Copy full Booking ID"}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
 export default AdminBookingDetailDialog;
