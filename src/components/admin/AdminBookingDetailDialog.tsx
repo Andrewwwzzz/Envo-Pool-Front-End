@@ -133,7 +133,10 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <div className="text-muted-foreground">Booking ID</div>
-                <div className="font-mono font-medium">…{shortId}</div>
+                <div className="flex items-center gap-2">
+                  <div className="font-mono font-medium">…{shortId}</div>
+                  <CopyIdButton value={id} />
+                </div>
               </div>
               <div>
                 <div className="text-muted-foreground">Status</div>
