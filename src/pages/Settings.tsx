@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Settings as SettingsIcon, Eye, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
+import { fmtDateSG } from "@/lib/sgTime";
 
 const Settings = () => {
   const { user, loading } = useAuth();
