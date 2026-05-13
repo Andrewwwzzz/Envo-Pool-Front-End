@@ -101,7 +101,7 @@ const Booking = () => {
 
       return filtered.map((b: any) => {
         const uid = typeof b.userId === "object" ? b.userId?._id : b.userId;
-        const rawName = typeof b.userId === "object" ? (b.userId?.name || b.userId?.email) : null;
+        const rawName = typeof b.userId === "object" ? (b.userId?.username || b.userId?.name || b.userId?.email) : null;
         const showName = uid ? visibilityMap[uid] : false;
         return {
           start_time: b.startTime,
@@ -109,7 +109,7 @@ const Booking = () => {
           status: b.status === "confirmed" ? "confirmed" : "pending",
           created_at: b.createdAt || new Date().toISOString(),
           expires_at: b.expiresAt || null,
-          user_name: showName ? (b.userName || rawName || null) : null,
+          user_name: showName ? (rawName || b.userName || null) : null,
         };
       });
     },
