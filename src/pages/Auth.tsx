@@ -195,7 +195,7 @@ const Auth = () => {
                 {!isLogin && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="name">Full Name</Label>
+                      <Label htmlFor="name">Username</Label>
                       <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="bg-background/50" />
                     </div>
                     <div className="space-y-2">
