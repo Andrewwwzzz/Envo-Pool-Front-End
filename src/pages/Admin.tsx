@@ -1803,6 +1803,16 @@ function VerificationTab() {
       toast({ title: "Missing fields", description: "Legal name and date of birth are required", variant: "destructive" });
       return;
     }
+    // Enforce minimum age of 16
+    const dobDate = new Date(dateOfBirth);
+    const today = new Date();
+    let age = today.getFullYear() - dobDate.getFullYear();
+    const m = today.getMonth() - dobDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dobDate.getDate())) age--;
+    if (isNaN(dobDate.getTime()) || age < 16) {
+      toast({ title: "Age requirement not met", description: "Customer must be at least 16 years old to be verified", variant: "destructive" });
+      return;
+    }
     try {
       setVerifying(userId);
       const res = await apiFetch("/api/admin/verify-user", {
