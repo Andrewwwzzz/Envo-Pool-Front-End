@@ -274,7 +274,7 @@ export function TimeSlotPicker({
                 slot.state === "past" && "opacity-30 cursor-not-allowed bg-muted border-border text-muted-foreground line-through",
                 slot.state === "booked" && "cursor-not-allowed border-destructive/40 bg-destructive/10 text-destructive",
                 slot.state === "pending" && "cursor-not-allowed border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
-                slot.state === "maintenance" && "cursor-not-allowed border-orange-500/40 bg-orange-500/10 text-orange-600 dark:text-orange-400",
+                slot.state === "maintenance" && "cursor-not-allowed border-destructive/40 bg-destructive/10 text-destructive",
                 slot.available && !inRange && !isStartSlot && "border-emerald-500/40 bg-emerald-500/5 hover:border-accent/50 hover:bg-accent/5 cursor-pointer text-foreground",
                 isStartSlot && "border-accent bg-accent text-accent-foreground ring-2 ring-accent/30",
                 inRange && !isStartSlot && "border-accent bg-accent/30 text-accent-foreground ring-1 ring-accent/40",
@@ -290,7 +290,7 @@ export function TimeSlotPicker({
           if (slot.state === "maintenance" || slot.state === "pending" || slot.state === "booked") {
             const tooltipText =
               slot.state === "maintenance"
-                ? `Maintenance${slot.maintenanceReason && slot.maintenanceReason !== "Maintenance" ? `: ${slot.maintenanceReason}` : ""}`
+                ? `Under maintenance${slot.maintenanceReason ? ` — Reason: ${slot.maintenanceReason}` : ""}`
                 : displayName
                   ? slot.state === "pending" && slot.expiresAt
                     ? `${displayName} — may become available soon`
@@ -322,23 +322,6 @@ export function TimeSlotPicker({
         })}
       </div>
 
-      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-1">
-        <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded border border-emerald-500/60 bg-emerald-500/20" /> Available
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-accent" /> Selected
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded border border-destructive/40 bg-destructive/10" /> Booked
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded border border-amber-500/40 bg-amber-500/10" /> Pending Payment
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded border border-orange-500/40 bg-orange-500/10" /> Maintenance
-        </span>
-      </div>
     </div>
     </TooltipProvider>
   );
