@@ -1109,10 +1109,39 @@ function CustomersTab() {
 function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => void }) {
   const { toast } = useToast();
   const updateWallet = useUpdateCustomerWallet();
+  const updateProfile = useUpdateCustomerProfile();
   const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id);
   const { data: walletHistory } = useCustomerWalletHistory(customer.user_id);
   const { data: rewardHistory } = useCustomerRewardHistory(customer.user_id);
   const [editing, setEditing] = useState(false);
+  const [editDetailsOpen, setEditDetailsOpen] = useState(false);
+  const [editName, setEditName] = useState(customer.name ?? "");
+  const [editEmail, setEditEmail] = useState(customer.email ?? "");
+  const [editPhone, setEditPhone] = useState(customer.phone ?? "");
+  const [editDob, setEditDob] = useState(
+    customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : ""
+  );
+
+  const openEditDetails = () => {
+    setEditName(customer.name ?? "");
+    setEditEmail(customer.email ?? "");
+    setEditPhone(customer.phone ?? "");
+    setEditDob(customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : "");
+    setEditDetailsOpen(true);
+  };
+
+  const saveDetails = async () => {
+    try {
+      await updateProfile.mutateAsync({
+        userId: customer.user_id,
+        name: editName.trim(),
+        email: editEmail.trim(),
+        phone: editPhone.trim(),
+        dateOfBirth: editDob || undefined,
+      });
+      setEditDetailsOpen(false);
+    } catch {/* toast handled in hook */}
+  };
 
   // Wallet editing state
   const [walletMode, setWalletMode] = useState<"exact" | "delta">("delta");
