@@ -50,11 +50,9 @@ export function useUpdateProfile() {
     mutationFn: async (updates: { name?: string; username?: string; phone?: string; date_of_birth?: string }) => {
       if (!user) throw new Error("Not authenticated");
       const payload: Record<string, string> = { userId: user.id };
-      // Backend stores the editable display name under `name`; legal name lives in kyc.name
-      if (updates.username !== undefined) {
-        payload.name = updates.username;
-        payload.username = updates.username;
-      }
+      // KYC-verified accounts have `name` (legal name) locked by the backend.
+      // Only send `username` for username changes — never overwrite `name`.
+      if (updates.username !== undefined) payload.username = updates.username;
       if (updates.name !== undefined) payload.name = updates.name;
       if (updates.phone !== undefined) payload.phone = updates.phone;
       if (updates.date_of_birth !== undefined) payload.dateOfBirth = updates.date_of_birth;
