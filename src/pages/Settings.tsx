@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Settings as SettingsIcon, Eye, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
+import { fmtDateSG } from "@/lib/sgTime";
 
 const Settings = () => {
   const { user, loading } = useAuth();
@@ -165,6 +166,18 @@ const Settings = () => {
               />
               <p className="text-xs text-muted-foreground">Email cannot be changed</p>
             </div>
+
+            {(profile?.createdAt || profile?.created_at) && (
+              <div className="space-y-2">
+                <Label htmlFor="created">Member Since</Label>
+                <Input
+                  id="created"
+                  value={fmtDateSG(profile.createdAt ?? profile.created_at)}
+                  disabled
+                  className="bg-muted/50 cursor-not-allowed"
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="name">Legal Name</Label>
