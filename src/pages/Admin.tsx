@@ -1230,7 +1230,7 @@ function CustomersTab() {
               <th className="pb-2 pr-4">Status</th>
               <th className="pb-2 pr-4">Role</th>
               <th className="pb-2 pr-4">Wallet</th>
-              <th className="pb-2 pr-4">Points</th>
+              
               <th className="pb-2 pr-4">Total Spent</th>
               <th className="pb-2">Joined</th>
             </tr></thead>
