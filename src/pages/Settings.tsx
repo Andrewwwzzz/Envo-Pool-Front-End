@@ -157,7 +157,12 @@ const Settings = () => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter your name"
+                disabled={kycVerified}
+                className={kycVerified ? "bg-muted/50 cursor-not-allowed" : undefined}
               />
+              {kycVerified && (
+                <p className="text-xs text-muted-foreground">Verified via Singpass · Cannot be changed</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -173,12 +178,25 @@ const Settings = () => {
 
             <div className="space-y-2">
               <Label htmlFor="dob">Date of Birth</Label>
-              <Input
-                id="dob"
-                type="date"
-                value={dob}
-                onChange={(e) => setDob(e.target.value)}
-              />
+              {kycVerified ? (
+                <>
+                  <Input
+                    id="dob"
+                    type="text"
+                    value={formatDobDisplay(dob)}
+                    disabled
+                    className="bg-muted/50 cursor-not-allowed"
+                  />
+                  <p className="text-xs text-muted-foreground">Verified via Singpass · Cannot be changed</p>
+                </>
+              ) : (
+                <Input
+                  id="dob"
+                  type="date"
+                  value={dob}
+                  onChange={(e) => setDob(e.target.value)}
+                />
+              )}
             </div>
 
             <Button
