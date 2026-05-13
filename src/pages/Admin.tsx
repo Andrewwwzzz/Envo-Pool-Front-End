@@ -1113,6 +1113,20 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id);
   const { data: walletHistory } = useCustomerWalletHistory(customer.user_id);
   const { data: rewardHistory } = useCustomerRewardHistory(customer.user_id);
+  const { data: activityLogs } = useAdminActivityLogs();
+  const { data: allCustomers } = useAdminCustomers("");
+
+  const verifyInfo = (() => {
+    if (customer.verified_by) return { name: customer.verified_by, at: customer.verified_at };
+    const logs = Array.isArray(activityLogs) ? activityLogs : [];
+    const entry = logs.find((l: any) => l.action === "verify_user" && (l.targetUserId === customer.user_id || l.targetUserId?._id === customer.user_id));
+    if (!entry) return null;
+    const adminId = typeof entry.adminId === "object" ? entry.adminId?._id : entry.adminId;
+    const adminName = typeof entry.adminId === "object"
+      ? (entry.adminId?.name || entry.adminId?.email)
+      : (Array.isArray(allCustomers) ? allCustomers.find((u: any) => u.user_id === adminId)?.name || allCustomers.find((u: any) => u.user_id === adminId)?.email : null);
+    return { name: adminName || adminId || "Admin", at: entry.createdAt };
+  })();
   const [editing, setEditing] = useState(false);
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
   const [editName, setEditName] = useState(customer.name ?? "");
