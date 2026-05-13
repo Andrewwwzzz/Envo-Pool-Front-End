@@ -388,6 +388,17 @@ function TopUpWalletDialog({
   });
   const CHASE_COOLDOWN_MS = 10 * 60 * 1000; // 10 min between chases per request
 
+  const { data: requests } = useQuery({
+    queryKey: ["my-topup-requests"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/transactions/topup/my-requests");
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : data?.requests ?? [];
+    },
+    refetchInterval: 15000,
+  });
+
   const pendingRequest = Array.isArray(requests)
     ? requests.find((r: any) => String(r.status || "").toLowerCase() === "pending") || null
     : null;
@@ -423,17 +434,6 @@ function TopUpWalletDialog({
       setChasing(false);
     }
   };
-
-  const { data: requests } = useQuery({
-    queryKey: ["my-topup-requests"],
-    queryFn: async () => {
-      const res = await apiFetch("/api/transactions/topup/my-requests");
-      if (!res.ok) return [];
-      const data = await res.json();
-      return Array.isArray(data) ? data : data?.requests ?? [];
-    },
-    refetchInterval: 15000,
-  });
 
   const resetState = () => {
     setAmount("");
