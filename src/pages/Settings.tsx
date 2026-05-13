@@ -49,6 +49,7 @@ const Settings = () => {
   useEffect(() => {
     if (profile) {
       setName(kycVerified && kycName ? kycName : profile.name ?? "");
+      setUsername(profile.username ?? "");
       setPhone(profile.phone ?? "");
       setDob(kycVerified && kycDob ? kycDob : profile.date_of_birth ?? "");
     }
