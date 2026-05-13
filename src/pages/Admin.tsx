@@ -97,12 +97,23 @@ const Admin = () => {
   );
 };
 
-type PeriodKey = "this_month" | "last_month" | "this_year" | "all_time";
+type PeriodKey = "today" | "this_week" | "this_month" | "last_month" | "this_year" | "all_time";
 
 function getPeriodRange(period: PeriodKey): { from: string; to: string } {
   const toISO = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const now = new Date();
+  if (period === "today") {
+    return { from: toISO(now), to: toISO(now) };
+  }
+  if (period === "this_week") {
+    // Week starts Monday
+    const day = now.getDay(); // 0=Sun..6=Sat
+    const diffToMonday = (day + 6) % 7;
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+    return { from: toISO(monday), to: toISO(sunday) };
+  }
   if (period === "this_month") {
     return { from: toISO(new Date(now.getFullYear(), now.getMonth(), 1)), to: toISO(new Date(now.getFullYear(), now.getMonth() + 1, 0)) };
   }
