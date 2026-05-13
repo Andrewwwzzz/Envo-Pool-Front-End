@@ -1768,6 +1768,9 @@ function VerificationTab() {
     } catch { return []; }
   });
   const [verifying, setVerifying] = useState<string | null>(null);
+  const [verifyTarget, setVerifyTarget] = useState<any | null>(null);
+  const [legalName, setLegalName] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const { toast } = useToast();
 
   const fetchUnverified = async () => {
@@ -1787,18 +1790,31 @@ function VerificationTab() {
     fetchUnverified();
   }, []);
 
-  const handleVerify = async (userId: string) => {
+  const openVerifyDialog = (u: any) => {
+    setVerifyTarget(u);
+    setLegalName("");
+    setDateOfBirth("");
+  };
+
+  const handleVerify = async () => {
+    if (!verifyTarget) return;
+    const userId = verifyTarget._id || verifyTarget.userId || verifyTarget.id;
+    if (!legalName.trim() || !dateOfBirth) {
+      toast({ title: "Missing fields", description: "Legal name and date of birth are required", variant: "destructive" });
+      return;
+    }
     try {
       setVerifying(userId);
       const res = await apiFetch("/api/admin/verify-user", {
         method: "POST",
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId, legalName: legalName.trim(), dateOfBirth }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.message || "Failed to verify user");
       }
       toast({ title: "User verified successfully" });
+      setVerifyTarget(null);
       await fetchUnverified();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -1844,7 +1860,7 @@ function VerificationTab() {
                     <td className="py-3">
                       <Button
                         size="sm"
-                        onClick={() => handleVerify(u._id || u.userId || u.id)}
+                        onClick={() => openVerifyDialog(u)}
                         disabled={verifying === (u._id || u.userId || u.id)}
                       >
                         {verifying === (u._id || u.userId || u.id) ? (
@@ -1862,6 +1878,46 @@ function VerificationTab() {
           </div>
         )}
       </CardContent>
+
+      <Dialog open={!!verifyTarget} onOpenChange={(o) => { if (!o) setVerifyTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Verify User</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Verifying account for <span className="font-medium text-foreground">{verifyTarget?.email}</span>. The display name on this account ({verifyTarget?.name || "—"}) is a nickname — enter the customer's legal details below.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="legal-name">Legal Name</Label>
+              <Input
+                id="legal-name"
+                value={legalName}
+                onChange={(e) => setLegalName(e.target.value)}
+                placeholder="Full legal name"
+              />
+              <p className="text-xs text-muted-foreground">Customer's full legal name as per IC/passport</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="legal-dob">Date of Birth</Label>
+              <Input
+                id="legal-dob"
+                type="date"
+                value={dateOfBirth}
+                onChange={(e) => setDateOfBirth(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Customer's date of birth as per IC/passport</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVerifyTarget(null)} disabled={!!verifying}>Cancel</Button>
+            <Button onClick={handleVerify} disabled={!legalName.trim() || !dateOfBirth || !!verifying}>
+              {verifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              Confirm Verification
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
