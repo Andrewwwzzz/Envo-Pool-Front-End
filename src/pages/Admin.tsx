@@ -1249,7 +1249,7 @@ function CustomersTab() {
                   className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => setSelectedCustomer(c)}
                 >
-                  <td className="py-3 pr-4 font-medium">{c.name || "—"}</td>
+                  <td className="py-3 pr-4 font-medium">{c.legal_name || c.name || "—"}</td>
                   <td className="py-3 pr-4">
                     {c.shortId ? (
                       <code className="px-2 py-0.5 rounded bg-muted font-mono text-xs">{c.shortId}</code>
