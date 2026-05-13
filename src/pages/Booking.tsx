@@ -252,12 +252,13 @@ const Booking = () => {
     setRewardCodeInput("");
   };
 
+  const isFreeReward = appliedReward?.type === "free_session";
   const canBook =
     startDate &&
     endDate &&
     endDate > startDate &&
     selectedTable &&
-    paymentMethod &&
+    (paymentMethod || isFreeReward) &&
     !durationError;
 
   const handleBookClick = () => {
