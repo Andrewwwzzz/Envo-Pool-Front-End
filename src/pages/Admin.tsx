@@ -1876,9 +1876,22 @@ function VerificationTab() {
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {users.length > 0 && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, email or date of birth..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        )}
         {users.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">No unverified users</p>
+        ) : filteredUsers.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">No matches for "{search}"</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -1892,28 +1905,46 @@ function VerificationTab() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u: any) => (
-                  <tr key={u._id || u.userId || u.id} className="border-b border-border last:border-0">
+                {filteredUsers.map((u: any) => {
+                  const uid = u._id || u.userId || u.id;
+                  return (
+                  <tr key={uid} className="border-b border-border last:border-0">
                     <td className="py-3 pr-4">{u.name || "—"}</td>
                     <td className="py-3 pr-4 text-accent font-medium">{u.dateOfBirth || u.date_of_birth || "—"}</td>
                     <td className="py-3 pr-4">{u.email || "—"}</td>
                     <td className="py-3 pr-4">{u.createdAt ? fmtDateTimeSG(u.createdAt) : "—"}</td>
                     <td className="py-3">
-                      <Button
-                        size="sm"
-                        onClick={() => openVerifyDialog(u)}
-                        disabled={verifying === (u._id || u.userId || u.id)}
-                      >
-                        {verifying === (u._id || u.userId || u.id) ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Check className="mr-2 h-4 w-4" />
-                        )}
-                        Verify
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => openVerifyDialog(u)}
+                          disabled={verifying === uid || deleting === uid}
+                        >
+                          {verifying === uid ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Check className="mr-2 h-4 w-4" />
+                          )}
+                          Verify
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeleteTarget(u)}
+                          disabled={verifying === uid || deleting === uid}
+                          title="Delete request"
+                        >
+                          {deleting === uid ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+                          ) : (
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          )}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
