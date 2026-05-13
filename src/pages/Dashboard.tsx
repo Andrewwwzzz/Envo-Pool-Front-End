@@ -388,10 +388,9 @@ function TopUpWalletDialog({
   });
   const CHASE_COOLDOWN_MS = 10 * 60 * 1000; // 10 min between chases per request
 
-  const pendingRequest = (requests => {
-    if (!Array.isArray(requests)) return null;
-    return requests.find((r: any) => String(r.status || "").toLowerCase() === "pending") || null;
-  });
+  const pendingRequest = Array.isArray(requests)
+    ? requests.find((r: any) => String(r.status || "").toLowerCase() === "pending") || null
+    : null;
 
   const handleChase = async (reqId: string) => {
     const last = lastChaseAt[reqId] || 0;
