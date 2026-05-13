@@ -1467,7 +1467,6 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           ) : (
             <div className="flex gap-6 text-sm pt-2 border-t border-border">
               <span>Wallet: <strong>${(customer.wallet_balance ?? 0).toFixed(2)}</strong></span>
-              <span>Points: <strong>{customer.reward_points ?? 0}</strong></span>
               <span>Total Spent: <strong>${(customer.total_spent ?? 0).toFixed(2)}</strong></span>
             </div>
           )}
