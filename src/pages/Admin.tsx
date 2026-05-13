@@ -2627,9 +2627,7 @@ function TopUpDetailDialog({
               <div>
                 <div className="text-muted-foreground">Method</div>
                 {(() => {
-                  const m = String(
-                    r.method || r.paymentMethod || r.payment_method || r.method_name || "paynow"
-                  ).toLowerCase();
+                  const m = String(r.method || "paynow").toLowerCase();
                   const isCash = m === "cash";
                   const cls = isCash
                     ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
