@@ -17,8 +17,8 @@ const Index = () => {
       navigate("/auth");
       return;
     }
-    if (user.isVerified === false) {
-      toast({ title: "Your account is pending verification" });
+    if (!user.kyc?.verified) {
+      toast({ title: "Please verify your identity via Singpass before booking" });
       navigate("/dashboard");
       return;
     }

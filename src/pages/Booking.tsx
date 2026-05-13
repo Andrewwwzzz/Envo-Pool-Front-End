@@ -18,8 +18,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { TimeSlotPicker } from "@/components/TimeSlotPicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { apiFetch } from "@/lib/api";
-import PendingVerificationCard from "@/components/PendingVerificationCard";
+import { apiFetch, BASE_URL } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isBefore } from "date-fns";
 import { todaySG, sgSlotToUTC, sgDayBoundsUTC } from "@/lib/sgTime";
@@ -131,9 +130,21 @@ const Booking = () => {
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
 
-  const isVerified = user.isVerified !== false;
+  const kycVerified = !!user.kyc?.verified;
 
-  if (!isVerified) return <PendingVerificationCard onSignOut={signOut} />;
+  const handleStartSingpass = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/api/myinfo/auth-url-public`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.authorizeUrl) throw new Error(data.error || "Failed to start Singpass verification");
+      window.location.href = data.authorizeUrl;
+    } catch (err: any) {
+      toast({ title: "Singpass error", description: err.message, variant: "destructive" });
+    }
+  };
 
   const handleDateSelect = (date: Date | undefined) => {
     setSelectedDate(date);
@@ -346,11 +357,14 @@ const Booking = () => {
       </header>
 
       <main className="relative z-10 mx-auto max-w-4xl p-6 space-y-6">
-        {!isVerified && (
+        {!kycVerified && (
           <Card className="card-premium border-yellow-500/30 bg-yellow-500/5">
-            <CardContent className="pt-6 text-center">
-              <p className="text-yellow-400 font-semibold">⏳ Awaiting admin verification</p>
-              <p className="text-sm text-muted-foreground mt-1">Your account is pending approval. You cannot book until verified.</p>
+            <CardContent className="pt-6 text-center space-y-3">
+              <p className="text-yellow-400 font-semibold">Identity verification required</p>
+              <p className="text-sm text-muted-foreground">Please verify your identity via Singpass before booking</p>
+              <Button onClick={handleStartSingpass} className="bg-[#E3002B] hover:bg-[#c20025] text-white">
+                Verify with Singpass
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -567,7 +581,7 @@ const Booking = () => {
         <div className="flex justify-end">
           <Button
             size="lg"
-            disabled={!canBook || isProcessing || !isVerified}
+            disabled={!canBook || isProcessing || !kycVerified}
             onClick={handleBookClick}
             className="gap-2 h-12 px-8 text-sm font-semibold tracking-wide uppercase bg-accent text-accent-foreground hover:bg-accent/90"
           >
