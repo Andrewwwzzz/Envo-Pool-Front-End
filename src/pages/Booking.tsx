@@ -708,7 +708,7 @@ const Booking = () => {
             onClick={handleBookClick}
             className="gap-2 h-12 px-8 text-sm font-semibold tracking-wide uppercase bg-accent text-accent-foreground hover:bg-accent/90"
           >
-            {isProcessing ? "Processing..." : `Reserve Table — $${finalPrice.toFixed(2)}`}
+            {isProcessing ? "Processing..." : isFreeReward ? "Reserve Table — FREE" : `Reserve Table — $${finalPrice.toFixed(2)}`}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
