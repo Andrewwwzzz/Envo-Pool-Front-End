@@ -225,6 +225,12 @@ const Auth = () => {
                   <Label htmlFor="password">Password</Label>
                   <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="bg-background/50" />
                 </div>
+                {!isLogin && (
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 91234567" className="bg-background/50" />
+                  </div>
+                )}
                 <Button type="submit" className="w-full h-11 text-sm font-semibold tracking-wide uppercase" disabled={loading}>
                   {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
                 </Button>
