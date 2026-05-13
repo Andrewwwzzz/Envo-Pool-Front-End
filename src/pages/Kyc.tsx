@@ -35,8 +35,27 @@ const Kyc = () => {
     }
   }, [status, error]);
 
+  const kycDob = searchParams.get("dob");
+
+  const computeAge = (iso: string | null) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - d.getFullYear();
+    const m = today.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+    return age;
+  };
+  const age = computeAge(kycDob);
+  const underage = age !== null && age < 16;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (underage) {
+      toast({ title: "Age requirement not met", description: "You must be at least 16 years old to create an account", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
       const res = await apiFetch("/api/auth/register", {
@@ -131,7 +150,10 @@ const Kyc = () => {
                     <Label htmlFor="phone">Phone Number <span className="text-muted-foreground font-normal">(optional)</span></Label>
                     <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 91234567" className="bg-background/50" />
                   </div>
-                  <Button type="submit" className="w-full h-11 text-sm font-semibold tracking-wide uppercase" disabled={loading}>
+                  {underage && (
+                    <p className="text-xs text-destructive">You must be at least 16 years old to create an account.</p>
+                  )}
+                  <Button type="submit" className="w-full h-11 text-sm font-semibold tracking-wide uppercase" disabled={loading || underage}>
                     {loading ? "Creating account..." : "Create Account"}
                   </Button>
                 </form>
