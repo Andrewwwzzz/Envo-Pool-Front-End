@@ -332,6 +332,9 @@ export function TimeSlotPicker({
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded border border-amber-500/40 bg-amber-500/10" /> Pending Payment
         </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded border border-orange-500/40 bg-orange-500/10" /> Maintenance
+        </span>
       </div>
     </div>
     </TooltipProvider>
