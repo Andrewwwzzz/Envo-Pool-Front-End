@@ -1343,14 +1343,30 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   };
 
   const saveDetails = async () => {
+    const origName = (customer.name ?? "").trim();
+    const origEmail = (customer.email ?? "").trim();
+    const origPhone = (customer.phone ?? "").trim();
+    const origDob = customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : "";
+
+    const newName = editName.trim();
+    const newEmail = editEmail.trim();
+    const newPhone = editPhone.trim();
+    const newDob = editDob || "";
+
+    const payload: Parameters<typeof updateProfile.mutateAsync>[0] = { userId: customer.user_id };
+    if (newName !== origName) payload.name = newName;
+    if (newEmail !== origEmail) payload.email = newEmail;
+    if (newPhone !== origPhone) payload.phone = newPhone;
+    if (newDob !== origDob) payload.dateOfBirth = newDob;
+
+    // Nothing changed — just close
+    if (Object.keys(payload).length === 1) {
+      setEditDetailsOpen(false);
+      return;
+    }
+
     try {
-      await updateProfile.mutateAsync({
-        userId: customer.user_id,
-        name: editName.trim(),
-        email: editEmail.trim(),
-        phone: editPhone.trim(),
-        dateOfBirth: editDob || undefined,
-      });
+      await updateProfile.mutateAsync(payload);
       setEditDetailsOpen(false);
     } catch {/* toast handled in hook */}
   };
