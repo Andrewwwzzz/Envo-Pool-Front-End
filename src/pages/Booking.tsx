@@ -594,6 +594,38 @@ const Booking = () => {
                 )}
               </div>
 
+              {/* Reward Code */}
+              <div className="space-y-2">
+                {appliedReward ? (
+                  <div className="flex items-center justify-between rounded-lg bg-accent/10 border border-accent/30 px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-accent" />
+                      <span className="text-sm font-medium text-accent">{appliedReward.code}</span>
+                      <span className="text-sm text-muted-foreground">Free session applied!</span>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={handleRemoveReward} className="text-xs h-7">
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Have a reward code?"
+                      value={rewardCodeInput}
+                      onChange={(e) => setRewardCodeInput(e.target.value.toUpperCase())}
+                      className="flex-1 bg-background/50"
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={handleApplyReward}
+                      disabled={!rewardCodeInput.trim() || validatingReward}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               {discountAmount > 0 && (
                 <div className="flex justify-between text-sm text-primary">
                   <span>Discount</span>
