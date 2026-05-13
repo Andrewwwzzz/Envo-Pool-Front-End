@@ -106,9 +106,11 @@ const Settings = () => {
   };
 
   const handleSaveProfile = async () => {
+    if (usernameError) return;
     try {
       await updateProfile.mutateAsync({
         name: name.trim(),
+        username: username.trim(),
         phone: phone.trim(),
         date_of_birth: dob || undefined,
       });
