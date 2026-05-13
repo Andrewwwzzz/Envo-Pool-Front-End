@@ -190,7 +190,7 @@ const Settings = () => {
               />
               <p className="text-xs text-muted-foreground">
                 {kycVerified
-                  ? "Verified via Singpass · Cannot be changed"
+                  ? "Verified · Cannot be changed"
                   : "Your legal name is set by staff during verification or via Singpass"}
               </p>
             </div>
@@ -236,7 +236,7 @@ const Settings = () => {
                     disabled
                     className="bg-muted/50 cursor-not-allowed"
                   />
-                  <p className="text-xs text-muted-foreground">Verified via Singpass · Cannot be changed</p>
+                  <p className="text-xs text-muted-foreground">Verified · Cannot be changed</p>
                 </>
               ) : (
                 <Input
