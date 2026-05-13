@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { isTodaySG, nowSGMinutes, sgSlotToUTC } from "@/lib/sgTime";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-type SlotState = "available" | "booked" | "pending" | "past";
+type SlotState = "available" | "booked" | "pending" | "past" | "maintenance";
 
 interface TimeSlot {
   time: string;
@@ -14,6 +14,7 @@ interface TimeSlot {
   state: SlotState;
   userName?: string | null;
   expiresAt?: string | null;
+  maintenanceReason?: string | null;
 }
 
 interface BookedSlot {
@@ -25,9 +26,18 @@ interface BookedSlot {
   user_name?: string | null;
 }
 
+interface MaintenanceWindow {
+  startTime?: string;
+  endTime?: string;
+  start_time?: string;
+  end_time?: string;
+  reason?: string | null;
+}
+
 interface TimeSlotPickerProps {
   date: Date;
   bookedSlots: BookedSlot[];
+  maintenanceWindows?: MaintenanceWindow[];
   startSlot: string | null;
   endSlot: string | null;
   onSelectStart: (slot: string) => void;
