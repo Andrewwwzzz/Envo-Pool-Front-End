@@ -153,7 +153,7 @@ const Dashboard = () => {
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
-  if (user.isVerified === false) return <PendingVerificationCard onSignOut={signOut} />;
+  
 
   const now = new Date();
 
