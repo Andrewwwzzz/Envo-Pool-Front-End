@@ -1292,14 +1292,25 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const { data: allCustomers } = useAdminCustomers("");
 
   const verifyInfo = (() => {
-    if (customer.verified_by) return { name: customer.verified_by, at: customer.verified_at };
+    const lookupName = (id: string) => {
+      if (!id || !Array.isArray(allCustomers)) return null;
+      const u = allCustomers.find((u: any) => u.user_id === id || u.id === id);
+      return u?.legal_name || u?.name || u?.email || null;
+    };
+    if (customer.verified_by) {
+      const raw = String(customer.verified_by);
+      // If it looks like an ID (no spaces, hex-ish), try to resolve to legal name
+      const looksLikeId = /^[a-f0-9]{16,}$/i.test(raw) || /^[0-9a-f-]{20,}$/i.test(raw);
+      const resolved = looksLikeId ? lookupName(raw) : null;
+      return { name: resolved || raw, at: customer.verified_at };
+    }
     const logs = Array.isArray(activityLogs) ? activityLogs : [];
     const entry = logs.find((l: any) => l.action === "verify_user" && (l.targetUserId === customer.user_id || l.targetUserId?._id === customer.user_id));
     if (!entry) return null;
     const adminId = typeof entry.adminId === "object" ? entry.adminId?._id : entry.adminId;
     const adminName = typeof entry.adminId === "object"
-      ? (entry.adminId?.name || entry.adminId?.email)
-      : (Array.isArray(allCustomers) ? allCustomers.find((u: any) => u.user_id === adminId)?.name || allCustomers.find((u: any) => u.user_id === adminId)?.email : null);
+      ? (entry.adminId?.legalName || entry.adminId?.legal_name || entry.adminId?.name || entry.adminId?.email)
+      : lookupName(adminId);
     return { name: adminName || adminId || "Admin", at: entry.createdAt };
   })();
   const [editing, setEditing] = useState(false);
