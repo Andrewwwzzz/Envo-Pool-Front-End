@@ -23,6 +23,9 @@ import {
   useCustomerBookings,
   useCustomerWalletHistory,
   useCustomerRewardHistory,
+  useTableMaintenance,
+  useScheduleMaintenance,
+  useDeleteMaintenance,
 } from "@/hooks/useAdmin";
 import LogsTab from "@/components/admin/LogsTab";
 import { useAdminTransactions, useAdminActivityLogs } from "@/hooks/useAdminLogs";
