@@ -475,6 +475,8 @@ export function useAdminCustomers(searchTerm: string) {
         isVerified: c.isVerified ?? false,
         role: c.role ?? "user",
         created_at: c.createdAt ?? c.created_at ?? "",
+        verified_by: c.verifiedBy?.name ?? c.verifiedBy?.email ?? c.verifiedBy ?? c.verified_by ?? null,
+        verified_at: c.verifiedAt ?? c.verified_at ?? null,
       }));
       setCache("admin-customers", mapped);
       return mapped;
@@ -586,6 +588,50 @@ export function useDeleteCustomer() {
       toast({ title: "Customer deleted" });
       queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
       queryClient.invalidateQueries({ queryKey: ["admin-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useUpdateCustomerProfile() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      name,
+      email,
+      phone,
+      dateOfBirth,
+    }: {
+      userId: string;
+      name?: string;
+      email?: string;
+      phone?: string;
+      dateOfBirth?: string;
+    }) => {
+      const payload: Record<string, string> = {};
+      if (name !== undefined) payload.name = name;
+      if (email !== undefined) payload.email = email;
+      if (phone !== undefined) payload.phone = phone;
+      if (dateOfBirth !== undefined) payload.dateOfBirth = dateOfBirth;
+
+      const res = await apiFetch(`/api/users/${userId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to update customer details");
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Customer details updated" });
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
       queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
     },
     onError: (err: Error) => {
