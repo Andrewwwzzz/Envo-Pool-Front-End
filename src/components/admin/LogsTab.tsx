@@ -397,12 +397,6 @@ function DetailsDialog({
               </div>
             </div>
           ))}
-          {raw && (
-            <details className="text-xs text-muted-foreground">
-              <summary className="cursor-pointer select-none">Raw data</summary>
-              <pre className="mt-2 p-2 rounded bg-muted overflow-x-auto whitespace-pre-wrap break-all">{JSON.stringify(raw, null, 2)}</pre>
-            </details>
-          )}
         </div>
       </DialogContent>
     </Dialog>
