@@ -102,6 +102,7 @@ function getDisplayName(userName: string | null | undefined, state: SlotState): 
 export function TimeSlotPicker({
   date,
   bookedSlots,
+  maintenanceWindows = [],
   startSlot,
   endSlot,
   onSelectStart,
@@ -121,13 +122,25 @@ export function TimeSlotPicker({
       // A slot is only "past" once it has fully ended. The slot containing the
       // current minute (e.g. 9:00 slot at 9:01) remains selectable.
       if (isToday && slotEndMin <= nowMinutes) {
-        return { ...slot, available: false, state: "past" as const, userName: null, expiresAt: null };
+        return { ...slot, available: false, state: "past" as const, userName: null, expiresAt: null, maintenanceReason: null };
       }
 
       const slotStartStr = `${Math.floor(slotMin / 60).toString().padStart(2, "0")}:${(slotMin % 60).toString().padStart(2, "0")}`;
       const slotEndStr = `${Math.floor(slotEndMin / 60).toString().padStart(2, "0")}:${(slotEndMin % 60).toString().padStart(2, "0")}`;
       const slotStart = sgSlotToUTC(date, slotStartStr);
       const slotEnd = sgSlotToUTC(date, slotEndStr);
+
+      // Check maintenance windows first
+      const maintenance = maintenanceWindows.find((w) => {
+        const wStart = new Date(w.startTime || w.start_time || "");
+        const wEnd = new Date(w.endTime || w.end_time || "");
+        if (isNaN(wStart.getTime()) || isNaN(wEnd.getTime())) return false;
+        return wStart < slotEnd && wEnd > slotStart;
+      });
+
+      if (maintenance) {
+        return { ...slot, available: false, state: "maintenance" as const, userName: null, expiresAt: null, maintenanceReason: maintenance.reason || "Maintenance" };
+      }
 
       // Check confirmed
       const confirmedBooking = bookedSlots.find((b) => {
@@ -140,7 +153,7 @@ export function TimeSlotPicker({
       });
 
       if (confirmedBooking) {
-        return { ...slot, available: false, state: "booked" as const, userName: confirmedBooking.user_name, expiresAt: null };
+        return { ...slot, available: false, state: "booked" as const, userName: confirmedBooking.user_name, expiresAt: null, maintenanceReason: null };
       }
 
       // Check pending
@@ -156,13 +169,13 @@ export function TimeSlotPicker({
       });
 
       if (pendingBooking) {
-        return { ...slot, available: false, state: "pending" as const, userName: pendingBooking.user_name, expiresAt: pendingBooking.expires_at };
+        return { ...slot, available: false, state: "pending" as const, userName: pendingBooking.user_name, expiresAt: pendingBooking.expires_at, maintenanceReason: null };
       }
 
-      return { ...slot, available: true, state: "available" as const, userName: null, expiresAt: null };
+      return { ...slot, available: true, state: "available" as const, userName: null, expiresAt: null, maintenanceReason: null };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, bookedSlots, isToday, nowMinutes, expiredKey]);
+  }, [date, bookedSlots, maintenanceWindows, isToday, nowMinutes, expiredKey]);
 
   const startMinutes = startSlot ? slotToMinutes(startSlot) : null;
   const endMinutes = endSlot ? slotToMinutes(endSlot) : null;
