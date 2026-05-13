@@ -723,18 +723,24 @@ function TablesTab() {
                       </Button>
                     )}
                     {!isRunning && (
-                      <Button
-                        size="sm"
-                        variant={isMaintenance ? "outline" : "secondary"}
-                        onClick={() => setMaintenance.mutate({ tableId: t.id, maintenance: !isMaintenance })}
-                        className="w-full"
-                        disabled={false}
-                      >
-                        <Wrench className="mr-2 h-3 w-3" />
-                        {isMaintenance ? "Remove Maintenance" : "Set Maintenance"}
-                      </Button>
+                      <>
+                        <ScheduleMaintenanceButton tableId={t.id} tableNumber={t.table_number} />
+                        <Button
+                          size="sm"
+                          variant={isMaintenance ? "outline" : "secondary"}
+                          onClick={() => setMaintenance.mutate({ tableId: t.id, maintenance: !isMaintenance })}
+                          className="w-full"
+                          disabled={false}
+                        >
+                          <Wrench className="mr-2 h-3 w-3" />
+                          {isMaintenance ? "Reopen Table" : "Close Table"}
+                        </Button>
+                      </>
                     )}
                   </div>
+
+                  {/* Scheduled maintenance windows */}
+                  {!isRunning && <TableMaintenanceList tableId={t.id} />}
 
                   {/* Device Control */}
                   <DeviceControlPanel hardwareId={t.hardware_id} />
