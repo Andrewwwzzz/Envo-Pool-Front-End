@@ -69,10 +69,21 @@ const Settings = () => {
     if (!profile) return;
     const changed =
       name !== (profile.name ?? "") ||
+      username !== (profile.username ?? "") ||
       phone !== (profile.phone ?? "") ||
       dob !== (profile.date_of_birth ?? "");
-    setHasChanges(changed);
-  }, [name, phone, dob, profile]);
+    setHasChanges(changed && !usernameError);
+  }, [name, username, phone, dob, profile, usernameError]);
+
+  const handleUsernameChange = (val: string) => {
+    if (val.length > 20) return;
+    setUsername(val);
+    if (val && !/^[A-Za-z0-9_.]*$/.test(val)) {
+      setUsernameError("Only letters, numbers, underscores and dots allowed (no spaces)");
+    } else {
+      setUsernameError(null);
+    }
+  };
 
   const handleToggleNameVisibility = async (checked: boolean) => {
     setShowName(checked);
