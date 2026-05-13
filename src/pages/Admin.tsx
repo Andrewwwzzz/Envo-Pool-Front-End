@@ -1860,7 +1860,7 @@ function VerificationTab() {
                     <td className="py-3">
                       <Button
                         size="sm"
-                        onClick={() => handleVerify(u._id || u.userId || u.id)}
+                        onClick={() => openVerifyDialog(u)}
                         disabled={verifying === (u._id || u.userId || u.id)}
                       >
                         {verifying === (u._id || u.userId || u.id) ? (
@@ -1878,6 +1878,46 @@ function VerificationTab() {
           </div>
         )}
       </CardContent>
+
+      <Dialog open={!!verifyTarget} onOpenChange={(o) => { if (!o) setVerifyTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Verify User</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Verifying account for <span className="font-medium text-foreground">{verifyTarget?.email}</span>. The display name on this account ({verifyTarget?.name || "—"}) is a nickname — enter the customer's legal details below.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="legal-name">Legal Name</Label>
+              <Input
+                id="legal-name"
+                value={legalName}
+                onChange={(e) => setLegalName(e.target.value)}
+                placeholder="Full legal name"
+              />
+              <p className="text-xs text-muted-foreground">Customer's full legal name as per IC/passport</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="legal-dob">Date of Birth</Label>
+              <Input
+                id="legal-dob"
+                type="date"
+                value={dateOfBirth}
+                onChange={(e) => setDateOfBirth(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Customer's date of birth as per IC/passport</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVerifyTarget(null)} disabled={!!verifying}>Cancel</Button>
+            <Button onClick={handleVerify} disabled={!legalName.trim() || !dateOfBirth || !!verifying}>
+              {verifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              Confirm Verification
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
