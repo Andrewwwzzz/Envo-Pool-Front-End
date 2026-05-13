@@ -16,10 +16,11 @@ export function useProfile() {
       const profile = {
         ...data.user,
         wallet_balance: data.user.walletBalance ?? 0,
-        
         total_spent: data.user.totalSpent ?? 0,
         date_of_birth: data.user.dateOfBirth ?? null,
         phone: data.user.phone ?? data.user.mobile ?? data.user.phoneNumber ?? data.user.kyc?.mobile ?? null,
+        username: data.user.username ?? data.user.displayName ?? data.user.name ?? null,
+        legal_name: data.user.legalName ?? data.user.legal_name ?? data.user.kyc?.name ?? null,
       };
       setCache(`profile-${user.id}`, profile);
       return profile;
