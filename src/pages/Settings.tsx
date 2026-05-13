@@ -64,6 +64,11 @@ const Settings = () => {
     const userId = user.id;
     apiFetch(`/api/bookings/name-visibility?userId=${userId}`)
       .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && typeof data.showName === "boolean") {
+          setShowName(data.showName);
+        }
+      })
       .catch(() => {});
   }, [user]);
 
