@@ -156,15 +156,27 @@ export function useScheduleMaintenance() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async ({ tableId, startTime, endTime, reason }: { tableId: string; startTime: string; endTime: string; reason?: string }) => {
-      const res = await apiFetch(`/api/admin/maintenance`, {
-        method: "POST",
-        body: JSON.stringify({ tableId, startTime, endTime, reason: reason || undefined }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || err.message || "Failed to schedule maintenance");
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      try {
+        const res = await apiFetch(`/api/admin/maintenance`, {
+          method: "POST",
+          body: JSON.stringify({ tableId, startTime, endTime, reason: reason || undefined }),
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || err.message || "Failed to schedule maintenance");
+        }
+        return await res.json().catch(() => ({}));
+      } catch (e: any) {
+        if (e?.name === "AbortError") {
+          throw new Error("Request timed out — the backend maintenance endpoint is not responding.");
+        }
+        throw e;
+      } finally {
+        clearTimeout(timeout);
       }
-      return await res.json().catch(() => ({}));
     },
     onSuccess: (_data, vars) => {
       toast({ title: "Maintenance scheduled" });
