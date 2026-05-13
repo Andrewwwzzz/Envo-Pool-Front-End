@@ -48,8 +48,10 @@ const Settings = () => {
   // Populate form when profile loads
   useEffect(() => {
     if (profile) {
-      setName(kycVerified && kycName ? kycName : profile.name ?? "");
-      setUsername(profile.username ?? "");
+      // Legal name only comes from KYC/admin verification
+      setName(kycName ?? "");
+      // Username = what user entered at signup (profile.username), fallback to profile.name
+      setUsername(profile.username ?? profile.name ?? "");
       setPhone(profile.phone ?? "");
       setDob(kycVerified && kycDob ? kycDob : profile.date_of_birth ?? "");
     }
