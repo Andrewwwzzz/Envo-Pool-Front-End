@@ -22,7 +22,7 @@ import {
   useDeleteCustomer,
   useCustomerBookings,
   useCustomerWalletHistory,
-  useCustomerRewardHistory,
+  
   useTableMaintenance,
   useScheduleMaintenance,
   useDeleteMaintenance,
@@ -1230,7 +1230,7 @@ function CustomersTab() {
               <th className="pb-2 pr-4">Status</th>
               <th className="pb-2 pr-4">Role</th>
               <th className="pb-2 pr-4">Wallet</th>
-              <th className="pb-2 pr-4">Points</th>
+              
               <th className="pb-2 pr-4">Total Spent</th>
               <th className="pb-2">Joined</th>
             </tr></thead>
@@ -1238,7 +1238,7 @@ function CustomersTab() {
               {isLoading && (!customers || customers.length === 0) ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={`csk-${i}`} className="border-b border-border last:border-0">
-                    {Array.from({ length: 9 }).map((__, j) => (
+                    {Array.from({ length: 8 }).map((__, j) => (
                       <td key={j} className="py-3 pr-4"><Skeleton className="h-4 w-20" /></td>
                     ))}
                   </tr>
@@ -1269,7 +1269,7 @@ function CustomersTab() {
                     </Badge>
                   </td>
                   <td className="py-3 pr-4">${(c.wallet_balance ?? 0).toFixed(2)}</td>
-                  <td className="py-3 pr-4">{c.reward_points ?? 0}</td>
+                  
                   <td className="py-3 pr-4">${(c.total_spent ?? 0).toFixed(2)}</td>
                   <td className="py-3 text-muted-foreground">{c.created_at ? fmtDateSG(c.created_at) : "—"}</td>
                 </tr>
@@ -1288,7 +1288,6 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const updateProfile = useUpdateCustomerProfile();
   const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id);
   const { data: walletHistory } = useCustomerWalletHistory(customer.user_id);
-  const { data: rewardHistory } = useCustomerRewardHistory(customer.user_id);
   const { data: activityLogs } = useAdminActivityLogs();
   const { data: allCustomers } = useAdminCustomers("");
 
@@ -1350,11 +1349,6 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const [walletExact, setWalletExact] = useState(String(customer.wallet_balance));
   const [walletDelta, setWalletDelta] = useState("0");
 
-  // Points editing state
-  const [pointsMode, setPointsMode] = useState<"exact" | "delta">("delta");
-  const [pointsExact, setPointsExact] = useState(String(customer.reward_points));
-  const [pointsDelta, setPointsDelta] = useState("0");
-
   const saveEdit = () => {
     const payload: Parameters<typeof updateWallet.mutate>[0] = { userId: customer.user_id };
     if (walletMode === "exact") {
@@ -1362,12 +1356,6 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
     } else {
       const d = parseFloat(walletDelta);
       if (d !== 0) payload.walletDelta = d;
-    }
-    if (pointsMode === "exact") {
-      payload.points = parseInt(pointsExact);
-    } else {
-      const d = parseInt(pointsDelta);
-      if (d !== 0) payload.pointsDelta = d;
     }
     updateWallet.mutate(payload);
     setEditing(false);
@@ -1407,7 +1395,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
               {!editing && (
                 <>
                   <Button size="sm" variant="outline" onClick={openEditDetails}><Pencil className="mr-1 h-3 w-3" /> Edit Details</Button>
-                  <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet / Points</Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet</Button>
                 </>
               )}
             </div>
@@ -1469,39 +1457,6 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                 )}
               </div>
 
-              {/* Points Section */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="font-semibold">Reward Points (Current: {customer.reward_points ?? 0})</Label>
-                  <div className="flex gap-1">
-                    <Button size="sm" variant={pointsMode === "delta" ? "default" : "outline"} onClick={() => setPointsMode("delta")} className="text-xs h-7">+/− Adjust</Button>
-                    <Button size="sm" variant={pointsMode === "exact" ? "default" : "outline"} onClick={() => setPointsMode("exact")} className="text-xs h-7">Set Exact</Button>
-                  </div>
-                </div>
-                {pointsMode === "exact" ? (
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Set points to:</Label>
-                    <Input type="number" step="1" min="0" value={pointsExact} onChange={(e) => setPointsExact(e.target.value)} placeholder="e.g. 100" />
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Add or subtract points (use negative to deduct):</Label>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0") - 50))}>−50</Button>
-                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0") - 10))}>−10</Button>
-                      <Input type="number" step="1" value={pointsDelta} onChange={(e) => setPointsDelta(e.target.value)} className="w-28" placeholder="0" />
-                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0") + 10))}>+10</Button>
-                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0") + 50))}>+50</Button>
-                    </div>
-                    {parseInt(pointsDelta) !== 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        New points: <strong>{(customer.reward_points ?? 0) + parseInt(pointsDelta || "0")}</strong>
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
               <div className="flex gap-2">
                 <Button size="sm" onClick={saveEdit} disabled={updateWallet.isPending}>
                   {updateWallet.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />} Save Changes
@@ -1512,7 +1467,6 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           ) : (
             <div className="flex gap-6 text-sm pt-2 border-t border-border">
               <span>Wallet: <strong>${(customer.wallet_balance ?? 0).toFixed(2)}</strong></span>
-              <span>Points: <strong>{customer.reward_points ?? 0}</strong></span>
               <span>Total Spent: <strong>${(customer.total_spent ?? 0).toFixed(2)}</strong></span>
             </div>
           )}
@@ -1558,75 +1512,50 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
         </CardContent>
       </Card>
 
-      {/* Wallet & Reward History */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader><CardTitle className="text-base">Wallet Transactions{customer.shortId ? <span className="text-muted-foreground font-normal"> — Reference: <span className="font-mono">{customer.shortId}</span></span> : null}</CardTitle></CardHeader>
-          <CardContent>
-            {(() => {
-              const txs = Array.isArray(walletHistory) ? walletHistory : (walletHistory?.transactions ?? []);
-              if (!txs.length) return <p className="text-muted-foreground text-sm">No wallet activity yet</p>;
-              return (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {txs.map((t: any) => {
-                    const amt = typeof t.amount === "number" ? t.amount : Number(t.amount) || 0;
-                    const txType = t.type || "unknown";
-                    const dateStr = t.createdAt || t.created_at || "";
-                    const direction = t.direction || (txType === "payment" ? "debit" : "credit");
-                    const isCredit = direction === "credit";
-                    const method = t.method || "—";
-                    const typeLabel = txType === "topup" ? "Top Up" : txType === "payment" ? "Payment" : txType === "refund" ? "Refund" : txType;
-                    const badgeClass = txType === "topup"
-                      ? "bg-green-500/15 text-green-600 border-green-500/30"
-                      : txType === "payment"
-                      ? "bg-destructive/15 text-destructive border-destructive/30"
-                      : "bg-amber-500/15 text-amber-600 border-amber-500/30";
-                    return (
-                      <div key={t._id || t.id} className="flex justify-between items-center text-sm border-b border-border pb-2 last:border-0">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className={badgeClass}>{typeLabel}</Badge>
-                            <span className="text-xs text-muted-foreground capitalize">{method}</span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">{fmtDateTimeSG(dateStr)}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className={isCredit ? "text-green-600 font-medium" : "text-destructive font-medium"}>
-                            {isCredit ? "+" : "-"}${Math.abs(amt).toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-base">Reward Transactions</CardTitle></CardHeader>
-          <CardContent>
-            {!rewardHistory?.length ? <p className="text-muted-foreground text-sm">No transactions.</p> : (
+      {/* Wallet History */}
+      <Card>
+        <CardHeader><CardTitle className="text-base">Wallet Transactions{customer.shortId ? <span className="text-muted-foreground font-normal"> — Reference: <span className="font-mono">{customer.shortId}</span></span> : null}</CardTitle></CardHeader>
+        <CardContent>
+          {(() => {
+            const txs = Array.isArray(walletHistory) ? walletHistory : (walletHistory?.transactions ?? []);
+            if (!txs.length) return <p className="text-muted-foreground text-sm">No wallet activity yet</p>;
+            return (
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {rewardHistory.map((t: any) => {
-                  const pts = typeof t.points === "number" ? t.points : Number(t.points) || 0;
-                  const txType = t.type || t.transactionType || "unknown";
-                  const dateStr = t.created_at || t.createdAt || "";
+                {txs.map((t: any) => {
+                  const amt = typeof t.amount === "number" ? t.amount : Number(t.amount) || 0;
+                  const txType = t.type || "unknown";
+                  const dateStr = t.createdAt || t.created_at || "";
+                  const direction = t.direction || (txType === "payment" ? "debit" : "credit");
+                  const isCredit = direction === "credit";
+                  const method = t.method || "—";
+                  const typeLabel = txType === "topup" ? "Top Up" : txType === "payment" ? "Payment" : txType === "refund" ? "Refund" : txType;
+                  const badgeClass = txType === "topup"
+                    ? "bg-green-500/15 text-green-600 border-green-500/30"
+                    : txType === "payment"
+                    ? "bg-destructive/15 text-destructive border-destructive/30"
+                    : "bg-amber-500/15 text-amber-600 border-amber-500/30";
                   return (
-                  <div key={t.id || t._id} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
-                    <div>
-                      <p className="capitalize font-medium">{String(txType).replace(/_/g, " ")}</p>
-                      <p className="text-xs text-muted-foreground">{fmtDateTimeSG(dateStr)}</p>
+                    <div key={t._id || t.id} className="flex justify-between items-center text-sm border-b border-border pb-2 last:border-0">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={badgeClass}>{typeLabel}</Badge>
+                          <span className="text-xs text-muted-foreground capitalize">{method}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">{fmtDateTimeSG(dateStr)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={isCredit ? "text-green-600 font-medium" : "text-destructive font-medium"}>
+                          {isCredit ? "+" : "-"}${Math.abs(amt).toFixed(2)}
+                        </p>
+                      </div>
                     </div>
-                    <p className={pts >= 0 ? "text-green-600" : "text-destructive"}>{pts >= 0 ? "+" : ""}{pts} pts</p>
-                  </div>
                   );
                 })}
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
 
       <Dialog open={editDetailsOpen} onOpenChange={(o) => { if (!o) setEditDetailsOpen(false); }}>
         <DialogContent>

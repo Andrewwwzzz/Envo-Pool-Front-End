@@ -1,11 +1,35 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminTransactions, useAdminBookingLogs, useAdminActivityLogs } from "@/hooks/useAdminLogs";
+import { useAdminCustomers } from "@/hooks/useAdmin";
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { ScrollText, FileText, Users } from "lucide-react";
+
+function useUserNameMap() {
+  const { data: customers } = useAdminCustomers("");
+  return useMemo(() => {
+    const map: Record<string, string> = {};
+    (customers || []).forEach((c: any) => {
+      const display = c.legal_name || c.name || c.email;
+      if (c.user_id) map[String(c.user_id)] = display;
+      if (c.id) map[String(c.id)] = display;
+    });
+    return map;
+  }, [customers]);
+}
+
+function resolveUserDisplay(field: any, fallback: any, nameMap: Record<string, string>): string {
+  if (fallback) return String(fallback);
+  if (field == null) return "—";
+  if (typeof field === "object") {
+    return field.legalName || field.legal_name || field.name || field.email || nameMap[String(field._id || field.id)] || "—";
+  }
+  const id = String(field);
+  return nameMap[id] || id;
+}
 
 export default function LogsTab() {
   return (
@@ -32,6 +56,7 @@ export default function LogsTab() {
 function TransactionsView() {
   const { data, isLoading, refetch } = useAdminTransactions();
   const transactions = Array.isArray(data) ? data : data?.transactions || [];
+  const nameMap = useUserNameMap();
 
   
 
@@ -58,7 +83,7 @@ function TransactionsView() {
                 const amt = typeof t.amount === "object" ? (t.amount?.amount ?? 0) : (typeof t.amount === "number" ? t.amount : Number(t.amount) || 0);
                 const userObj = typeof t.userId === "object" ? t.userId : null;
                 const rawId = typeof t.userId === "string" ? t.userId : (userObj?._id || userObj?.id || "");
-                const userDisplay = t.userName || t.user?.name || userObj?.name || userObj?.email || (rawId ? `${String(rawId).slice(0, 8)}...` : "—");
+                const userDisplay = userObj?.legalName || userObj?.legal_name || t.userName || t.user?.name || userObj?.name || userObj?.email || (rawId ? nameMap[String(rawId)] || `${String(rawId).slice(0, 8)}...` : "—");
                 const rawMethod = String(t.paymentMethod || t.payment_method || t.method || "").toLowerCase();
                 const methodLabel = rawMethod === "stripe" ? "paynow" : rawMethod;
                 const rawType = String(t.type || t.transactionType || "").toLowerCase();
@@ -161,8 +186,7 @@ function BookingLogsView() {
 function AdminLogsView() {
   const { data, isLoading, refetch } = useAdminActivityLogs();
   const logs = Array.isArray(data) ? data : data?.logs || [];
-
-  
+  const nameMap = useUserNameMap();
 
   return (
     <Card>
@@ -183,27 +207,32 @@ function AdminLogsView() {
               </tr>
             </thead>
             <tbody>
-              {logs.map((l: any, i: number) => (
+              {logs.map((l: any, i: number) => {
+                const adminDisplay = resolveUserDisplay(l.adminId, l.adminName || l.admin?.legalName || l.admin?.legal_name || l.admin?.name, nameMap);
+                const targetDisplay = resolveUserDisplay(l.targetUserId, l.targetUserName || l.targetUser?.legalName || l.targetUser?.legal_name || l.targetUser?.name, nameMap);
+                return (
                 <tr key={l._id || l.id || i} className="border-b border-border last:border-0">
-                  <td className="py-3 pr-4">{l.adminName || l.admin?.name || (typeof l.adminId === "object" ? l.adminId?.name || l.adminId?.email || "—" : l.adminId) || "—"}</td>
+                  <td className="py-3 pr-4">{adminDisplay}</td>
                   <td className="py-3 pr-4">
                     <Badge variant="outline" className="capitalize">{l.action || "—"}</Badge>
                   </td>
-                  <td className="py-3 pr-4">{l.targetUserName || l.targetUser?.name || (typeof l.targetUserId === "object" ? l.targetUserId?.name || l.targetUserId?.email || "—" : l.targetUserId) || "—"}</td>
+                  <td className="py-3 pr-4">{targetDisplay}</td>
                   <td className="py-3 pr-4 text-xs text-muted-foreground max-w-[200px] truncate">
                     {l.details == null
                       ? "—"
                       : typeof l.details === "object"
                       ? Object.entries(l.details)
+                          .filter(([k]) => k !== "pointsChange" && k !== "points" && k !== "pointsDelta")
                           .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
-                          .join(", ")
+                          .join(", ") || "—"
                       : String(l.details)}
                   </td>
                   <td className="py-3 text-muted-foreground">
                     {l.createdAt || l.created_at || l.timestamp ? fmtDateTimeSG(l.createdAt || l.created_at || l.timestamp) : "—"}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {logs.length === 0 && (
                 <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No admin logs found</td></tr>
               )}
