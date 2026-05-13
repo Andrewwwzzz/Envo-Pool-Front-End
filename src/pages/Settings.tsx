@@ -68,12 +68,11 @@ const Settings = () => {
   useEffect(() => {
     if (!profile) return;
     const changed =
-      name !== (profile.name ?? "") ||
       username !== (profile.username ?? "") ||
       phone !== (profile.phone ?? "") ||
       dob !== (profile.date_of_birth ?? "");
     setHasChanges(changed && !usernameError);
-  }, [name, username, phone, dob, profile, usernameError]);
+  }, [username, phone, dob, profile, usernameError]);
 
   const handleUsernameChange = (val: string) => {
     if (val.length > 20) return;
