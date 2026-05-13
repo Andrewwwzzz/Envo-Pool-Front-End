@@ -55,11 +55,15 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
       toast({ title: "Description required", variant: "destructive" });
       return;
     }
+    if (reason === "other" && !otherReason.trim()) {
+      toast({ title: "Please specify the reason", variant: "destructive" });
+      return;
+    }
     const payload: any = {
       userId,
       type,
       description: description.trim(),
-      reason,
+      reason: reason === "other" ? otherReason.trim() : reason,
       expiresAt: expiresAt || null,
     };
     if (type !== "free_item") {
