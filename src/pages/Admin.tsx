@@ -1768,6 +1768,9 @@ function VerificationTab() {
     } catch { return []; }
   });
   const [verifying, setVerifying] = useState<string | null>(null);
+  const [verifyTarget, setVerifyTarget] = useState<any | null>(null);
+  const [legalName, setLegalName] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const { toast } = useToast();
 
   const fetchUnverified = async () => {
@@ -1787,18 +1790,31 @@ function VerificationTab() {
     fetchUnverified();
   }, []);
 
-  const handleVerify = async (userId: string) => {
+  const openVerifyDialog = (u: any) => {
+    setVerifyTarget(u);
+    setLegalName("");
+    setDateOfBirth("");
+  };
+
+  const handleVerify = async () => {
+    if (!verifyTarget) return;
+    const userId = verifyTarget._id || verifyTarget.userId || verifyTarget.id;
+    if (!legalName.trim() || !dateOfBirth) {
+      toast({ title: "Missing fields", description: "Legal name and date of birth are required", variant: "destructive" });
+      return;
+    }
     try {
       setVerifying(userId);
       const res = await apiFetch("/api/admin/verify-user", {
         method: "POST",
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId, legalName: legalName.trim(), dateOfBirth }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.message || "Failed to verify user");
       }
       toast({ title: "User verified successfully" });
+      setVerifyTarget(null);
       await fetchUnverified();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
