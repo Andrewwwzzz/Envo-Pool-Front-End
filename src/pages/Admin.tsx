@@ -249,7 +249,7 @@ function OverviewTab() {
         <p className="text-xs text-muted-foreground">{from} → {to}</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
           <p className="text-2xl font-bold">${(stats?.totalRevenue ?? 0).toFixed(2)}</p>
@@ -272,7 +272,7 @@ function OverviewTab() {
         </CardContent></Card>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card><CardContent className="pt-6 text-center">
           <TrendingUp className="h-6 w-6 mx-auto text-primary mb-2" />
           <p className="text-2xl font-bold">${avgBookingValue.toFixed(2)}</p>
@@ -1396,13 +1396,13 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-sm">
             <div><p className="text-muted-foreground">Email</p><p className="font-medium">{customer.email}</p></div>
             <div><p className="text-muted-foreground">Phone</p><p className="font-medium">{customer.phone || "—"}</p></div>
             <div><p className="text-muted-foreground">Date of Birth</p><p className="font-medium">{fmtDob(customer.date_of_birth)}</p></div>
             <div><p className="text-muted-foreground">Joined</p><p className="font-medium">{fmtDateSG(customer.created_at)}</p></div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-sm">
             <div><p className="text-muted-foreground">Verified</p><p className="font-medium">{customer.isVerified ? <Badge>Yes</Badge> : <Badge variant="destructive">No</Badge>}</p></div>
             <div><p className="text-muted-foreground">Role</p><p className="font-medium capitalize">{customer.role}</p></div>
             <div>
