@@ -1202,7 +1202,12 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
               ) : null}
             </div>
             <div className="flex gap-2">
-              {!editing && <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet / Points</Button>}
+              {!editing && (
+                <>
+                  <Button size="sm" variant="outline" onClick={openEditDetails}><Pencil className="mr-1 h-3 w-3" /> Edit Details</Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet / Points</Button>
+                </>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -1210,13 +1215,21 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div><p className="text-muted-foreground">Email</p><p className="font-medium">{customer.email}</p></div>
             <div><p className="text-muted-foreground">Phone</p><p className="font-medium">{customer.phone || "—"}</p></div>
-            <div><p className="text-muted-foreground">Date of Birth (KYC)</p><p className="font-medium text-accent">{customer.date_of_birth || "—"}</p></div>
+            <div><p className="text-muted-foreground">Date of Birth</p><p className="font-medium text-accent">{customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : "—"}</p></div>
             <div><p className="text-muted-foreground">Joined</p><p className="font-medium">{fmtDateSG(customer.created_at)}</p></div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div><p className="text-muted-foreground">Verified</p><p className="font-medium">{customer.isVerified ? <Badge>Yes</Badge> : <Badge variant="destructive">No</Badge>}</p></div>
             <div><p className="text-muted-foreground">Role</p><p className="font-medium capitalize">{customer.role}</p></div>
-            <div><p className="text-muted-foreground">Age Verified</p><p className="font-medium">{customer.age_verified ? "Yes" : "No"}</p></div>
+            <div>
+              <p className="text-muted-foreground">Verified By</p>
+              <p className="font-medium">
+                {customer.verified_by || (customer.isVerified ? "—" : "Not verified")}
+                {customer.verified_at && (
+                  <span className="block text-xs text-muted-foreground">{fmtDateTimeSG(customer.verified_at)}</span>
+                )}
+              </p>
+            </div>
           </div>
 
           {editing ? (
