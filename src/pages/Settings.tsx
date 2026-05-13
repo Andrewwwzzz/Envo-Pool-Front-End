@@ -7,10 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, Settings as SettingsIcon, Eye, Save, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Settings as SettingsIcon, Eye, Save, Loader2, Gift, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 import { fmtDateSG } from "@/lib/sgTime";
+import { useMyRewards, useRedeemCreditReward, Reward } from "@/hooks/useRewards";
+import { Button as Btn } from "@/components/ui/button";
 
 const Settings = () => {
   const { user, loading } = useAuth();
