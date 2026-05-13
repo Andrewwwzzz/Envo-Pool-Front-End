@@ -35,8 +35,27 @@ const Kyc = () => {
     }
   }, [status, error]);
 
+  const kycDob = searchParams.get("dob");
+
+  const computeAge = (iso: string | null) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - d.getFullYear();
+    const m = today.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+    return age;
+  };
+  const age = computeAge(kycDob);
+  const underage = age !== null && age < 16;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (underage) {
+      toast({ title: "Age requirement not met", description: "You must be at least 16 years old to create an account", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
       const res = await apiFetch("/api/auth/register", {
