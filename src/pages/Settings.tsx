@@ -260,8 +260,8 @@ const Settings = () => {
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <Label htmlFor="name-toggle" className="font-medium cursor-pointer">Show my name on bookings</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">Other users can see your name on booked slots</p>
+                <Label htmlFor="name-toggle" className="font-medium cursor-pointer">Show name on bookings</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Others can see your username (or display name if no username set) on booked slots</p>
               </div>
               <Switch
                 id="name-toggle"
