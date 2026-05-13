@@ -1269,7 +1269,7 @@ function CustomersTab() {
                     </Badge>
                   </td>
                   <td className="py-3 pr-4">${(c.wallet_balance ?? 0).toFixed(2)}</td>
-                  <td className="py-3 pr-4">{c.reward_points ?? 0}</td>
+                  
                   <td className="py-3 pr-4">${(c.total_spent ?? 0).toFixed(2)}</td>
                   <td className="py-3 text-muted-foreground">{c.created_at ? fmtDateSG(c.created_at) : "—"}</td>
                 </tr>
