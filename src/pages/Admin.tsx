@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import AdminBookingDetailDialog from "@/components/admin/AdminBookingDetailDialog";
+import CustomerRewardsSection from "@/components/admin/CustomerRewardsSection";
 import { useDeviceState, useDeviceControl } from "@/hooks/useDeviceControl";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG, sgSlotToUTC, getSGDateStr } from "@/lib/sgTime";
 
@@ -1583,6 +1584,9 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           })()}
         </CardContent>
       </Card>
+
+      {/* Rewards */}
+      <CustomerRewardsSection userId={customer.user_id} />
 
       <Dialog open={editDetailsOpen} onOpenChange={(o) => { if (!o) setEditDetailsOpen(false); }}>
         <DialogContent>

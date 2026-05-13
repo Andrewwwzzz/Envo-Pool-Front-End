@@ -4,6 +4,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { useTables, TableStatus, validateDuration } from "@/hooks/useBooking";
 import { usePricingRules } from "@/hooks/usePricing";
 import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
+import { validateRewardCode, Reward } from "@/hooks/useRewards";
 import { useProfile } from "@/hooks/useProfile";
 import { calculateBookingPrice, calculateDiscount } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,9 @@ const Booking = () => {
 
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<PromoValidation["promo"] | null>(null);
+  const [rewardCodeInput, setRewardCodeInput] = useState("");
+  const [appliedReward, setAppliedReward] = useState<Reward | null>(null);
+  const [validatingReward, setValidatingReward] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"wallet" | "stripe" | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -157,7 +161,7 @@ const Booking = () => {
     );
   }, [appliedPromo, originalPrice]);
 
-  const finalPrice = Math.max(0, originalPrice - discountAmount);
+  const finalPrice = appliedReward?.type === "free_session" ? 0 : Math.max(0, originalPrice - discountAmount);
 
   const durationError = useMemo(() => {
     if (!startDate || !endDate || endDate <= startDate) return null;
@@ -219,12 +223,42 @@ const Booking = () => {
     setPromoCode("");
   };
 
+  const handleApplyReward = async () => {
+    const code = rewardCodeInput.trim().toUpperCase();
+    if (!code) return;
+    setValidatingReward(true);
+    try {
+      const result = await validateRewardCode(code);
+      if (result.valid && result.reward) {
+        if (result.reward.type !== "free_session") {
+          toast({ title: "Cannot apply here", description: "This reward type can't be used at booking. Check My Rewards in Settings.", variant: "destructive" });
+          return;
+        }
+        setAppliedReward(result.reward);
+        setAppliedPromo(null);
+        toast({ title: "Free session applied!", description: result.reward.description });
+      } else {
+        toast({ title: "Invalid reward", description: result.error || "Code not valid.", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Invalid reward", description: err.message, variant: "destructive" });
+    } finally {
+      setValidatingReward(false);
+    }
+  };
+
+  const handleRemoveReward = () => {
+    setAppliedReward(null);
+    setRewardCodeInput("");
+  };
+
+  const isFreeReward = appliedReward?.type === "free_session";
   const canBook =
     startDate &&
     endDate &&
     endDate > startDate &&
     selectedTable &&
-    paymentMethod &&
+    (paymentMethod || isFreeReward) &&
     !durationError;
 
   const handleBookClick = () => {
@@ -233,7 +267,8 @@ const Booking = () => {
   };
 
   const handleConfirmBook = async () => {
-    if (!user || !selectedTable || !startDate || !endDate || !selectedTableData || !paymentMethod) return;
+    if (!user || !selectedTable || !startDate || !endDate || !selectedTableData) return;
+    if (!paymentMethod && !isFreeReward) return;
     if (isProcessing) return;
 
     if (!selectedTableData.hardware_id) {
@@ -258,6 +293,7 @@ const Booking = () => {
           promoCode: appliedPromo?.code || null,
           promoDiscount: discountAmount || 0,
           originalAmount: originalPrice || finalPrice,
+          rewardCode: appliedReward?.code || null,
         }),
       });
 
@@ -286,6 +322,21 @@ const Booking = () => {
 
       // Store for socket listener
       sessionStorage.setItem("pending_booking_id", bookingId);
+
+      // Free reward — backend auto-confirms, no payment needed
+      if (isFreeReward) {
+        sessionStorage.removeItem("pending_booking_id");
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["profile"] }),
+          queryClient.invalidateQueries({ queryKey: ["my-bookings"] }),
+          queryClient.invalidateQueries({ queryKey: ["tables-with-status"] }),
+          queryClient.invalidateQueries({ queryKey: ["table-day-bookings"] }),
+          queryClient.invalidateQueries({ queryKey: ["my-rewards"] }),
+        ]);
+        toast({ title: "Booking confirmed!", description: "Your free session has been booked." });
+        navigate("/booking-confirmed");
+        return;
+      }
 
       // STEP 2: Pay
       if (paymentMethod === "wallet") {
@@ -543,6 +594,38 @@ const Booking = () => {
                 )}
               </div>
 
+              {/* Reward Code */}
+              <div className="space-y-2">
+                {appliedReward ? (
+                  <div className="flex items-center justify-between rounded-lg bg-accent/10 border border-accent/30 px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-accent" />
+                      <span className="text-sm font-medium text-accent">{appliedReward.code}</span>
+                      <span className="text-sm text-muted-foreground">Free session applied!</span>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={handleRemoveReward} className="text-xs h-7">
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Have a reward code?"
+                      value={rewardCodeInput}
+                      onChange={(e) => setRewardCodeInput(e.target.value.toUpperCase())}
+                      className="flex-1 bg-background/50"
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={handleApplyReward}
+                      disabled={!rewardCodeInput.trim() || validatingReward}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               {discountAmount > 0 && (
                 <div className="flex justify-between text-sm text-primary">
                   <span>Discount</span>
@@ -559,7 +642,7 @@ const Booking = () => {
         )}
 
         {/* Payment Method */}
-        {pricing && selectedTable && !durationError && startSlot && endSlot && (
+        {pricing && selectedTable && !durationError && startSlot && endSlot && !isFreeReward && (
           <Card className="card-premium">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -625,7 +708,7 @@ const Booking = () => {
             onClick={handleBookClick}
             className="gap-2 h-12 px-8 text-sm font-semibold tracking-wide uppercase bg-accent text-accent-foreground hover:bg-accent/90"
           >
-            {isProcessing ? "Processing..." : `Reserve Table — $${finalPrice.toFixed(2)}`}
+            {isProcessing ? "Processing..." : isFreeReward ? "Reserve Table — FREE" : `Reserve Table — $${finalPrice.toFixed(2)}`}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
