@@ -83,7 +83,7 @@ function TransactionsView() {
                 const amt = typeof t.amount === "object" ? (t.amount?.amount ?? 0) : (typeof t.amount === "number" ? t.amount : Number(t.amount) || 0);
                 const userObj = typeof t.userId === "object" ? t.userId : null;
                 const rawId = typeof t.userId === "string" ? t.userId : (userObj?._id || userObj?.id || "");
-                const userDisplay = t.userName || t.user?.name || userObj?.name || userObj?.email || (rawId ? `${String(rawId).slice(0, 8)}...` : "—");
+                const userDisplay = userObj?.legalName || userObj?.legal_name || t.userName || t.user?.name || userObj?.name || userObj?.email || (rawId ? nameMap[String(rawId)] || `${String(rawId).slice(0, 8)}...` : "—");
                 const rawMethod = String(t.paymentMethod || t.payment_method || t.method || "").toLowerCase();
                 const methodLabel = rawMethod === "stripe" ? "paynow" : rawMethod;
                 const rawType = String(t.type || t.transactionType || "").toLowerCase();
