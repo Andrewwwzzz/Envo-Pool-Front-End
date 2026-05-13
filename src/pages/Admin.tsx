@@ -1835,8 +1835,36 @@ function VerificationTab() {
       setVerifying(null);
     }
   };
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const userId = deleteTarget._id || deleteTarget.userId || deleteTarget.id;
+    try {
+      setDeleting(userId);
+      const res = await apiFetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Failed to delete request");
+      }
+      toast({ title: "Verification request deleted" });
+      setDeleteTarget(null);
+      await fetchUnverified();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setDeleting(null);
+    }
+  };
 
-  
+  const filteredUsers = users.filter((u: any) => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    return (
+      (u.name || "").toLowerCase().includes(q) ||
+      (u.email || "").toLowerCase().includes(q) ||
+      (u.dateOfBirth || u.date_of_birth || "").toLowerCase().includes(q)
+    );
+  });
+
 
   return (
     <Card>
