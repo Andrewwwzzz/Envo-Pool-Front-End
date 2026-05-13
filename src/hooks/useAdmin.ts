@@ -594,21 +594,6 @@ export function useCustomerWalletHistory(userId: string) {
   });
 }
 
-export function useCustomerRewardHistory(userId: string) {
-  return useQuery({
-    queryKey: ["admin-customer-rewards", userId],
-    queryFn: async () => {
-      const res = await apiFetch(`/api/admin/bookings/customers/${userId}/rewards`);
-      if (!res.ok) throw new Error("Failed to fetch reward history");
-      const data = await res.json();
-      setCache(`customer-rewards-${userId}`, data);
-      return data;
-    },
-    enabled: !!userId,
-    initialData: () => userId ? getCached(`customer-rewards-${userId}`) : undefined,
-  });
-}
-
 export function useUpdateCustomerWallet() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -618,20 +603,14 @@ export function useUpdateCustomerWallet() {
       userId,
       walletBalance,
       walletDelta,
-      points,
-      pointsDelta,
     }: {
       userId: string;
       walletBalance?: number;
       walletDelta?: number;
-      points?: number;
-      pointsDelta?: number;
     }) => {
       const payload: Record<string, number> = {};
       if (walletBalance !== undefined) payload.walletBalance = walletBalance;
       if (walletDelta !== undefined) payload.walletDelta = walletDelta;
-      if (points !== undefined) payload.points = points;
-      if (pointsDelta !== undefined) payload.pointsDelta = pointsDelta;
 
       const res = await apiFetch(`/api/users/${userId}/wallet`, {
         method: "PATCH",
