@@ -75,7 +75,7 @@ const Auth = () => {
         }
         const res = await apiFetch("/api/auth/register", {
           method: "POST",
-          body: JSON.stringify({ name, email, password, dateOfBirth }),
+          body: JSON.stringify({ username: name, email, password, dateOfBirth }),
         });
         const data = await res.json();
         if (!res.ok) {
