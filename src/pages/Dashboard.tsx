@@ -485,12 +485,7 @@ function TopUpWalletDialog({
       if (method === "cash") {
         setCashConfirmation({ amount: amt });
       } else {
-        resetState();
-        onOpenChange(false);
-        toast({
-          title: "Request submitted!",
-          description: "We'll credit your wallet within 24 hours.",
-        });
+        setPaynowConfirmation({ amount: amt });
       }
     } catch (e: any) {
       toast({ title: e?.message || "Failed to submit request", variant: "destructive" });
