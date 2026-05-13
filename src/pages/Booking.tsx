@@ -223,6 +223,35 @@ const Booking = () => {
     setPromoCode("");
   };
 
+  const handleApplyReward = async () => {
+    const code = rewardCodeInput.trim().toUpperCase();
+    if (!code) return;
+    setValidatingReward(true);
+    try {
+      const result = await validateRewardCode(code);
+      if (result.valid && result.reward) {
+        if (result.reward.type !== "free_session") {
+          toast({ title: "Cannot apply here", description: "This reward type can't be used at booking. Check My Rewards in Settings.", variant: "destructive" });
+          return;
+        }
+        setAppliedReward(result.reward);
+        setAppliedPromo(null);
+        toast({ title: "Free session applied!", description: result.reward.description });
+      } else {
+        toast({ title: "Invalid reward", description: result.error || "Code not valid.", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Invalid reward", description: err.message, variant: "destructive" });
+    } finally {
+      setValidatingReward(false);
+    }
+  };
+
+  const handleRemoveReward = () => {
+    setAppliedReward(null);
+    setRewardCodeInput("");
+  };
+
   const canBook =
     startDate &&
     endDate &&
