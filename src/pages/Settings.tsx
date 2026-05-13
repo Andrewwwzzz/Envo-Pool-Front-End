@@ -312,7 +312,7 @@ const Settings = () => {
 };
 
 const TYPE_LABELS: Record<string, string> = {
-  free_session: "Free Session",
+  free_session: "Free Session (30 mins)",
   wallet_credit: "Wallet Credit",
   free_item: "Free Item",
   booking_discount: "Discount",
