@@ -684,7 +684,9 @@ export function useUpdateCustomerProfile() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || err.error || "Failed to update customer details");
+        const raw = err.message || err.error || "Failed to update customer details";
+        const cleaned = String(raw).replace(/Singpass-verified/gi, "verified");
+        throw new Error(cleaned);
       }
     },
     onSuccess: () => {
