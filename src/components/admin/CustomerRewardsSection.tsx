@@ -159,7 +159,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
               <Select value={type} onValueChange={(v) => setType(v as RewardType)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="free_session">Free Session (1hr)</SelectItem>
+                  <SelectItem value="free_session">Free Session (30 mins)</SelectItem>
                   <SelectItem value="wallet_credit">Wallet Credit</SelectItem>
                   <SelectItem value="free_item">Free Item</SelectItem>
                   <SelectItem value="booking_discount">Booking Discount</SelectItem>
