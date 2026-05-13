@@ -167,18 +167,19 @@ const Settings = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="name">Display Name</Label>
+              <Label htmlFor="name">Legal Name</Label>
               <Input
                 id="name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your name"
-                disabled={kycVerified}
-                className={kycVerified ? "bg-muted/50 cursor-not-allowed" : undefined}
+                placeholder="Set by staff or Singpass verification"
+                disabled
+                className="bg-muted/50 cursor-not-allowed"
               />
-              {kycVerified && (
-                <p className="text-xs text-muted-foreground">Verified via Singpass · Cannot be changed</p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                {kycVerified
+                  ? "Verified via Singpass · Cannot be changed"
+                  : "Your legal name is set by staff during verification or via Singpass"}
+              </p>
             </div>
 
             <div className="space-y-2">
