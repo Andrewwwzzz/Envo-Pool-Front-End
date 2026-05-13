@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAdminTransactions, useAdminBookingLogs, useAdminActivityLogs } from "@/hooks/useAdminLogs";
 import { useAdminCustomers, useAdminBookings } from "@/hooks/useAdmin";
-import { fmtDateTimeSG } from "@/lib/sgTime";
+import { fmtDateTimeSG, fmtDateSG } from "@/lib/sgTime";
 import { ScrollText, FileText, Users } from "lucide-react";
 import AdminBookingDetailDialog from "@/components/admin/AdminBookingDetailDialog";
 
