@@ -19,7 +19,7 @@ export function useProfile() {
         reward_points: data.user.rewardPoints ?? 0,
         total_spent: data.user.totalSpent ?? 0,
         date_of_birth: data.user.dateOfBirth ?? null,
-        phone: data.user.phone ?? null,
+        phone: data.user.phone ?? data.user.mobile ?? data.user.phoneNumber ?? data.user.kyc?.mobile ?? null,
       };
       setCache(`profile-${user.id}`, profile);
       return profile;
