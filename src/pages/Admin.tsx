@@ -18,6 +18,7 @@ import {
   useAdminPromoCodes,
   useAdminCustomers,
   useUpdateCustomerWallet,
+  useUpdateCustomerProfile,
   useDeleteCustomer,
   useCustomerBookings,
   useCustomerWalletHistory,
