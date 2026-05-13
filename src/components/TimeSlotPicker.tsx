@@ -261,6 +261,7 @@ export function TimeSlotPicker({
           const inRange = isInRange(slot.time);
           const isStartSlot = isStart(slot.time);
           const displayName = getDisplayName(slot.userName, slot.state);
+          const isInfoOpen = openInfoSlot === slot.time;
 
           const slotButton = (
             <button
@@ -268,7 +269,7 @@ export function TimeSlotPicker({
               onClick={() => handleSlotClick(slot)}
               disabled={!slot.available}
               className={cn(
-                "rounded-lg border px-1 py-2 text-xs font-medium transition-all duration-150 flex flex-col items-center gap-0.5",
+                "rounded-lg border px-1 py-2 text-xs font-medium transition-all duration-150 flex flex-col items-center gap-0.5 w-full",
                 slot.state === "past" && "opacity-30 cursor-not-allowed bg-muted border-border text-muted-foreground line-through",
                 slot.state === "booked" && "cursor-not-allowed border-destructive/40 bg-destructive/10 text-destructive",
                 slot.state === "pending" && "cursor-not-allowed border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
@@ -285,29 +286,30 @@ export function TimeSlotPicker({
             </button>
           );
 
-          if (slot.state === "maintenance") {
-            return (
-              <Tooltip key={slot.time}>
-                <TooltipTrigger asChild>{slotButton}</TooltipTrigger>
-                <TooltipContent className="max-w-[220px] text-center">
-                  Maintenance{slot.maintenanceReason && slot.maintenanceReason !== "Maintenance" ? `: ${slot.maintenanceReason}` : ""}
-                </TooltipContent>
-              </Tooltip>
-            );
-          }
-
-          if (slot.state === "pending" || slot.state === "booked") {
-            const tooltipText = displayName
-              ? slot.state === "pending" && slot.expiresAt
-                ? `${displayName} — may become available soon`
+          if (slot.state === "maintenance" || slot.state === "pending" || slot.state === "booked") {
+            const tooltipText =
+              slot.state === "maintenance"
+                ? `Maintenance${slot.maintenanceReason && slot.maintenanceReason !== "Maintenance" ? `: ${slot.maintenanceReason}` : ""}`
                 : displayName
-              : slot.state === "pending"
-                ? "This table is currently being reserved. It may become available if payment is not completed."
-                : "This slot is booked.";
+                  ? slot.state === "pending" && slot.expiresAt
+                    ? `${displayName} — may become available soon`
+                    : displayName
+                  : slot.state === "pending"
+                    ? "This table is currently being reserved. It may become available if payment is not completed."
+                    : "This slot is booked.";
 
             return (
-              <Tooltip key={slot.time}>
-                <TooltipTrigger asChild>{slotButton}</TooltipTrigger>
+              <Tooltip key={slot.time} open={isInfoOpen} onOpenChange={(o) => setOpenInfoSlot(o ? slot.time : null)}>
+                <TooltipTrigger asChild>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setOpenInfoSlot((cur) => (cur === slot.time ? null : slot.time))}
+                    className="contents"
+                  >
+                    {slotButton}
+                  </span>
+                </TooltipTrigger>
                 <TooltipContent className="max-w-[220px] text-center">
                   {tooltipText}
                 </TooltipContent>
