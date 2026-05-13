@@ -16,10 +16,11 @@ export function useProfile() {
       const profile = {
         ...data.user,
         wallet_balance: data.user.walletBalance ?? 0,
-        
         total_spent: data.user.totalSpent ?? 0,
         date_of_birth: data.user.dateOfBirth ?? null,
         phone: data.user.phone ?? data.user.mobile ?? data.user.phoneNumber ?? data.user.kyc?.mobile ?? null,
+        username: data.user.username ?? data.user.displayName ?? data.user.name ?? null,
+        legal_name: data.user.legalName ?? data.user.legal_name ?? data.user.kyc?.name ?? null,
       };
       setCache(`profile-${user.id}`, profile);
       return profile;
@@ -50,9 +51,8 @@ export function useUpdateProfile() {
     mutationFn: async (updates: { name?: string; username?: string; phone?: string; date_of_birth?: string }) => {
       if (!user) throw new Error("Not authenticated");
       const payload: Record<string, string> = { userId: user.id };
-      // The backend uses `name` as the public booking/display name; KYC legal
-      // name remains separate under `kyc.name`.
-      if (updates.username !== undefined) payload.name = updates.username;
+      // Username is a separate display field — never overwrite the legal `name`.
+      if (updates.username !== undefined) payload.username = updates.username;
       if (updates.name !== undefined) payload.name = updates.name;
       if (updates.phone !== undefined) payload.phone = updates.phone;
       if (updates.date_of_birth !== undefined) payload.dateOfBirth = updates.date_of_birth;
