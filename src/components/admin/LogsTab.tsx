@@ -219,7 +219,7 @@ function TransactionsView() {
           { label: "Amount", value: `$${Math.abs(selected._amount).toFixed(2)}` },
           { label: "Method", value: selected._methodLabel === "paynow" ? "PayNow" : humanize(selected._methodLabel || "—") },
           { label: "Timestamp", value: selected.createdAt || selected.created_at ? fmtDateTimeSG(selected.createdAt || selected.created_at) : "—" },
-          { label: "Reference", value: selected._id || selected.id || "—", mono: true },
+          { label: "Invoice ID", value: selected._id || selected.id || "—", mono: true },
         ] : []}
         raw={selected}
       />
