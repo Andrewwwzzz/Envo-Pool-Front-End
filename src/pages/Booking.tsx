@@ -476,6 +476,7 @@ const Booking = () => {
               <TimeSlotPicker
                 date={selectedDate}
                 bookedSlots={tableBookings || []}
+                maintenanceWindows={tableMaintenance || []}
                 startSlot={startSlot}
                 endSlot={endSlot}
                 onSelectStart={setStartSlot}
