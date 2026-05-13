@@ -18,6 +18,8 @@ const Settings = () => {
   const { toast } = useToast();
 
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [phone, setPhone] = useState("");
   const [dob, setDob] = useState("");
   const [showName, setShowName] = useState(true);
@@ -47,6 +49,7 @@ const Settings = () => {
   useEffect(() => {
     if (profile) {
       setName(kycVerified && kycName ? kycName : profile.name ?? "");
+      setUsername(profile.username ?? "");
       setPhone(profile.phone ?? "");
       setDob(kycVerified && kycDob ? kycDob : profile.date_of_birth ?? "");
     }
@@ -66,10 +69,21 @@ const Settings = () => {
     if (!profile) return;
     const changed =
       name !== (profile.name ?? "") ||
+      username !== (profile.username ?? "") ||
       phone !== (profile.phone ?? "") ||
       dob !== (profile.date_of_birth ?? "");
-    setHasChanges(changed);
-  }, [name, phone, dob, profile]);
+    setHasChanges(changed && !usernameError);
+  }, [name, username, phone, dob, profile, usernameError]);
+
+  const handleUsernameChange = (val: string) => {
+    if (val.length > 20) return;
+    setUsername(val);
+    if (val && !/^[A-Za-z0-9_.]*$/.test(val)) {
+      setUsernameError("Only letters, numbers, underscores and dots allowed (no spaces)");
+    } else {
+      setUsernameError(null);
+    }
+  };
 
   const handleToggleNameVisibility = async (checked: boolean) => {
     setShowName(checked);
@@ -92,9 +106,11 @@ const Settings = () => {
   };
 
   const handleSaveProfile = async () => {
+    if (usernameError) return;
     try {
       await updateProfile.mutateAsync({
         name: name.trim(),
+        username: username.trim(),
         phone: phone.trim(),
         date_of_birth: dob || undefined,
       });
@@ -166,6 +182,25 @@ const Settings = () => {
             </div>
 
             <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="username">Username</Label>
+                <span className="text-xs text-muted-foreground">{username.length}/20</span>
+              </div>
+              <Input
+                id="username"
+                value={username}
+                onChange={(e) => handleUsernameChange(e.target.value)}
+                placeholder="Optional"
+                maxLength={20}
+              />
+              {usernameError ? (
+                <p className="text-xs text-destructive">{usernameError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Your username is shown on bookings instead of your real name</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
               <Input
                 id="phone"
@@ -225,8 +260,8 @@ const Settings = () => {
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <Label htmlFor="name-toggle" className="font-medium cursor-pointer">Show my name on bookings</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">Other users can see your name on booked slots</p>
+                <Label htmlFor="name-toggle" className="font-medium cursor-pointer">Show name on bookings</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Others can see your username (or display name if no username set) on booked slots</p>
               </div>
               <Switch
                 id="name-toggle"
