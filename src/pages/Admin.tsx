@@ -754,6 +754,129 @@ function TablesTab() {
   );
 }
 
+function ScheduleMaintenanceButton({ tableId, tableNumber }: { tableId: string; tableNumber: number }) {
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [reason, setReason] = useState("");
+  const schedule = useScheduleMaintenance();
+  const { toast } = useToast();
+
+  const reset = () => { setDate(""); setStartTime(""); setEndTime(""); setReason(""); };
+
+  const handleSchedule = async () => {
+    if (!date || !startTime || !endTime) {
+      toast({ title: "Missing fields", description: "Date, start and end times are required.", variant: "destructive" });
+      return;
+    }
+    const [y, m, d] = date.split("-").map(Number);
+    const sgDate = new Date(y, (m || 1) - 1, d || 1);
+    const startUTC = sgSlotToUTC(sgDate, startTime);
+    const endUTC = sgSlotToUTC(sgDate, endTime);
+    if (endUTC.getTime() <= startUTC.getTime()) {
+      toast({ title: "Invalid time range", description: "End time must be after start time.", variant: "destructive" });
+      return;
+    }
+    try {
+      await schedule.mutateAsync({
+        tableId,
+        startTime: startUTC.toISOString(),
+        endTime: endUTC.toISOString(),
+        reason: reason.trim() || undefined,
+      });
+      reset();
+      setOpen(false);
+    } catch {
+      // toast handled in hook
+    }
+  };
+
+  return (
+    <>
+      <Button size="sm" variant="default" onClick={() => setOpen(true)} className="w-full">
+        <Wrench className="mr-2 h-3 w-3" /> Schedule Maintenance
+      </Button>
+      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule Maintenance — Table {tableNumber}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="maint-date">Date</Label>
+              <Input id="maint-date" type="date" value={date} min={getSGDateStr(new Date())} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="maint-start">Start Time</Label>
+                <Input id="maint-start" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="maint-end">End Time</Label>
+                <Input id="maint-end" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="maint-reason">Reason (optional)</Label>
+              <Input id="maint-reason" placeholder="e.g. Felt replacement" value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={schedule.isPending}>Cancel</Button>
+            <Button onClick={handleSchedule} disabled={schedule.isPending || !date || !startTime || !endTime}>
+              {schedule.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function TableMaintenanceList({ tableId }: { tableId: string }) {
+  const { data: windows } = useTableMaintenance(tableId);
+  const remove = useDeleteMaintenance();
+  const list = (Array.isArray(windows) ? windows : []).filter((w: any) => {
+    const end = new Date(w.endTime || w.end_time);
+    return !isNaN(end.getTime()) && end.getTime() > Date.now();
+  }).sort((a: any, b: any) =>
+    new Date(a.startTime || a.start_time).getTime() - new Date(b.startTime || b.start_time).getTime()
+  );
+
+  if (!list.length) return null;
+
+  return (
+    <div className="space-y-1.5 pt-1">
+      <p className="text-xs font-medium text-muted-foreground">Scheduled Maintenance</p>
+      {list.map((w: any) => {
+        const id = w._id || w.id;
+        const start = w.startTime || w.start_time;
+        const end = w.endTime || w.end_time;
+        return (
+          <div key={id} className="flex items-start justify-between gap-2 rounded-md border border-border bg-muted/30 px-2 py-1.5 text-xs">
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">{fmtDateSG(start)} · {fmtTimeSG(start)}–{fmtTimeSG(end)}</p>
+              {w.reason && <p className="text-muted-foreground truncate">{w.reason}</p>}
+            </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
+              onClick={() => remove.mutate({ id, tableId })}
+              disabled={remove.isPending}
+              title="Remove"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | null; onClose: () => void; onDelete: () => void }) {
   if (!session) return null;
   const s = session;
