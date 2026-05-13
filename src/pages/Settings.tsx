@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 import { fmtDateSG } from "@/lib/sgTime";
 import { useMyRewards, useRedeemCreditReward, Reward } from "@/hooks/useRewards";
-import { Button as Btn } from "@/components/ui/button";
+
 
 const Settings = () => {
   const { user, loading } = useAuth();
