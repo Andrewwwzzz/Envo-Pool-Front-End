@@ -80,8 +80,8 @@ const Settings = () => {
   const handleUsernameChange = (val: string) => {
     if (val.length > 20) return;
     setUsername(val);
-    if (val && !/^[A-Za-z0-9_.]*$/.test(val)) {
-      setUsernameError("Only letters, numbers, underscores and dots allowed (no spaces)");
+    if (val && !/^[A-Za-z0-9_. ]*$/.test(val)) {
+      setUsernameError("Only letters, numbers, spaces, underscores and dots allowed");
     } else {
       setUsernameError(null);
     }
