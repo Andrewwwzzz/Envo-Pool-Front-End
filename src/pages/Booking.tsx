@@ -130,9 +130,21 @@ const Booking = () => {
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
 
-  const isVerified = user.isVerified !== false;
+  const kycVerified = !!user.kyc?.verified;
 
-  if (!isVerified) return <PendingVerificationCard onSignOut={signOut} />;
+  const handleStartSingpass = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/api/myinfo/auth-url-public`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.authorizeUrl) throw new Error(data.error || "Failed to start Singpass verification");
+      window.location.href = data.authorizeUrl;
+    } catch (err: any) {
+      toast({ title: "Singpass error", description: err.message, variant: "destructive" });
+    }
+  };
 
   const handleDateSelect = (date: Date | undefined) => {
     setSelectedDate(date);
