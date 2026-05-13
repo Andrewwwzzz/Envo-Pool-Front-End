@@ -352,12 +352,28 @@ function BookingsTab() {
     const startDate = new Date(getField(b, "startTime", "start_time"));
     const endDate = new Date(getField(b, "endTime", "end_time"));
     switch (filter) {
-      case "today": return startDate >= todayStart && startDate <= todayEnd;
-      case "upcoming": return startDate > now && (b.status === "confirmed" || b.status === "pending");
-      case "completed": return b.status === "completed" || (b.status === "confirmed" && endDate < now);
-      case "cancelled": return b.status === "cancelled";
-      default: return true;
+      case "today": if (!(startDate >= todayStart && startDate <= todayEnd)) return false; break;
+      case "upcoming": if (!(startDate > now && (b.status === "confirmed" || b.status === "pending"))) return false; break;
+      case "completed": if (!(b.status === "completed" || (b.status === "confirmed" && endDate < now))) return false; break;
+      case "cancelled": if (b.status !== "cancelled") return false; break;
     }
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const u = b.userId || b.user || {};
+    const tableName = typeof b.tableId === "string"
+      ? `table ${b.tableId.replace("T", "")}`
+      : `table ${(b as any).tables?.table_number ?? b.tableId?.tableNumber ?? ""}`;
+    const dateStr = (fmtDateSG(getField(b, "startTime", "start_time")) || "").toLowerCase();
+    const haystack = [
+      typeof u === "object" ? u.name : "",
+      typeof u === "object" ? u.email : "",
+      typeof u === "object" ? u.shortId : "",
+      b.customerName, b.customerEmail, b.shortId,
+      tableName,
+      b._id, b.id,
+      dateStr,
+    ].filter(Boolean).join(" ").toLowerCase();
+    return haystack.includes(q);
   });
 
   return (
