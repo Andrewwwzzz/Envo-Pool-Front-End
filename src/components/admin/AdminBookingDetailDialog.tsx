@@ -8,6 +8,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Copy, Check } from "lucide-react";
+import { useState } from "react";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
 
 interface Props {
@@ -130,7 +133,10 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <div className="text-muted-foreground">Booking ID</div>
-                <div className="font-mono font-medium">…{shortId}</div>
+                <div className="flex items-center gap-2">
+                  <div className="font-mono font-medium">…{shortId}</div>
+                  <CopyIdButton value={id} />
+                </div>
               </div>
               <div>
                 <div className="text-muted-foreground">Status</div>
@@ -269,6 +275,36 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
         </div>
       </DialogContent>
     </Dialog>
+  );
+};
+
+const CopyIdButton = ({ value }: { value: string }) => {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    if (!value) return;
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <TooltipProvider>
+      <Tooltip open={copied || undefined}>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={handleCopy}
+            disabled={!value}
+            aria-label="Copy booking ID"
+          >
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{copied ? "Copied!" : "Copy full Booking ID"}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
 
