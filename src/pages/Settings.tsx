@@ -167,6 +167,18 @@ const Settings = () => {
               <p className="text-xs text-muted-foreground">Email cannot be changed</p>
             </div>
 
+            {(profile?.createdAt || profile?.created_at) && (
+              <div className="space-y-2">
+                <Label htmlFor="created">Member Since</Label>
+                <Input
+                  id="created"
+                  value={fmtDateSG(profile.createdAt ?? profile.created_at)}
+                  disabled
+                  className="bg-muted/50 cursor-not-allowed"
+                />
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="name">Legal Name</Label>
               <Input
