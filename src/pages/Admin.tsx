@@ -1362,7 +1362,11 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                 </tr></thead>
                 <tbody>
                   {bookings.map((b: any) => (
-                    <tr key={b.id || b._id} className="border-b border-border last:border-0">
+                    <tr
+                      key={b.id || b._id}
+                      className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/40 transition-colors"
+                      onClick={() => setSelectedBooking(b)}
+                    >
                       <td className="py-2 pr-4">Table {typeof b.tableId === "string" ? b.tableId.replace("T", "") : b.tables?.table_number ?? "?"}</td>
                       <td className="py-2 pr-4">{fmtDateSG(b.startTime || b.start_time)}</td>
                       <td className="py-2 pr-4">{fmtTimeSG(b.startTime || b.start_time)}</td>
