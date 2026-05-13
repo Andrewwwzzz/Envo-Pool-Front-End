@@ -1485,6 +1485,12 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AdminBookingDetailDialog
+        booking={selectedBooking}
+        open={!!selectedBooking}
+        onOpenChange={(open) => { if (!open) setSelectedBooking(null); }}
+      />
     </div>
   );
 }
