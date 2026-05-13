@@ -42,7 +42,7 @@ export function useIssueReward() {
       type: RewardType;
       value?: number;
       description: string;
-      reason: RewardReason;
+      reason: RewardReason | string;
       expiresAt?: string | null;
     }) => {
       const res = await apiFetch("/api/rewards/issue", {
