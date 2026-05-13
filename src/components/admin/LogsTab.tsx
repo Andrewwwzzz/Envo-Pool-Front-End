@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAdminTransactions, useAdminBookingLogs, useAdminActivityLogs } from "@/hooks/useAdminLogs";
-import { useAdminCustomers } from "@/hooks/useAdmin";
+import { useAdminCustomers, useAdminBookings } from "@/hooks/useAdmin";
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { ScrollText, FileText, Users } from "lucide-react";
+import AdminBookingDetailDialog from "@/components/admin/AdminBookingDetailDialog";
 
 function useUserNameMap() {
   const { data: customers } = useAdminCustomers("");
