@@ -83,7 +83,12 @@ function actionLabel(action: string): string {
 
 function formatDetailValue(key: string, value: any): string {
   if (value == null) return "—";
-  if (key === "startTime" || key === "endTime" || key.toLowerCase().includes("date") || key.toLowerCase().includes("at")) {
+  const lk = key.toLowerCase();
+  if (lk === "dateofbirth" || lk === "date_of_birth" || lk === "dob" || lk === "birthdate") {
+    const d = new Date(value);
+    if (!isNaN(d.getTime())) return fmtDateSG(value);
+  }
+  if (key === "startTime" || key === "endTime" || lk.includes("date") || lk.includes("at")) {
     const d = new Date(value);
     if (!isNaN(d.getTime())) return fmtDateTimeSG(value);
   }
