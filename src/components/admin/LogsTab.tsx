@@ -162,18 +162,15 @@ function TransactionsView() {
                 const rawType = String(t.type || t.transactionType || "").toLowerCase();
                 let typeLabel = rawType === "booking_payment" || rawType === "wallet_deduct" ? "payment" : rawType;
                 if (rawMethod === "cash") typeLabel = "timer session";
-                const typeClass = rawMethod === "cash"
-                  ? "bg-muted text-muted-foreground border-border"
-                  : typeLabel === "payment"
-                  ? "bg-destructive/10 text-destructive border-destructive/30"
-                  : typeLabel === "topup"
-                  ? "bg-green-500/10 text-green-400 border-green-500/30"
-                  : typeLabel === "refund"
-                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                  : "";
-                const methodClass = rawMethod === "cash"
-                  ? "bg-muted text-muted-foreground border-border"
-                  : "";
+                const methodColorClass =
+                  methodLabel === "cash"
+                    ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                    : methodLabel === "wallet"
+                    ? "bg-green-500/10 text-green-400 border-green-500/30"
+                    : methodLabel === "paynow"
+                    ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
+                    : "bg-muted text-muted-foreground border-border";
+                const methodDisplay = methodLabel === "paynow" ? "PayNow" : methodLabel === "cash" ? "Cash" : methodLabel === "wallet" ? "Wallet" : (methodLabel || "—");
                 return (
                   <tr
                     key={t._id || t.id || i}
@@ -187,14 +184,10 @@ function TransactionsView() {
                       </span>
                     </td>
                     <td className="py-3 pr-4">
-                      {typeLabel ? <Badge variant="outline" className={`capitalize ${typeClass}`}>{typeLabel}</Badge> : <span className="text-muted-foreground">—</span>}
+                      {typeLabel ? <Badge variant="outline" className={`capitalize ${methodColorClass}`}>{typeLabel}</Badge> : <span className="text-muted-foreground">—</span>}
                     </td>
                     <td className="py-3 pr-4">
-                      {rawMethod === "cash"
-                        ? <Badge variant="outline" className={methodClass}>Cash</Badge>
-                        : methodLabel === "paynow"
-                        ? <span className="capitalize text-muted-foreground">PayNow</span>
-                        : <span className="capitalize text-muted-foreground">{methodLabel || "—"}</span>}
+                      <Badge variant="outline" className={methodColorClass}>{methodDisplay}</Badge>
                     </td>
                     <td className="py-3 text-muted-foreground">
                       {t.createdAt || t.created_at ? fmtDateTimeSG(t.createdAt || t.created_at) : "—"}
