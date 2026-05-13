@@ -110,11 +110,19 @@ const Settings = () => {
   const handleSaveProfile = async () => {
     if (usernameError) return;
     try {
-      await updateProfile.mutateAsync({
-        username: username.trim(),
-        phone: phone.trim(),
-        date_of_birth: dob || undefined,
-      });
+      const updates: { username?: string; phone?: string; date_of_birth?: string } = {};
+      const trimmedUsername = username.trim();
+      const trimmedPhone = phone.trim();
+      if (trimmedUsername !== (profile?.username ?? "")) updates.username = trimmedUsername;
+      if (trimmedPhone !== (profile?.phone ?? "")) updates.phone = trimmedPhone;
+      if (dob && dob !== (profile?.date_of_birth ?? "")) updates.date_of_birth = dob;
+
+      if (Object.keys(updates).length === 0) {
+        toast({ title: "No changes to save" });
+        return;
+      }
+
+      await updateProfile.mutateAsync(updates);
       toast({ title: "Profile updated successfully" });
     } catch (err: any) {
       toast({ title: "Failed to update profile", description: err.message, variant: "destructive" });
