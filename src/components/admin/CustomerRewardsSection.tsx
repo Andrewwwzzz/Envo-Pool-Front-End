@@ -191,6 +191,13 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
                   ))}
                 </SelectContent>
               </Select>
+              {reason === "other" && (
+                <Input
+                  value={otherReason}
+                  onChange={(e) => setOtherReason(e.target.value)}
+                  placeholder="Specify reason"
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label>Expires At (optional)</Label>
