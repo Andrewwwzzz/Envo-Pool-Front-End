@@ -10,6 +10,12 @@ interface BackendUser {
   isAdmin?: boolean;
   role?: string;
   walletBalance?: number;
+  kyc?: {
+    verified?: boolean;
+    name?: string;
+    dob?: string;
+    mobile?: string;
+  };
 }
 
 interface AuthContextType {
