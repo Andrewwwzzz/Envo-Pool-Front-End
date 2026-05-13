@@ -381,6 +381,49 @@ function TopUpWalletDialog({
   const [method, setMethod] = useState<"paynow" | "cash" | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cashConfirmation, setCashConfirmation] = useState<{ amount: number } | null>(null);
+  const [chasing, setChasing] = useState(false);
+  const [lastChaseAt, setLastChaseAt] = useState<Record<string, number>>(() => {
+    try { return JSON.parse(localStorage.getItem("topup-chase-times") || "{}"); }
+    catch { return {}; }
+  });
+  const CHASE_COOLDOWN_MS = 10 * 60 * 1000; // 10 min between chases per request
+
+  const pendingRequest = (requests => {
+    if (!Array.isArray(requests)) return null;
+    return requests.find((r: any) => String(r.status || "").toLowerCase() === "pending") || null;
+  });
+
+  const handleChase = async (reqId: string) => {
+    const last = lastChaseAt[reqId] || 0;
+    const remaining = CHASE_COOLDOWN_MS - (Date.now() - last);
+    if (remaining > 0) {
+      const mins = Math.ceil(remaining / 60000);
+      toast({ title: `Please wait ${mins} min before sending another chaser`, variant: "destructive" });
+      return;
+    }
+    setChasing(true);
+    try {
+      const res = await apiFetch("/api/transactions/topup/chase", {
+        method: "POST",
+        body: JSON.stringify({ requestId: reqId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.message || data?.error || "Failed to send chaser");
+      }
+      const updated = { ...lastChaseAt, [reqId]: Date.now() };
+      setLastChaseAt(updated);
+      try { localStorage.setItem("topup-chase-times", JSON.stringify(updated)); } catch {}
+      toast({
+        title: "Chaser sent!",
+        description: "Admins have been notified to review your top up.",
+      });
+    } catch (e: any) {
+      toast({ title: e?.message || "Failed to send chaser", variant: "destructive" });
+    } finally {
+      setChasing(false);
+    }
+  };
 
   const { data: requests } = useQuery({
     queryKey: ["my-topup-requests"],
