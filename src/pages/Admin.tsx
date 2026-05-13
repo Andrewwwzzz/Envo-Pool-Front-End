@@ -1349,11 +1349,6 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const [walletExact, setWalletExact] = useState(String(customer.wallet_balance));
   const [walletDelta, setWalletDelta] = useState("0");
 
-  // Points editing state
-  const [pointsMode, setPointsMode] = useState<"exact" | "delta">("delta");
-  const [pointsExact, setPointsExact] = useState(String(customer.reward_points));
-  const [pointsDelta, setPointsDelta] = useState("0");
-
   const saveEdit = () => {
     const payload: Parameters<typeof updateWallet.mutate>[0] = { userId: customer.user_id };
     if (walletMode === "exact") {
@@ -1361,12 +1356,6 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
     } else {
       const d = parseFloat(walletDelta);
       if (d !== 0) payload.walletDelta = d;
-    }
-    if (pointsMode === "exact") {
-      payload.points = parseInt(pointsExact);
-    } else {
-      const d = parseInt(pointsDelta);
-      if (d !== 0) payload.pointsDelta = d;
     }
     updateWallet.mutate(payload);
     setEditing(false);
