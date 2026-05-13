@@ -1585,7 +1585,10 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
         </CardContent>
       </Card>
 
-      <Dialog open={editDetailsOpen} onOpenChange={(o) => { if (!o) setEditDetailsOpen(false); }}>
+      {/* Rewards */}
+      <CustomerRewardsSection userId={customer.user_id} />
+
+
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Customer Details</DialogTitle>
