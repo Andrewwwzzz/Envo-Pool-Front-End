@@ -111,6 +111,7 @@ export function TimeSlotPicker({
   const isToday = isTodaySG(date);
   const nowMinutes = nowSGMinutes();
   const [expiredKey, setExpiredKey] = useState(0);
+  const [openInfoSlot, setOpenInfoSlot] = useState<string | null>(null);
 
   const slotAvailability = useMemo(() => {
     const currentTimeMs = Date.now();
