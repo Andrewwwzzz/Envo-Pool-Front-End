@@ -47,13 +47,14 @@ export function useUpdateProfile() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (updates: { name?: string; phone?: string; date_of_birth?: string }) => {
+    mutationFn: async (updates: { name?: string; username?: string; phone?: string; date_of_birth?: string }) => {
       if (!user) throw new Error("Not authenticated");
       const res = await apiFetch("/api/auth/update-profile", {
         method: "POST",
         body: JSON.stringify({
           userId: user.id,
           name: updates.name,
+          username: updates.username,
           phone: updates.phone,
           dateOfBirth: updates.date_of_birth,
         }),
