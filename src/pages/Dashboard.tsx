@@ -287,18 +287,18 @@ const Dashboard = () => {
                 {past.slice(0, 10).map((b: any) => (
                   <div
                     key={b.id || b._id}
-                    className={`flex items-center justify-between rounded-lg border border-border/50 p-4 transition-colors ${
+                    className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-lg border border-border/50 p-3 sm:p-4 transition-colors ${
                       getStatus(b) === "confirmed" || getStatus(b) === "completed" ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : ""
                     }`}
                     onClick={() => (getStatus(b) === "confirmed" || getStatus(b) === "completed") && setSelectedBooking(b)}
                   >
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-medium">{getTableLabel(b)}</p>
                       <p className="text-sm text-muted-foreground">
                         {fmtDate(getStartTime(b))} {fmtTime(getStartTime(b))} – {fmtTime(getEndTime(b))}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                       <span className="font-medium">${getPrice(b).toFixed(2)}</span>
                       {(() => {
                         const pb = paymentBadge(b.paymentMethod ?? b.payment_method);
