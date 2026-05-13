@@ -1421,6 +1421,40 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={editDetailsOpen} onOpenChange={(o) => { if (!o) setEditDetailsOpen(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Customer Details</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="cust-name">Name</Label>
+              <Input id="cust-name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cust-email">Email</Label>
+              <Input id="cust-email" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cust-phone">Phone</Label>
+              <Input id="cust-phone" type="tel" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="e.g. 91234567" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cust-dob">Date of Birth</Label>
+              <Input id="cust-dob" type="date" value={editDob} onChange={(e) => setEditDob(e.target.value)} />
+            </div>
+            <p className="text-xs text-muted-foreground">Changes will be recorded in the activity log.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDetailsOpen(false)} disabled={updateProfile.isPending}>Cancel</Button>
+            <Button onClick={saveDetails} disabled={updateProfile.isPending}>
+              {updateProfile.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
