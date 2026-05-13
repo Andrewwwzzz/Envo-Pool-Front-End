@@ -1129,6 +1129,18 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   })();
   const [editing, setEditing] = useState(false);
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+
+  const fmtDob = (v: any) => {
+    if (!v) return "—";
+    const s = String(v).slice(0, 10);
+    const [y, m, d] = s.split("-");
+    if (!y || !m || !d) return s;
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const mi = parseInt(m, 10) - 1;
+    if (mi < 0 || mi > 11) return s;
+    return `${d.padStart(2, "0")} ${months[mi]} ${y}`;
+  };
   const [editName, setEditName] = useState(customer.name ?? "");
   const [editEmail, setEditEmail] = useState(customer.email ?? "");
   const [editPhone, setEditPhone] = useState(customer.phone ?? "");
