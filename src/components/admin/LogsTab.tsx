@@ -263,7 +263,15 @@ function BookingLogsView() {
                   >
                     <td className="py-3 pr-4 font-mono text-xs">{bid || "—"}</td>
                     <td className="py-3 pr-4">
-                      <Badge variant="outline">{actionLabel(l.action)}</Badge>
+                      {(() => {
+                        const a = String(l.action || "").toLowerCase();
+                        const cls = a.includes("cancel") || a.includes("delete") || a.includes("refund")
+                          ? "bg-destructive/10 text-destructive border-destructive/30"
+                          : a.includes("create") || a.includes("confirm")
+                          ? "bg-green-500/10 text-green-400 border-green-500/30"
+                          : "";
+                        return <Badge variant="outline" className={cls}>{actionLabel(l.action)}</Badge>;
+                      })()}
                     </td>
                     <td className="py-3 text-muted-foreground">
                       {l.createdAt || l.created_at || l.timestamp ? fmtDateTimeSG(l.createdAt || l.created_at || l.timestamp) : "—"}
