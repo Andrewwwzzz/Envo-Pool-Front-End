@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAdminTransactions, useAdminBookingLogs, useAdminActivityLogs } from "@/hooks/useAdminLogs";
 import { useAdminCustomers, useAdminBookings } from "@/hooks/useAdmin";
-import { fmtDateTimeSG } from "@/lib/sgTime";
+import { fmtDateTimeSG, fmtDateSG } from "@/lib/sgTime";
 import { ScrollText, FileText, Users } from "lucide-react";
 import AdminBookingDetailDialog from "@/components/admin/AdminBookingDetailDialog";
 
@@ -83,7 +83,12 @@ function actionLabel(action: string): string {
 
 function formatDetailValue(key: string, value: any): string {
   if (value == null) return "—";
-  if (key === "startTime" || key === "endTime" || key.toLowerCase().includes("date") || key.toLowerCase().includes("at")) {
+  const lk = key.toLowerCase();
+  if (lk === "dateofbirth" || lk === "date_of_birth" || lk === "dob" || lk === "birthdate") {
+    const d = new Date(value);
+    if (!isNaN(d.getTime())) return fmtDateSG(value);
+  }
+  if (key === "startTime" || key === "endTime" || lk.includes("date") || lk.includes("at")) {
     const d = new Date(value);
     if (!isNaN(d.getTime())) return fmtDateTimeSG(value);
   }
@@ -392,12 +397,6 @@ function DetailsDialog({
               </div>
             </div>
           ))}
-          {raw && (
-            <details className="text-xs text-muted-foreground">
-              <summary className="cursor-pointer select-none">Raw data</summary>
-              <pre className="mt-2 p-2 rounded bg-muted overflow-x-auto whitespace-pre-wrap break-all">{JSON.stringify(raw, null, 2)}</pre>
-            </details>
-          )}
         </div>
       </DialogContent>
     </Dialog>
