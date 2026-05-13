@@ -1249,7 +1249,7 @@ function CustomersTab() {
                   className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => setSelectedCustomer(c)}
                 >
-                  <td className="py-3 pr-4 font-medium">{c.name || "—"}</td>
+                  <td className="py-3 pr-4 font-medium">{c.legal_name || c.name || "—"}</td>
                   <td className="py-3 pr-4">
                     {c.shortId ? (
                       <code className="px-2 py-0.5 rounded bg-muted font-mono text-xs">{c.shortId}</code>
@@ -1381,7 +1381,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
         <CardHeader>
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3 flex-wrap">
-              <CardTitle>{customer.name || "No Name"}</CardTitle>
+              <CardTitle>{customer.legal_name || customer.name || "No Name"}</CardTitle>
               {customer.shortId ? (
                 <div className="flex items-center gap-1">
                   <span className="px-3 py-1 rounded-full bg-accent/20 text-accent-foreground border border-accent/30 font-mono text-sm font-semibold">

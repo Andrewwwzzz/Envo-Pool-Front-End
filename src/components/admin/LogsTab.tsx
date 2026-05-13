@@ -218,14 +218,22 @@ function AdminLogsView() {
                   </td>
                   <td className="py-3 pr-4">{targetDisplay}</td>
                   <td className="py-3 pr-4 text-xs text-muted-foreground max-w-[200px] truncate">
-                    {l.details == null
-                      ? "—"
-                      : typeof l.details === "object"
-                      ? Object.entries(l.details)
-                          .filter(([k]) => k !== "pointsChange" && k !== "points" && k !== "pointsDelta")
-                          .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
-                          .join(", ") || "—"
-                      : String(l.details)}
+                    {(() => {
+                      if (l.details == null) return "—";
+                      if (typeof l.details !== "object") return String(l.details);
+                      const HIDDEN = new Set(["pointsChange", "points", "pointsDelta", "userName", "name"]);
+                      const LABELS: Record<string, string> = {
+                        walletChange: "Balance Change",
+                        walletDelta: "Balance Change",
+                        walletBalance: "Balance Set",
+                        legalName: "Legal Name",
+                        dateOfBirth: "Date of Birth",
+                      };
+                      const parts = Object.entries(l.details)
+                        .filter(([k]) => !HIDDEN.has(k))
+                        .map(([k, v]) => `${LABELS[k] || k}: ${typeof v === "object" ? JSON.stringify(v) : v}`);
+                      return parts.length ? parts.join(", ") : "—";
+                    })()}
                   </td>
                   <td className="py-3 text-muted-foreground">
                     {l.createdAt || l.created_at || l.timestamp ? fmtDateTimeSG(l.createdAt || l.created_at || l.timestamp) : "—"}
