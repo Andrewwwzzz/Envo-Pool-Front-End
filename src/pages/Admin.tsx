@@ -22,7 +22,7 @@ import {
   useDeleteCustomer,
   useCustomerBookings,
   useCustomerWalletHistory,
-  useCustomerRewardHistory,
+  
   useTableMaintenance,
   useScheduleMaintenance,
   useDeleteMaintenance,
