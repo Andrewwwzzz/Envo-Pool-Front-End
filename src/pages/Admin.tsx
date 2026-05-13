@@ -2386,6 +2386,7 @@ function TopUpsTab() {
                   <th className="py-2 pr-4">Customer Name</th>
                   <th className="py-2 pr-4">Short ID</th>
                   <th className="py-2 pr-4">Amount</th>
+                  <th className="py-2 pr-4">Method</th>
                   <th className="py-2 pr-4">Status</th>
                   <th className="py-2 pr-4">Actions</th>
                 </tr>
@@ -2395,6 +2396,12 @@ function TopUpsTab() {
                   const c = getCustomer(r);
                   const id = r._id || r.id;
                   const isPending = String(r.status || "pending").toLowerCase() === "pending";
+                  const methodRaw = String(r.method || "paynow").toLowerCase();
+                  const methodIsCash = methodRaw === "cash";
+                  const methodClass = methodIsCash
+                    ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                    : "bg-purple-500/10 text-purple-400 border-purple-500/30";
+                  const methodLabel = methodIsCash ? "Cash" : "PayNow";
                   return (
                     <tr
                       key={id}
@@ -2405,6 +2412,9 @@ function TopUpsTab() {
                       <td className="py-2 pr-4">{c.name}</td>
                       <td className="py-2 pr-4 font-mono">{c.shortId}</td>
                       <td className="py-2 pr-4 font-medium">${Number(r.amount || 0).toFixed(2)}</td>
+                      <td className="py-2 pr-4">
+                        <Badge variant="outline" className={methodClass}>{methodLabel}</Badge>
+                      </td>
                       <td className="py-2 pr-4">
                         <Badge variant="outline" className={statusBadge(r.status)}>
                           {String(r.status || "pending").charAt(0).toUpperCase() + String(r.status || "pending").slice(1)}
@@ -2594,6 +2604,19 @@ function TopUpDetailDialog({
                 </Badge>
               </div>
               <div><div className="text-muted-foreground">Submitted</div><div className="font-medium">{fmtDateTimeSG(r.createdAt || r.created_at)}</div></div>
+              <div>
+                <div className="text-muted-foreground">Method</div>
+                {(() => {
+                  const m = String(r.method || "paynow").toLowerCase();
+                  const isCash = m === "cash";
+                  const cls = isCash
+                    ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                    : "bg-purple-500/10 text-purple-400 border-purple-500/30";
+                  return (
+                    <Badge variant="outline" className={cls}>{isCash ? "Cash" : "PayNow"}</Badge>
+                  );
+                })()}
+              </div>
             </div>
           </section>
 
