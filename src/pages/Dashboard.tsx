@@ -475,7 +475,7 @@ function TopUpWalletDialog({
     try {
       const res = await apiFetch("/api/transactions/topup/request", {
         method: "POST",
-        body: JSON.stringify({ amount: amt, method }),
+        body: JSON.stringify({ amount: amt, method, paymentMethod: method }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
