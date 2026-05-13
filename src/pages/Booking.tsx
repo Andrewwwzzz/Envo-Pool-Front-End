@@ -49,6 +49,9 @@ const Booking = () => {
 
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<PromoValidation["promo"] | null>(null);
+  const [rewardCodeInput, setRewardCodeInput] = useState("");
+  const [appliedReward, setAppliedReward] = useState<Reward | null>(null);
+  const [validatingReward, setValidatingReward] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"wallet" | "stripe" | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
