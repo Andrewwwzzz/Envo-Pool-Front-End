@@ -56,7 +56,7 @@ const Admin = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-border px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <Link to="/booking"><Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button></Link>
           <h1 className="text-xl font-semibold text-foreground tracking-tight">Admin Dashboard</h1>
@@ -64,7 +64,7 @@ const Admin = () => {
         <Button variant="ghost" size="sm" onClick={signOut}><LogOut className="mr-2 h-4 w-4" /> Sign Out</Button>
       </header>
 
-      <main className="mx-auto max-w-6xl p-6">
+      <main className="mx-auto max-w-6xl p-4 sm:p-6">
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="flex-wrap">
             <TabsTrigger value="overview">Overview</TabsTrigger>

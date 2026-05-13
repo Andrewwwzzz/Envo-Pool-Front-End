@@ -190,7 +190,7 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background dark">
       <div className="fixed inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, hsl(var(--foreground)) 1px, transparent 0)', backgroundSize: '40px 40px' }} />
 
-      <header className="relative z-10 border-b border-border/50 bg-card/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
+      <header className="relative z-10 border-b border-border/50 bg-card/80 backdrop-blur-md px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <Link to="/booking">
             <Button variant="outline" size="sm" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
@@ -209,7 +209,7 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-4xl p-6 space-y-6">
+      <main className="relative z-10 mx-auto max-w-4xl p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <Card className="card-premium">
