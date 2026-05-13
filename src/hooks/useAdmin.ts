@@ -136,6 +136,69 @@ export function useAdminTables() {
   return { ...tablesQuery, updateStatus, startTimer, stopTimer, setMaintenance };
 }
 
+export function useTableMaintenance(tableId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["table-maintenance", tableId],
+    queryFn: async () => {
+      if (!tableId) return [];
+      const res = await apiFetch(`/api/admin/maintenance/${tableId}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : (data?.maintenance || data?.windows || []);
+    },
+    enabled: !!tableId,
+    refetchInterval: 60000,
+  });
+}
+
+export function useScheduleMaintenance() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ tableId, startTime, endTime, reason }: { tableId: string; startTime: string; endTime: string; reason?: string }) => {
+      const res = await apiFetch(`/api/admin/maintenance`, {
+        method: "POST",
+        body: JSON.stringify({ tableId, startTime, endTime, reason: reason || undefined }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || err.message || "Failed to schedule maintenance");
+      }
+      return await res.json().catch(() => ({}));
+    },
+    onSuccess: (_data, vars) => {
+      toast({ title: "Maintenance scheduled" });
+      queryClient.invalidateQueries({ queryKey: ["table-maintenance", vars.tableId] });
+      queryClient.invalidateQueries({ queryKey: ["table-maintenance"] });
+    },
+    onError: (e: any) => {
+      toast({ title: "Failed to schedule", description: e.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useDeleteMaintenance() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; tableId?: string }) => {
+      const res = await apiFetch(`/api/admin/maintenance/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || err.message || "Failed to remove maintenance");
+      }
+    },
+    onSuccess: (_data, vars) => {
+      toast({ title: "Maintenance removed" });
+      queryClient.invalidateQueries({ queryKey: ["table-maintenance", vars.tableId] });
+      queryClient.invalidateQueries({ queryKey: ["table-maintenance"] });
+    },
+    onError: (e: any) => {
+      toast({ title: "Failed to remove", description: e.message, variant: "destructive" });
+    },
+  });
+}
+
 export function useAdminTimerSessions(showDeleted = false) {
   const key = showDeleted ? "admin-timer-sessions-deleted" : "admin-timer-sessions";
   return useQuery({

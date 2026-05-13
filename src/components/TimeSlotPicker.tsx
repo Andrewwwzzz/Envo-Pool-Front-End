@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { isTodaySG, nowSGMinutes, sgSlotToUTC } from "@/lib/sgTime";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-type SlotState = "available" | "booked" | "pending" | "past";
+type SlotState = "available" | "booked" | "pending" | "past" | "maintenance";
 
 interface TimeSlot {
   time: string;
@@ -14,6 +14,7 @@ interface TimeSlot {
   state: SlotState;
   userName?: string | null;
   expiresAt?: string | null;
+  maintenanceReason?: string | null;
 }
 
 interface BookedSlot {
@@ -25,9 +26,18 @@ interface BookedSlot {
   user_name?: string | null;
 }
 
+interface MaintenanceWindow {
+  startTime?: string;
+  endTime?: string;
+  start_time?: string;
+  end_time?: string;
+  reason?: string | null;
+}
+
 interface TimeSlotPickerProps {
   date: Date;
   bookedSlots: BookedSlot[];
+  maintenanceWindows?: MaintenanceWindow[];
   startSlot: string | null;
   endSlot: string | null;
   onSelectStart: (slot: string) => void;
@@ -92,6 +102,7 @@ function getDisplayName(userName: string | null | undefined, state: SlotState): 
 export function TimeSlotPicker({
   date,
   bookedSlots,
+  maintenanceWindows = [],
   startSlot,
   endSlot,
   onSelectStart,
@@ -111,13 +122,25 @@ export function TimeSlotPicker({
       // A slot is only "past" once it has fully ended. The slot containing the
       // current minute (e.g. 9:00 slot at 9:01) remains selectable.
       if (isToday && slotEndMin <= nowMinutes) {
-        return { ...slot, available: false, state: "past" as const, userName: null, expiresAt: null };
+        return { ...slot, available: false, state: "past" as const, userName: null, expiresAt: null, maintenanceReason: null };
       }
 
       const slotStartStr = `${Math.floor(slotMin / 60).toString().padStart(2, "0")}:${(slotMin % 60).toString().padStart(2, "0")}`;
       const slotEndStr = `${Math.floor(slotEndMin / 60).toString().padStart(2, "0")}:${(slotEndMin % 60).toString().padStart(2, "0")}`;
       const slotStart = sgSlotToUTC(date, slotStartStr);
       const slotEnd = sgSlotToUTC(date, slotEndStr);
+
+      // Check maintenance windows first
+      const maintenance = maintenanceWindows.find((w) => {
+        const wStart = new Date(w.startTime || w.start_time || "");
+        const wEnd = new Date(w.endTime || w.end_time || "");
+        if (isNaN(wStart.getTime()) || isNaN(wEnd.getTime())) return false;
+        return wStart < slotEnd && wEnd > slotStart;
+      });
+
+      if (maintenance) {
+        return { ...slot, available: false, state: "maintenance" as const, userName: null, expiresAt: null, maintenanceReason: maintenance.reason || "Maintenance" };
+      }
 
       // Check confirmed
       const confirmedBooking = bookedSlots.find((b) => {
@@ -130,7 +153,7 @@ export function TimeSlotPicker({
       });
 
       if (confirmedBooking) {
-        return { ...slot, available: false, state: "booked" as const, userName: confirmedBooking.user_name, expiresAt: null };
+        return { ...slot, available: false, state: "booked" as const, userName: confirmedBooking.user_name, expiresAt: null, maintenanceReason: null };
       }
 
       // Check pending
@@ -146,13 +169,13 @@ export function TimeSlotPicker({
       });
 
       if (pendingBooking) {
-        return { ...slot, available: false, state: "pending" as const, userName: pendingBooking.user_name, expiresAt: pendingBooking.expires_at };
+        return { ...slot, available: false, state: "pending" as const, userName: pendingBooking.user_name, expiresAt: pendingBooking.expires_at, maintenanceReason: null };
       }
 
-      return { ...slot, available: true, state: "available" as const, userName: null, expiresAt: null };
+      return { ...slot, available: true, state: "available" as const, userName: null, expiresAt: null, maintenanceReason: null };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, bookedSlots, isToday, nowMinutes, expiredKey]);
+  }, [date, bookedSlots, maintenanceWindows, isToday, nowMinutes, expiredKey]);
 
   const startMinutes = startSlot ? slotToMinutes(startSlot) : null;
   const endMinutes = endSlot ? slotToMinutes(endSlot) : null;
@@ -249,6 +272,7 @@ export function TimeSlotPicker({
                 slot.state === "past" && "opacity-30 cursor-not-allowed bg-muted border-border text-muted-foreground line-through",
                 slot.state === "booked" && "cursor-not-allowed border-destructive/40 bg-destructive/10 text-destructive",
                 slot.state === "pending" && "cursor-not-allowed border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                slot.state === "maintenance" && "cursor-not-allowed border-orange-500/40 bg-orange-500/10 text-orange-600 dark:text-orange-400",
                 slot.available && !inRange && !isStartSlot && "border-emerald-500/40 bg-emerald-500/5 hover:border-accent/50 hover:bg-accent/5 cursor-pointer text-foreground",
                 isStartSlot && "border-accent bg-accent text-accent-foreground ring-2 ring-accent/30",
                 inRange && !isStartSlot && "border-accent bg-accent/30 text-accent-foreground ring-1 ring-accent/40",
@@ -260,6 +284,17 @@ export function TimeSlotPicker({
               )}
             </button>
           );
+
+          if (slot.state === "maintenance") {
+            return (
+              <Tooltip key={slot.time}>
+                <TooltipTrigger asChild>{slotButton}</TooltipTrigger>
+                <TooltipContent className="max-w-[220px] text-center">
+                  Maintenance{slot.maintenanceReason && slot.maintenanceReason !== "Maintenance" ? `: ${slot.maintenanceReason}` : ""}
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
 
           if (slot.state === "pending" || slot.state === "booked") {
             const tooltipText = displayName
@@ -296,6 +331,9 @@ export function TimeSlotPicker({
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded border border-amber-500/40 bg-amber-500/10" /> Pending Payment
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded border border-orange-500/40 bg-orange-500/10" /> Maintenance
         </span>
       </div>
     </div>
