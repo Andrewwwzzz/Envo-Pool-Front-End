@@ -770,6 +770,11 @@ function ScheduleMaintenanceButton({ tableId, tableNumber }: { tableId: string; 
       toast({ title: "Missing fields", description: "Date, start and end times are required.", variant: "destructive" });
       return;
     }
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      toast({ title: "Missing reason", description: "Reason is required to schedule maintenance.", variant: "destructive" });
+      return;
+    }
     const [y, m, d] = date.split("-").map(Number);
     const sgDate = new Date(y, (m || 1) - 1, d || 1);
     const startUTC = sgSlotToUTC(sgDate, startTime);
@@ -783,7 +788,7 @@ function ScheduleMaintenanceButton({ tableId, tableNumber }: { tableId: string; 
         tableId,
         startTime: startUTC.toISOString(),
         endTime: endUTC.toISOString(),
-        reason: reason.trim() || undefined,
+        reason: trimmedReason,
       });
       reset();
       setOpen(false);
@@ -818,13 +823,13 @@ function ScheduleMaintenanceButton({ tableId, tableNumber }: { tableId: string; 
               </div>
             </div>
             <div>
-              <Label htmlFor="maint-reason">Reason (optional)</Label>
-              <Input id="maint-reason" placeholder="e.g. Felt replacement" value={reason} onChange={(e) => setReason(e.target.value)} />
+              <Label htmlFor="maint-reason">Reason</Label>
+              <Input id="maint-reason" placeholder="e.g. Felt replacement" value={reason} onChange={(e) => setReason(e.target.value)} required />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} disabled={schedule.isPending}>Cancel</Button>
-            <Button onClick={handleSchedule} disabled={schedule.isPending || !date || !startTime || !endTime}>
+            <Button onClick={handleSchedule} disabled={schedule.isPending || !date || !startTime || !endTime || !reason.trim()}>
               {schedule.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
               Schedule
             </Button>
