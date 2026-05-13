@@ -24,14 +24,33 @@ const Settings = () => {
   const [nameToggleLoading, setNameToggleLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
+  const kycVerified = !!profile?.kyc?.verified;
+  const kycDob = profile?.kyc?.dob ?? null;
+  const kycName = profile?.kyc?.name ?? null;
+
+  const formatDobDisplay = (iso: string | null) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) {
+      // Try parsing yyyy-mm-dd manually
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+      if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+      return iso;
+    }
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
+
   // Populate form when profile loads
   useEffect(() => {
     if (profile) {
-      setName(profile.name ?? "");
+      setName(kycVerified && kycName ? kycName : profile.name ?? "");
       setPhone(profile.phone ?? "");
-      setDob(profile.date_of_birth ?? "");
+      setDob(kycVerified && kycDob ? kycDob : profile.date_of_birth ?? "");
     }
-  }, [profile]);
+  }, [profile, kycVerified, kycName, kycDob]);
 
   // Fetch name visibility preference
   useEffect(() => {
@@ -138,7 +157,12 @@ const Settings = () => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter your name"
+                disabled={kycVerified}
+                className={kycVerified ? "bg-muted/50 cursor-not-allowed" : undefined}
               />
+              {kycVerified && (
+                <p className="text-xs text-muted-foreground">Verified via Singpass · Cannot be changed</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -154,12 +178,25 @@ const Settings = () => {
 
             <div className="space-y-2">
               <Label htmlFor="dob">Date of Birth</Label>
-              <Input
-                id="dob"
-                type="date"
-                value={dob}
-                onChange={(e) => setDob(e.target.value)}
-              />
+              {kycVerified ? (
+                <>
+                  <Input
+                    id="dob"
+                    type="text"
+                    value={formatDobDisplay(dob)}
+                    disabled
+                    className="bg-muted/50 cursor-not-allowed"
+                  />
+                  <p className="text-xs text-muted-foreground">Verified via Singpass · Cannot be changed</p>
+                </>
+              ) : (
+                <Input
+                  id="dob"
+                  type="date"
+                  value={dob}
+                  onChange={(e) => setDob(e.target.value)}
+                />
+              )}
             </div>
 
             <Button
