@@ -302,16 +302,16 @@ export function TimeSlotPicker({
             return (
               <Tooltip key={slot.time} open={isInfoOpen} onOpenChange={(o) => setOpenInfoSlot(o ? slot.time : null)}>
                 <TooltipTrigger asChild>
-                  <span
+                  <div
                     role="button"
                     tabIndex={0}
                     onClick={() => setOpenInfoSlot((cur) => (cur === slot.time ? null : slot.time))}
-                    className="contents"
+                    className="w-full"
                   >
                     {slotButton}
-                  </span>
+                  </div>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-[220px] text-center">
+                <TooltipContent side="top" align="center" className="max-w-[220px] text-center">
                   {tooltipText}
                 </TooltipContent>
               </Tooltip>
