@@ -161,11 +161,21 @@ const Booking = () => {
     );
   }, [appliedPromo, originalPrice]);
 
-  // Free session reward: value = number of free hours, applied as credit at the booking's hourly rate
+  // Reward calculation:
+  // - free_session: value = number of free hours, applied as credit at booking's hourly rate
+  // - booking_discount: value = percent off subtotal-after-promo
+  // - free_item: no price impact (collect at counter)
+  // - wallet_credit: not usable here
   const rewardHourlyRate = pricing?.segments?.[0]?.hourlyRate ?? 0;
   const rewardFreeHours = appliedReward?.type === "free_session" ? (appliedReward.value ?? 0) : 0;
+  const rewardDiscountPercent = appliedReward?.type === "booking_discount" ? (appliedReward.value ?? 0) : 0;
   const priceAfterPromo = Math.max(0, originalPrice - discountAmount);
-  const rewardDiscount = Math.min(priceAfterPromo, rewardFreeHours * rewardHourlyRate);
+  const rewardDiscount =
+    appliedReward?.type === "free_session"
+      ? Math.min(priceAfterPromo, rewardFreeHours * rewardHourlyRate)
+      : appliedReward?.type === "booking_discount"
+      ? Math.min(priceAfterPromo, priceAfterPromo * (rewardDiscountPercent / 100))
+      : 0;
   const finalPrice = Math.max(0, priceAfterPromo - rewardDiscount);
 
   const durationError = useMemo(() => {
@@ -235,13 +245,26 @@ const Booking = () => {
     try {
       const result = await validateRewardCode(code);
       if (result.valid && result.reward) {
-        if (result.reward.type !== "free_session") {
-          toast({ title: "Cannot apply here", description: "This reward type can't be used at booking. Check My Rewards in Settings.", variant: "destructive" });
+        const t = result.reward.type;
+        if (t === "wallet_credit") {
+          toast({
+            title: "Cannot apply here",
+            description: "This reward is a wallet credit — redeem it in My Rewards in Settings, not at checkout.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (t !== "free_session" && t !== "booking_discount" && t !== "free_item") {
+          toast({ title: "Cannot apply here", description: "This reward type can't be used at booking.", variant: "destructive" });
           return;
         }
         setAppliedReward(result.reward);
         setAppliedPromo(null);
-        toast({ title: "Free session applied!", description: result.reward.description });
+        const title =
+          t === "free_session" ? "Free session applied!" :
+          t === "booking_discount" ? `${result.reward.value}% discount applied!` :
+          "Free item reward applied!";
+        toast({ title, description: result.reward.description });
       } else {
         toast({ title: "Invalid reward", description: result.error || "Code not valid.", variant: "destructive" });
       }
@@ -608,7 +631,9 @@ const Booking = () => {
                       <Tag className="h-4 w-4 text-accent" />
                       <span className="text-sm font-medium text-accent">{appliedReward.code}</span>
                       <span className="text-sm text-muted-foreground">
-                        {rewardFreeHours}hr free applied
+                        {appliedReward.type === "free_session" && `${rewardFreeHours}hr free applied`}
+                        {appliedReward.type === "booking_discount" && `${rewardDiscountPercent}% off applied`}
+                        {appliedReward.type === "free_item" && `Free item — collect at counter`}
                       </span>
                     </div>
                     <Button variant="ghost" size="sm" onClick={handleRemoveReward} className="text-xs h-7">
@@ -643,8 +668,18 @@ const Booking = () => {
 
               {rewardDiscount > 0 && (
                 <div className="flex justify-between text-sm text-accent">
-                  <span>Free session reward ({rewardFreeHours}hr)</span>
+                  <span>
+                    {appliedReward?.type === "free_session"
+                      ? `Free session reward (${rewardFreeHours}hr)`
+                      : `Discount (${rewardDiscountPercent}% off)`}
+                  </span>
                   <span>-${rewardDiscount.toFixed(2)}</span>
+                </div>
+              )}
+
+              {appliedReward?.type === "free_item" && (
+                <div className="rounded-lg bg-accent/10 border border-accent/30 px-3 py-2 text-sm text-accent">
+                  Free item reward applied — collect at counter
                 </div>
               )}
 
