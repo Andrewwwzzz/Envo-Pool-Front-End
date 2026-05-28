@@ -16,6 +16,9 @@ export interface Reward {
   expiresAt?: string | null;
   redeemed?: boolean;
   redeemedAt?: string | null;
+  usesAllowed?: number;
+  usesRemaining?: number;
+  multiUse?: boolean;
   createdAt?: string;
   userId?: string;
 }
@@ -44,6 +47,8 @@ export function useIssueReward() {
       description: string;
       reason: RewardReason | string;
       expiresAt?: string | null;
+      qty?: number;
+      multiUse?: boolean;
     }) => {
       const res = await apiFetch("/api/rewards/issue", {
         method: "POST",
@@ -51,7 +56,7 @@ export function useIssueReward() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || data.message || "Failed to issue reward");
-      return data as Reward & { code: string };
+      return data as { rewards?: Reward[]; codes?: string[] } & Reward & { code: string };
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ["admin-rewards", vars.userId] });

@@ -45,7 +45,9 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const [reason, setReason] = useState<RewardReason>("reviews");
   const [otherReason, setOtherReason] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
-  const [issuedCode, setIssuedCode] = useState<string | null>(null);
+  const [qty, setQty] = useState("1");
+  const [multiUse, setMultiUse] = useState(false);
+  const [issuedCodes, setIssuedCodes] = useState<string[] | null>(null);
 
   const valueLabel =
     type === "free_session" ? "Sessions (1 hr each)" :
@@ -54,6 +56,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
 
   const reset = () => {
     setType("free_session"); setValue("1"); setDescription(""); setReason("reviews"); setOtherReason(""); setExpiresAt("");
+    setQty("1"); setMultiUse(false);
   };
 
   const submit = async () => {
@@ -65,12 +68,15 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
       toast({ title: "Please specify the reason", variant: "destructive" });
       return;
     }
+    const qtyNum = Math.max(1, Math.min(20, parseInt(qty) || 1));
     const payload: any = {
       userId,
       type,
       description: description.trim(),
       reason: reason === "other" ? otherReason.trim() : reason,
       expiresAt: expiresAt || null,
+      qty: qtyNum,
+      multiUse: qtyNum > 1 ? multiUse : false,
     };
     if (type !== "free_item") {
       const v = parseFloat(value);
@@ -81,11 +87,14 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
       payload.value = v;
     }
     try {
-      const result = await issueReward.mutateAsync(payload);
-      const code = (result as any).code || (result as any).reward?.code;
+      const result: any = await issueReward.mutateAsync(payload);
       setOpen(false);
       reset();
-      if (code) setIssuedCode(code);
+      const codes: string[] = Array.isArray(result?.codes) && result.codes.length
+        ? result.codes
+        : (result?.rewards?.map((r: any) => r.code).filter(Boolean) ||
+           (result?.code ? [result.code] : (result?.reward?.code ? [result.reward.code] : [])));
+      if (codes.length) setIssuedCodes(codes);
       else toast({ title: "Reward issued" });
     } catch {}
   };
@@ -140,11 +149,20 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
                     <td className="py-2 pr-4">{r.description}</td>
                     <td className="py-2 pr-4">{fmtDateSG(r.createdAt || r.created_at)}</td>
                     <td className="py-2">
-                      {r.redeemed ? (
-                        <Badge variant="outline" className="bg-muted">Redeemed</Badge>
-                      ) : (
-                        <Badge>Active</Badge>
-                      )}
+                      {(() => {
+                        const allowed = Number(r.usesAllowed);
+                        const remaining = Number(r.usesRemaining);
+                        const isMulti = Number.isFinite(allowed) && allowed > 1;
+                        if (isMulti) {
+                          if (Number.isFinite(remaining) && remaining <= 0) {
+                            return <Badge variant="outline" className="bg-muted">Redeemed</Badge>;
+                          }
+                          return <Badge>{remaining}/{allowed} uses remaining</Badge>;
+                        }
+                        return r.redeemed
+                          ? <Badge variant="outline" className="bg-muted">Redeemed</Badge>
+                          : <Badge>Active</Badge>;
+                      })()}
                     </td>
                     <td className="py-2 text-right">
                       {!r.redeemed && (
@@ -252,6 +270,27 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
               <Label>Expires At (optional)</Label>
               <Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
             </div>
+            <div className="space-y-2">
+              <Label>Quantity</Label>
+              <Input
+                type="number" min="1" max="20" step="1"
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Number of uses or separate codes to generate</p>
+            </div>
+            {(parseInt(qty) || 1) > 1 && (
+              <div className="space-y-2">
+                <Label>Issue Mode</Label>
+                <Select value={multiUse ? "multi" : "separate"} onValueChange={(v) => setMultiUse(v === "multi")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="separate">Separate codes (one per use)</SelectItem>
+                    <SelectItem value="multi">One code, multiple uses</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setOpen(false); reset(); }} disabled={issueReward.isPending}>Cancel</Button>
@@ -263,24 +302,45 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!issuedCode} onOpenChange={(o) => { if (!o) setIssuedCode(null); }}>
+      <Dialog open={!!issuedCodes} onOpenChange={(o) => { if (!o) setIssuedCodes(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reward Issued 🎁</DialogTitle>
-            <DialogDescription>Share this code with the customer.</DialogDescription>
+            <DialogDescription>
+              {issuedCodes && issuedCodes.length > 1
+                ? `${issuedCodes.length} codes generated — share with the customer.`
+                : "Share this code with the customer."}
+            </DialogDescription>
           </DialogHeader>
-          <div className="rounded-lg border-2 border-dashed border-accent/40 bg-accent/5 p-6 text-center">
-            <p className="text-xs text-muted-foreground mb-2">Reward Code</p>
-            <p className="text-2xl font-mono font-bold tracking-wider gold-gradient">{issuedCode}</p>
+          <div className="rounded-lg border-2 border-dashed border-accent/40 bg-accent/5 p-6 text-center space-y-2 max-h-72 overflow-y-auto">
+            <p className="text-xs text-muted-foreground mb-2">
+              {issuedCodes && issuedCodes.length > 1 ? "Reward Codes" : "Reward Code"}
+            </p>
+            {issuedCodes?.map((c) => (
+              <div key={c} className="flex items-center justify-center gap-2">
+                <p className="text-2xl font-mono font-bold tracking-wider gold-gradient">{c}</p>
+                <Button
+                  size="sm" variant="ghost" className="h-7 w-7 p-0"
+                  onClick={() => { navigator.clipboard.writeText(c); toast({ title: "Code copied" }); }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => { if (issuedCode) { navigator.clipboard.writeText(issuedCode); toast({ title: "Copied" }); } }}
-            >
-              <Copy className="mr-2 h-4 w-4" /> Copy Code
-            </Button>
-            <Button onClick={() => setIssuedCode(null)}>Done</Button>
+            {issuedCodes && issuedCodes.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard.writeText(issuedCodes.join("\n"));
+                  toast({ title: "All codes copied" });
+                }}
+              >
+                <Copy className="mr-2 h-4 w-4" /> Copy {issuedCodes.length > 1 ? "All" : "Code"}
+              </Button>
+            )}
+            <Button onClick={() => setIssuedCodes(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
