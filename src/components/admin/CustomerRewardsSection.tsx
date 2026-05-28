@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAdminRewards, useIssueReward, RewardType, RewardReason } from "@/hooks/useRewards";
+import { useAdminRewards, useIssueReward, useDeleteReward, RewardType, RewardReason } from "@/hooks/useRewards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Gift, Copy, Loader2, Check } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Gift, Copy, Loader2, Check, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fmtDateSG } from "@/lib/sgTime";
 
