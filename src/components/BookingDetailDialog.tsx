@@ -105,7 +105,8 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
   const originalAmount = Number(
     b.originalAmount ?? b.original_amount ?? b.subtotal ?? 0
   );
-  const subtotal = originalAmount > 0 ? originalAmount : finalPrice;
+  // Subtotal must ALWAYS be the stored originalAmount — never recomputed.
+  const subtotal = originalAmount;
 
   const membershipDiscount = Number(b.membershipDiscount ?? b.membership_discount ?? 0);
   const promoDiscount = Number(b.promoDiscount ?? b.discountAmount ?? b.discount_amount ?? 0);
