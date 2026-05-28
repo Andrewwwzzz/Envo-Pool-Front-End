@@ -193,7 +193,7 @@ export default function RewardsTab({
         </div>
 
         {/* Table */}
-        {isLoading && !rewards?.length ? (
+        {isLoading && !(rewards && rewards.length) ? (
           <p className="text-muted-foreground text-sm">Loading rewards…</p>
         ) : !filtered.length ? (
           <p className="text-muted-foreground text-sm">No rewards match these filters.</p>
