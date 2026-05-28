@@ -133,15 +133,23 @@ export default function LockersTab() {
   const cancel = useCancelLocker();
   const [addOpen, setAddOpen] = useState(false);
   const [assignFor, setAssignFor] = useState<LockerUnit | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
 
   const doRenew = async (id: string) => {
     try { await renew.mutateAsync(id); toast({ title: "Renewed" }); }
     catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
   };
-  const doCancel = async (id: string) => {
-    if (!confirm("Cancel this rental?")) return;
-    try { await cancel.mutateAsync(id); toast({ title: "Cancelled" }); }
-    catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
+    try {
+      await cancel.mutateAsync({ rentalId: cancelTarget, reason: cancelReason.trim().slice(0, 500) });
+      toast({ title: "Cancelled" });
+      setCancelTarget(null);
+      setCancelReason("");
+    } catch (e: any) {
+      toast({ title: "Failed", description: e?.message, variant: "destructive" });
+    }
   };
 
   return (
