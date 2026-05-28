@@ -120,13 +120,12 @@ export function useCancelMyMembership() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (membershipId?: string) => {
-      const path = membershipId ? `/api/membership/cancel/${membershipId}` : `/api/membership/cancel`;
-      const r = await apiFetch(path, {
+      const r = await apiFetch("/api/membership/cancel", {
         method: "POST",
-        body: membershipId ? JSON.stringify({ membershipId }) : undefined,
+        body: JSON.stringify(membershipId ? { membershipId } : {}),
       });
-      if (!r.ok) throw new Error(await r.text());
       const text = await r.text();
+      if (!r.ok) throw new Error(text || `${r.status}`);
       try { return text ? JSON.parse(text) : null; } catch { return null; }
     },
     onSuccess: () => {

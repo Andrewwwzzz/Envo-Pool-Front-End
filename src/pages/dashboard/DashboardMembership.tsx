@@ -104,12 +104,18 @@ function MembershipCard({
   onRenew: (m: any) => void;
 }) {
   const status: string = String(membership?.status ?? (membership?.active ? "active" : "")).toLowerCase();
-  const plan = membership?.plan || membership;
+  // Plan data: prefer populated planId, fallback to plan or membership itself for backwards compatibility
+  const plan =
+    (membership?.planId && typeof membership.planId === "object" ? membership.planId : null) ||
+    membership?.plan ||
+    membership;
   const benefitsObj = (plan?.benefits ?? {}) as any;
-  const bookingDiscount = benefitsObj.bookingDiscount ?? plan?.bookingDiscountPct ?? 0;
-  const freeMinutesPerVisit = benefitsObj.freeMinutesPerVisit ?? plan?.freeMinutesPerVisit ?? 0;
-  const freeDrinkPerVisit = benefitsObj.freeDrinkPerVisit ?? plan?.freeDrinkPerVisit ?? false;
-  const lockerIncluded = benefitsObj.lockerIncluded ?? plan?.lockerIncluded ?? false;
+  const bookingDiscount = Number(benefitsObj.bookingDiscount ?? plan?.bookingDiscountPct ?? 0);
+  const freeMinutesPerVisit = Number(benefitsObj.freeMinutesPerVisit ?? plan?.freeMinutesPerVisit ?? 0);
+  const freeDrinkPerVisit = Boolean(benefitsObj.freeDrinkPerVisit ?? plan?.freeDrinkPerVisit ?? false);
+  const lockerIncluded = Boolean(benefitsObj.lockerIncluded ?? plan?.lockerIncluded ?? false);
+  const hasAnyBenefit =
+    bookingDiscount > 0 || freeMinutesPerVisit > 0 || freeDrinkPerVisit || lockerIncluded;
 
   const endDate = membership?.endDate ?? membership?.cancelledUntil ?? membership?.renewalDate;
   const endDatePassed = endDate ? new Date(endDate).getTime() < Date.now() : false;
@@ -148,7 +154,7 @@ function MembershipCard({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <div className="text-xs text-muted-foreground">Price</div>
-            <div className="font-medium">${plan?.price ?? 0} / {plan?.billingCycle ?? "monthly"}</div>
+            <div className="font-medium">${planPrice} / {planCycle}</div>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">
@@ -168,38 +174,42 @@ function MembershipCard({
 
         <div className="space-y-2">
           <div className="text-xs uppercase tracking-wide text-muted-foreground">Benefits</div>
-          <ul className="space-y-1.5">
-            {bookingDiscount > 0 && (
-              <li className="flex items-start gap-2">
-                <Percent className="h-4 w-4 text-accent mt-0.5" />
-                <span>
-                  <span className="font-medium">{bookingDiscount}% off all bookings</span>
-                  <span className="text-muted-foreground"> — auto-applied at checkout</span>
-                </span>
-              </li>
-            )}
-            {freeMinutesPerVisit > 0 && (
-              <li className="flex items-start gap-2">
-                <Timer className="h-4 w-4 text-accent mt-0.5" />
-                <span>
-                  <span className="font-medium">{freeMinutesPerVisit} mins free per visit</span>
-                  <span className="text-muted-foreground"> — auto-applied daily</span>
-                </span>
-              </li>
-            )}
-            {freeDrinkPerVisit && (
-              <li className="flex items-start gap-2">
-                <Beer className="h-4 w-4 text-accent mt-0.5" />
-                <span>Free drink / snack per visit</span>
-              </li>
-            )}
-            {lockerIncluded && (
-              <li className="flex items-start gap-2">
-                <KeyRound className="h-4 w-4 text-accent mt-0.5" />
-                <span>Locker included</span>
-              </li>
-            )}
-          </ul>
+          {hasAnyBenefit ? (
+            <ul className="space-y-1.5">
+              {bookingDiscount > 0 && (
+                <li className="flex items-start gap-2">
+                  <Percent className="h-4 w-4 text-accent mt-0.5" />
+                  <span>
+                    <span className="font-medium">🎱 {bookingDiscount}% off all bookings</span>
+                    <span className="text-muted-foreground"> — auto-applied at checkout</span>
+                  </span>
+                </li>
+              )}
+              {freeMinutesPerVisit > 0 && (
+                <li className="flex items-start gap-2">
+                  <Timer className="h-4 w-4 text-accent mt-0.5" />
+                  <span>
+                    <span className="font-medium">⏱ {freeMinutesPerVisit}mins free per visit</span>
+                    <span className="text-muted-foreground"> — auto-applied daily</span>
+                  </span>
+                </li>
+              )}
+              {freeDrinkPerVisit && (
+                <li className="flex items-start gap-2">
+                  <Beer className="h-4 w-4 text-accent mt-0.5" />
+                  <span>🍺 Free drink / snack per visit</span>
+                </li>
+              )}
+              {lockerIncluded && (
+                <li className="flex items-start gap-2">
+                  <KeyRound className="h-4 w-4 text-accent mt-0.5" />
+                  <span>🔒 Locker included</span>
+                </li>
+              )}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">No special benefits</p>
+          )}
         </div>
 
         {freeMinutesPerVisit > 0 && isActive && !isExpired && (
@@ -301,8 +311,13 @@ export default function DashboardMembership() {
   };
 
   const lockerRentals = memberships
-    .map((m: any) => m?.lockerRentalId)
-    .filter((lr: any) => lr && typeof lr === "object" && (lr._id || lr.id));
+    .filter((m: any) => {
+      const planObj = (m?.planId && typeof m.planId === "object" ? m.planId : null) || m?.plan || m;
+      const lockerIncluded = Boolean(planObj?.benefits?.lockerIncluded ?? planObj?.lockerIncluded);
+      const lr = m?.lockerRentalId;
+      return lockerIncluded && lr && typeof lr === "object" && (lr._id || lr.id);
+    })
+    .map((m: any) => m.lockerRentalId);
 
   const cancelTargetEnd =
     cancelTarget?.endDate ?? cancelTarget?.cancelledUntil ?? cancelTarget?.renewalDate;
