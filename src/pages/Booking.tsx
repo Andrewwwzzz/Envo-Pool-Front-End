@@ -141,6 +141,7 @@ const Booking = () => {
 
   const { data: pricingRules } = usePricingRules();
   const { data: profile } = useProfile();
+  const { data: myMembership } = useMyMembership();
   const isAdmin = user?.isAdmin === true;
   const validatePromo = useValidatePromo();
 
