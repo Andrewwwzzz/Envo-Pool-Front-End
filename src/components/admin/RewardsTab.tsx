@@ -103,7 +103,8 @@ export default function RewardsTab({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [reasonFilter, setReasonFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
-  const [showDeleted, setShowDeleted] = useState(false);
+  const showDeleted = showDeletedToggle;
+  const setShowDeleted = setShowDeletedToggle;
 
   const filtered = useMemo(() => {
     const list = rewards || [];
