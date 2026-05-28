@@ -119,20 +119,27 @@ export default function DashboardTransactions() {
           <p className="text-muted-foreground text-sm">No transactions yet.</p>
         ) : (
           <div className="space-y-2">
-            {visible.map((t: any) => (
-              <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline" className={txBadge(t.typeKey)}>{t.typeLabel}</Badge>
-                  <div>
-                    <p className="text-xs text-muted-foreground">{fmtNiceDate(t.date)}</p>
-                    {t.method && <p className="text-xs text-muted-foreground">{t.method}</p>}
+            {visible.map((t: any) => {
+              const desc = deriveTransactionDescription(
+                { description: t.description, type: t.rawType, paymentMethod: t.rawMethod, amount: t.amtRaw },
+                membershipPrices
+              );
+              return (
+                <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline" className={txBadge(t.typeKey)}>{t.typeLabel}</Badge>
+                    <div>
+                      {desc && <p className="text-sm font-medium text-foreground">{desc}</p>}
+                      <p className="text-xs text-muted-foreground">{fmtNiceDate(t.date)}</p>
+                      {t.method && <p className="text-xs text-muted-foreground">{t.method}</p>}
+                    </div>
                   </div>
+                  <span className={t.positive ? "text-primary font-medium" : "text-destructive font-medium"}>
+                    {t.amount}
+                  </span>
                 </div>
-                <span className={t.positive ? "text-primary font-medium" : "text-destructive font-medium"}>
-                  {t.amount}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
