@@ -4,8 +4,9 @@ import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { isTodaySG, nowSGMinutes, sgSlotToUTC } from "@/lib/sgTime";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { isSlotWithinHours, type WeekSchedule } from "@/hooks/useOperatingHours";
 
-type SlotState = "available" | "booked" | "pending" | "past" | "maintenance";
+type SlotState = "available" | "booked" | "pending" | "past" | "maintenance" | "closed";
 
 interface TimeSlot {
   time: string;
@@ -38,6 +39,7 @@ interface TimeSlotPickerProps {
   date: Date;
   bookedSlots: BookedSlot[];
   maintenanceWindows?: MaintenanceWindow[];
+  operatingHours?: WeekSchedule;
   startSlot: string | null;
   endSlot: string | null;
   onSelectStart: (slot: string) => void;
@@ -103,6 +105,7 @@ export function TimeSlotPicker({
   date,
   bookedSlots,
   maintenanceWindows = [],
+  operatingHours,
   startSlot,
   endSlot,
   onSelectStart,
@@ -124,6 +127,11 @@ export function TimeSlotPicker({
       // current minute (e.g. 9:00 slot at 9:01) remains selectable.
       if (isToday && slotEndMin <= nowMinutes) {
         return { ...slot, available: false, state: "past" as const, userName: null, expiresAt: null, maintenanceReason: null };
+      }
+
+      // Outside configured operating hours
+      if (operatingHours && !isSlotWithinHours(operatingHours, date, slot.time)) {
+        return { ...slot, available: false, state: "closed" as const, userName: null, expiresAt: null, maintenanceReason: null };
       }
 
       const slotStartStr = `${Math.floor(slotMin / 60).toString().padStart(2, "0")}:${(slotMin % 60).toString().padStart(2, "0")}`;
@@ -176,7 +184,7 @@ export function TimeSlotPicker({
       return { ...slot, available: true, state: "available" as const, userName: null, expiresAt: null, maintenanceReason: null };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, bookedSlots, maintenanceWindows, isToday, nowMinutes, expiredKey]);
+  }, [date, bookedSlots, maintenanceWindows, operatingHours, isToday, nowMinutes, expiredKey]);
 
   const startMinutes = startSlot ? slotToMinutes(startSlot) : null;
   const endMinutes = endSlot ? slotToMinutes(endSlot) : null;
@@ -272,6 +280,7 @@ export function TimeSlotPicker({
               className={cn(
                 "rounded-lg border px-1 py-2 text-xs font-medium transition-all duration-150 flex flex-col items-center gap-0.5 w-full",
                 slot.state === "past" && "opacity-30 cursor-not-allowed bg-muted border-border text-muted-foreground line-through",
+                slot.state === "closed" && "opacity-40 cursor-not-allowed bg-muted border-border text-muted-foreground",
                 slot.state === "booked" && "cursor-not-allowed border-destructive/40 bg-destructive/10 text-destructive",
                 slot.state === "pending" && "cursor-not-allowed border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
                 slot.state === "maintenance" && "cursor-not-allowed border-destructive/40 bg-destructive/10 text-destructive",
@@ -287,9 +296,11 @@ export function TimeSlotPicker({
             </button>
           );
 
-          if (slot.state === "maintenance" || slot.state === "pending" || slot.state === "booked") {
+          if (slot.state === "maintenance" || slot.state === "pending" || slot.state === "booked" || slot.state === "closed") {
             const tooltipText =
-              slot.state === "maintenance"
+              slot.state === "closed"
+                ? "Outside operating hours"
+                : slot.state === "maintenance"
                 ? (slot.maintenanceReason || "No reason provided")
                 : displayName
                   ? slot.state === "pending" && slot.expiresAt

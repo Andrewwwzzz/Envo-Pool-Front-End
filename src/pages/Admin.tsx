@@ -30,6 +30,7 @@ import {
   useDeleteMaintenance,
 } from "@/hooks/useAdmin";
 import LogsTab from "@/components/admin/LogsTab";
+import { OperatingHoursSection } from "@/components/admin/OperatingHoursSection";
 import { useAdminTransactions, useAdminActivityLogs } from "@/hooks/useAdminLogs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -780,6 +781,8 @@ function TablesTab() {
           </div>
         </CardContent>
       </Card>
+
+      <OperatingHoursSection />
     </div>
   );
 }
