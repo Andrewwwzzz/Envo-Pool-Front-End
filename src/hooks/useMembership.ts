@@ -126,3 +126,25 @@ export function useMyMembership() {
     },
   });
 }
+
+export function useSubscribeMembership() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (planId: string) => {
+      const r = await apiFetch("/api/membership/subscribe", {
+        method: "POST",
+        body: JSON.stringify({ planId }),
+      });
+      const text = await r.text();
+      let body: any = null;
+      try { body = text ? JSON.parse(text) : null; } catch { body = { message: text }; }
+      if (!r.ok) throw new Error(body?.message || body?.error || text || `${r.status}`);
+      return body;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["membership", "my"] });
+      qc.invalidateQueries({ queryKey: ["profile"] });
+      qc.invalidateQueries({ queryKey: ["lockers"] });
+    },
+  });
+}

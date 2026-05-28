@@ -1,9 +1,24 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Crown, Lock, Percent, Timer, Beer, KeyRound, Users } from "lucide-react";
-import { useMyMembership, useMembershipPlans } from "@/hooks/useMembership";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Crown, Lock, Percent, Timer, Beer, KeyRound, Users, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { useMyMembership, useMembershipPlans, useSubscribeMembership, type MembershipPlan } from "@/hooks/useMembership";
 import { useMyLocker } from "@/hooks/useLockers";
+import { useProfile } from "@/hooks/useProfile";
 import { fmtDateSG } from "@/lib/sgTime";
 
 function daysBetween(future?: string) {
@@ -16,9 +31,30 @@ export default function DashboardMembership() {
   const { data: membership } = useMyMembership();
   const { data: locker } = useMyLocker();
   const { data: plans = [] } = useMembershipPlans();
+  const { data: profile } = useProfile();
+  const subscribe = useSubscribeMembership();
+  const [confirmPlan, setConfirmPlan] = useState<MembershipPlan | null>(null);
+
+  const walletBalance = Number(profile?.wallet_balance ?? 0);
 
   const active = membership && (membership.status === "active" || membership.active);
   const plan = membership?.plan || membership;
+
+  const handleConfirmSubscribe = async () => {
+    if (!confirmPlan) return;
+    const planId = (confirmPlan as any).id ?? (confirmPlan as any)._id;
+    if (!planId) {
+      toast.error("Plan ID missing");
+      return;
+    }
+    try {
+      await subscribe.mutateAsync(planId);
+      toast.success("Successfully subscribed!");
+      setConfirmPlan(null);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to subscribe");
+    }
+  };
 
   if (!active) {
     return (
@@ -34,39 +70,87 @@ export default function DashboardMembership() {
             <div className="space-y-1">
               <h2 className="text-xl font-semibold">No active membership</h2>
               <p className="text-sm text-muted-foreground max-w-md">
-                Browse our plans below. Contact staff to subscribe.
+                Choose a plan below to subscribe instantly using your wallet balance.
+              </p>
+              <p className="text-xs text-muted-foreground pt-2">
+                Wallet balance: <span className="font-medium text-foreground">${walletBalance.toFixed(2)}</span>
               </p>
             </div>
           </CardContent>
         </Card>
 
         {plans.length > 0 && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {plans.map((p) => (
-              <Card key={p.id} className="opacity-60">
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center justify-between">
-                    <span>{p.name}</span>
-                    <span className="text-sm font-normal text-muted-foreground">${p.price}/{p.billingCycle}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  {p.description && <p className="text-muted-foreground">{p.description}</p>}
-                  <div className="flex flex-wrap gap-1">
-                    {!!p.bookingDiscountPct && <Badge variant="secondary">{p.bookingDiscountPct}% off</Badge>}
-                    {!!p.freeMinutesPerVisit && <Badge variant="secondary">{p.freeMinutesPerVisit}m free</Badge>}
-                    {p.freeDrinkPerVisit && <Badge variant="secondary">Free drink</Badge>}
-                    {p.lockerIncluded && <Badge variant="secondary">Locker</Badge>}
-                  </div>
-                  <p className="text-xs text-muted-foreground pt-2">Contact staff to subscribe</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <TooltipProvider>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {plans.map((p) => {
+                const price = Number(p.price ?? 0);
+                const canAfford = walletBalance >= price;
+                const btn = (
+                  <Button
+                    className="w-full"
+                    disabled={!canAfford || subscribe.isPending}
+                    onClick={() => setConfirmPlan(p)}
+                  >
+                    Subscribe
+                  </Button>
+                );
+                return (
+                  <Card key={(p as any).id ?? (p as any)._id}>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center justify-between">
+                        <span>{p.name}</span>
+                        <span className="text-sm font-normal text-muted-foreground">${p.price}/{p.billingCycle}</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm">
+                      {p.description && <p className="text-muted-foreground">{p.description}</p>}
+                      <div className="flex flex-wrap gap-1">
+                        {!!p.bookingDiscountPct && <Badge variant="secondary">{p.bookingDiscountPct}% off</Badge>}
+                        {!!p.freeMinutesPerVisit && <Badge variant="secondary">{p.freeMinutesPerVisit}m free</Badge>}
+                        {p.freeDrinkPerVisit && <Badge variant="secondary">Free drink</Badge>}
+                        {p.lockerIncluded && <Badge variant="secondary">Locker</Badge>}
+                      </div>
+                      {canAfford ? (
+                        btn
+                      ) : (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="block w-full">{btn}</span>
+                          </TooltipTrigger>
+                          <TooltipContent>Insufficient wallet balance — top up first</TooltipContent>
+                        </Tooltip>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </TooltipProvider>
         )}
+
+        <AlertDialog open={!!confirmPlan} onOpenChange={(o) => !o && setConfirmPlan(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Subscribe to {confirmPlan?.name}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Subscribe to {confirmPlan?.name} for ${Number(confirmPlan?.price ?? 0).toFixed(2)}/{confirmPlan?.billingCycle ?? "month"}?
+                This will deduct ${Number(confirmPlan?.price ?? 0).toFixed(2)} from your wallet
+                (current balance: ${walletBalance.toFixed(2)}).
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={subscribe.isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={(e) => { e.preventDefault(); handleConfirmSubscribe(); }} disabled={subscribe.isPending}>
+                {subscribe.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Confirm
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
+
 
   const benefits: { icon: any; label: string }[] = [];
   if (plan?.bookingDiscountPct) benefits.push({ icon: Percent, label: `${plan.bookingDiscountPct}% off all bookings` });
