@@ -116,6 +116,22 @@ export function useCancelMembership() {
   });
 }
 
+export function useCancelMyMembership() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const r = await apiFetch(`/api/membership/cancel`, { method: "POST" });
+      if (!r.ok) throw new Error(await r.text());
+      const text = await r.text();
+      try { return text ? JSON.parse(text) : null; } catch { return null; }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["membership", "my"] });
+      qc.invalidateQueries({ queryKey: ["profile"] });
+    },
+  });
+}
+
 export function useMyMembership() {
   return useQuery<any>({
     queryKey: ["membership", "my"],
