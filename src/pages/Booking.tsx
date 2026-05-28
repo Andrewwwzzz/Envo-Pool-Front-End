@@ -155,7 +155,11 @@ const Booking = () => {
 
   const originalPrice = pricing?.totalPrice ?? 0;
 
-  const discountAmount = useMemo(() => {
+  // ---- Discount candidates ----
+  // Compare promo, reward, and membership; only the single highest applies (no stacking).
+
+  // Promo (percentage or fixed)
+  const promoDiscountAmt = useMemo(() => {
     if (!appliedPromo || !originalPrice) return 0;
     return calculateDiscount(
       originalPrice,
@@ -164,25 +168,21 @@ const Booking = () => {
       appliedPromo.max_discount_amount
     );
   }, [appliedPromo, originalPrice]);
+  const promoPct = originalPrice > 0 ? (promoDiscountAmt / originalPrice) * 100 : 0;
 
-  // Reward calculation:
-  // - free_session: value = number of free hours, applied as credit at booking's hourly rate
-  // - booking_discount: value = percent off subtotal-after-promo
-  // - free_item: no price impact (collect at counter)
-  // - wallet_credit: not usable here
+  // Reward (free_session => hour credit; booking_discount => %; free_item => no $ impact)
   const rewardHourlyRate = pricing?.segments?.[0]?.hourlyRate ?? 0;
   const rewardFreeHours = appliedReward?.type === "free_session" ? (appliedReward.value ?? 0) : 0;
   const rewardDiscountPercent = appliedReward?.type === "booking_discount" ? (appliedReward.value ?? 0) : 0;
-  const priceAfterPromo = Math.max(0, originalPrice - discountAmount);
-  const rewardDiscount =
+  const rewardDiscountAmt =
     appliedReward?.type === "free_session"
-      ? Math.min(priceAfterPromo, rewardFreeHours * rewardHourlyRate)
+      ? Math.min(originalPrice, rewardFreeHours * rewardHourlyRate)
       : appliedReward?.type === "booking_discount"
-      ? Math.min(priceAfterPromo, priceAfterPromo * (rewardDiscountPercent / 100))
+      ? Math.min(originalPrice, originalPrice * (rewardDiscountPercent / 100))
       : 0;
+  const rewardPct = originalPrice > 0 ? (rewardDiscountAmt / originalPrice) * 100 : 0;
 
-  // Membership discount — auto-applied from highest active membership benefit.
-  // Hidden when a reward code is applied (reward takes priority).
+  // Membership — highest active membership benefit
   const activeMembership = useMemo(() => {
     const list: any[] = myMembership?.memberships ?? [];
     const getPlan = (m: any) =>
@@ -210,12 +210,41 @@ const Booking = () => {
       0
   );
   const membershipPlanName = activeMembershipPlan?.name ?? activeMembership?.planName ?? "Membership";
-  const priceAfterReward = Math.max(0, priceAfterPromo - rewardDiscount);
-  const membershipDiscount =
-    !appliedReward && membershipDiscountPct > 0
-      ? Math.min(priceAfterReward, priceAfterReward * (membershipDiscountPct / 100))
-      : 0;
-  const finalPrice = Math.max(0, priceAfterReward - membershipDiscount);
+  const membershipDiscountAmt = originalPrice > 0 ? originalPrice * (membershipDiscountPct / 100) : 0;
+
+  // ---- Pick the single winning discount ----
+  type DiscountSource = "none" | "promo" | "reward" | "membership";
+  const winningDiscount = useMemo(() => {
+    const candidates: { source: DiscountSource; amount: number; pct: number }[] = [];
+    if (membershipDiscountPct > 0) candidates.push({ source: "membership", amount: membershipDiscountAmt, pct: membershipDiscountPct });
+    if (appliedPromo) candidates.push({ source: "promo", amount: promoDiscountAmt, pct: promoPct });
+    if (appliedReward && rewardDiscountAmt > 0) candidates.push({ source: "reward", amount: rewardDiscountAmt, pct: rewardPct });
+    if (!candidates.length) return { source: "none" as DiscountSource, amount: 0, pct: 0 };
+    return candidates.reduce((best, c) => (c.amount > best.amount ? c : best), candidates[0]);
+  }, [appliedPromo, appliedReward, membershipDiscountPct, promoDiscountAmt, rewardDiscountAmt, membershipDiscountAmt, promoPct, rewardPct]);
+
+  // Notice shown when user-entered code interacts with the membership rate
+  const discountNotice = useMemo(() => {
+    const userApplied = !!appliedPromo || (!!appliedReward && rewardDiscountAmt > 0);
+    if (!userApplied || membershipDiscountPct <= 0) return null;
+    const userCandidate = appliedPromo
+      ? { pct: promoPct, label: "Promo" }
+      : { pct: rewardPct, label: "Reward" };
+    if (winningDiscount.source === "membership") {
+      return `Your membership discount (${Math.round(membershipDiscountPct)}%) is higher — membership rate applied instead.`;
+    }
+    if ((winningDiscount.source === "promo" || winningDiscount.source === "reward") && userCandidate.pct > membershipDiscountPct) {
+      return `${userCandidate.label} discount (${Math.round(userCandidate.pct)}%) applied — better than your membership rate.`;
+    }
+    return null;
+  }, [appliedPromo, appliedReward, rewardDiscountAmt, membershipDiscountPct, promoPct, rewardPct, winningDiscount]);
+
+  const finalPrice = Math.max(0, originalPrice - winningDiscount.amount);
+
+  // Amounts to send/show, derived from the winner only (no stacking)
+  const discountAmount = winningDiscount.source === "promo" ? winningDiscount.amount : 0;
+  const rewardDiscount = winningDiscount.source === "reward" ? winningDiscount.amount : 0;
+  const membershipDiscount = winningDiscount.source === "membership" ? winningDiscount.amount : 0;
 
 
   const durationError = useMemo(() => {
@@ -299,7 +328,7 @@ const Booking = () => {
           return;
         }
         setAppliedReward(result.reward);
-        setAppliedPromo(null);
+
         const title =
           t === "free_session" ? "Free session applied!" :
           t === "booking_discount" ? `${result.reward.value}% discount applied!` :
@@ -358,15 +387,22 @@ const Booking = () => {
           startTime: startDate.toISOString(),
           endTime: endDate.toISOString(),
           amount: Number(finalPrice.toFixed(2)),
-          promoCode: appliedPromo?.code || null,
-          promoDiscount: discountAmount || 0,
           originalAmount: Number((originalPrice || finalPrice).toFixed(2)),
-          rewardCode: appliedReward?.code || null,
-          rewardDiscount: rewardDiscount || 0,
-          membershipDiscount: membershipDiscount || 0,
+          // Only send the winning discount source. free_item rewards are
+          // tracked for counter pickup even when they don't win on price.
+          promoCode: winningDiscount.source === "promo" ? appliedPromo?.code || null : null,
+          promoDiscount: winningDiscount.source === "promo" ? discountAmount : 0,
+          rewardCode:
+            winningDiscount.source === "reward" || appliedReward?.type === "free_item"
+              ? appliedReward?.code || null
+              : null,
+          rewardDiscount: winningDiscount.source === "reward" ? rewardDiscount : 0,
+          membershipDiscount: winningDiscount.source === "membership" ? membershipDiscount : 0,
           membershipPlanId:
-            activeMembershipPlan?._id ?? activeMembershipPlan?.id ??
-            (typeof activeMembership?.planId === "string" ? activeMembership.planId : null),
+            winningDiscount.source === "membership"
+              ? activeMembershipPlan?._id ?? activeMembershipPlan?.id ??
+                (typeof activeMembership?.planId === "string" ? activeMembership.planId : null)
+              : null,
         }),
       });
 
@@ -704,22 +740,34 @@ const Booking = () => {
                 )}
               </div>
 
-              {discountAmount > 0 && (
+              {/* Single winning discount line (promo / reward / membership) */}
+              {winningDiscount.source === "promo" && discountAmount > 0 && (
                 <div className="flex justify-between text-sm text-primary">
-                  <span>Promo discount</span>
+                  <span>Promo discount ({Math.round(promoPct)}% off)</span>
                   <span>-${discountAmount.toFixed(2)}</span>
                 </div>
               )}
 
-              {rewardDiscount > 0 && (
+              {winningDiscount.source === "reward" && rewardDiscount > 0 && (
                 <div className="flex justify-between text-sm text-accent">
                   <span>
                     {appliedReward?.type === "free_session"
                       ? `Free session reward (${rewardFreeHours}hr)`
-                      : `Discount (${rewardDiscountPercent}% off)`}
+                      : `Reward discount (${rewardDiscountPercent}% off)`}
                   </span>
                   <span>-${rewardDiscount.toFixed(2)}</span>
                 </div>
+              )}
+
+              {winningDiscount.source === "membership" && membershipDiscount > 0 && (
+                <div className="flex justify-between text-sm text-primary">
+                  <span>{membershipPlanName} discount ({membershipDiscountPct}% off)</span>
+                  <span>-${membershipDiscount.toFixed(2)}</span>
+                </div>
+              )}
+
+              {discountNotice && (
+                <p className="text-xs text-muted-foreground italic">{discountNotice}</p>
               )}
 
               {appliedReward?.type === "free_item" && (
@@ -728,12 +776,6 @@ const Booking = () => {
                 </div>
               )}
 
-              {membershipDiscount > 0 && (
-                <div className="flex justify-between text-sm text-primary">
-                  <span>{membershipPlanName} discount ({membershipDiscountPct}% off)</span>
-                  <span>-${membershipDiscount.toFixed(2)}</span>
-                </div>
-              )}
 
 
 
