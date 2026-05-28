@@ -6,6 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAdminTransactions, useAdminBookingLogs, useAdminActivityLogs } from "@/hooks/useAdminLogs";
 import { useAdminCustomers, useAdminBookings } from "@/hooks/useAdmin";
+import { useMembershipPlans } from "@/hooks/useMembership";
+import { deriveTransactionDescription } from "@/lib/transactionLabel";
 import { fmtDateTimeSG, fmtDateSG } from "@/lib/sgTime";
 import { ScrollText, FileText, Users } from "lucide-react";
 import AdminBookingDetailDialog from "@/components/admin/AdminBookingDetailDialog";
@@ -131,6 +133,11 @@ function TransactionsView() {
   const { data, refetch } = useAdminTransactions();
   const transactions = Array.isArray(data) ? data : data?.transactions || [];
   const nameMap = useUserNameMap();
+  const { data: plans } = useMembershipPlans();
+  const membershipPrices = useMemo(
+    () => (plans || []).map((p: any) => Number(p.price)).filter((n) => !isNaN(n)),
+    [plans]
+  );
   const [selected, setSelected] = useState<any | null>(null);
 
   return (
@@ -145,6 +152,7 @@ function TransactionsView() {
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="pb-2 pr-4">User</th>
+                <th className="pb-2 pr-4">Description</th>
                 <th className="pb-2 pr-4">Amount</th>
                 <th className="pb-2 pr-4">Type</th>
                 <th className="pb-2 pr-4">Method</th>
@@ -162,6 +170,7 @@ function TransactionsView() {
                 const rawType = String(t.type || t.transactionType || "").toLowerCase();
                 let typeLabel = rawType === "booking_payment" || rawType === "wallet_deduct" ? "payment" : rawType;
                 if (rawMethod === "cash") typeLabel = "timer session";
+                const description = deriveTransactionDescription(t, membershipPrices);
                 const methodColorClass =
                   methodLabel === "cash"
                     ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
@@ -175,9 +184,10 @@ function TransactionsView() {
                   <tr
                     key={t._id || t.id || i}
                     className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/40 transition-colors"
-                    onClick={() => setSelected({ ...t, _userDisplay: userDisplay, _typeLabel: typeLabel, _methodLabel: methodLabel, _amount: amt })}
+                    onClick={() => setSelected({ ...t, _userDisplay: userDisplay, _typeLabel: typeLabel, _methodLabel: methodLabel, _amount: amt, _description: description })}
                   >
                     <td className="py-3 pr-4">{userDisplay}</td>
+                    <td className="py-3 pr-4 text-muted-foreground">{description || "—"}</td>
                     <td className="py-3 pr-4 font-medium">
                       <span className={amt >= 0 ? "text-primary" : "text-destructive"}>
                         ${Math.abs(amt).toFixed(2)}
@@ -196,7 +206,7 @@ function TransactionsView() {
                 );
               })}
               {transactions.length === 0 && (
-                <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No transactions found</td></tr>
+                <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">No transactions found</td></tr>
               )}
             </tbody>
           </table>
@@ -208,6 +218,7 @@ function TransactionsView() {
         title="Transaction Details"
         rows={selected ? [
           { label: "User", value: selected._userDisplay },
+          { label: "Description", value: selected._description || "—" },
           { label: "Type", value: selected._typeLabel ? humanize(selected._typeLabel) : "—" },
           { label: "Amount", value: `$${Math.abs(selected._amount).toFixed(2)}` },
           { label: "Method", value: selected._methodLabel === "paynow" ? "PayNow" : humanize(selected._methodLabel || "—") },
