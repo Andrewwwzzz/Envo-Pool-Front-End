@@ -328,7 +328,7 @@ const Booking = () => {
           return;
         }
         setAppliedReward(result.reward);
-        setAppliedPromo(null);
+
         const title =
           t === "free_session" ? "Free session applied!" :
           t === "booking_discount" ? `${result.reward.value}% discount applied!` :
