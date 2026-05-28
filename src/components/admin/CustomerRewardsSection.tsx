@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { fmtDateSG } from "@/lib/sgTime";
 
 const TYPE_LABELS: Record<RewardType, string> = {
-  free_session: "Free Session (30 mins)",
+  free_session: "Free Session (1 hr)",
   wallet_credit: "Wallet Credit",
   free_item: "Free Item",
   booking_discount: "Booking Discount",
@@ -48,7 +48,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const [issuedCode, setIssuedCode] = useState<string | null>(null);
 
   const valueLabel =
-    type === "free_session" ? "Sessions (30 mins each)" :
+    type === "free_session" ? "Sessions (1 hr each)" :
     type === "wallet_credit" ? "Amount ($)" :
     type === "booking_discount" ? "Percent off (%)" : null;
 
@@ -208,7 +208,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
               <Select value={type} onValueChange={(v) => setType(v as RewardType)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="free_session">Free Session (30 mins)</SelectItem>
+                  <SelectItem value="free_session">Free Session (1 hr)</SelectItem>
                   <SelectItem value="wallet_credit">Wallet Credit</SelectItem>
                   <SelectItem value="free_item">Free Item</SelectItem>
                   <SelectItem value="booking_discount">Booking Discount</SelectItem>
