@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pencil, Trash2, Plus, XCircle, Loader2 } from "lucide-react";
+import { Pencil, Trash2, Plus, XCircle, Loader2, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useMembershipPlans,
@@ -19,8 +19,11 @@ import {
   useAdminSubscriptions,
   useAssignMembership,
   useCancelMembership,
+  useAssignMembershipLocker,
+  useUpdateLockerPin,
   type MembershipPlan,
 } from "@/hooks/useMembership";
+import { useAvailableLockers } from "@/hooks/useLockers";
 
 import { useAdminCustomers } from "@/hooks/useAdmin";
 import { fmtDateSG } from "@/lib/sgTime";
