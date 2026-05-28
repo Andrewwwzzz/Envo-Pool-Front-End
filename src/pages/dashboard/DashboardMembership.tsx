@@ -331,13 +331,17 @@ export default function DashboardMembership() {
     const endDate = m?.endDate ?? m?.cancelledUntil ?? m?.renewalDate;
     const endPassed = endDate ? new Date(endDate).getTime() < Date.now() : false;
     if (status === "expired") return "expired";
-    if (status === "cancelled") return endPassed ? "expired" : "cancelled";
+    if (status === "cancelled") return endPassed ? "hidden" : "cancelled_active";
     if (status === "active" || m?.active) return "active";
     return status || "unknown";
   };
-  const activeMemberships = memberships.filter((m: any) => classify(m) === "active");
+  // "active" + "cancelled_active" both render via MembershipCard (full card).
+  const activeMemberships = memberships.filter((m: any) => {
+    const c = classify(m);
+    return c === "active" || c === "cancelled_active";
+  });
   const expiredMemberships = memberships.filter((m: any) => classify(m) === "expired");
-  // Cancelled (not yet ended) memberships are intentionally hidden per requirements.
+  // Cancelled memberships whose endDate has passed are intentionally hidden.
 
   const getPlanObj = (m: any) =>
     (m?.planId && typeof m.planId === "object" ? m.planId : null) || m?.plan || null;
