@@ -161,11 +161,21 @@ const Booking = () => {
     );
   }, [appliedPromo, originalPrice]);
 
-  // Free session reward: value = number of free hours, applied as credit at the booking's hourly rate
+  // Reward calculation:
+  // - free_session: value = number of free hours, applied as credit at booking's hourly rate
+  // - booking_discount: value = percent off subtotal-after-promo
+  // - free_item: no price impact (collect at counter)
+  // - wallet_credit: not usable here
   const rewardHourlyRate = pricing?.segments?.[0]?.hourlyRate ?? 0;
   const rewardFreeHours = appliedReward?.type === "free_session" ? (appliedReward.value ?? 0) : 0;
+  const rewardDiscountPercent = appliedReward?.type === "booking_discount" ? (appliedReward.value ?? 0) : 0;
   const priceAfterPromo = Math.max(0, originalPrice - discountAmount);
-  const rewardDiscount = Math.min(priceAfterPromo, rewardFreeHours * rewardHourlyRate);
+  const rewardDiscount =
+    appliedReward?.type === "free_session"
+      ? Math.min(priceAfterPromo, rewardFreeHours * rewardHourlyRate)
+      : appliedReward?.type === "booking_discount"
+      ? Math.min(priceAfterPromo, priceAfterPromo * (rewardDiscountPercent / 100))
+      : 0;
   const finalPrice = Math.max(0, priceAfterPromo - rewardDiscount);
 
   const durationError = useMemo(() => {
