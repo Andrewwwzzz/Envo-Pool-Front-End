@@ -1988,7 +1988,11 @@ function PromosTab() {
                     const expiryLabel = p.expiry_date ? fmtDateSG(p.expiry_date) : "No expiry";
                     const handleDelete = () => setDeletePromo({ id: p.id, code: p.code });
                     return (
-                      <tr key={p.id} className="border-b border-border/50">
+                      <tr
+                        key={p.id}
+                        className="border-b border-border/50 cursor-pointer hover:bg-muted/40"
+                        onClick={() => setDetailPromo(p)}
+                      >
                         <td className="py-3 pr-3 font-mono font-medium">{p.code}</td>
                         <td className="py-3 pr-3">{isPct ? "Percentage" : "Fixed"}</td>
                         <td className="py-3 pr-3">{valueLabel}</td>
@@ -2005,7 +2009,7 @@ function PromosTab() {
                             {p.is_active ? "Active" : "Inactive"}
                           </Badge>
                         </td>
-                        <td className="py-3 pr-3">
+                        <td className="py-3 pr-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-3">
                             <Switch
                               checked={p.is_active}
