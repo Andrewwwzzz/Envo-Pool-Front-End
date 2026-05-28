@@ -302,9 +302,11 @@ function LockerCell({ sub }: { sub: any }) {
   const hasLocker = !!sub.lockerRentalId;
   const rentalId = rental?._id ?? rental?.id ?? (typeof sub.lockerRentalId === "string" ? sub.lockerRentalId : null);
   const lockerNumber =
+    rental?.lockerUnitId?.lockerNumber ??
     rental?.lockerUnitId?.number ??
     rental?.lockerNumber ??
     sub.lockerNumber ??
+    sub.locker?.lockerNumber ??
     sub.locker?.number;
   const currentPin = rental?.pin ?? sub.lockerPin ?? sub.pin ?? "";
 
@@ -360,7 +362,8 @@ function LockerCell({ sub }: { sub: any }) {
                   <SelectContent>
                     {available.map((l) => {
                       const id = (l as any)._id ?? l.id;
-                      return <SelectItem key={id} value={id}>#{l.number}</SelectItem>;
+                      const num = (l as any).lockerNumber ?? (l as any).number;
+                      return <SelectItem key={id} value={id}>Locker #{num}</SelectItem>;
                     })}
                     {available.length === 0 && (
                       <div className="px-3 py-2 text-xs text-muted-foreground">No available lockers</div>
