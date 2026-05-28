@@ -559,6 +559,7 @@ const Booking = () => {
                 date={selectedDate}
                 bookedSlots={tableBookings || []}
                 maintenanceWindows={tableMaintenance || []}
+                operatingHours={operatingHours}
                 startSlot={startSlot}
                 endSlot={endSlot}
                 onSelectStart={setStartSlot}
