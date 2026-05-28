@@ -48,7 +48,8 @@ import { LogOut, ArrowLeft, DollarSign, Calendar, BarChart3, Trash2, Search, Use
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAuthHeaders, apiFetch } from "@/lib/api";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
