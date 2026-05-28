@@ -287,6 +287,153 @@ function AssignMembershipDialog({ open, onOpenChange }: { open: boolean; onOpenC
   );
 }
 
+function LockerCell({ sub }: { sub: any }) {
+  const { toast } = useToast();
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [pinOpen, setPinOpen] = useState(false);
+  const [lockerUnitId, setLockerUnitId] = useState("");
+  const [pin, setPin] = useState("");
+  const { data: available = [] } = useAvailableLockers();
+  const assignLocker = useAssignMembershipLocker();
+  const updatePin = useUpdateLockerPin();
+
+  const membershipId = sub._id ?? sub.id;
+  const rental = typeof sub.lockerRentalId === "object" ? sub.lockerRentalId : null;
+  const hasLocker = !!sub.lockerRentalId;
+  const rentalId = rental?._id ?? rental?.id ?? (typeof sub.lockerRentalId === "string" ? sub.lockerRentalId : null);
+  const lockerNumber =
+    rental?.lockerUnitId?.number ??
+    rental?.lockerNumber ??
+    sub.lockerNumber ??
+    sub.locker?.number;
+  const currentPin = rental?.pin ?? sub.lockerPin ?? sub.pin ?? "";
+
+  const submitAssign = async () => {
+    if (!lockerUnitId) {
+      toast({ title: "Select a locker", variant: "destructive" });
+      return;
+    }
+    if (pin && !/^\d{4,6}$/.test(pin)) {
+      toast({ title: "PIN must be 4-6 digits", variant: "destructive" });
+      return;
+    }
+    try {
+      await assignLocker.mutateAsync({ membershipId, lockerUnitId, pin: pin || undefined });
+      toast({ title: "Locker assigned" });
+      setAssignOpen(false);
+      setLockerUnitId(""); setPin("");
+    } catch (e: any) {
+      toast({ title: "Failed", description: e?.message, variant: "destructive" });
+    }
+  };
+
+  const submitPin = async () => {
+    if (!rentalId) { toast({ title: "Rental ID missing", variant: "destructive" }); return; }
+    if (!/^\d{4,6}$/.test(pin)) {
+      toast({ title: "PIN must be 4-6 digits", variant: "destructive" });
+      return;
+    }
+    try {
+      await updatePin.mutateAsync({ rentalId, pin });
+      toast({ title: "PIN updated" });
+      setPinOpen(false);
+      setPin("");
+    } catch (e: any) {
+      toast({ title: "Failed", description: e?.message, variant: "destructive" });
+    }
+  };
+
+  if (!hasLocker) {
+    return (
+      <>
+        <Button variant="outline" size="sm" onClick={() => setAssignOpen(true)}>
+          <KeyRound className="h-3.5 w-3.5" /> Assign Locker
+        </Button>
+        <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader><DialogTitle>Assign Locker</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Locker</Label>
+                <Select value={lockerUnitId} onValueChange={setLockerUnitId}>
+                  <SelectTrigger><SelectValue placeholder="Select an available locker" /></SelectTrigger>
+                  <SelectContent>
+                    {available.map((l) => {
+                      const id = (l as any)._id ?? l.id;
+                      return <SelectItem key={id} value={id}>#{l.number}</SelectItem>;
+                    })}
+                    {available.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">No available lockers</div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>PIN (optional, 4-6 digits)</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                  placeholder="e.g. 1234"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>
+              <Button onClick={submitAssign} disabled={assignLocker.isPending}>
+                {assignLocker.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Assign
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex items-center gap-2 text-sm">
+        <span className="font-medium">Locker #{lockerNumber ?? "—"}</span>
+        {currentPin && <span className="text-xs text-muted-foreground">PIN: {currentPin}</span>}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={() => { setPin(String(currentPin || "")); setPinOpen(true); }}
+          title="Edit PIN"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      <Dialog open={pinOpen} onOpenChange={setPinOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Update Locker PIN</DialogTitle></DialogHeader>
+          <div className="space-y-1.5">
+            <Label>PIN (4-6 digits)</Label>
+            <Input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPinOpen(false)}>Cancel</Button>
+            <Button onClick={submitPin} disabled={updatePin.isPending}>
+              {updatePin.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export default function MembershipTab() {
   const { toast } = useToast();
   const { data: plans = [] } = useMembershipPlans();
