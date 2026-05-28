@@ -16,6 +16,9 @@ export interface Reward {
   expiresAt?: string | null;
   redeemed?: boolean;
   redeemedAt?: string | null;
+  usesAllowed?: number;
+  usesRemaining?: number;
+  multiUse?: boolean;
   createdAt?: string;
   userId?: string;
 }
