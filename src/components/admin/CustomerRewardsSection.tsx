@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAdminRewards, useIssueReward, useDeleteReward, RewardType, RewardReason } from "@/hooks/useRewards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,13 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Gift, Copy, Loader2, Check, Trash2 } from "lucide-react";
+import { Gift, Copy, Loader2, Check, Trash2, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fmtDateSG } from "@/lib/sgTime";
+import ReasonDialog from "./ReasonDialog";
+import DeletedBanner, { getDeletedInfo, isDeleted } from "./DeletedBanner";
 
 const TYPE_LABELS: Record<RewardType, string> = {
   free_session: "Free Session (1 hr)",
