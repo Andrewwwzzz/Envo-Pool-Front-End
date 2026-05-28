@@ -13,6 +13,8 @@ import { useMembershipPlans } from "@/hooks/useMembership";
 export default function DashboardTransactions() {
   const { user } = useAuth();
   const [showAll, setShowAll] = useState(true);
+  const { data: plans } = useMembershipPlans();
+  const membershipPrices = (plans || []).map((p: any) => Number(p.price)).filter((n) => !isNaN(n));
 
   const fmtNiceDate = (s: string) => {
     if (!s) return "";
