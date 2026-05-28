@@ -203,6 +203,7 @@ function AssignMembershipDialog({ open, onOpenChange }: { open: boolean; onOpenC
       toast({ title: "Customer and plan are required", variant: "destructive" });
       return;
     }
+    console.log("[AssignMembership] submitting", { userId, planId, startDate });
     try {
       await assign.mutateAsync({
         userId,
