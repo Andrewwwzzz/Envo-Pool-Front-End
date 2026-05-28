@@ -146,7 +146,55 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
                         <Badge>Active</Badge>
                       )}
                     </td>
+                    <td className="py-2 text-right">
+                      {!r.redeemed && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteId(r._id || r.id)}
+                          disabled={deleteReward.isPending}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </td>
                   </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete reward?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this reward? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteReward.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteId) return;
+                try {
+                  await deleteReward.mutateAsync({ id: deleteId, userId });
+                  setDeleteId(null);
+                } catch {}
+              }}
+              disabled={deleteReward.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteReward.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
                 ))}
               </tbody>
             </table>
