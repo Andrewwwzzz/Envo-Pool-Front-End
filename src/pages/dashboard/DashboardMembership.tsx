@@ -420,6 +420,28 @@ export default function DashboardMembership() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={confirmRenew} onOpenChange={setConfirmRenew}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Renew {plan?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Renew {plan?.name} for ${planPrice.toFixed(2)}? This deducts from your wallet
+              (current balance: ${walletBalance.toFixed(2)}).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={renewMine.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleRenew(); }}
+              disabled={renewMine.isPending}
+            >
+              {renewMine.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Confirm Renewal
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
