@@ -34,7 +34,6 @@ type PlanForm = {
   freeMinutesPerVisit: string;
   freeDrinkPerVisit: boolean;
   lockerIncluded: boolean;
-  guestPassesPerMonth: string;
   sortOrder: string;
 };
 
@@ -47,36 +46,36 @@ const emptyForm: PlanForm = {
   freeMinutesPerVisit: "0",
   freeDrinkPerVisit: false,
   lockerIncluded: false,
-  guestPassesPerMonth: "0",
   sortOrder: "0",
 };
 
-function toPayload(f: PlanForm): Partial<MembershipPlan> {
+function toPayload(f: PlanForm): any {
   return {
     name: f.name.trim(),
     description: f.description.trim(),
     price: Number(f.price) || 0,
     billingCycle: f.billingCycle,
-    bookingDiscountPct: Number(f.bookingDiscountPct) || 0,
-    freeMinutesPerVisit: Number(f.freeMinutesPerVisit) || 0,
-    freeDrinkPerVisit: f.freeDrinkPerVisit,
-    lockerIncluded: f.lockerIncluded,
-    guestPassesPerMonth: Number(f.guestPassesPerMonth) || 0,
     sortOrder: Number(f.sortOrder) || 0,
+    benefits: {
+      bookingDiscount: Number(f.bookingDiscountPct) || 0,
+      freeMinutesPerVisit: Number(f.freeMinutesPerVisit) || 0,
+      freeDrinkPerVisit: Boolean(f.freeDrinkPerVisit),
+      lockerIncluded: Boolean(f.lockerIncluded),
+    },
   };
 }
 
 function fromPlan(p: MembershipPlan): PlanForm {
+  const b: any = (p as any).benefits ?? {};
   return {
     name: p.name ?? "",
     description: p.description ?? "",
     price: String(p.price ?? 0),
     billingCycle: (p.billingCycle as any) ?? "monthly",
-    bookingDiscountPct: String(p.bookingDiscountPct ?? 0),
-    freeMinutesPerVisit: String(p.freeMinutesPerVisit ?? 0),
-    freeDrinkPerVisit: !!p.freeDrinkPerVisit,
-    lockerIncluded: !!p.lockerIncluded,
-    guestPassesPerMonth: String(p.guestPassesPerMonth ?? 0),
+    bookingDiscountPct: String(b.bookingDiscount ?? p.bookingDiscountPct ?? 0),
+    freeMinutesPerVisit: String(b.freeMinutesPerVisit ?? p.freeMinutesPerVisit ?? 0),
+    freeDrinkPerVisit: !!(b.freeDrinkPerVisit ?? p.freeDrinkPerVisit),
+    lockerIncluded: !!(b.lockerIncluded ?? p.lockerIncluded),
     sortOrder: String(p.sortOrder ?? 0),
   };
 }
