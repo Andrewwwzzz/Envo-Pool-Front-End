@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Crown, Lock, Percent, Timer, Beer, KeyRound, Users, Loader2 } from "lucide-react";
+import { Crown, Lock, Percent, Timer, Beer, KeyRound, Users, Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { useMyMembership, useMembershipPlans, useSubscribeMembership, type MembershipPlan } from "@/hooks/useMembership";
 import { useMyLocker } from "@/hooks/useLockers";
