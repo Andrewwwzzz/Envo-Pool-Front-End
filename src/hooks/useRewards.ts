@@ -36,11 +36,12 @@ export function useAdminRewards(userId?: string) {
   });
 }
 
-export function useAllAdminRewards(includeDeleted: boolean = true) {
+export function useAllAdminRewards(filter: "default" | "deleted" | "all" = "default") {
   return useQuery({
-    queryKey: ["admin-rewards", "all", { includeDeleted }],
+    queryKey: ["admin-rewards", "all", { filter }],
     queryFn: async () => {
-      const res = await apiFetch(`/api/rewards/admin${includeDeleted ? "?includeDeleted=1" : ""}`);
+      const qs = filter === "default" ? "" : `?filter=${filter}`;
+      const res = await apiFetch(`/api/rewards/admin${qs}`);
       if (!res.ok) throw new Error("Failed to fetch rewards");
       const data = await res.json();
       return (Array.isArray(data) ? data : (data?.rewards ?? [])) as any[];
