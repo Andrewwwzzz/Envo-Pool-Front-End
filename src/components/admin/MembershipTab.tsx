@@ -21,7 +21,7 @@ import {
   useCancelMembership,
   type MembershipPlan,
 } from "@/hooks/useMembership";
-import { useAvailableLockers } from "@/hooks/useLockers";
+
 import { useAdminCustomers } from "@/hooks/useAdmin";
 import { fmtDateSG } from "@/lib/sgTime";
 
