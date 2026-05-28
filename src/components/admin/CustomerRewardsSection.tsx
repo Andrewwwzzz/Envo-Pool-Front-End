@@ -149,11 +149,20 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
                     <td className="py-2 pr-4">{r.description}</td>
                     <td className="py-2 pr-4">{fmtDateSG(r.createdAt || r.created_at)}</td>
                     <td className="py-2">
-                      {r.redeemed ? (
-                        <Badge variant="outline" className="bg-muted">Redeemed</Badge>
-                      ) : (
-                        <Badge>Active</Badge>
-                      )}
+                      {(() => {
+                        const allowed = Number(r.usesAllowed);
+                        const remaining = Number(r.usesRemaining);
+                        const isMulti = Number.isFinite(allowed) && allowed > 1;
+                        if (isMulti) {
+                          if (Number.isFinite(remaining) && remaining <= 0) {
+                            return <Badge variant="outline" className="bg-muted">Redeemed</Badge>;
+                          }
+                          return <Badge>{remaining}/{allowed} uses remaining</Badge>;
+                        }
+                        return r.redeemed
+                          ? <Badge variant="outline" className="bg-muted">Redeemed</Badge>
+                          : <Badge>Active</Badge>;
+                      })()}
                     </td>
                     <td className="py-2 text-right">
                       {!r.redeemed && (
