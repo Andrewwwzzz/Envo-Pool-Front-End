@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Settings as SettingsIcon, Eye, Save, Loader2, Gift, Copy } from "lucide-react";
+import { ArrowLeft, List as ListIcon, Eye, Save, Loader2, Gift, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 import { fmtDateSG } from "@/lib/sgTime";
