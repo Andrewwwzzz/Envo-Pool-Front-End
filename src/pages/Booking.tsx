@@ -245,13 +245,26 @@ const Booking = () => {
     try {
       const result = await validateRewardCode(code);
       if (result.valid && result.reward) {
-        if (result.reward.type !== "free_session") {
-          toast({ title: "Cannot apply here", description: "This reward type can't be used at booking. Check My Rewards in Settings.", variant: "destructive" });
+        const t = result.reward.type;
+        if (t === "wallet_credit") {
+          toast({
+            title: "Cannot apply here",
+            description: "This reward is a wallet credit — redeem it in My Rewards in Settings, not at checkout.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (t !== "free_session" && t !== "booking_discount" && t !== "free_item") {
+          toast({ title: "Cannot apply here", description: "This reward type can't be used at booking.", variant: "destructive" });
           return;
         }
         setAppliedReward(result.reward);
         setAppliedPromo(null);
-        toast({ title: "Free session applied!", description: result.reward.description });
+        const title =
+          t === "free_session" ? "Free session applied!" :
+          t === "booking_discount" ? `${result.reward.value}% discount applied!` :
+          "Free item reward applied!";
+        toast({ title, description: result.reward.description });
       } else {
         toast({ title: "Invalid reward", description: result.error || "Code not valid.", variant: "destructive" });
       }
