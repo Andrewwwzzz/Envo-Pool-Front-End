@@ -91,7 +91,7 @@ function AssignLockerDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Assign Locker {locker ? `#${locker.number}` : ""}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Assign Locker {locker ? `#${(locker as any).lockerNumber ?? locker.number}` : ""}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label>Search Customer</Label>
@@ -169,34 +169,45 @@ export default function LockersTab() {
                 </TableHeader>
                 <TableBody>
                   {lockers.map((l) => {
-                    const isAvailable = (l.status ?? "available") === "available" && !l.rentalId;
+                    const anyL = l as any;
+                    const rental = anyL.currentRentalId && typeof anyL.currentRentalId === "object" ? anyL.currentRentalId : null;
+                    const rentalId = rental?._id ?? rental?.id ?? (typeof anyL.currentRentalId === "string" ? anyL.currentRentalId : l.rentalId);
+                    const isAvailable = (l.status ?? "available") === "available" && !rentalId;
+                    const lockerNum = anyL.lockerNumber ?? l.number;
+                    const renterUser = rental?.userId && typeof rental.userId === "object" ? rental.userId : null;
+                    const renterName = renterUser?.name ?? renterUser?.legal_name ?? l.currentRenterName;
+                    const renterEmail = renterUser?.email ?? l.currentRenterEmail;
+                    const renewal = rental?.renewalDate ?? l.renewalDate;
+                    const renewalText = renewal
+                      ? new Date(renewal).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Singapore" })
+                      : "—";
                     return (
                       <TableRow key={l.id}>
-                        <TableCell className="font-medium">#{l.number}</TableCell>
+                        <TableCell className="font-medium">#{lockerNum ?? "—"}</TableCell>
                         <TableCell>
                           <Badge variant={isAvailable ? "secondary" : "default"} className="capitalize">{l.status || (isAvailable ? "available" : "rented")}</Badge>
                         </TableCell>
                         <TableCell>${l.monthlyPrice ?? 0}</TableCell>
                         <TableCell>
-                          {l.currentRenterName ? (
+                          {renterName ? (
                             <>
-                              <div className="font-medium">{l.currentRenterName}</div>
-                              {l.currentRenterEmail && <div className="text-xs text-muted-foreground">{l.currentRenterEmail}</div>}
+                              <div className="font-medium">{renterName}</div>
+                              {renterEmail && <div className="text-xs text-muted-foreground">{renterEmail}</div>}
                             </>
                           ) : "—"}
                         </TableCell>
-                        <TableCell>{l.renewalDate ? fmtDateSG(l.renewalDate) : "—"}</TableCell>
+                        <TableCell>{renewalText}</TableCell>
                         <TableCell>
                           {isAvailable ? (
                             <Button variant="outline" size="sm" onClick={() => setAssignFor(l)}>Assign</Button>
                           ) : (
                             <div className="flex gap-1">
-                              {l.rentalId && (
+                              {rentalId && (
                                 <>
-                                  <Button variant="ghost" size="sm" onClick={() => doRenew(l.rentalId!)}>
+                                  <Button variant="ghost" size="sm" onClick={() => doRenew(rentalId)}>
                                     <RotateCcw className="h-4 w-4" /> Renew
                                   </Button>
-                                  <Button variant="ghost" size="sm" onClick={() => doCancel(l.rentalId!)}>
+                                  <Button variant="ghost" size="sm" onClick={() => doCancel(rentalId)}>
                                     <XCircle className="h-4 w-4" /> Cancel
                                   </Button>
                                 </>
