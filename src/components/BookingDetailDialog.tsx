@@ -84,6 +84,15 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
 
   const segments = storedSegments;
 
+  useEffect(() => {
+    if (open && b) {
+      console.log("[BookingDetail] pricingSegments:", b.pricingSegments ?? b.pricing_segments);
+      console.log("[BookingDetail] originalAmount:", b.originalAmount ?? b.original_amount);
+      console.log("[BookingDetail] membershipDiscount:", b.membershipDiscount ?? b.membership_discount);
+      console.log("[BookingDetail] amount:", b.amount ?? b.finalPrice ?? b.final_price);
+    }
+  }, [open, b]);
+
   if (!booking) return null;
 
   const createdAt = b.createdAt || b.created_at;
