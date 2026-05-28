@@ -11,8 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Copy, Check } from "lucide-react";
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime } from "@/lib/sgTime";
-import { usePricingRules } from "@/hooks/usePricing";
-import { calculateBookingPrice } from "@/lib/pricing";
 import { useMyMembership } from "@/hooks/useMembership";
 
 interface BookingData {
@@ -56,29 +54,35 @@ const paymentLabel: Record<string, string> = {
 
 const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialogProps) => {
   const [copied, setCopied] = useState(false);
-  const { data: pricingRules } = usePricingRules();
   const { data: membershipData } = useMyMembership();
 
   const b = booking as any;
   const startTime = b?.startTime || b?.start_time;
   const endTime = b?.endTime || b?.end_time;
 
-  // Resolve table id for pricing lookup (hardware id or populated table object)
-  const tableIdForPricing = useMemo(() => {
-    if (!b) return "";
-    if (typeof b.tableId === "string") return b.tableId;
-    return b.tableId?._id || b.tableId?.id || b.tableId?.hardware_id || "";
+
+  // Prefer backend-stored segments (snapshot at booking time). Fall back to
+  // live pricing-rule computation only if backend didn't provide them AND the
+  // live computation reconciles with the stored subtotal.
+  const storedSegments = useMemo(() => {
+    const raw = b?.pricingSegments || b?.pricing_segments || b?.segments;
+    if (!Array.isArray(raw) || raw.length === 0) return [];
+    return raw
+      .map((s: any) => {
+        const sStart = s.startTime || s.start_time || s.start;
+        const sEnd = s.endTime || s.end_time || s.end;
+        if (!sStart || !sEnd) return null;
+        return {
+          startTime: new Date(sStart),
+          endTime: new Date(sEnd),
+          hourlyRate: Number(s.hourlyRate ?? s.hourly_rate ?? s.rate ?? 0),
+          segmentCost: Number(s.segmentCost ?? s.segment_cost ?? s.cost ?? s.amount ?? 0),
+        };
+      })
+      .filter(Boolean) as Array<{ startTime: Date; endTime: Date; hourlyRate: number; segmentCost: number }>;
   }, [b]);
 
-  const segments = useMemo(() => {
-    if (!startTime || !endTime || !pricingRules) return [];
-    try {
-      const res = calculateBookingPrice(pricingRules, tableIdForPricing, new Date(startTime), new Date(endTime));
-      return res.segments;
-    } catch {
-      return [];
-    }
-  }, [pricingRules, tableIdForPricing, startTime, endTime]);
+  const segments = storedSegments;
 
   if (!booking) return null;
 
