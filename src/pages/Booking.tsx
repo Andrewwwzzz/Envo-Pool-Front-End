@@ -174,13 +174,32 @@ const Booking = () => {
   const rewardHourlyRate = pricing?.segments?.[0]?.hourlyRate ?? 0;
   const rewardFreeHours = appliedReward?.type === "free_session" ? (appliedReward.value ?? 0) : 0;
   const rewardDiscountPercent = appliedReward?.type === "booking_discount" ? (appliedReward.value ?? 0) : 0;
+  // For free_session: consume segments in order until free minutes run out,
+  // pricing each consumed minute at that segment's hourly rate.
+  const freeSessionCredit = useMemo(() => {
+    if (appliedReward?.type !== "free_session") return 0;
+    let freeMinutesRemaining = rewardFreeHours * 60;
+    let credit = 0;
+    const segs = pricing?.segments ?? [];
+    for (const seg of segs) {
+      if (freeMinutesRemaining <= 0) break;
+      const segMins =
+        (new Date(seg.endTime).getTime() - new Date(seg.startTime).getTime()) / (1000 * 60);
+      const minsToUse = Math.min(segMins, freeMinutesRemaining);
+      credit += (minsToUse / 60) * (seg.hourlyRate ?? 0);
+      freeMinutesRemaining -= minsToUse;
+    }
+    return Math.min(originalPrice, parseFloat(credit.toFixed(2)));
+  }, [appliedReward, rewardFreeHours, pricing?.segments, originalPrice]);
+
   const rewardDiscountAmt =
     appliedReward?.type === "free_session"
-      ? Math.min(originalPrice, rewardFreeHours * rewardHourlyRate)
+      ? freeSessionCredit
       : appliedReward?.type === "booking_discount"
       ? Math.min(originalPrice, originalPrice * (rewardDiscountPercent / 100))
       : 0;
   const rewardPct = originalPrice > 0 ? (rewardDiscountAmt / originalPrice) * 100 : 0;
+
 
   // Membership — highest active membership benefit
   const activeMembership = useMemo(() => {
