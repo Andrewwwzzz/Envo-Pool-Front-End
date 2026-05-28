@@ -189,10 +189,9 @@ export function useRenewMembership() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (membershipId?: string) => {
-      const path = membershipId ? `/api/membership/renew/${membershipId}` : `/api/membership/renew`;
-      const r = await apiFetch(path, {
+      const r = await apiFetch("/api/membership/renew", {
         method: "POST",
-        body: membershipId ? JSON.stringify({ membershipId }) : undefined,
+        body: JSON.stringify(membershipId ? { membershipId } : {}),
       });
       const text = await r.text();
       let body: any = null;
