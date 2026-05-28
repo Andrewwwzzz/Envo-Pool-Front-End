@@ -261,6 +261,27 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
               <Label>Expires At (optional)</Label>
               <Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
             </div>
+            <div className="space-y-2">
+              <Label>Quantity</Label>
+              <Input
+                type="number" min="1" max="20" step="1"
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Number of uses or separate codes to generate</p>
+            </div>
+            {(parseInt(qty) || 1) > 1 && (
+              <div className="space-y-2">
+                <Label>Issue Mode</Label>
+                <Select value={multiUse ? "multi" : "separate"} onValueChange={(v) => setMultiUse(v === "multi")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="separate">Separate codes (one per use)</SelectItem>
+                    <SelectItem value="multi">One code, multiple uses</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setOpen(false); reset(); }} disabled={issueReward.isPending}>Cancel</Button>
@@ -272,24 +293,45 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!issuedCode} onOpenChange={(o) => { if (!o) setIssuedCode(null); }}>
+      <Dialog open={!!issuedCodes} onOpenChange={(o) => { if (!o) setIssuedCodes(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reward Issued 🎁</DialogTitle>
-            <DialogDescription>Share this code with the customer.</DialogDescription>
+            <DialogDescription>
+              {issuedCodes && issuedCodes.length > 1
+                ? `${issuedCodes.length} codes generated — share with the customer.`
+                : "Share this code with the customer."}
+            </DialogDescription>
           </DialogHeader>
-          <div className="rounded-lg border-2 border-dashed border-accent/40 bg-accent/5 p-6 text-center">
-            <p className="text-xs text-muted-foreground mb-2">Reward Code</p>
-            <p className="text-2xl font-mono font-bold tracking-wider gold-gradient">{issuedCode}</p>
+          <div className="rounded-lg border-2 border-dashed border-accent/40 bg-accent/5 p-6 text-center space-y-2 max-h-72 overflow-y-auto">
+            <p className="text-xs text-muted-foreground mb-2">
+              {issuedCodes && issuedCodes.length > 1 ? "Reward Codes" : "Reward Code"}
+            </p>
+            {issuedCodes?.map((c) => (
+              <div key={c} className="flex items-center justify-center gap-2">
+                <p className="text-2xl font-mono font-bold tracking-wider gold-gradient">{c}</p>
+                <Button
+                  size="sm" variant="ghost" className="h-7 w-7 p-0"
+                  onClick={() => { navigator.clipboard.writeText(c); toast({ title: "Code copied" }); }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => { if (issuedCode) { navigator.clipboard.writeText(issuedCode); toast({ title: "Copied" }); } }}
-            >
-              <Copy className="mr-2 h-4 w-4" /> Copy Code
-            </Button>
-            <Button onClick={() => setIssuedCode(null)}>Done</Button>
+            {issuedCodes && issuedCodes.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard.writeText(issuedCodes.join("\n"));
+                  toast({ title: "All codes copied" });
+                }}
+              >
+                <Copy className="mr-2 h-4 w-4" /> Copy {issuedCodes.length > 1 ? "All" : "Code"}
+              </Button>
+            )}
+            <Button onClick={() => setIssuedCodes(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
