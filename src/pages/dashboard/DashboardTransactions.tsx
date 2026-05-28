@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { fmtDateTimeSG as fmtDateTime } from "@/lib/sgTime";
+import { deriveTransactionDescription } from "@/lib/transactionLabel";
+import { useMembershipPlans } from "@/hooks/useMembership";
 
 export default function DashboardTransactions() {
   const { user } = useAuth();
