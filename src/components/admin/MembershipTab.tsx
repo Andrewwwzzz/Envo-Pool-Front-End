@@ -446,6 +446,8 @@ export default function MembershipTab() {
   const [planDlgOpen, setPlanDlgOpen] = useState(false);
   const [editPlan, setEditPlan] = useState<MembershipPlan | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
 
   const openCreate = () => { setEditPlan(null); setPlanDlgOpen(true); };
   const openEdit = (p: MembershipPlan) => {
@@ -463,12 +465,22 @@ export default function MembershipTab() {
     catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
   };
 
-  const cancelSub = async (s: any) => {
+  const openCancelSub = (s: any) => {
     const id = s._id ?? s.id;
     if (!id) { toast({ title: "Membership ID missing", variant: "destructive" }); return; }
-    if (!confirm("Cancel this subscription?")) return;
-    try { await cancel.mutateAsync(id); toast({ title: "Subscription cancelled" }); }
-    catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
+    setCancelTarget(id);
+    setCancelReason("");
+  };
+  const confirmCancelSub = async () => {
+    if (!cancelTarget) return;
+    try {
+      await cancel.mutateAsync({ id: cancelTarget, reason: cancelReason.trim().slice(0, 500) });
+      toast({ title: "Subscription cancelled" });
+      setCancelTarget(null);
+      setCancelReason("");
+    } catch (e: any) {
+      toast({ title: "Failed", description: e?.message, variant: "destructive" });
+    }
   };
 
   return (
