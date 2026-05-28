@@ -235,6 +235,30 @@ export default function LockersTab() {
 
       <AddLockerDialog open={addOpen} onOpenChange={setAddOpen} />
       <AssignLockerDialog open={!!assignFor} onOpenChange={(v) => !v && setAssignFor(null)} locker={assignFor} />
+
+      <Dialog open={!!cancelTarget} onOpenChange={(o) => { if (!o) { setCancelTarget(null); setCancelReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Locker Rental</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="locker-cancel-reason">Reason for cancellation (optional)</Label>
+            <Textarea
+              id="locker-cancel-reason"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value.slice(0, 500))}
+              placeholder="e.g. user requested early termination"
+              maxLength={500}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setCancelTarget(null); setCancelReason(""); }}>Go Back</Button>
+            <Button variant="destructive" onClick={confirmCancel} disabled={cancel.isPending}>
+              {cancel.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Cancel Rental
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
