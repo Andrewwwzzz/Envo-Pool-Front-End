@@ -168,7 +168,7 @@ const Settings = () => {
         <Card className="card-premium">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <SettingsIcon className="h-5 w-5 text-accent" />
+              <ListIcon className="h-[20px] w-[20px] text-accent" />
               Account Details
             </CardTitle>
           </CardHeader>
