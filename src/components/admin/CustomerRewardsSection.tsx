@@ -37,6 +37,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const issueReward = useIssueReward();
   const deleteReward = useDeleteReward();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
 
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<RewardType>("free_session");
@@ -193,14 +194,24 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
         )}
       </CardContent>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) { setDeleteId(null); setDeleteReason(""); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete reward?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this reward? This cannot be undone.
+              Why are you deleting this reward? This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="cust-reward-delete-reason">Reason (optional)</Label>
+            <Textarea
+              id="cust-reward-delete-reason"
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value.slice(0, 500))}
+              placeholder="e.g. issued in error"
+              maxLength={500}
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteReward.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -208,8 +219,9 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
                 e.preventDefault();
                 if (!deleteId) return;
                 try {
-                  await deleteReward.mutateAsync({ id: deleteId, userId });
+                  await deleteReward.mutateAsync({ id: deleteId, userId, reason: deleteReason.trim() });
                   setDeleteId(null);
+                  setDeleteReason("");
                 } catch {}
               }}
               disabled={deleteReward.isPending}

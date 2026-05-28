@@ -85,8 +85,11 @@ export function useDeleteReward() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async ({ id }: { id: string; userId?: string }) => {
-      const res = await apiFetch(`/api/rewards/${id}`, { method: "DELETE" });
+    mutationFn: async ({ id, reason }: { id: string; userId?: string; reason?: string }) => {
+      const res = await apiFetch(`/api/rewards/${id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason: reason || "" }),
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || data.message || "Failed to delete reward");
       return data;

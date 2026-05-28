@@ -78,8 +78,11 @@ export function useRenewLocker() {
 export function useCancelLocker() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (rentalId: string) => {
-      const r = await apiFetch(`/api/lockers/rentals/${rentalId}/cancel`, { method: "POST" });
+    mutationFn: async ({ rentalId, reason }: { rentalId: string; reason?: string }) => {
+      const r = await apiFetch(`/api/lockers/rentals/${rentalId}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ reason: reason || "" }),
+      });
       if (!r.ok) throw new Error(await r.text());
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lockers"] }),

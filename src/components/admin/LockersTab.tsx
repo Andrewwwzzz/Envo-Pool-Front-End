@@ -133,15 +133,23 @@ export default function LockersTab() {
   const cancel = useCancelLocker();
   const [addOpen, setAddOpen] = useState(false);
   const [assignFor, setAssignFor] = useState<LockerUnit | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
 
   const doRenew = async (id: string) => {
     try { await renew.mutateAsync(id); toast({ title: "Renewed" }); }
     catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
   };
-  const doCancel = async (id: string) => {
-    if (!confirm("Cancel this rental?")) return;
-    try { await cancel.mutateAsync(id); toast({ title: "Cancelled" }); }
-    catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
+    try {
+      await cancel.mutateAsync({ rentalId: cancelTarget, reason: cancelReason.trim().slice(0, 500) });
+      toast({ title: "Cancelled" });
+      setCancelTarget(null);
+      setCancelReason("");
+    } catch (e: any) {
+      toast({ title: "Failed", description: e?.message, variant: "destructive" });
+    }
   };
 
   return (
@@ -207,7 +215,7 @@ export default function LockersTab() {
                                   <Button variant="ghost" size="sm" onClick={() => doRenew(rentalId)}>
                                     <RotateCcw className="h-4 w-4" /> Renew
                                   </Button>
-                                  <Button variant="ghost" size="sm" onClick={() => doCancel(rentalId)}>
+                                  <Button variant="ghost" size="sm" onClick={() => { setCancelTarget(rentalId); setCancelReason(""); }}>
                                     <XCircle className="h-4 w-4" /> Cancel
                                   </Button>
                                 </>
@@ -227,6 +235,30 @@ export default function LockersTab() {
 
       <AddLockerDialog open={addOpen} onOpenChange={setAddOpen} />
       <AssignLockerDialog open={!!assignFor} onOpenChange={(v) => !v && setAssignFor(null)} locker={assignFor} />
+
+      <Dialog open={!!cancelTarget} onOpenChange={(o) => { if (!o) { setCancelTarget(null); setCancelReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Locker Rental</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="locker-cancel-reason">Reason for cancellation (optional)</Label>
+            <Textarea
+              id="locker-cancel-reason"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value.slice(0, 500))}
+              placeholder="e.g. user requested early termination"
+              maxLength={500}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setCancelTarget(null); setCancelReason(""); }}>Go Back</Button>
+            <Button variant="destructive" onClick={confirmCancel} disabled={cancel.isPending}>
+              {cancel.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Cancel Rental
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
