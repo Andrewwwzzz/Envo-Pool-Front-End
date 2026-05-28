@@ -9,7 +9,7 @@ import { getCached, setCache } from "@/lib/queryCache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, Calendar, History, LogOut, ArrowLeft, Settings, Copy } from "lucide-react";
+import { Wallet, Calendar, History, LogOut, ArrowLeft, List, Copy } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
