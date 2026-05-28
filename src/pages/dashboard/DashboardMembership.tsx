@@ -174,38 +174,42 @@ function MembershipCard({
 
         <div className="space-y-2">
           <div className="text-xs uppercase tracking-wide text-muted-foreground">Benefits</div>
-          <ul className="space-y-1.5">
-            {bookingDiscount > 0 && (
-              <li className="flex items-start gap-2">
-                <Percent className="h-4 w-4 text-accent mt-0.5" />
-                <span>
-                  <span className="font-medium">{bookingDiscount}% off all bookings</span>
-                  <span className="text-muted-foreground"> — auto-applied at checkout</span>
-                </span>
-              </li>
-            )}
-            {freeMinutesPerVisit > 0 && (
-              <li className="flex items-start gap-2">
-                <Timer className="h-4 w-4 text-accent mt-0.5" />
-                <span>
-                  <span className="font-medium">{freeMinutesPerVisit} mins free per visit</span>
-                  <span className="text-muted-foreground"> — auto-applied daily</span>
-                </span>
-              </li>
-            )}
-            {freeDrinkPerVisit && (
-              <li className="flex items-start gap-2">
-                <Beer className="h-4 w-4 text-accent mt-0.5" />
-                <span>Free drink / snack per visit</span>
-              </li>
-            )}
-            {lockerIncluded && (
-              <li className="flex items-start gap-2">
-                <KeyRound className="h-4 w-4 text-accent mt-0.5" />
-                <span>Locker included</span>
-              </li>
-            )}
-          </ul>
+          {hasAnyBenefit ? (
+            <ul className="space-y-1.5">
+              {bookingDiscount > 0 && (
+                <li className="flex items-start gap-2">
+                  <Percent className="h-4 w-4 text-accent mt-0.5" />
+                  <span>
+                    <span className="font-medium">🎱 {bookingDiscount}% off all bookings</span>
+                    <span className="text-muted-foreground"> — auto-applied at checkout</span>
+                  </span>
+                </li>
+              )}
+              {freeMinutesPerVisit > 0 && (
+                <li className="flex items-start gap-2">
+                  <Timer className="h-4 w-4 text-accent mt-0.5" />
+                  <span>
+                    <span className="font-medium">⏱ {freeMinutesPerVisit}mins free per visit</span>
+                    <span className="text-muted-foreground"> — auto-applied daily</span>
+                  </span>
+                </li>
+              )}
+              {freeDrinkPerVisit && (
+                <li className="flex items-start gap-2">
+                  <Beer className="h-4 w-4 text-accent mt-0.5" />
+                  <span>🍺 Free drink / snack per visit</span>
+                </li>
+              )}
+              {lockerIncluded && (
+                <li className="flex items-start gap-2">
+                  <KeyRound className="h-4 w-4 text-accent mt-0.5" />
+                  <span>🔒 Locker included</span>
+                </li>
+              )}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">No special benefits</p>
+          )}
         </div>
 
         {freeMinutesPerVisit > 0 && isActive && !isExpired && (
