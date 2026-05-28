@@ -30,6 +30,8 @@ import {
   useDeleteMaintenance,
 } from "@/hooks/useAdmin";
 import LogsTab from "@/components/admin/LogsTab";
+import MembershipTab from "@/components/admin/MembershipTab";
+import LockersTab from "@/components/admin/LockersTab";
 import { OperatingHoursSection } from "@/components/admin/OperatingHoursSection";
 import { useAdminTransactions, useAdminActivityLogs } from "@/hooks/useAdminLogs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
