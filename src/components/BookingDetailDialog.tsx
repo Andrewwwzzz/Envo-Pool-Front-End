@@ -13,6 +13,7 @@ import { Copy, Check } from "lucide-react";
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime } from "@/lib/sgTime";
 import { usePricingRules } from "@/hooks/usePricing";
 import { calculateBookingPrice } from "@/lib/pricing";
+import { useMyMembership } from "@/hooks/useMembership";
 
 interface BookingData {
   id: string;
@@ -56,6 +57,7 @@ const paymentLabel: Record<string, string> = {
 const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialogProps) => {
   const [copied, setCopied] = useState(false);
   const { data: pricingRules } = usePricingRules();
+  const { data: membershipData } = useMyMembership();
 
   const b = booking as any;
   const startTime = b?.startTime || b?.start_time;
@@ -103,10 +105,22 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
     b.promo_code ||
     null;
   const rewardCode = b.rewardCode || b.reward_code || (typeof b.reward === "object" ? b.reward?.code : null) || null;
+  const activeMembership = (membershipData?.memberships || []).find(
+    (m: any) => m?.status === "active"
+  );
+  const planBenefitPct = Number(
+    activeMembership?.planId?.benefits?.bookingDiscount ??
+      activeMembership?.plan?.benefits?.bookingDiscount ??
+      activeMembership?.planId?.bookingDiscountPct ??
+      0
+  );
   const membershipPct = Number(
-    b.membershipDiscountPct ??
+    b.membershipDiscountPercent ??
+      b.membership_discount_percent ??
+      b.membershipDiscountPct ??
       b.membership_discount_pct ??
-      (subtotal > 0 && membershipDiscount > 0 ? (membershipDiscount / subtotal) * 100 : 0)
+      planBenefitPct ??
+      0
   );
 
   const tableLabel =
