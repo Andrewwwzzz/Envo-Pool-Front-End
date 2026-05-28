@@ -242,11 +242,9 @@ export default function DashboardMembership() {
   const { data: plans = [] } = useMembershipPlans();
   const { data: profile } = useProfile();
   const subscribe = useSubscribeMembership();
-  const cancelMine = useCancelMyMembership();
   const renewMine = useRenewMembership();
 
   const [confirmPlan, setConfirmPlan] = useState<MembershipPlan | null>(null);
-  const [cancelTarget, setCancelTarget] = useState<any | null>(null);
   const [renewTarget, setRenewTarget] = useState<any | null>(null);
 
   const walletBalance = Number(profile?.wallet_balance ?? 0);
@@ -267,17 +265,6 @@ export default function DashboardMembership() {
     }
   };
 
-  const handleCancel = async () => {
-    if (!cancelTarget) return;
-    try {
-      await cancelMine.mutateAsync(getMembershipId(cancelTarget));
-      toast.success("Membership cancelled");
-      setCancelTarget(null);
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to cancel membership");
-    }
-  };
-
   const handleRenew = async () => {
     if (!renewTarget) return;
     try {
@@ -289,23 +276,17 @@ export default function DashboardMembership() {
     }
   };
 
-  // Classify memberships by status
+  // Classify memberships: simple expire-and-renew model.
   const classify = (m: any) => {
     const status = String(m?.status ?? (m?.active ? "active" : "")).toLowerCase();
-    const endDate = m?.endDate ?? m?.cancelledUntil ?? m?.renewalDate;
+    const endDate = m?.endDate ?? m?.renewalDate;
     const endPassed = endDate ? new Date(endDate).getTime() < Date.now() : false;
-    if (status === "expired") return "expired";
-    if (status === "cancelled") return endPassed ? "hidden" : "cancelled_active";
-    if (status === "active" || m?.active) return "active";
-    return status || "unknown";
+    if (status === "expired" || status === "cancelled") return "expired";
+    if (status === "active" || m?.active) return endPassed ? "expired" : "active";
+    return endPassed ? "expired" : (status || "unknown");
   };
-  // "active" + "cancelled_active" both render via MembershipCard (full card).
-  const activeMemberships = memberships.filter((m: any) => {
-    const c = classify(m);
-    return c === "active" || c === "cancelled_active";
-  });
+  const activeMemberships = memberships.filter((m: any) => classify(m) === "active");
   const expiredMemberships = memberships.filter((m: any) => classify(m) === "expired");
-  // Cancelled memberships whose endDate has passed are intentionally hidden.
 
   const getPlanObj = (m: any) =>
     (m?.planId && typeof m.planId === "object" ? m.planId : null) || m?.plan || null;
