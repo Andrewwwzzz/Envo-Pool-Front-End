@@ -62,6 +62,26 @@ export function useIssueReward() {
   });
 }
 
+export function useDeleteReward() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; userId?: string }) => {
+      const res = await apiFetch(`/api/rewards/${id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.message || "Failed to delete reward");
+      return data;
+    },
+    onSuccess: (_d, vars) => {
+      toast({ title: "Reward deleted" });
+      queryClient.invalidateQueries({ queryKey: ["admin-rewards", vars.userId] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
 export function useMyRewards() {
   return useQuery({
     queryKey: ["my-rewards"],

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAdminRewards, useIssueReward, RewardType, RewardReason } from "@/hooks/useRewards";
+import { useAdminRewards, useIssueReward, useDeleteReward, RewardType, RewardReason } from "@/hooks/useRewards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Gift, Copy, Loader2, Check } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Gift, Copy, Loader2, Check, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fmtDateSG } from "@/lib/sgTime";
 
@@ -31,6 +35,8 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const { toast } = useToast();
   const { data: rewards, isLoading } = useAdminRewards(userId);
   const issueReward = useIssueReward();
+  const deleteReward = useDeleteReward();
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<RewardType>("free_session");
@@ -111,6 +117,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
                   <th className="pb-2 pr-4">Description</th>
                   <th className="pb-2 pr-4">Issued</th>
                   <th className="pb-2">Status</th>
+                  <th className="pb-2"></th>
                 </tr>
               </thead>
               <tbody>
@@ -139,6 +146,19 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
                         <Badge>Active</Badge>
                       )}
                     </td>
+                    <td className="py-2 text-right">
+                      {!r.redeemed && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteId(r._id || r.id)}
+                          disabled={deleteReward.isPending}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -146,6 +166,35 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
           </div>
         )}
       </CardContent>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete reward?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this reward? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteReward.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteId) return;
+                try {
+                  await deleteReward.mutateAsync({ id: deleteId, userId });
+                  setDeleteId(null);
+                } catch {}
+              }}
+              disabled={deleteReward.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteReward.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={open} onOpenChange={(o) => { if (!o) { setOpen(false); reset(); } }}>
         <DialogContent>
