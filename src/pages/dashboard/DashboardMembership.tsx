@@ -14,9 +14,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Crown, Lock, Percent, Timer, Beer, KeyRound, Users, Loader2, Eye, EyeOff } from "lucide-react";
+import { Crown, Lock, Percent, Timer, Beer, KeyRound, Users, Loader2, Eye, EyeOff, PiggyBank, CircleDot } from "lucide-react";
 import { toast } from "sonner";
-import { useMyMembership, useMembershipPlans, useSubscribeMembership, type MembershipPlan } from "@/hooks/useMembership";
+import {
+  useMyMembership,
+  useMembershipPlans,
+  useSubscribeMembership,
+  useCancelMyMembership,
+  type MembershipPlan,
+} from "@/hooks/useMembership";
 import { useMyLocker } from "@/hooks/useLockers";
 import { useProfile } from "@/hooks/useProfile";
 import { fmtDateSG } from "@/lib/sgTime";
@@ -33,13 +39,45 @@ export default function DashboardMembership() {
   const { data: plans = [] } = useMembershipPlans();
   const { data: profile } = useProfile();
   const subscribe = useSubscribeMembership();
+  const cancelMine = useCancelMyMembership();
   const [confirmPlan, setConfirmPlan] = useState<MembershipPlan | null>(null);
   const [showPin, setShowPin] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   const walletBalance = Number(profile?.wallet_balance ?? 0);
 
-  const active = membership && (membership.status === "active" || membership.active);
+  const status: string = String(membership?.status ?? (membership?.active ? "active" : "")).toLowerCase();
+  const active = membership && (status === "active" || membership.active);
   const plan = membership?.plan || membership;
+  const benefitsObj = (plan?.benefits ?? {}) as any;
+  const bookingDiscount = benefitsObj.bookingDiscount ?? plan?.bookingDiscountPct ?? 0;
+  const freeMinutesPerVisit = benefitsObj.freeMinutesPerVisit ?? plan?.freeMinutesPerVisit ?? 0;
+  const freeDrinkPerVisit = benefitsObj.freeDrinkPerVisit ?? plan?.freeDrinkPerVisit ?? false;
+  const lockerIncluded = benefitsObj.lockerIncluded ?? plan?.lockerIncluded ?? false;
+  const totalSaved = Number(membership?.totalSaved ?? 0);
+  const lockerRental = membership?.lockerRentalId;
+  const hasLockerAssigned = !!(lockerRental && typeof lockerRental === "object" ? (lockerRental as any)._id || (lockerRental as any).id : lockerRental);
+  const lockerNum = (lockerRental as any)?.lockerUnitId?.lockerNumber ?? (lockerRental as any)?.lockerUnitId?.number ?? (lockerRental as any)?.lockerNumber ?? locker?.lockerNumber ?? locker?.number;
+  const lockerPin = (lockerRental as any)?.pin ?? locker?.pin;
+  const lockerRenewal = (lockerRental as any)?.renewalDate ?? locker?.renewalDate;
+
+  const lastVisitDate = membership?.lastVisitDate;
+  const visitedToday = (() => {
+    if (!lastVisitDate) return false;
+    const sgFmt = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" });
+    return sgFmt(new Date(lastVisitDate)) === sgFmt(new Date());
+  })();
+
+  const handleCancel = async () => {
+    try {
+      await cancelMine.mutateAsync();
+      toast.success("Membership cancelled");
+      setConfirmCancel(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to cancel membership");
+    }
+  };
+
 
   const handleConfirmSubscribe = async () => {
     if (!confirmPlan) return;
@@ -153,21 +191,19 @@ export default function DashboardMembership() {
   }
 
 
-  const benefits: { icon: any; label: string }[] = [];
-  if (plan?.bookingDiscountPct) benefits.push({ icon: Percent, label: `${plan.bookingDiscountPct}% off all bookings` });
-  if (plan?.freeMinutesPerVisit) benefits.push({ icon: Timer, label: `${plan.freeMinutesPerVisit} mins free per visit` });
-  if (plan?.freeDrinkPerVisit) benefits.push({ icon: Beer, label: "Free drink per visit" });
-  if (plan?.lockerIncluded) benefits.push({ icon: KeyRound, label: "Locker included" });
-  if (plan?.guestPassesPerMonth) benefits.push({ icon: Users, label: `${plan.guestPassesPerMonth} guest passes / month` });
+  const statusBadgeVariant: "default" | "secondary" | "destructive" =
+    status === "active" ? "default" : status === "cancelled" ? "secondary" : "destructive";
+  const statusLabel = status ? status.charAt(0).toUpperCase() + status.slice(1) : "Active";
+  const canCancel = status === "active";
 
   return (
     <div className="space-y-6">
       <Card className="card-premium">
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
+          <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
             <Crown className="h-5 w-5 text-accent" />
             {plan?.name || "Membership"}
-            <Badge variant="default" className="ml-2 capitalize">{membership.status || "active"}</Badge>
+            <Badge variant={statusBadgeVariant} className="ml-2">{statusLabel}</Badge>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
@@ -178,39 +214,88 @@ export default function DashboardMembership() {
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Renewal Date</div>
-              <div className="font-medium">{membership.renewalDate ? fmtDateSG(membership.renewalDate) : "—"}</div>
+              <div className="font-medium">
+                {membership.renewalDate ? `Renews ${fmtDateSG(membership.renewalDate)}` : "—"}
+              </div>
             </div>
           </div>
-          {benefits.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Benefits</div>
-              <ul className="space-y-1.5">
-                {benefits.map((b, i) => (
-                  <li key={i} className="flex items-center gap-2">
-                    <b.icon className="h-4 w-4 text-accent" />
-                    <span>{b.label}</span>
-                  </li>
-                ))}
-              </ul>
+
+          <div className="space-y-2">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Benefits</div>
+            <ul className="space-y-1.5">
+              {bookingDiscount > 0 && (
+                <li className="flex items-start gap-2">
+                  <Percent className="h-4 w-4 text-accent mt-0.5" />
+                  <span>
+                    <span className="font-medium">{bookingDiscount}% off all bookings</span>
+                    <span className="text-muted-foreground"> — auto-applied at checkout</span>
+                  </span>
+                </li>
+              )}
+              {freeMinutesPerVisit > 0 && (
+                <li className="flex items-start gap-2">
+                  <Timer className="h-4 w-4 text-accent mt-0.5" />
+                  <span>
+                    <span className="font-medium">{freeMinutesPerVisit} mins free per visit</span>
+                    <span className="text-muted-foreground"> — auto-applied daily</span>
+                  </span>
+                </li>
+              )}
+              {freeDrinkPerVisit && (
+                <li className="flex items-start gap-2">
+                  <Beer className="h-4 w-4 text-accent mt-0.5" />
+                  <span>Free drink / snack per visit</span>
+                </li>
+              )}
+              {lockerIncluded && (
+                <li className="flex items-start gap-2">
+                  <KeyRound className="h-4 w-4 text-accent mt-0.5" />
+                  <span>Locker included</span>
+                </li>
+              )}
+            </ul>
+          </div>
+
+          {freeMinutesPerVisit > 0 && (
+            <div className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-3 py-2 text-xs">
+              <CircleDot className="h-3.5 w-3.5 text-accent" />
+              {visitedToday
+                ? <span>Free minutes used today</span>
+                : <span>{freeMinutesPerVisit} mins free on your next visit</span>}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {locker ? (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <PiggyBank className="h-5 w-5 text-accent" />
+            Savings
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm">
+          <div className="flex items-baseline justify-between">
+            <span className="text-muted-foreground">Total Saved</span>
+            <span className="text-2xl font-semibold">${totalSaved.toFixed(2)}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {hasLockerAssigned ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <KeyRound className="h-5 w-5 text-accent" />
-              Your Locker — #{locker.number ?? locker.lockerNumber}
+              Your Locker — #{lockerNum ?? "—"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            {locker.pin && (
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">PIN</span>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">PIN</span>
+              {lockerPin ? (
                 <div className="flex items-center gap-2">
-                  <span className="font-mono">{showPin ? locker.pin : "••••"}</span>
+                  <span className="font-mono">{showPin ? lockerPin : "••••"}</span>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -221,30 +306,69 @@ export default function DashboardMembership() {
                     {showPin ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   </Button>
                 </div>
-              </div>
-            )}
+              ) : (
+                <span className="text-xs text-muted-foreground">PIN not set — contact staff</span>
+              )}
+            </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Renewal</span>
-              <span>{locker.renewalDate ? fmtDateSG(locker.renewalDate) : "—"}</span>
+              <span>{lockerRenewal ? fmtDateSG(lockerRenewal) : "—"}</span>
             </div>
-            {locker.renewalDate && (
+            {lockerRenewal && (
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Days remaining</span>
-                  <span>{daysBetween(locker.renewalDate)} days</span>
+                  <span>{daysBetween(lockerRenewal)} days</span>
                 </div>
-                <Progress value={Math.min(100, (daysBetween(locker.renewalDate) / 30) * 100)} />
+                <Progress value={Math.min(100, (daysBetween(lockerRenewal) / 30) * 100)} />
               </div>
             )}
           </CardContent>
         </Card>
-      ) : plan?.lockerIncluded ? (
+      ) : lockerIncluded ? (
         <Card>
           <CardContent className="py-6 text-center text-sm text-muted-foreground">
             Locker pending assignment — contact staff
           </CardContent>
         </Card>
       ) : null}
+
+      {canCancel && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => setConfirmCancel(true)}
+          >
+            Cancel Membership
+          </Button>
+        </div>
+      )}
+
+      <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel your membership?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure? Your membership stays active until{" "}
+              {membership?.renewalDate ? fmtDateSG(membership.renewalDate) : "the end of the billing period"}.
+              You won't be charged again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelMine.isPending}>Keep Membership</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleCancel(); }}
+              disabled={cancelMine.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {cancelMine.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Cancel Membership
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
