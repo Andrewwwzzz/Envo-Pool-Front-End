@@ -4,19 +4,21 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Copy, Check } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
 
 interface Props {
   booking: any | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCancel?: (bookingId: string) => void;
 }
 
 const statusStyles: Record<string, string> = {
@@ -45,33 +47,40 @@ const paymentStyles: Record<string, string> = {
   wallet: "bg-green-500/10 text-green-400 border-green-500/30",
   paynow: "bg-blue-500/10 text-blue-400 border-blue-500/30",
   stripe: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  reward: "bg-primary/10 text-primary border-primary/30",
 };
 
 const paymentLabel: Record<string, string> = {
   wallet: "Wallet",
   paynow: "PayNow",
   stripe: "PayNow",
+  reward: "Reward",
   booking_payment: "Wallet",
   wallet_deduct: "Wallet",
 };
 
-const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
+const fmtDur = (mins: number) => {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
+};
+
+const AdminBookingDetailDialog = ({ booking, open, onOpenChange, onCancel }: Props) => {
   if (!booking) return null;
   const b = booking;
   const id: string = b._id || b.id || "";
-  const shortId = id ? id.slice(-8) : "—";
+  const shortId = id ? id.slice(-8).toUpperCase() : "—";
   const startTime = b.startTime || b.start_time;
   const endTime = b.endTime || b.end_time;
   const createdAt = b.createdAt || b.created_at;
   const status: string = b.status || "pending";
 
-  const mins =
+  const totalMins =
     startTime && endTime
       ? Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000)
       : 0;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  const duration = mins > 0 ? `${h}h ${m}m` : "—";
 
   const tableName =
     typeof b.tableId === "string"
@@ -92,13 +101,53 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
     };
   })();
 
+  const segments = useMemo(() => {
+    const raw = b.pricingSegments || b.pricing_segments || b.segments;
+    if (!Array.isArray(raw) || raw.length === 0) return [];
+    return raw
+      .map((s: any) => {
+        const sStart = s.startTime || s.start_time || s.start;
+        const sEnd = s.endTime || s.end_time || s.end;
+        if (!sStart || !sEnd) return null;
+        return {
+          startTime: new Date(sStart),
+          endTime: new Date(sEnd),
+          ratePerHour: Number(s.ratePerHour ?? s.rate_per_hour ?? s.hourlyRate ?? s.hourly_rate ?? s.rate ?? 0),
+          amount: Number(s.amount ?? s.segmentCost ?? s.segment_cost ?? s.cost ?? 0),
+          ruleName: s.ruleName || s.rule_name || null,
+        };
+      })
+      .filter(Boolean) as Array<{ startTime: Date; endTime: Date; ratePerHour: number; amount: number; ruleName: string | null }>;
+  }, [b]);
+
   const finalAmount = Number(
     b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0,
   );
-  const promoCode = b.promoCode ?? b.promo_code ?? null;
-  const discountAmount = Number(b.promoDiscount ?? b.promo_discount ?? b.discountAmount ?? b.discount_amount ?? 0);
-  const originalPrice = Number(b.originalAmount ?? b.original_amount ?? b.originalPrice ?? b.original_price ?? 0);
-  const hasPromo = !!promoCode;
+  const originalAmount = Number(b.originalAmount ?? b.original_amount ?? b.originalPrice ?? b.original_price ?? 0);
+  const membershipDiscount = Number(b.membershipDiscount ?? b.membership_discount ?? 0);
+  const promoDiscount = Number(b.promoDiscount ?? b.promo_discount ?? b.discountAmount ?? b.discount_amount ?? 0);
+  const rewardDiscount = Number(b.rewardDiscount ?? b.reward_discount ?? 0);
+
+  const promoObj = b.appliedPromo || b.promo;
+  const promoCode =
+    (typeof promoObj === "object" && promoObj?.code) ||
+    b.promoCode ||
+    b.promo_code ||
+    null;
+  const rewardCode =
+    b.rewardCode || b.reward_code || (typeof b.reward === "object" ? b.reward?.code : null) || null;
+
+  const membershipPct = Number(
+    b.membershipDiscountPercent ??
+      b.membership_discount_percent ??
+      b.membershipDiscountPct ??
+      b.membership_discount_pct ??
+      0
+  );
+
+  const hasBreakdown =
+    originalAmount > 0 &&
+    (membershipDiscount > 0 || promoDiscount > 0 || rewardDiscount > 0 || Math.abs(originalAmount - finalAmount) > 0.005);
 
   const paymentMethodRaw =
     b.paymentMethod ||
@@ -107,6 +156,8 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
     (b.paymentStatus === "paid" ? "paynow" : null);
   const paymentKey = paymentMethodRaw ? String(paymentMethodRaw).toLowerCase() : null;
   const paidAt = b.paidAt || b.paid_at;
+
+  const canCancel = (status === "confirmed" || status === "pending" || status === "pending_payment") && !b.isDeleted;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -127,6 +178,7 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
               {b.deletedAt && <div><span className="text-muted-foreground">Deleted at: </span>{fmtDateTimeSG(b.deletedAt)}</div>}
             </div>
           )}
+
           {/* Booking Information */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Booking Information</h3>
@@ -134,7 +186,7 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
               <div>
                 <div className="text-muted-foreground">Booking ID</div>
                 <div className="flex items-center gap-2">
-                  <div className="font-mono font-medium">…{shortId}</div>
+                  <div className="font-mono font-medium">#{shortId}</div>
                   <CopyIdButton value={id} />
                 </div>
               </div>
@@ -165,16 +217,32 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
                 <div className="text-muted-foreground">Date</div>
                 <div className="font-medium">{startTime ? fmtDateSG(startTime) : "—"}</div>
               </div>
-              <div>
-                <div className="text-muted-foreground">Time</div>
-                <div className="font-medium">
-                  {startTime ? fmtTimeSG(startTime) : "—"} — {endTime ? fmtTimeSG(endTime) : "—"}
+            </div>
+
+            <div className="rounded-md border border-border/50 bg-background/40 p-3 space-y-1.5 text-sm">
+              {segments.length > 0 ? (
+                segments.map((seg, i) => {
+                  const segMins = Math.round((seg.endTime.getTime() - seg.startTime.getTime()) / 60000);
+                  return (
+                    <div key={i} className="flex items-center justify-between gap-3">
+                      <span className="text-muted-foreground tabular-nums">
+                        {fmtTimeSG(seg.startTime.toISOString())} – {fmtTimeSG(seg.endTime.toISOString())}
+                        <span className="ml-2 text-xs opacity-70">
+                          @ ${seg.ratePerHour.toFixed(2)}/hr · {fmtDur(segMins)}
+                        </span>
+                      </span>
+                      <span className="font-medium tabular-nums">${seg.amount.toFixed(2)}</span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground tabular-nums">
+                    {startTime ? fmtTimeSG(startTime) : "—"} – {endTime ? fmtTimeSG(endTime) : "—"}
+                    {totalMins > 0 && <span className="ml-2 text-xs opacity-70">({fmtDur(totalMins)})</span>}
+                  </span>
                 </div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Duration</div>
-                <div className="font-medium">{duration}</div>
-              </div>
+              )}
             </div>
           </section>
 
@@ -205,7 +273,7 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
                 size="sm"
                 onClick={() => navigator.clipboard.writeText(String(customer.shortId))}
               >
-                Copy Short ID to find in Customers
+                Copy Short ID
               </Button>
             )}
           </section>
@@ -215,11 +283,50 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
           {/* Payment */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Payment Details</h3>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <div className="text-muted-foreground">Amount Charged</div>
-                <div className="font-medium text-base">${finalAmount.toFixed(2)}</div>
-              </div>
+
+            <div className="rounded-md border border-border/50 p-3 space-y-1.5 text-sm">
+              {hasBreakdown ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="tabular-nums">${originalAmount.toFixed(2)}</span>
+                  </div>
+                  {membershipDiscount > 0 && (
+                    <div className="flex justify-between text-primary">
+                      <span>
+                        Membership discount
+                        {membershipPct > 0 ? ` (${Math.round(membershipPct)}% off)` : ""}
+                      </span>
+                      <span className="tabular-nums">−${membershipDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {promoDiscount > 0 && (
+                    <div className="flex justify-between text-primary">
+                      <span>Promo code{promoCode ? ` (${promoCode})` : ""}</span>
+                      <span className="tabular-nums">−${promoDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {rewardDiscount > 0 && (
+                    <div className="flex justify-between text-primary">
+                      <span>Reward{rewardCode ? ` (${rewardCode})` : ""}</span>
+                      <span className="tabular-nums">−${rewardDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <Separator className="bg-border/50 my-1" />
+                  <div className="flex justify-between font-bold text-base">
+                    <span>Total Charged</span>
+                    <span className="gold-gradient tabular-nums">${finalAmount.toFixed(2)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between font-bold text-base">
+                  <span>Amount Charged</span>
+                  <span className="gold-gradient tabular-nums">${finalAmount.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-sm pt-1">
               <div>
                 <div className="text-muted-foreground">Method</div>
                 <Badge variant="outline" className={paymentKey ? (paymentStyles[paymentKey] || "bg-muted text-muted-foreground border-border") : "bg-muted text-muted-foreground border-border"}>
@@ -227,39 +334,10 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
                 </Badge>
               </div>
               {paidAt && (
-                <div className="col-span-2">
+                <div>
                   <div className="text-muted-foreground">Paid At</div>
                   <div className="font-medium">{fmtDateTimeSG(paidAt)}</div>
                 </div>
-              )}
-            </div>
-
-            <div className="rounded-md border border-border/50 p-3 space-y-1 text-sm">
-              {hasPromo ? (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Promo Code</span>
-                    <span className="font-mono font-medium">{promoCode || "—"}</span>
-                  </div>
-                  {originalPrice > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Original Price</span>
-                      <span>${originalPrice.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Discount</span>
-                      <span className="text-green-400">−${discountAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-medium pt-1 border-t border-border/50">
-                    <span>Final Amount</span>
-                    <span>${finalAmount.toFixed(2)}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="text-muted-foreground">No promo applied</div>
               )}
             </div>
           </section>
@@ -273,6 +351,14 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange }: Props) => {
             </section>
           )}
         </div>
+
+        {canCancel && onCancel && (
+          <DialogFooter className="pt-2">
+            <Button variant="destructive" onClick={() => onCancel(id)}>
+              Cancel Booking
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
