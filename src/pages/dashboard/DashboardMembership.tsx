@@ -41,14 +41,15 @@ export default function DashboardMembership() {
   const { data: profile } = useProfile();
   const subscribe = useSubscribeMembership();
   const cancelMine = useCancelMyMembership();
+  const renewMine = useRenewMembership();
   const [confirmPlan, setConfirmPlan] = useState<MembershipPlan | null>(null);
   const [showPin, setShowPin] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [confirmRenew, setConfirmRenew] = useState(false);
 
   const walletBalance = Number(profile?.wallet_balance ?? 0);
 
   const status: string = String(membership?.status ?? (membership?.active ? "active" : "")).toLowerCase();
-  const active = membership && (status === "active" || membership.active);
   const plan = membership?.plan || membership;
   const benefitsObj = (plan?.benefits ?? {}) as any;
   const bookingDiscount = benefitsObj.bookingDiscount ?? plan?.bookingDiscountPct ?? 0;
