@@ -79,11 +79,12 @@ export function useDeleteMembershipPlan() {
   });
 }
 
-export function useAdminSubscriptions(includeDeleted: boolean = true) {
+export function useAdminSubscriptions(filter: "default" | "deleted" | "all" = "default") {
   return useQuery<any[]>({
-    queryKey: ["membership", "subscriptions", { includeDeleted }],
+    queryKey: ["membership", "subscriptions", { filter }],
     queryFn: async () => {
-      const j = await getJson(`/api/membership/admin/subscriptions${includeDeleted ? "?includeDeleted=1" : ""}`);
+      const qs = filter === "default" ? "" : `?filter=${filter}`;
+      const j = await getJson(`/api/membership/admin/subscriptions${qs}`);
       const arr = Array.isArray(j) ? j : j.subscriptions ?? [];
       return arr.map((s: any) => ({ ...s, id: s.id ?? s._id }));
     },

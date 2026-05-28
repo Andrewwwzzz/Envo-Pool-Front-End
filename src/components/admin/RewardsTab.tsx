@@ -93,7 +93,8 @@ export default function RewardsTab({
   onCustomerClick?: (info: { id?: string; email: string; name: string }) => void;
 }) {
   const { toast } = useToast();
-  const { data: rewards, isLoading } = useAllAdminRewards();
+  const [showDeletedToggle, setShowDeletedToggle] = useState(false);
+  const { data: rewards, isLoading } = useAllAdminRewards(showDeletedToggle ? "deleted" : "default");
   const deleteReward = useDeleteReward();
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailRecord, setDetailRecord] = useState<any | null>(null);
@@ -102,7 +103,8 @@ export default function RewardsTab({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [reasonFilter, setReasonFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
-  const [showDeleted, setShowDeleted] = useState(false);
+  const showDeleted = showDeletedToggle;
+  const setShowDeleted = setShowDeletedToggle;
 
   const filtered = useMemo(() => {
     const list = rewards || [];

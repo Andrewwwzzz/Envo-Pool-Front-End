@@ -443,7 +443,8 @@ function LockerCell({ sub }: { sub: any }) {
 export default function MembershipTab() {
   const { toast } = useToast();
   const { data: plans = [] } = useMembershipPlans();
-  const { data: subs = [] } = useAdminSubscriptions(true);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const { data: subs = [] } = useAdminSubscriptions(showDeleted ? "deleted" : "default");
   const del = useDeleteMembershipPlan();
   const cancel = useCancelMembership();
   const deleteSub = useDeleteMembership();
@@ -453,12 +454,8 @@ export default function MembershipTab() {
   const [cancelTarget, setCancelTarget] = useState<any | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailRecord, setDetailRecord] = useState<any | null>(null);
-  const [showDeleted, setShowDeleted] = useState(false);
 
-  const visibleSubs = useMemo(
-    () => (subs || []).filter((s: any) => showDeleted || !isDeleted(s)),
-    [subs, showDeleted],
-  );
+  const visibleSubs = subs || [];
 
   const openCreate = () => { setEditPlan(null); setPlanDlgOpen(true); };
   const openEdit = (p: MembershipPlan) => {
@@ -559,6 +556,8 @@ export default function MembershipTab() {
                     const rowId = s._id ?? s.id;
                     const deleted = isDeleted(s);
                     const cancelled = !deleted && isCancelled(s);
+                    const isActive = !deleted && s.status === "active" && !cancelled;
+                    const isExpired = !deleted && (s.status === "expired" || cancelled);
                     return (
                       <TableRow
                         key={rowId}
@@ -582,17 +581,18 @@ export default function MembershipTab() {
                         </TableCell>
                         <TableCell>{!deleted ? <LockerCell sub={s} /> : "—"}</TableCell>
                         <TableCell className="text-right">
-                          {!deleted && !cancelled && (
+                          {isActive && (
                             <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setCancelTarget(s); }}>
                               <XCircle className="h-4 w-4" /> Cancel
                             </Button>
                           )}
-                          {!deleted && cancelled && (
+                          {isExpired && (
                             <Button
                               variant="ghost"
                               size="sm"
                               className="text-destructive hover:text-destructive"
                               onClick={(e) => { e.stopPropagation(); setDeleteTarget(s); }}
+                              title="Delete membership"
                             >
                               <Trash2 className="h-4 w-4" /> Delete
                             </Button>
