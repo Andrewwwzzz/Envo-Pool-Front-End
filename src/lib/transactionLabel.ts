@@ -53,7 +53,7 @@ export function deriveTransactionDescription(
       }
       return "Table Booking";
     }
-    if (methodKey === "reward") return "Reward Discount";
+    if (methodKey === "reward") return "Reward Applied";
     if (methodKey === "paynow") return "Table Booking (PayNow)";
     return "Payment";
   }
