@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -84,6 +84,15 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
 
   const segments = storedSegments;
 
+  useEffect(() => {
+    if (open && b) {
+      console.log("[BookingDetail] pricingSegments:", b.pricingSegments ?? b.pricing_segments);
+      console.log("[BookingDetail] originalAmount:", b.originalAmount ?? b.original_amount);
+      console.log("[BookingDetail] membershipDiscount:", b.membershipDiscount ?? b.membership_discount);
+      console.log("[BookingDetail] amount:", b.amount ?? b.finalPrice ?? b.final_price);
+    }
+  }, [open, b]);
+
   if (!booking) return null;
 
   const createdAt = b.createdAt || b.created_at;
@@ -96,7 +105,8 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
   const originalAmount = Number(
     b.originalAmount ?? b.original_amount ?? b.subtotal ?? 0
   );
-  const subtotal = originalAmount > 0 ? originalAmount : finalPrice;
+  // Subtotal must ALWAYS be the stored originalAmount — never recomputed.
+  const subtotal = originalAmount;
 
   const membershipDiscount = Number(b.membershipDiscount ?? b.membership_discount ?? 0);
   const promoDiscount = Number(b.promoDiscount ?? b.discountAmount ?? b.discount_amount ?? 0);
