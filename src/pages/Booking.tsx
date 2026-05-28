@@ -185,24 +185,31 @@ const Booking = () => {
   // Hidden when a reward code is applied (reward takes priority).
   const activeMembership = useMemo(() => {
     const list: any[] = myMembership?.memberships ?? [];
+    const getPlan = (m: any) =>
+      (m?.planId && typeof m.planId === "object" ? m.planId : null) || m?.plan || null;
+    const getPct = (m: any) =>
+      Number(getPlan(m)?.benefits?.bookingDiscount ?? m?.benefits?.bookingDiscount ?? 0);
     const actives = list.filter((m) => {
       const status = String(m?.status ?? (m?.active ? "active" : "")).toLowerCase();
       return status === "active";
     });
     if (!actives.length) return null;
-    return actives.reduce((best, m) => {
-      const pct = Number(m?.plan?.benefits?.bookingDiscount ?? m?.benefits?.bookingDiscount ?? 0);
-      const bestPct = Number(best?.plan?.benefits?.bookingDiscount ?? best?.benefits?.bookingDiscount ?? 0);
-      return pct > bestPct ? m : best;
-    }, actives[0]);
+    return actives.reduce(
+      (best, m) => (getPct(m) > getPct(best) ? m : best),
+      actives[0]
+    );
   }, [myMembership]);
 
+  const activeMembershipPlan =
+    (activeMembership?.planId && typeof activeMembership.planId === "object"
+      ? activeMembership.planId
+      : null) || activeMembership?.plan || null;
   const membershipDiscountPct = Number(
-    activeMembership?.plan?.benefits?.bookingDiscount ??
+    activeMembershipPlan?.benefits?.bookingDiscount ??
       activeMembership?.benefits?.bookingDiscount ??
       0
   );
-  const membershipPlanName = activeMembership?.plan?.name ?? activeMembership?.planName ?? "Membership";
+  const membershipPlanName = activeMembershipPlan?.name ?? activeMembership?.planName ?? "Membership";
   const priceAfterReward = Math.max(0, priceAfterPromo - rewardDiscount);
   const membershipDiscount =
     !appliedReward && membershipDiscountPct > 0
@@ -358,7 +365,8 @@ const Booking = () => {
           rewardDiscount: rewardDiscount || 0,
           membershipDiscount: membershipDiscount || 0,
           membershipPlanId:
-            activeMembership?.plan?.id ?? activeMembership?.plan?._id ?? activeMembership?.planId ?? null,
+            activeMembershipPlan?._id ?? activeMembershipPlan?.id ??
+            (typeof activeMembership?.planId === "string" ? activeMembership.planId : null),
         }),
       });
 
