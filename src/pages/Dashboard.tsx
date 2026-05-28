@@ -200,7 +200,7 @@ const Dashboard = () => {
         <div className="flex items-center gap-2">
           <Link to="/settings">
             <Button variant="ghost" size="sm" className="text-muted-foreground">
-              <Settings className="h-4 w-4" />
+              <List className="h-[20px] w-[20px]" />
             </Button>
           </Link>
           <Button variant="ghost" size="sm" onClick={signOut} className="text-muted-foreground">
