@@ -157,10 +157,6 @@ function PlanFormDialog({
                 <Input type="number" min="0" value={form.freeMinutesPerVisit} onChange={(e) => setForm({ ...form, freeMinutesPerVisit: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Guest Passes Per Month</Label>
-                <Input type="number" min="0" value={form.guestPassesPerMonth} onChange={(e) => setForm({ ...form, guestPassesPerMonth: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
                 <Label className="text-xs">Sort Order</Label>
                 <Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} />
               </div>
