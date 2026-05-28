@@ -21,6 +21,7 @@ import {
   useMembershipPlans,
   useSubscribeMembership,
   useCancelMyMembership,
+  useRenewMembership,
   type MembershipPlan,
 } from "@/hooks/useMembership";
 import { useMyLocker } from "@/hooks/useLockers";
@@ -40,14 +41,15 @@ export default function DashboardMembership() {
   const { data: profile } = useProfile();
   const subscribe = useSubscribeMembership();
   const cancelMine = useCancelMyMembership();
+  const renewMine = useRenewMembership();
   const [confirmPlan, setConfirmPlan] = useState<MembershipPlan | null>(null);
   const [showPin, setShowPin] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [confirmRenew, setConfirmRenew] = useState(false);
 
   const walletBalance = Number(profile?.wallet_balance ?? 0);
 
   const status: string = String(membership?.status ?? (membership?.active ? "active" : "")).toLowerCase();
-  const active = membership && (status === "active" || membership.active);
   const plan = membership?.plan || membership;
   const benefitsObj = (plan?.benefits ?? {}) as any;
   const bookingDiscount = benefitsObj.bookingDiscount ?? plan?.bookingDiscountPct ?? 0;
@@ -78,6 +80,15 @@ export default function DashboardMembership() {
     }
   };
 
+  const handleRenew = async () => {
+    try {
+      await renewMine.mutateAsync();
+      toast.success("Membership renewed!");
+      setConfirmRenew(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to renew membership");
+    }
+  };
 
   const handleConfirmSubscribe = async () => {
     if (!confirmPlan) return;
@@ -95,7 +106,7 @@ export default function DashboardMembership() {
     }
   };
 
-  if (!active) {
+  if (!membership) {
     return (
       <div className="space-y-6">
         <Card className="card-premium">
@@ -191,14 +202,26 @@ export default function DashboardMembership() {
   }
 
 
+  const endDate = membership?.endDate ?? membership?.cancelledUntil ?? membership?.renewalDate;
+  const endDatePassed = endDate ? new Date(endDate).getTime() < Date.now() : false;
+  const isActive = status === "active" || (!status && membership?.active);
+  const isCancelled = status === "cancelled";
+  const isExpired = status === "expired" || (isCancelled && endDatePassed);
+
   const statusBadgeVariant: "default" | "secondary" | "destructive" =
-    status === "active" ? "default" : status === "cancelled" ? "secondary" : "destructive";
-  const statusLabel = status ? status.charAt(0).toUpperCase() + status.slice(1) : "Active";
-  const canCancel = status === "active";
+    isActive ? "default" : isCancelled && !isExpired ? "secondary" : "destructive";
+  const statusLabel = isExpired ? "Expired" : isCancelled ? "Cancelled" : "Active";
+  const canCancel = isActive;
+  const showRenew = isExpired || status === "expired";
+
+  const planPrice = Number(plan?.price ?? 0);
+  const planCycle = plan?.billingCycle ?? "monthly";
+  const canAffordRenew = walletBalance >= planPrice;
+  const dimmed = isExpired ? "opacity-60" : "";
 
   return (
     <div className="space-y-6">
-      <Card className="card-premium">
+      <Card className={`card-premium ${dimmed}`}>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
             <Crown className="h-5 w-5 text-accent" />
@@ -213,12 +236,18 @@ export default function DashboardMembership() {
               <div className="font-medium">${plan?.price ?? 0} / {plan?.billingCycle ?? "monthly"}</div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Renewal Date</div>
+              <div className="text-xs text-muted-foreground">
+                {isExpired ? "Ended" : isCancelled ? "Active Until" : "Renewal Date"}
+              </div>
               <div className="font-medium">
-                {membership.renewalDate ? `Renews ${fmtDateSG(membership.renewalDate)}` : "—"}
+                {isExpired && endDate ? fmtDateSG(endDate)
+                  : isCancelled && endDate ? `Active until ${fmtDateSG(endDate)}`
+                  : membership.renewalDate ? `Renews ${fmtDateSG(membership.renewalDate)}`
+                  : "—"}
               </div>
             </div>
           </div>
+
 
           <div className="space-y-2">
             <div className="text-xs uppercase tracking-wide text-muted-foreground">Benefits</div>
@@ -266,6 +295,29 @@ export default function DashboardMembership() {
           )}
         </CardContent>
       </Card>
+
+      {showRenew && (
+        <Card className="border-destructive/40">
+          <CardContent className="py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="space-y-0.5">
+              <div className="text-sm font-medium">Your membership has expired</div>
+              <div className="text-xs text-muted-foreground">
+                Wallet balance: ${walletBalance.toFixed(2)}
+                {!canAffordRenew && " — top up to renew"}
+              </div>
+            </div>
+            <Button
+              size="lg"
+              disabled={!canAffordRenew || renewMine.isPending}
+              onClick={() => setConfirmRenew(true)}
+            >
+              Renew for ${planPrice}/{planCycle}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+
 
       <Card>
         <CardHeader>
@@ -364,6 +416,28 @@ export default function DashboardMembership() {
             >
               {cancelMine.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Cancel Membership
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmRenew} onOpenChange={setConfirmRenew}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Renew {plan?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Renew {plan?.name} for ${planPrice.toFixed(2)}? This deducts from your wallet
+              (current balance: ${walletBalance.toFixed(2)}).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={renewMine.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleRenew(); }}
+              disabled={renewMine.isPending}
+            >
+              {renewMine.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Confirm Renewal
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
