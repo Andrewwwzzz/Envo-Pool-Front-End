@@ -938,97 +938,151 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
   const durationSeconds = Number(s.durationSeconds ?? s.duration_seconds ?? 0);
   const h = Math.floor(durationSeconds / 3600);
   const m = Math.floor((durationSeconds % 3600) / 60);
-  const durationLabel = `${h}h ${m}m`;
+  const durationLabel = h && m ? `${h}h ${m}m` : h ? `${h}h` : `${m}m`;
   const hours = durationSeconds / 3600;
   const rate = Number(s.hourlyRate ?? s.hourly_rate ?? 0);
   const amount = Number(s.amountCharged ?? s.amount_charged ?? s.total_cost ?? 0);
   const staff = s.startedBy?.name || s.startedBy?.email || "—";
   const tableName = s.tableName || (s.tables?.table_number ? `Table ${s.tables.table_number}` : "—");
-  const deletedBy = s.deletedBy?.name || s.deletedBy?.email || (typeof s.deletedBy === "string" ? s.deletedBy : "");
-  const deletionReason = s.deletionReason || s.deletedReason || "—";
 
-  const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
-    <div className="flex justify-between items-center gap-4 text-sm py-1">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right">{value}</span>
-    </div>
-  );
-
-  const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{children}</h3>
-  );
+  const copyId = () => { if (id) navigator.clipboard.writeText(id); };
 
   return (
     <Dialog open={!!session} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-card border-border">
         <DialogHeader>
-          <DialogTitle>Invoice Details</DialogTitle>
+          <DialogTitle className="text-lg gold-gradient">Invoice Details</DialogTitle>
+          <DialogDescription className="sr-only">Timer session invoice</DialogDescription>
         </DialogHeader>
 
-        {isDeleted && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm space-y-1">
-            <div className="font-semibold text-destructive">This invoice has been deleted</div>
-            {(s.deletionReason || s.deletedReason) && <div><span className="text-muted-foreground">Reason: </span>{s.deletionReason || s.deletedReason}</div>}
-            {(s.deletedBy?.name || s.deletedBy?.email || typeof s.deletedBy === "string") && (
-              <div><span className="text-muted-foreground">Deleted by: </span>{s.deletedBy?.name || s.deletedBy?.email || s.deletedBy}</div>
-            )}
-            {s.deletedAt && <div><span className="text-muted-foreground">Deleted at: </span>{fmtDateTimeSG(s.deletedAt)}</div>}
-          </div>
-        )}
+        <div className="space-y-6 pt-2">
+          {isDeleted && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm space-y-1">
+              <div className="font-semibold text-destructive">This invoice has been deleted</div>
+              {(s.deletionReason || s.deletedReason) && <div><span className="text-muted-foreground">Reason: </span>{s.deletionReason || s.deletedReason}</div>}
+              {(s.deletedBy?.name || s.deletedBy?.email || typeof s.deletedBy === "string") && (
+                <div><span className="text-muted-foreground">Deleted by: </span>{s.deletedBy?.name || s.deletedBy?.email || s.deletedBy}</div>
+              )}
+              {s.deletedAt && <div><span className="text-muted-foreground">Deleted at: </span>{fmtDateTimeSG(s.deletedAt)}</div>}
+            </div>
+          )}
 
-        <div className="space-y-5">
-          <div>
-            <SectionTitle>Session Information</SectionTitle>
-            <Row label="Invoice ID" value={<span className="font-mono">#{shortId}</span>} />
-            <Row label="Status" value={
-              isDeleted
-                ? <Badge variant="outline" className="bg-destructive/15 text-destructive border-destructive/40">Deleted</Badge>
-                : <Badge variant="outline" className="bg-emerald-500/15 text-emerald-500 border-emerald-500/40">Active</Badge>
-            } />
-            <Row label="Created at" value={createdAt ? fmtDateTimeSG(createdAt) : "—"} />
-          </div>
+          {/* Session Information */}
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Session Information</h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <div className="text-muted-foreground">Invoice ID</div>
+                <div className="flex items-center gap-2">
+                  <div className="font-mono font-medium">#{shortId}</div>
+                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={copyId} aria-label="Copy invoice ID">
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Status</div>
+                {isDeleted ? (
+                  <Badge variant="outline" className="bg-destructive/15 text-destructive border-destructive/40">Deleted</Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-emerald-500/15 text-emerald-500 border-emerald-500/40">Active</Badge>
+                )}
+              </div>
+              <div className="col-span-2">
+                <div className="text-muted-foreground">Created</div>
+                <div className="font-medium">{createdAt ? fmtDateTimeSG(createdAt) : "—"}</div>
+              </div>
+            </div>
+          </section>
 
-          <div>
-            <SectionTitle>Table & Time</SectionTitle>
-            <Row label="Table" value={tableName} />
-            <Row label="Date" value={startedAt ? fmtDateSG(startedAt) : "—"} />
-            <Row label="Start time" value={startedAt ? fmtTimeSG(startedAt) : "—"} />
-            <Row label="End time" value={endedAt ? fmtTimeSG(endedAt) : "—"} />
-            <Row label="Duration" value={<span className="font-mono">{durationLabel}</span>} />
-          </div>
+          <Separator className="bg-border/50" />
 
-          <div>
-            <SectionTitle>Billing Details</SectionTitle>
-            <Row label="Hourly rate" value={`$${rate.toFixed(2)} / hr`} />
-            <Row label="Duration" value={`${hours.toFixed(2)} hrs`} />
-            <Row label="Amount charged" value={
-              <span className={isDeleted ? "line-through text-muted-foreground" : "font-semibold"}>${amount.toFixed(2)}</span>
-            } />
-            <Row label="Payment method" value={
-              <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Cash</Badge>
-            } />
-          </div>
+          {/* Table & Time */}
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Table &amp; Time</h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <div className="text-muted-foreground">Table</div>
+                <div className="font-medium">{tableName}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Date</div>
+                <div className="font-medium">{startedAt ? fmtDateSG(startedAt) : "—"}</div>
+              </div>
+            </div>
 
-          <div>
-            <SectionTitle>Staff Details</SectionTitle>
-            <Row label="Opened by" value={staff} />
-            <Row label="Closed at" value={endedAt ? fmtDateTimeSG(endedAt) : "—"} />
-          </div>
+            <div className="rounded-md border border-border/50 bg-background/40 p-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground tabular-nums">
+                  {startedAt ? fmtTimeSG(startedAt) : "—"} – {endedAt ? fmtTimeSG(endedAt) : "—"}
+                  <span className="ml-2 text-xs opacity-70">@ ${rate.toFixed(2)}/hr · {durationLabel}</span>
+                </span>
+                <span className="font-medium tabular-nums">${amount.toFixed(2)}</span>
+              </div>
+            </div>
+          </section>
 
+          <Separator className="bg-border/50" />
+
+          {/* Billing */}
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Billing Details</h3>
+            <div className="rounded-md border border-border/50 p-3 space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Hourly rate</span>
+                <span className="tabular-nums">${rate.toFixed(2)} / hr</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Duration</span>
+                <span className="tabular-nums">{hours.toFixed(2)} hrs</span>
+              </div>
+              <Separator className="bg-border/50 my-1" />
+              <div className="flex justify-between font-bold text-base">
+                <span>Total Charged</span>
+                <span className={isDeleted ? "line-through text-muted-foreground tabular-nums" : "gold-gradient tabular-nums"}>
+                  ${amount.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-sm pt-1">
+              <div>
+                <div className="text-muted-foreground">Method</div>
+                <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Cash</Badge>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Closed at</div>
+                <div className="font-medium">{endedAt ? fmtDateTimeSG(endedAt) : "—"}</div>
+              </div>
+            </div>
+          </section>
+
+          <Separator className="bg-border/50" />
+
+          {/* Staff */}
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Staff Details</h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <div className="text-muted-foreground">Opened by</div>
+                <div className="font-medium">{staff}</div>
+              </div>
+            </div>
+          </section>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Close</Button>
-          {!isDeleted && (
+        {!isDeleted && (
+          <DialogFooter className="pt-2">
             <Button variant="destructive" onClick={onDelete}>
               <Trash2 className="h-4 w-4 mr-1" /> Delete Invoice
             </Button>
-          )}
-        </DialogFooter>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
 }
+
 
 function InvoicesTab() {
   const [showDeleted, setShowDeleted] = useState(false);
