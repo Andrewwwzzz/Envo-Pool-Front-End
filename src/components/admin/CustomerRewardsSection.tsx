@@ -46,7 +46,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const [otherReason, setOtherReason] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [qty, setQty] = useState("1");
-  const [multiUse, setMultiUse] = useState(false);
+  const [issueMode, setIssueMode] = useState<"single" | "multi" | "unlimited">("single");
   const [issuedCodes, setIssuedCodes] = useState<string[] | null>(null);
 
   const valueLabel =
@@ -56,7 +56,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
 
   const reset = () => {
     setType("free_session"); setValue("1"); setDescription(""); setReason("reviews"); setOtherReason(""); setExpiresAt("");
-    setQty("1"); setMultiUse(false);
+    setQty("1"); setIssueMode("single");
   };
 
   const submit = async () => {
