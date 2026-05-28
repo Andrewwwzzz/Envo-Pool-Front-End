@@ -42,6 +42,7 @@ const Booking = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { data: operatingHours } = useOperatingHours();
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
