@@ -38,7 +38,8 @@ export function useMembershipPlans() {
     queryKey: ["membership", "plans"],
     queryFn: async () => {
       const j = await getJson("/api/membership/plans");
-      return Array.isArray(j) ? j : j.plans ?? [];
+      const arr = Array.isArray(j) ? j : j.plans ?? [];
+      return arr.map((p: any) => ({ ...p, id: p.id ?? p._id }));
     },
   });
 }
