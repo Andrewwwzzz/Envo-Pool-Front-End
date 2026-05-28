@@ -428,7 +428,6 @@ export default function DashboardMembership() {
               key={getMembershipId(m) ?? Math.random()}
               membership={m}
               walletBalance={walletBalance}
-              onCancel={setCancelTarget}
               onRenew={setRenewTarget}
             />
           ))}
