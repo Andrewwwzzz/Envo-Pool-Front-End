@@ -89,6 +89,8 @@ const Admin = () => {
             <TabsTrigger value="rewards">Rewards</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="promos">Promos</TabsTrigger>
+            <TabsTrigger value="membership">Membership</TabsTrigger>
+            <TabsTrigger value="lockers">Lockers</TabsTrigger>
             
             <VerificationTabTrigger />
             <TabsTrigger value="logs">Logs</TabsTrigger>
