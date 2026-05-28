@@ -110,6 +110,8 @@ const Admin = () => {
           <TabsContent value="rewards"><RewardsTab onCustomerClick={goToCustomer} /></TabsContent>
           <TabsContent value="pricing"><PricingTab /></TabsContent>
           <TabsContent value="promos"><PromosTab /></TabsContent>
+          <TabsContent value="membership"><MembershipTab /></TabsContent>
+          <TabsContent value="lockers"><LockersTab /></TabsContent>
           
           <TabsContent value="verification"><VerificationTab /></TabsContent>
           <TabsContent value="logs"><LogsTab /></TabsContent>
