@@ -720,6 +720,15 @@ const Booking = () => {
                 </div>
               )}
 
+              {membershipDiscount > 0 && (
+                <div className="flex justify-between text-sm text-primary">
+                  <span>{membershipPlanName} discount ({membershipDiscountPct}% off)</span>
+                  <span>-${membershipDiscount.toFixed(2)}</span>
+                </div>
+              )}
+
+
+
               <div className="border-t border-border pt-3 flex justify-between text-lg font-bold">
                 <span>Total</span>
                 <span className="gold-gradient">${finalPrice.toFixed(2)}</span>
