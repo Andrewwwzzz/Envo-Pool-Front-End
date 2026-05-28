@@ -668,8 +668,18 @@ const Booking = () => {
 
               {rewardDiscount > 0 && (
                 <div className="flex justify-between text-sm text-accent">
-                  <span>Free session reward ({rewardFreeHours}hr)</span>
+                  <span>
+                    {appliedReward?.type === "free_session"
+                      ? `Free session reward (${rewardFreeHours}hr)`
+                      : `Discount (${rewardDiscountPercent}% off)`}
+                  </span>
                   <span>-${rewardDiscount.toFixed(2)}</span>
+                </div>
+              )}
+
+              {appliedReward?.type === "free_item" && (
+                <div className="rounded-lg bg-accent/10 border border-accent/30 px-3 py-2 text-sm text-accent">
+                  Free item reward applied — collect at counter
                 </div>
               )}
 
