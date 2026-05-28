@@ -195,12 +195,6 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </CardContent>
 
       <Dialog open={open} onOpenChange={(o) => { if (!o) { setOpen(false); reset(); } }}>
         <DialogContent>
