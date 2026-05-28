@@ -68,15 +68,20 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
       toast({ title: "Please specify the reason", variant: "destructive" });
       return;
     }
-    const qtyNum = Math.max(1, Math.min(20, parseInt(qty) || 1));
+    const isWalletCredit = type === "wallet_credit";
+    const mode = isWalletCredit ? "single" : issueMode;
+    const qtyNum = mode === "multi"
+      ? Math.max(1, Math.min(100, parseInt(qty) || 1))
+      : 1;
     const payload: any = {
       userId,
       type,
       description: description.trim(),
       reason: reason === "other" ? otherReason.trim() : reason,
       expiresAt: expiresAt || null,
-      qty: qtyNum,
-      multiUse: qtyNum > 1 ? multiUse : false,
+      qty: mode === "unlimited" ? 0 : qtyNum,
+      multiUse: mode !== "single",
+      unlimited: mode === "unlimited",
     };
     if (type !== "free_item") {
       const v = parseFloat(value);
