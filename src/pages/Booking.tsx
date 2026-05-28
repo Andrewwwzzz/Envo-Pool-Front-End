@@ -365,7 +365,8 @@ const Booking = () => {
           rewardDiscount: rewardDiscount || 0,
           membershipDiscount: membershipDiscount || 0,
           membershipPlanId:
-            activeMembership?.plan?.id ?? activeMembership?.plan?._id ?? activeMembership?.planId ?? null,
+            activeMembershipPlan?._id ?? activeMembershipPlan?.id ??
+            (typeof activeMembership?.planId === "string" ? activeMembership.planId : null),
         }),
       });
 
