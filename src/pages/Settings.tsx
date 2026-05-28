@@ -312,7 +312,7 @@ const Settings = () => {
 };
 
 const TYPE_LABELS: Record<string, string> = {
-  free_session: "Free Session (30 mins)",
+  free_session: "Free Session (1 hr)",
   wallet_credit: "Wallet Credit",
   free_item: "Free Item",
   booking_discount: "Discount",
@@ -341,7 +341,11 @@ function MyRewardsCard() {
           <div className="space-y-3">
             {list.map((r) => {
               const expired = r.expiresAt && new Date(r.expiresAt) < new Date();
-              const isActive = !r.redeemed && !expired;
+              const allowed = Number((r as any).usesAllowed);
+              const remaining = Number((r as any).usesRemaining);
+              const isMulti = Number.isFinite(allowed) && allowed > 1;
+              const multiExhausted = isMulti && Number.isFinite(remaining) && remaining <= 0;
+              const isActive = !r.redeemed && !expired && !multiExhausted;
               return (
                 <div key={r._id || r.id || r.code} className="rounded-lg border border-border p-4 space-y-2">
                   <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -349,10 +353,14 @@ function MyRewardsCard() {
                       <p className="font-medium">{r.description}</p>
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="outline" className="capitalize">{TYPE_LABELS[r.type] || r.type}</Badge>
-                        {r.redeemed ? (
-                          <Badge variant="outline" className="bg-muted">Redeemed</Badge>
-                        ) : expired ? (
+                        {expired ? (
                           <Badge variant="destructive">Expired</Badge>
+                        ) : isMulti ? (
+                          multiExhausted
+                            ? <Badge variant="outline" className="bg-muted">Redeemed</Badge>
+                            : <Badge>{remaining}/{allowed} uses remaining</Badge>
+                        ) : r.redeemed ? (
+                          <Badge variant="outline" className="bg-muted">Redeemed</Badge>
                         ) : (
                           <Badge>Active</Badge>
                         )}
