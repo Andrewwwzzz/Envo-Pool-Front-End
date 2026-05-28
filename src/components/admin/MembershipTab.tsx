@@ -302,9 +302,11 @@ function LockerCell({ sub }: { sub: any }) {
   const hasLocker = !!sub.lockerRentalId;
   const rentalId = rental?._id ?? rental?.id ?? (typeof sub.lockerRentalId === "string" ? sub.lockerRentalId : null);
   const lockerNumber =
+    rental?.lockerUnitId?.lockerNumber ??
     rental?.lockerUnitId?.number ??
     rental?.lockerNumber ??
     sub.lockerNumber ??
+    sub.locker?.lockerNumber ??
     sub.locker?.number;
   const currentPin = rental?.pin ?? sub.lockerPin ?? sub.pin ?? "";
 
