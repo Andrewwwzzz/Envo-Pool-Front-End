@@ -11,8 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Copy, Check } from "lucide-react";
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime } from "@/lib/sgTime";
-import { usePricingRules } from "@/hooks/usePricing";
-import { calculateBookingPrice } from "@/lib/pricing";
 import { useMyMembership } from "@/hooks/useMembership";
 
 interface BookingData {
