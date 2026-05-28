@@ -228,16 +228,30 @@ function AssignMembershipDialog({ open, onOpenChange }: { open: boolean; onOpenC
             <Input placeholder="Name or email" value={search} onChange={(e) => setSearch(e.target.value)} />
             <div className="max-h-40 overflow-y-auto rounded-md border">
               {customers.slice(0, 20).map((c: any) => {
-                const cid = c._id ?? c.id;
+                const cid = c._id ?? c.id ?? c.user_id;
+                const selected = userId && cid === userId;
                 return (
                   <button
                     key={cid}
                     type="button"
-                    onClick={() => setUserId(cid)}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${userId === cid ? "bg-muted" : ""}`}
+                    onClick={() => {
+                      console.log("[AssignMembership] selected customer", { cid, customer: c });
+                      if (!cid) return;
+                      setUserId(cid);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-sm border-l-2 transition-colors ${
+                      selected
+                        ? "bg-primary/10 border-primary"
+                        : "border-transparent hover:bg-muted"
+                    }`}
                   >
-                    <div className="font-medium">{c.name || c.legal_name || "—"}</div>
-                    <div className="text-xs text-muted-foreground">{c.email}</div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{c.name || c.legal_name || "—"}</div>
+                        <div className="text-xs text-muted-foreground truncate">{c.email}</div>
+                      </div>
+                      {selected && <span className="text-xs font-medium text-primary shrink-0">Selected</span>}
+                    </div>
                   </button>
                 );
               })}
