@@ -443,7 +443,8 @@ function LockerCell({ sub }: { sub: any }) {
 export default function MembershipTab() {
   const { toast } = useToast();
   const { data: plans = [] } = useMembershipPlans();
-  const { data: subs = [] } = useAdminSubscriptions(true);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const { data: subs = [] } = useAdminSubscriptions(showDeleted ? "deleted" : "default");
   const del = useDeleteMembershipPlan();
   const cancel = useCancelMembership();
   const deleteSub = useDeleteMembership();
