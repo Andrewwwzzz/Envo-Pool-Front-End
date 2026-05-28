@@ -35,6 +35,8 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const { toast } = useToast();
   const { data: rewards, isLoading } = useAdminRewards(userId);
   const issueReward = useIssueReward();
+  const deleteReward = useDeleteReward();
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<RewardType>("free_session");
