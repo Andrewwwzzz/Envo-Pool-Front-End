@@ -11,9 +11,14 @@ import Booking from "./pages/Booking";
 import PaymentVerification from "./pages/PaymentVerification";
 import BookingConfirmed from "./pages/BookingConfirmed";
 import BookingRefunded from "./pages/BookingRefunded";
-import Dashboard from "./pages/Dashboard";
+import DashboardLayout from "./components/dashboard/DashboardLayout";
+import DashboardHome from "./pages/dashboard/DashboardHome";
+import DashboardTransactions from "./pages/dashboard/DashboardTransactions";
+import DashboardSettings from "./pages/dashboard/DashboardSettings";
+import DashboardRewards from "./pages/dashboard/DashboardRewards";
+import DashboardMembership from "./pages/dashboard/DashboardMembership";
+import DashboardBookings from "./pages/dashboard/DashboardBookings";
 import Admin from "./pages/Admin";
-import Settings from "./pages/Settings";
 import Terms from "./pages/Terms";
 import Kyc from "./pages/Kyc";
 import NotFound from "./pages/NotFound";
@@ -50,8 +55,15 @@ const App = () => (
               <Route path="/booking-refunded" element={<BookingRefunded />} />
               {/* Legacy redirects */}
               <Route path="/booking-success" element={<LegacyRedirect />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/settings" element={<Settings />} />
+              <Route path="/dashboard" element={<DashboardLayout />}>
+                <Route index element={<DashboardHome />} />
+                <Route path="transactions" element={<DashboardTransactions />} />
+                <Route path="settings" element={<DashboardSettings />} />
+                <Route path="rewards" element={<DashboardRewards />} />
+                <Route path="membership" element={<DashboardMembership />} />
+                <Route path="bookings" element={<DashboardBookings />} />
+              </Route>
+              <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/kyc" element={<Kyc />} />
