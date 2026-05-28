@@ -184,7 +184,7 @@ export function TimeSlotPicker({
       return { ...slot, available: true, state: "available" as const, userName: null, expiresAt: null, maintenanceReason: null };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, bookedSlots, maintenanceWindows, isToday, nowMinutes, expiredKey]);
+  }, [date, bookedSlots, maintenanceWindows, operatingHours, isToday, nowMinutes, expiredKey]);
 
   const startMinutes = startSlot ? slotToMinutes(startSlot) : null;
   const endMinutes = endSlot ? slotToMinutes(endSlot) : null;
@@ -280,6 +280,7 @@ export function TimeSlotPicker({
               className={cn(
                 "rounded-lg border px-1 py-2 text-xs font-medium transition-all duration-150 flex flex-col items-center gap-0.5 w-full",
                 slot.state === "past" && "opacity-30 cursor-not-allowed bg-muted border-border text-muted-foreground line-through",
+                slot.state === "closed" && "opacity-40 cursor-not-allowed bg-muted border-border text-muted-foreground",
                 slot.state === "booked" && "cursor-not-allowed border-destructive/40 bg-destructive/10 text-destructive",
                 slot.state === "pending" && "cursor-not-allowed border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
                 slot.state === "maintenance" && "cursor-not-allowed border-destructive/40 bg-destructive/10 text-destructive",
@@ -295,9 +296,11 @@ export function TimeSlotPicker({
             </button>
           );
 
-          if (slot.state === "maintenance" || slot.state === "pending" || slot.state === "booked") {
+          if (slot.state === "maintenance" || slot.state === "pending" || slot.state === "booked" || slot.state === "closed") {
             const tooltipText =
-              slot.state === "maintenance"
+              slot.state === "closed"
+                ? "Outside operating hours"
+                : slot.state === "maintenance"
                 ? (slot.maintenanceReason || "No reason provided")
                 : displayName
                   ? slot.state === "pending" && slot.expiresAt
