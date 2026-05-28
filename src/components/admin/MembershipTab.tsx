@@ -454,12 +454,8 @@ export default function MembershipTab() {
   const [cancelTarget, setCancelTarget] = useState<any | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailRecord, setDetailRecord] = useState<any | null>(null);
-  const [showDeleted, setShowDeleted] = useState(false);
 
-  const visibleSubs = useMemo(
-    () => (subs || []).filter((s: any) => showDeleted || !isDeleted(s)),
-    [subs, showDeleted],
-  );
+  const visibleSubs = subs || [];
 
   const openCreate = () => { setEditPlan(null); setPlanDlgOpen(true); };
   const openEdit = (p: MembershipPlan) => {
