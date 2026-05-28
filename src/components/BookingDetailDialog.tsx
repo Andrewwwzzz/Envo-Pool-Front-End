@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,8 +9,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Clock, CreditCard, Download, Film, Sparkles } from "lucide-react";
+import { Copy, Check } from "lucide-react";
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime } from "@/lib/sgTime";
+import { usePricingRules } from "@/hooks/usePricing";
+import { calculateBookingPrice } from "@/lib/pricing";
 
 interface BookingData {
   id: string;
@@ -44,186 +46,224 @@ const statusBadge: Record<string, string> = {
 
 const paymentLabel: Record<string, string> = {
   wallet: "Wallet",
-  paynow: "Paynow",
-  stripe: "Paynow",
+  paynow: "PayNow",
+  stripe: "PayNow",
+  reward: "Reward",
+  booking_payment: "Wallet",
+  wallet_deduct: "Wallet",
 };
 
-const BookingDetailDialog = ({ booking, open, onOpenChange, onCancel, cancelling }: BookingDetailDialogProps) => {
-  const [downloadMode, setDownloadMode] = useState<"choose" | null>(null);
+const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialogProps) => {
+  const [copied, setCopied] = useState(false);
+  const { data: pricingRules } = usePricingRules();
+
+  const b = booking as any;
+  const startTime = b?.startTime || b?.start_time;
+  const endTime = b?.endTime || b?.end_time;
+
+  // Resolve table id for pricing lookup (hardware id or populated table object)
+  const tableIdForPricing = useMemo(() => {
+    if (!b) return "";
+    if (typeof b.tableId === "string") return b.tableId;
+    return b.tableId?._id || b.tableId?.id || b.tableId?.hardware_id || "";
+  }, [b]);
+
+  const segments = useMemo(() => {
+    if (!startTime || !endTime || !pricingRules) return [];
+    try {
+      const res = calculateBookingPrice(pricingRules, tableIdForPricing, new Date(startTime), new Date(endTime));
+      return res.segments;
+    } catch {
+      return [];
+    }
+  }, [pricingRules, tableIdForPricing, startTime, endTime]);
 
   if (!booking) return null;
 
-  const b = booking as any;
-  const startTime = b.startTime || b.start_time;
-  const endTime = b.endTime || b.end_time;
   const createdAt = b.createdAt || b.created_at;
-  // duration: calculate from startTime / endTime
-  const _start = (b as any).startTime || (b as any).start_time;
-  const _end = (b as any).endTime || (b as any).end_time;
-  const _mins = _start && _end ? Math.round((new Date(_end).getTime() - new Date(_start).getTime()) / 60000) : 0;
-  const _h = Math.floor(_mins / 60);
-  const _m = _mins % 60;
-  const durationDisplay = _mins > 0 ? (_m > 0 ? `${_h}h ${_m}m` : `${_h}h`) : null;
-  const finalPrice = b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0;
-  const tableLabel = typeof b.tableId === "string" ? `Table ${b.tableId.replace("T", "")}` : b.tableId?.name || `Table ${b.tables?.table_number || "?"}`;
-  const paymentMethodRaw = b.paymentMethod || b.payment_method || b.inferredPaymentMethod || (b.paymentStatus === "paid" ? "paynow" : null);
+  const mins = startTime && endTime ? Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000) : 0;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const durationDisplay = mins > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : null;
+
+  const finalPrice = Number(b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0);
+  const originalAmount = Number(
+    b.originalAmount ?? b.original_amount ?? b.subtotal ?? 0
+  );
+  const subtotal = originalAmount > 0 ? originalAmount : finalPrice;
+
+  const membershipDiscount = Number(b.membershipDiscount ?? b.membership_discount ?? 0);
+  const promoDiscount = Number(b.promoDiscount ?? b.discountAmount ?? b.discount_amount ?? 0);
+  const rewardDiscount = Number(b.rewardDiscount ?? b.reward_discount ?? 0);
+
+  const promoObj = b.appliedPromo || b.promo;
+  const promoCode =
+    (typeof promoObj === "object" && promoObj?.code) ||
+    b.promoCode ||
+    b.promo_code ||
+    null;
+  const rewardCode = b.rewardCode || b.reward_code || (typeof b.reward === "object" ? b.reward?.code : null) || null;
+  const membershipPct = Number(
+    b.membershipDiscountPct ??
+      b.membership_discount_pct ??
+      (subtotal > 0 && membershipDiscount > 0 ? (membershipDiscount / subtotal) * 100 : 0)
+  );
+
+  const tableLabel =
+    typeof b.tableId === "string"
+      ? `Table ${b.tableId.replace(/^T/i, "")}`
+      : b.tableId?.name || `Table ${b.tables?.table_number || b.tableId?.table_number || "?"}`;
+
+  const paymentMethodRaw =
+    b.paymentMethod || b.payment_method || b.inferredPaymentMethod || (b.paymentStatus === "paid" ? "paynow" : null);
+  const payment = paymentMethodRaw
+    ? paymentLabel[paymentMethodRaw] ?? paymentMethodRaw
+    : finalPrice === 0
+    ? "Reward"
+    : "N/A";
 
   const isCompleted = (booking.status === "confirmed" || booking.status === "completed") && new Date(endTime) < new Date();
   const displayStatus = isCompleted ? "completed" : booking.status;
   const statusLabel = displayStatus === "no_show" ? "No Show" : displayStatus;
-  const payment = paymentMethodRaw
-    ? paymentLabel[paymentMethodRaw] ?? (paymentMethodRaw === "booking_payment" || paymentMethodRaw === "wallet_deduct" ? "Wallet" : paymentMethodRaw)
-    : "N/A";
 
-  const handleDownload = (type: "paid" | "watermark") => {
-    // TODO: integrate with actual video storage/API
-    if (type === "paid") {
-      // Trigger paid download flow
-      console.log("Paid download for booking:", booking.id);
-    } else {
-      // Trigger watermarked download
-      console.log("Watermark download for booking:", booking.id);
-    }
-    setDownloadMode(null);
+  const bookingId = b._id || b.id || "";
+  const shortId = bookingId ? String(bookingId).slice(-8).toUpperCase() : "—";
+
+  const handleCopyId = async () => {
+    if (!bookingId) return;
+    try {
+      await navigator.clipboard.writeText(String(bookingId));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* noop */ }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); setDownloadMode(null); }}>
-      <DialogContent className="sm:max-w-md bg-card border-border">
-        <DialogHeader>
-          <DialogTitle className="text-lg gold-gradient">
-            {tableLabel} — Booking Details
-          </DialogTitle>
-          <DialogDescription className="sr-only">
-            Details for your booking on {tableLabel}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 pt-2">
-          {/* Status */}
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Status</span>
-            <Badge variant="outline" className={statusBadge[displayStatus] ?? ""}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md bg-card border-border p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-4 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <DialogTitle className="text-xl gold-gradient">{tableLabel}</DialogTitle>
+              <DialogDescription className="sr-only">
+                Receipt for booking on {tableLabel}
+              </DialogDescription>
+              <button
+                onClick={handleCopyId}
+                className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors font-mono"
+                aria-label="Copy booking ID"
+              >
+                #{shortId}
+                {copied ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+              </button>
+            </div>
+            <Badge variant="outline" className={`${statusBadge[displayStatus] ?? ""} capitalize`}>
               {statusLabel}
             </Badge>
           </div>
+        </DialogHeader>
 
-          <Separator className="bg-border/50" />
-
-          {/* Date */}
-          <div className="flex items-center gap-3">
-            <Calendar className="h-4 w-4 text-accent shrink-0" />
-            <div>
-              <p className="text-sm text-muted-foreground">Date</p>
-              <p className="font-medium">{fmtDate(startTime)}</p>
+        <div className="px-6 pb-6 space-y-4">
+          {/* Date & Time */}
+          <section className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Date</span>
+              <span className="font-medium">{startTime ? fmtDate(startTime) : "—"}</span>
             </div>
-          </div>
 
-          {/* Time */}
-          <div className="flex items-center gap-3">
-            <Clock className="h-4 w-4 text-accent shrink-0" />
-            <div>
-              <p className="text-sm text-muted-foreground">Time</p>
-              <p className="font-medium">
-                {fmtTime(startTime)} – {fmtTime(endTime)}
-                {durationDisplay && <span className="text-muted-foreground text-sm ml-2">({durationDisplay})</span>}
-              </p>
-            </div>
-          </div>
-
-          {/* Payment Method */}
-          <div className="flex items-center gap-3">
-            <CreditCard className="h-4 w-4 text-accent shrink-0" />
-            <div>
-              <p className="text-sm text-muted-foreground">Payment Method</p>
-              <p className="font-medium">{payment}</p>
-            </div>
-          </div>
-
-          {/* Price */}
-          <div className="flex items-center gap-3">
-            <span className="h-4 w-4 text-accent shrink-0 text-center font-bold text-sm">$</span>
-            <div>
-              <p className="text-sm text-muted-foreground">Amount Paid</p>
-              <p className="font-medium">${finalPrice.toFixed ? finalPrice.toFixed(2) : finalPrice}</p>
-            </div>
-          </div>
-
-          {/* Promo */}
-          {(() => {
-            const promoObj = (b as any).appliedPromo || (b as any).promo;
-            const promoCode =
-              (typeof promoObj === "object" && promoObj?.code) ||
-              (b as any).promoCode ||
-              (b as any).promo_code ||
-              null;
-            const discountAmount = Number((b as any).discountAmount ?? (b as any).discount_amount ?? 0);
-            if (!promoCode && !(discountAmount > 0)) return null;
-            return (
-              <div className="flex items-center gap-3">
-                <span className="h-4 w-4 text-accent shrink-0 text-center font-bold text-sm">%</span>
-                <div>
-                  <p className="text-sm text-muted-foreground">Promo Applied</p>
-                  <p className="font-medium">
-                    {promoCode || "Discount"}
-                    {discountAmount > 0 && (
-                      <span className="text-green-400 ml-2">−${discountAmount.toFixed(2)}</span>
+            <div className="rounded-lg border border-border/60 bg-background/40 p-3 space-y-1.5">
+              {segments.length > 1 ? (
+                segments.map((seg, i) => {
+                  const segMins = Math.round((seg.endTime.getTime() - seg.startTime.getTime()) / 60000);
+                  const sH = Math.floor(segMins / 60);
+                  const sM = segMins % 60;
+                  const dur = sM > 0 ? `${sH}h ${sM}m` : `${sH}h`;
+                  return (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground tabular-nums">
+                        {fmtTime(seg.startTime.toISOString())} – {fmtTime(seg.endTime.toISOString())}
+                        <span className="ml-2 text-xs opacity-70">@ ${seg.hourlyRate.toFixed(2)}/hr · {dur}</span>
+                      </span>
+                      <span className="font-medium tabular-nums">${seg.segmentCost.toFixed(2)}</span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground tabular-nums">
+                    {startTime ? fmtTime(startTime) : "—"} – {endTime ? fmtTime(endTime) : "—"}
+                    {durationDisplay && (
+                      <span className="ml-2 text-xs opacity-70">
+                        {segments[0] ? `@ $${segments[0].hourlyRate.toFixed(2)}/hr · ` : ""}{durationDisplay}
+                      </span>
                     )}
-                  </p>
+                  </span>
+                  <span className="font-medium tabular-nums">${subtotal.toFixed(2)}</span>
                 </div>
-              </div>
-            );
-          })()}
+              )}
+            </div>
+          </section>
 
           <Separator className="bg-border/50" />
 
-          {/* Order Created */}
-          <div className="flex items-center gap-3">
-            <Calendar className="h-4 w-4 text-accent shrink-0" />
-            <div>
-              <p className="text-sm text-muted-foreground">Order Created</p>
-              <p className="font-medium">{createdAt ? `${fmtDate(createdAt)} at ${fmtTime(createdAt)}` : "N/A"}</p>
+          {/* Pricing breakdown */}
+          <section className="space-y-1.5 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-medium tabular-nums">${subtotal.toFixed(2)}</span>
             </div>
-          </div>
+
+            {membershipDiscount > 0 && (
+              <div className="flex items-center justify-between text-primary">
+                <span>
+                  Membership discount
+                  {membershipPct > 0 && ` (${Math.round(membershipPct)}% off)`}
+                </span>
+                <span className="tabular-nums">−${membershipDiscount.toFixed(2)}</span>
+              </div>
+            )}
+
+            {promoDiscount > 0 && (
+              <div className="flex items-center justify-between text-primary">
+                <span>Promo code{promoCode ? ` (${promoCode})` : ""}</span>
+                <span className="tabular-nums">−${promoDiscount.toFixed(2)}</span>
+              </div>
+            )}
+
+            {rewardDiscount > 0 && (
+              <div className="flex items-center justify-between text-accent">
+                <span>Reward{rewardCode ? ` (${rewardCode})` : ""}</span>
+                <span className="tabular-nums">−${rewardDiscount.toFixed(2)}</span>
+              </div>
+            )}
+
+            <Separator className="bg-border/50 my-2" />
+
+            <div className="flex items-center justify-between text-base font-bold">
+              <span>Total Paid</span>
+              <span className="gold-gradient tabular-nums">${finalPrice.toFixed(2)}</span>
+            </div>
+          </section>
 
           <Separator className="bg-border/50" />
 
-
-          {/* Video Download */}
-          {downloadMode === "choose" ? (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Choose download option:</p>
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  variant="outline"
-                  className="flex flex-col items-center gap-1.5 h-auto py-4 border-primary/30 hover:bg-primary/10 hover:border-primary"
-                  onClick={() => handleDownload("paid")}
-                >
-                  <Sparkles className="h-5 w-5 text-primary" />
-                  <span className="text-xs font-semibold">Premium</span>
-                  <span className="text-[10px] text-muted-foreground">No watermark</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex flex-col items-center gap-1.5 h-auto py-4 border-border hover:bg-muted"
-                  onClick={() => handleDownload("watermark")}
-                >
-                  <Film className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-xs font-semibold">Free</span>
-                  <span className="text-[10px] text-muted-foreground">With watermark</span>
-                </Button>
-              </div>
+          {/* Payment */}
+          <section className="space-y-1.5 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Payment Method</span>
+              <span className="font-medium">{payment}</span>
             </div>
-          ) : (
-            <Button
-              className="w-full"
-              variant="outline"
-              onClick={() => setDownloadMode("choose")}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download Video
-            </Button>
-          )}
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Amount Paid</span>
+              <span className="font-medium tabular-nums">${finalPrice.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Booked at</span>
+              <span className="font-medium">
+                {createdAt ? `${fmtDate(createdAt)} at ${fmtTime(createdAt)}` : "—"}
+              </span>
+            </div>
+          </section>
         </div>
       </DialogContent>
     </Dialog>
