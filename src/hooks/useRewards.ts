@@ -36,6 +36,19 @@ export function useAdminRewards(userId?: string) {
   });
 }
 
+export function useAllAdminRewards() {
+  return useQuery({
+    queryKey: ["admin-rewards", "all"],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/rewards/admin`);
+      if (!res.ok) throw new Error("Failed to fetch rewards");
+      const data = await res.json();
+      return (Array.isArray(data) ? data : (data?.rewards ?? [])) as any[];
+    },
+    refetchOnWindowFocus: false,
+  });
+}
+
 export function useIssueReward() {
   const queryClient = useQueryClient();
   const { toast } = useToast();

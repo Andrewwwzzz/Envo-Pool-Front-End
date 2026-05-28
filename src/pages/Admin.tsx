@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import AdminBookingDetailDialog from "@/components/admin/AdminBookingDetailDialog";
 import CustomerRewardsSection from "@/components/admin/CustomerRewardsSection";
+import RewardsTab from "@/components/admin/RewardsTab";
 import { useDeviceState, useDeviceControl } from "@/hooks/useDeviceControl";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG, sgSlotToUTC, getSGDateStr } from "@/lib/sgTime";
 
@@ -50,10 +51,18 @@ const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
+  const [tab, setTab] = useState("overview");
+  const [pendingCustomerEmail, setPendingCustomerEmail] = useState<string | null>(null);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
   if (!user.isAdmin) return <Navigate to="/booking" replace />;
+
+  const goToCustomer = (info: { email: string }) => {
+    if (!info.email) return;
+    setPendingCustomerEmail(info.email);
+    setTab("customers");
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -66,7 +75,7 @@ const Admin = () => {
       </header>
 
       <main className="mx-auto max-w-6xl p-4 sm:p-6">
-        <Tabs defaultValue="overview" className="space-y-6">
+        <Tabs value={tab} onValueChange={setTab} className="space-y-6">
           <TabsList className="flex-wrap">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="bookings">Bookings</TabsTrigger>
@@ -74,6 +83,7 @@ const Admin = () => {
             <TabsTrigger value="invoices">Invoices</TabsTrigger>
             <TopUpsTabTrigger />
             <TabsTrigger value="customers">Customers</TabsTrigger>
+            <TabsTrigger value="rewards">Rewards</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="promos">Promos</TabsTrigger>
             
@@ -86,7 +96,13 @@ const Admin = () => {
           <TabsContent value="tables"><TablesTab /></TabsContent>
           <TabsContent value="invoices"><InvoicesTab /></TabsContent>
           <TabsContent value="topups"><TopUpsTab /></TabsContent>
-          <TabsContent value="customers"><CustomersTab /></TabsContent>
+          <TabsContent value="customers">
+            <CustomersTab
+              pendingEmail={pendingCustomerEmail}
+              onPendingHandled={() => setPendingCustomerEmail(null)}
+            />
+          </TabsContent>
+          <TabsContent value="rewards"><RewardsTab onCustomerClick={goToCustomer} /></TabsContent>
           <TabsContent value="pricing"><PricingTab /></TabsContent>
           <TabsContent value="promos"><PromosTab /></TabsContent>
           
@@ -1183,7 +1199,13 @@ function InvoicesTab() {
   );
 }
 
-function CustomersTab() {
+function CustomersTab({
+  pendingEmail,
+  onPendingHandled,
+}: {
+  pendingEmail?: string | null;
+  onPendingHandled?: () => void;
+} = {}) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const { data: customers, isLoading } = useAdminCustomers(debouncedSearch);
@@ -1194,9 +1216,31 @@ function CustomersTab() {
     return () => clearTimeout(t);
   }, [search]);
 
+  // Handle incoming pending customer email (e.g. from Rewards tab)
+  useEffect(() => {
+    if (pendingEmail) {
+      setSearch(pendingEmail);
+      setDebouncedSearch(pendingEmail);
+      setSelectedCustomer(null);
+    }
+  }, [pendingEmail]);
+
+  useEffect(() => {
+    if (pendingEmail && customers && customers.length) {
+      const match = customers.find((c: any) =>
+        (c.email || "").toLowerCase() === pendingEmail.toLowerCase()
+      );
+      if (match) {
+        setSelectedCustomer(match);
+        onPendingHandled?.();
+      }
+    }
+  }, [pendingEmail, customers, onPendingHandled]);
+
   if (selectedCustomer) {
     return <CustomerDetail customer={selectedCustomer} onBack={() => setSelectedCustomer(null)} />;
   }
+
 
   return (
     <Card>
