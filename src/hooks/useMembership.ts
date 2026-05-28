@@ -174,6 +174,25 @@ export function useSubscribeMembership() {
   });
 }
 
+export function useRenewMembership() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const r = await apiFetch("/api/membership/renew", { method: "POST" });
+      const text = await r.text();
+      let body: any = null;
+      try { body = text ? JSON.parse(text) : null; } catch { body = { message: text }; }
+      if (!r.ok) throw new Error(body?.message || body?.error || text || `${r.status}`);
+      return body;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["membership", "my"] });
+      qc.invalidateQueries({ queryKey: ["profile"] });
+      qc.invalidateQueries({ queryKey: ["lockers"] });
+    },
+  });
+}
+
 export function useAssignMembershipLocker() {
   const qc = useQueryClient();
   return useMutation({
