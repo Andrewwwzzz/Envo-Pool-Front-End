@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pencil, Trash2, Plus, XCircle, Loader2, KeyRound } from "lucide-react";
+import { Pencil, Trash2, Plus, XCircle, Loader2, KeyRound, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useMembershipPlans,
@@ -19,6 +19,7 @@ import {
   useAdminSubscriptions,
   useAssignMembership,
   useCancelMembership,
+  useDeleteMembership,
   useAssignMembershipLocker,
   useUpdateLockerPin,
   type MembershipPlan,
@@ -27,6 +28,8 @@ import { useAvailableLockers } from "@/hooks/useLockers";
 
 import { useAdminCustomers } from "@/hooks/useAdmin";
 import { fmtDateSG } from "@/lib/sgTime";
+import ReasonDialog from "./ReasonDialog";
+import DeletedBanner, { getDeletedInfo, isDeleted, isCancelled } from "./DeletedBanner";
 
 type PlanForm = {
   name: string;
