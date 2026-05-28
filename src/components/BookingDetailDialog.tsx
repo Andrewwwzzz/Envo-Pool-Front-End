@@ -75,8 +75,8 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
         return {
           startTime: new Date(sStart),
           endTime: new Date(sEnd),
-          hourlyRate: Number(s.hourlyRate ?? s.hourly_rate ?? s.rate ?? 0),
-          segmentCost: Number(s.segmentCost ?? s.segment_cost ?? s.cost ?? s.amount ?? 0),
+          hourlyRate: Number(s.ratePerHour ?? s.rate_per_hour ?? s.hourlyRate ?? s.hourly_rate ?? s.rate ?? 0),
+          segmentCost: Number(s.amount ?? s.segmentCost ?? s.segment_cost ?? s.cost ?? 0),
         };
       })
       .filter(Boolean) as Array<{ startTime: Date; endTime: Date; hourlyRate: number; segmentCost: number }>;
@@ -190,7 +190,7 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
             </div>
 
             <div className="rounded-lg border border-border/60 bg-background/40 p-3 space-y-1.5">
-              {segments.length > 1 ? (
+              {segments.length >= 1 ? (
                 segments.map((seg, i) => {
                   const segMins = Math.round((seg.endTime.getTime() - seg.startTime.getTime()) / 60000);
                   const sH = Math.floor(segMins / 60);
