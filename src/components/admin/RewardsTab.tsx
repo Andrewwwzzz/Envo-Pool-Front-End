@@ -99,6 +99,7 @@ export default function RewardsTab({
   const { data: rewards, isLoading } = useAllAdminRewards();
   const deleteReward = useDeleteReward();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
 
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
