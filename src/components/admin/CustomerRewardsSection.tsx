@@ -155,6 +155,9 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
                     <td className="py-2 pr-4">{fmtDateSG(r.createdAt || r.created_at)}</td>
                     <td className="py-2">
                       {(() => {
+                        if (r.unlimited) {
+                          return <Badge>Unlimited uses</Badge>;
+                        }
                         const allowed = Number(r.usesAllowed);
                         const remaining = Number(r.usesRemaining);
                         const isMulti = Number.isFinite(allowed) && allowed > 1;
