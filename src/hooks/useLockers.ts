@@ -30,6 +30,16 @@ export function useLockerUnits(includeDeleted: boolean = true) {
   });
 }
 
+export function useLockerRentals() {
+  return useQuery<any[]>({
+    queryKey: ["lockers", "rentals"],
+    queryFn: async () => {
+      const j = await getJson("/api/lockers/rentals?includeAll=1");
+      return Array.isArray(j) ? j : j.rentals ?? [];
+    },
+  });
+}
+
 export function useAvailableLockers() {
   return useQuery<LockerUnit[]>({
     queryKey: ["lockers", "available"],
