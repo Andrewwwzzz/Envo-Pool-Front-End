@@ -117,6 +117,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
                   <th className="pb-2 pr-4">Description</th>
                   <th className="pb-2 pr-4">Issued</th>
                   <th className="pb-2">Status</th>
+                  <th className="pb-2"></th>
                 </tr>
               </thead>
               <tbody>
