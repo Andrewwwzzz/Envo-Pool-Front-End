@@ -36,11 +36,11 @@ export function useAdminRewards(userId?: string) {
   });
 }
 
-export function useAllAdminRewards() {
+export function useAllAdminRewards(includeDeleted: boolean = true) {
   return useQuery({
-    queryKey: ["admin-rewards", "all"],
+    queryKey: ["admin-rewards", "all", { includeDeleted }],
     queryFn: async () => {
-      const res = await apiFetch(`/api/rewards/admin`);
+      const res = await apiFetch(`/api/rewards/admin${includeDeleted ? "?includeDeleted=1" : ""}`);
       if (!res.ok) throw new Error("Failed to fetch rewards");
       const data = await res.json();
       return (Array.isArray(data) ? data : (data?.rewards ?? [])) as any[];
@@ -85,10 +85,10 @@ export function useDeleteReward() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async ({ id, reason }: { id: string; userId?: string; reason?: string }) => {
+    mutationFn: async ({ id, reason }: { id: string; userId?: string; reason: string }) => {
       const res = await apiFetch(`/api/rewards/${id}`, {
         method: "DELETE",
-        body: JSON.stringify({ reason: reason || "" }),
+        body: JSON.stringify({ reason }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || data.message || "Failed to delete reward");
@@ -96,7 +96,8 @@ export function useDeleteReward() {
     },
     onSuccess: (_d, vars) => {
       toast({ title: "Reward deleted" });
-      queryClient.invalidateQueries({ queryKey: ["admin-rewards", vars.userId] });
+      queryClient.invalidateQueries({ queryKey: ["admin-rewards"] });
+      if (vars.userId) queryClient.invalidateQueries({ queryKey: ["admin-rewards", vars.userId] });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
