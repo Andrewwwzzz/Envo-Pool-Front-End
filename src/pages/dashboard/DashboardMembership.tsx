@@ -123,8 +123,17 @@ function MembershipCard({
   const isCancelled = status === "cancelled";
   const isExpired = status === "expired" || (isCancelled && endDatePassed);
 
-  const statusBadgeVariant: "default" | "secondary" | "destructive" =
-    isActive && !isExpired ? "default" : isCancelled && !isExpired ? "secondary" : "destructive";
+  const cancelledActive = isCancelled && !endDatePassed;
+
+  const badgeClass =
+    cancelledActive
+      ? "ml-2 bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-500/40 hover:bg-yellow-500/20"
+      : "ml-2";
+  const statusBadgeVariant: "default" | "secondary" | "destructive" = isActive && !isExpired
+    ? "default"
+    : cancelledActive
+    ? "secondary"
+    : "destructive";
   const statusLabel = isExpired ? "Expired" : isCancelled ? "Cancelled" : "Active";
   const canCancel = isActive && !isExpired;
   const showRenew = isExpired;
@@ -147,7 +156,7 @@ function MembershipCard({
         <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
           <Crown className="h-5 w-5 text-accent" />
           {plan?.name || "Membership"}
-          <Badge variant={statusBadgeVariant} className="ml-2">{statusLabel}</Badge>
+          <Badge variant={statusBadgeVariant} className={badgeClass}>{statusLabel}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
@@ -158,12 +167,12 @@ function MembershipCard({
           </div>
           <div>
             <div className="text-xs text-muted-foreground">
-              {isExpired ? "Ended" : isCancelled ? "Active Until" : "Renewal Date"}
+              {isExpired ? "Ended" : cancelledActive ? "Active Until" : "Renewal Date"}
             </div>
-            <div className="font-medium">
+            <div className={`font-medium ${cancelledActive ? "text-yellow-600 dark:text-yellow-400" : ""}`}>
               {isExpired && endDate
                 ? fmtDateSG(endDate)
-                : isCancelled && endDate
+                : cancelledActive && endDate
                 ? `Active until ${fmtDateSG(endDate)}`
                 : membership?.renewalDate
                 ? `Renews ${fmtDateSG(membership.renewalDate)}`
@@ -171,6 +180,12 @@ function MembershipCard({
             </div>
           </div>
         </div>
+
+        {cancelledActive && endDate && (
+          <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-300">
+            Your membership will not renew. Benefits remain until {fmtDateSG(endDate)}.
+          </div>
+        )}
 
         <div className="space-y-2">
           <div className="text-xs uppercase tracking-wide text-muted-foreground">Benefits</div>
@@ -316,13 +331,17 @@ export default function DashboardMembership() {
     const endDate = m?.endDate ?? m?.cancelledUntil ?? m?.renewalDate;
     const endPassed = endDate ? new Date(endDate).getTime() < Date.now() : false;
     if (status === "expired") return "expired";
-    if (status === "cancelled") return endPassed ? "expired" : "cancelled";
+    if (status === "cancelled") return endPassed ? "hidden" : "cancelled_active";
     if (status === "active" || m?.active) return "active";
     return status || "unknown";
   };
-  const activeMemberships = memberships.filter((m: any) => classify(m) === "active");
+  // "active" + "cancelled_active" both render via MembershipCard (full card).
+  const activeMemberships = memberships.filter((m: any) => {
+    const c = classify(m);
+    return c === "active" || c === "cancelled_active";
+  });
   const expiredMemberships = memberships.filter((m: any) => classify(m) === "expired");
-  // Cancelled (not yet ended) memberships are intentionally hidden per requirements.
+  // Cancelled memberships whose endDate has passed are intentionally hidden.
 
   const getPlanObj = (m: any) =>
     (m?.planId && typeof m.planId === "object" ? m.planId : null) || m?.plan || null;
