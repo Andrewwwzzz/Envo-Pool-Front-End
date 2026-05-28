@@ -311,8 +311,13 @@ export default function DashboardMembership() {
   };
 
   const lockerRentals = memberships
-    .map((m: any) => m?.lockerRentalId)
-    .filter((lr: any) => lr && typeof lr === "object" && (lr._id || lr.id));
+    .filter((m: any) => {
+      const planObj = (m?.planId && typeof m.planId === "object" ? m.planId : null) || m?.plan || m;
+      const lockerIncluded = Boolean(planObj?.benefits?.lockerIncluded ?? planObj?.lockerIncluded);
+      const lr = m?.lockerRentalId;
+      return lockerIncluded && lr && typeof lr === "object" && (lr._id || lr.id);
+    })
+    .map((m: any) => m.lockerRentalId);
 
   const cancelTargetEnd =
     cancelTarget?.endDate ?? cancelTarget?.cancelledUntil ?? cancelTarget?.renewalDate;
