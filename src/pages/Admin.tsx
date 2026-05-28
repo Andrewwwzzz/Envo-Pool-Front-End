@@ -516,6 +516,11 @@ function BookingsTab() {
       booking={selectedBooking}
       open={!!selectedBooking}
       onOpenChange={(open) => { if (!open) setSelectedBooking(null); }}
+      onCancel={(bookingId) => {
+        setCancelTargetId(bookingId);
+        setCancelReason("");
+        setSelectedBooking(null);
+      }}
     />
 
     <Dialog open={!!cancelTargetId} onOpenChange={(o) => { if (!o) { setCancelTargetId(null); setCancelReason(""); } }}>
