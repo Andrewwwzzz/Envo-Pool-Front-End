@@ -104,12 +104,18 @@ function MembershipCard({
   onRenew: (m: any) => void;
 }) {
   const status: string = String(membership?.status ?? (membership?.active ? "active" : "")).toLowerCase();
-  const plan = membership?.plan || membership;
+  // Plan data: prefer populated planId, fallback to plan or membership itself for backwards compatibility
+  const plan =
+    (membership?.planId && typeof membership.planId === "object" ? membership.planId : null) ||
+    membership?.plan ||
+    membership;
   const benefitsObj = (plan?.benefits ?? {}) as any;
-  const bookingDiscount = benefitsObj.bookingDiscount ?? plan?.bookingDiscountPct ?? 0;
-  const freeMinutesPerVisit = benefitsObj.freeMinutesPerVisit ?? plan?.freeMinutesPerVisit ?? 0;
-  const freeDrinkPerVisit = benefitsObj.freeDrinkPerVisit ?? plan?.freeDrinkPerVisit ?? false;
-  const lockerIncluded = benefitsObj.lockerIncluded ?? plan?.lockerIncluded ?? false;
+  const bookingDiscount = Number(benefitsObj.bookingDiscount ?? plan?.bookingDiscountPct ?? 0);
+  const freeMinutesPerVisit = Number(benefitsObj.freeMinutesPerVisit ?? plan?.freeMinutesPerVisit ?? 0);
+  const freeDrinkPerVisit = Boolean(benefitsObj.freeDrinkPerVisit ?? plan?.freeDrinkPerVisit ?? false);
+  const lockerIncluded = Boolean(benefitsObj.lockerIncluded ?? plan?.lockerIncluded ?? false);
+  const hasAnyBenefit =
+    bookingDiscount > 0 || freeMinutesPerVisit > 0 || freeDrinkPerVisit || lockerIncluded;
 
   const endDate = membership?.endDate ?? membership?.cancelledUntil ?? membership?.renewalDate;
   const endDatePassed = endDate ? new Date(endDate).getTime() < Date.now() : false;
@@ -148,7 +154,7 @@ function MembershipCard({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <div className="text-xs text-muted-foreground">Price</div>
-            <div className="font-medium">${plan?.price ?? 0} / {plan?.billingCycle ?? "monthly"}</div>
+            <div className="font-medium">${planPrice} / {planCycle}</div>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">
