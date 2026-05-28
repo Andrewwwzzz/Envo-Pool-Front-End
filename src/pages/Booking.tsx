@@ -257,7 +257,7 @@ const Booking = () => {
     setRewardCodeInput("");
   };
 
-  const isFreeReward = appliedReward?.type === "free_session";
+  const isFreeReward = !!appliedReward && finalPrice === 0;
   const canBook =
     startDate &&
     endDate &&
