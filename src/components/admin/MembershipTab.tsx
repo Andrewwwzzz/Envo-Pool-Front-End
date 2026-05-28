@@ -402,7 +402,7 @@ export default function MembershipTab() {
                         <TableCell>
                           <Badge variant={s.status === "active" ? "default" : "secondary"} className="capitalize">{s.status || "—"}</Badge>
                         </TableCell>
-                        <TableCell>{s.lockerNumber ? `#${s.lockerNumber}` : "—"}</TableCell>
+                        <TableCell><LockerCell sub={s} /></TableCell>
                         <TableCell>
                           <Button variant="ghost" size="sm" onClick={() => cancelSub(s)}>
                             <XCircle className="h-4 w-4" /> Cancel
