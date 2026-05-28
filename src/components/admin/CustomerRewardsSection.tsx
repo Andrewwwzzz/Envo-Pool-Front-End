@@ -56,6 +56,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
 
   const reset = () => {
     setType("free_session"); setValue("1"); setDescription(""); setReason("reviews"); setOtherReason(""); setExpiresAt("");
+    setQty("1"); setMultiUse(false);
   };
 
   const submit = async () => {
@@ -67,12 +68,15 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
       toast({ title: "Please specify the reason", variant: "destructive" });
       return;
     }
+    const qtyNum = Math.max(1, Math.min(20, parseInt(qty) || 1));
     const payload: any = {
       userId,
       type,
       description: description.trim(),
       reason: reason === "other" ? otherReason.trim() : reason,
       expiresAt: expiresAt || null,
+      qty: qtyNum,
+      multiUse: qtyNum > 1 ? multiUse : false,
     };
     if (type !== "free_item") {
       const v = parseFloat(value);
@@ -83,11 +87,14 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
       payload.value = v;
     }
     try {
-      const result = await issueReward.mutateAsync(payload);
-      const code = (result as any).code || (result as any).reward?.code;
+      const result: any = await issueReward.mutateAsync(payload);
       setOpen(false);
       reset();
-      if (code) setIssuedCode(code);
+      const codes: string[] = Array.isArray(result?.codes) && result.codes.length
+        ? result.codes
+        : (result?.rewards?.map((r: any) => r.code).filter(Boolean) ||
+           (result?.code ? [result.code] : (result?.reward?.code ? [result.reward.code] : [])));
+      if (codes.length) setIssuedCodes(codes);
       else toast({ title: "Reward issued" });
     } catch {}
   };
