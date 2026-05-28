@@ -48,7 +48,6 @@ export function useIssueReward() {
       reason: RewardReason | string;
       expiresAt?: string | null;
       qty?: number;
-      qty?: number;
       multiUse?: boolean;
       unlimited?: boolean;
     }) => {
