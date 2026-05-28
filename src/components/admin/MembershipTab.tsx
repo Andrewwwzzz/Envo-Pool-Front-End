@@ -302,8 +302,10 @@ export default function MembershipTab() {
   };
 
   const cancelSub = async (s: any) => {
+    const id = s._id ?? s.id;
+    if (!id) { toast({ title: "Membership ID missing", variant: "destructive" }); return; }
     if (!confirm("Cancel this subscription?")) return;
-    try { await cancel.mutateAsync(s.id); toast({ title: "Subscription cancelled" }); }
+    try { await cancel.mutateAsync(id); toast({ title: "Subscription cancelled" }); }
     catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
   };
 
