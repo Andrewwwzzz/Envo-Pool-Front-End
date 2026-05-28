@@ -310,9 +310,36 @@ export default function DashboardMembership() {
     }
   };
 
-  const lockerRentals = memberships
+  // Classify memberships by status
+  const classify = (m: any) => {
+    const status = String(m?.status ?? (m?.active ? "active" : "")).toLowerCase();
+    const endDate = m?.endDate ?? m?.cancelledUntil ?? m?.renewalDate;
+    const endPassed = endDate ? new Date(endDate).getTime() < Date.now() : false;
+    if (status === "expired") return "expired";
+    if (status === "cancelled") return endPassed ? "expired" : "cancelled";
+    if (status === "active" || m?.active) return "active";
+    return status || "unknown";
+  };
+  const activeMemberships = memberships.filter((m: any) => classify(m) === "active");
+  const expiredMemberships = memberships.filter((m: any) => classify(m) === "expired");
+  // Cancelled (not yet ended) memberships are intentionally hidden per requirements.
+
+  const getPlanObj = (m: any) =>
+    (m?.planId && typeof m.planId === "object" ? m.planId : null) || m?.plan || null;
+  const getPlanIdStr = (m: any) => {
+    const p = getPlanObj(m);
+    if (p?._id) return String(p._id);
+    if (p?.id) return String(p.id);
+    if (typeof m?.planId === "string") return m.planId;
+    return null;
+  };
+  const activePlanIds = new Set(
+    activeMemberships.map(getPlanIdStr).filter(Boolean) as string[]
+  );
+
+  const lockerRentals = activeMemberships
     .filter((m: any) => {
-      const planObj = (m?.planId && typeof m.planId === "object" ? m.planId : null) || m?.plan || m;
+      const planObj = getPlanObj(m) || m;
       const lockerIncluded = Boolean(planObj?.benefits?.lockerIncluded ?? planObj?.lockerIncluded);
       const lr = m?.lockerRentalId;
       return lockerIncluded && lr && typeof lr === "object" && (lr._id || lr.id);
@@ -321,12 +348,83 @@ export default function DashboardMembership() {
 
   const cancelTargetEnd =
     cancelTarget?.endDate ?? cancelTarget?.cancelledUntil ?? cancelTarget?.renewalDate;
-  const renewTargetPlan = renewTarget?.plan || renewTarget;
+  const renewTargetPlan = getPlanObj(renewTarget) || renewTarget;
   const renewTargetPrice = Number(renewTargetPlan?.price ?? 0);
 
-  if (memberships.length === 0) {
+  const renderPlansGrid = () => {
+    if (!plans.length) return null;
     return (
-      <div className="space-y-6">
+      <TooltipProvider>
+        <div className="space-y-2">
+          {activeMemberships.length > 0 && (
+            <h3 className="text-sm font-semibold text-muted-foreground">Available Plans</h3>
+          )}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {plans.map((p) => {
+              const price = Number(p.price ?? 0);
+              const canAfford = walletBalance >= price;
+              const planId = String((p as any).id ?? (p as any)._id ?? "");
+              const alreadySubscribed = activePlanIds.has(planId);
+              const btn = alreadySubscribed ? (
+                <Badge variant="secondary" className="w-full justify-center py-2">
+                  Already subscribed
+                </Badge>
+              ) : (
+                <Button
+                  className="w-full"
+                  disabled={!canAfford || subscribe.isPending}
+                  onClick={() => setConfirmPlan(p)}
+                >
+                  Subscribe
+                </Button>
+              );
+              return (
+                <Card key={planId}>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center justify-between">
+                      <span>{p.name}</span>
+                      <span className="text-sm font-normal text-muted-foreground">
+                        ${p.price}/{p.billingCycle}
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    {p.description && <p className="text-muted-foreground">{p.description}</p>}
+                    <div className="flex flex-wrap gap-1">
+                      {!!p.bookingDiscountPct && (
+                        <Badge variant="secondary">{p.bookingDiscountPct}% off</Badge>
+                      )}
+                      {!!p.freeMinutesPerVisit && (
+                        <Badge variant="secondary">{p.freeMinutesPerVisit}m free</Badge>
+                      )}
+                      {p.freeDrinkPerVisit && <Badge variant="secondary">Free drink</Badge>}
+                      {p.lockerIncluded && <Badge variant="secondary">Locker</Badge>}
+                    </div>
+                    {alreadySubscribed || canAfford ? (
+                      btn
+                    ) : (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="block w-full">{btn}</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Insufficient wallet balance — top up first
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      </TooltipProvider>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {activeMemberships.length === 0 && expiredMemberships.length === 0 && (
         <Card className="card-premium">
           <CardContent className="py-12 flex flex-col items-center text-center space-y-4">
             <div className="relative">
@@ -347,122 +445,102 @@ export default function DashboardMembership() {
             </div>
           </CardContent>
         </Card>
+      )}
 
-        {plans.length > 0 && (
-          <TooltipProvider>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {plans.map((p) => {
-                const price = Number(p.price ?? 0);
-                const canAfford = walletBalance >= price;
-                const btn = (
-                  <Button
-                    className="w-full"
-                    disabled={!canAfford || subscribe.isPending}
-                    onClick={() => setConfirmPlan(p)}
-                  >
-                    Subscribe
-                  </Button>
-                );
-                return (
-                  <Card key={(p as any).id ?? (p as any)._id}>
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center justify-between">
-                        <span>{p.name}</span>
-                        <span className="text-sm font-normal text-muted-foreground">
-                          ${p.price}/{p.billingCycle}
-                        </span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3 text-sm">
-                      {p.description && <p className="text-muted-foreground">{p.description}</p>}
-                      <div className="flex flex-wrap gap-1">
-                        {!!p.bookingDiscountPct && (
-                          <Badge variant="secondary">{p.bookingDiscountPct}% off</Badge>
-                        )}
-                        {!!p.freeMinutesPerVisit && (
-                          <Badge variant="secondary">{p.freeMinutesPerVisit}m free</Badge>
-                        )}
-                        {p.freeDrinkPerVisit && <Badge variant="secondary">Free drink</Badge>}
-                        {p.lockerIncluded && <Badge variant="secondary">Locker</Badge>}
-                      </div>
-                      {canAfford ? (
-                        btn
-                      ) : (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="block w-full">{btn}</span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            Insufficient wallet balance — top up first
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
+      {activeMemberships.length > 0 && (
+        <Card>
+          <CardContent className="py-4 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm">
+              <PiggyBank className="h-5 w-5 text-accent" />
+              <span className="text-muted-foreground">Total Saved</span>
             </div>
-          </TooltipProvider>
-        )}
+            <span className="text-2xl font-semibold">${totalSaved.toFixed(2)}</span>
+          </CardContent>
+        </Card>
+      )}
 
-        <AlertDialog open={!!confirmPlan} onOpenChange={(o) => !o && setConfirmPlan(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Subscribe to {confirmPlan?.name}?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Subscribe to {confirmPlan?.name} for $
-                {Number(confirmPlan?.price ?? 0).toFixed(2)}/
-                {confirmPlan?.billingCycle ?? "month"}? This will deduct $
-                {Number(confirmPlan?.price ?? 0).toFixed(2)} from your wallet (current balance: $
-                {walletBalance.toFixed(2)}).
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={subscribe.isPending}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleConfirmSubscribe();
-                }}
-                disabled={subscribe.isPending}
-              >
-                {subscribe.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                Confirm
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
-    );
-  }
+      {activeMemberships.length > 0 && (
+        <div className="space-y-4">
+          {activeMemberships.map((m: any) => (
+            <MembershipCard
+              key={getMembershipId(m) ?? Math.random()}
+              membership={m}
+              walletBalance={walletBalance}
+              onCancel={setCancelTarget}
+              onRenew={setRenewTarget}
+            />
+          ))}
+        </div>
+      )}
 
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardContent className="py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm">
-            <PiggyBank className="h-5 w-5 text-accent" />
-            <span className="text-muted-foreground">Total Saved</span>
-          </div>
-          <span className="text-2xl font-semibold">${totalSaved.toFixed(2)}</span>
-        </CardContent>
-      </Card>
-
-      <div className="space-y-4">
-        {memberships.map((m: any) => (
-          <MembershipCard
-            key={getMembershipId(m) ?? Math.random()}
-            membership={m}
-            walletBalance={walletBalance}
-            onCancel={setCancelTarget}
-            onRenew={setRenewTarget}
-          />
-        ))}
-      </div>
+      {expiredMemberships.length > 0 && (
+        <div className="space-y-3">
+          {expiredMemberships.map((m: any) => {
+            const planObj = getPlanObj(m) || m;
+            const endDate = m?.endDate ?? m?.renewalDate;
+            const price = Number(planObj?.price ?? 0);
+            const cycle = planObj?.billingCycle ?? "monthly";
+            const canAfford = walletBalance >= price;
+            return (
+              <Card key={getMembershipId(m) ?? Math.random()} className="opacity-80">
+                <CardContent className="py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Crown className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">{planObj?.name || "Membership"}</span>
+                      <Badge variant="destructive">Expired</Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Expired on {endDate ? fmtDateSG(endDate) : "—"}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={!canAfford || renewMine.isPending}
+                    onClick={() => setRenewTarget(m)}
+                  >
+                    Renew for ${price}/{cycle}
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {lockerRentals.map((lr: any, i: number) => (
         <LockerCard key={lr._id ?? lr.id ?? i} lockerRental={lr} />
       ))}
+
+      {renderPlansGrid()}
+
+      <AlertDialog open={!!confirmPlan} onOpenChange={(o) => !o && setConfirmPlan(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Subscribe to {confirmPlan?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Subscribe to {confirmPlan?.name} for $
+              {Number(confirmPlan?.price ?? 0).toFixed(2)}/
+              {confirmPlan?.billingCycle ?? "month"}? This will deduct $
+              {Number(confirmPlan?.price ?? 0).toFixed(2)} from your wallet (current balance: $
+              {walletBalance.toFixed(2)}).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={subscribe.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmSubscribe();
+              }}
+              disabled={subscribe.isPending}
+            >
+              {subscribe.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!cancelTarget} onOpenChange={(o) => !o && setCancelTarget(null)}>
         <AlertDialogContent>
