@@ -80,6 +80,15 @@ export default function DashboardMembership() {
     }
   };
 
+  const handleRenew = async () => {
+    try {
+      await renewMine.mutateAsync();
+      toast.success("Membership renewed!");
+      setConfirmRenew(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to renew membership");
+    }
+  };
 
   const handleConfirmSubscribe = async () => {
     if (!confirmPlan) return;
@@ -97,7 +106,7 @@ export default function DashboardMembership() {
     }
   };
 
-  if (!active) {
+  if (!membership) {
     return (
       <div className="space-y-6">
         <Card className="card-premium">
