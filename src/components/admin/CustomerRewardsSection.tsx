@@ -37,6 +37,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const issueReward = useIssueReward();
   const deleteReward = useDeleteReward();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
 
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<RewardType>("free_session");
