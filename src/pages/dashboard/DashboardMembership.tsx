@@ -21,6 +21,7 @@ import {
   useMembershipPlans,
   useSubscribeMembership,
   useCancelMyMembership,
+  useRenewMembership,
   type MembershipPlan,
 } from "@/hooks/useMembership";
 import { useMyLocker } from "@/hooks/useLockers";
