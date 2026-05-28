@@ -79,11 +79,11 @@ export function useDeleteMembershipPlan() {
   });
 }
 
-export function useAdminSubscriptions() {
+export function useAdminSubscriptions(includeDeleted: boolean = true) {
   return useQuery<any[]>({
-    queryKey: ["membership", "subscriptions"],
+    queryKey: ["membership", "subscriptions", { includeDeleted }],
     queryFn: async () => {
-      const j = await getJson("/api/membership/admin/subscriptions");
+      const j = await getJson(`/api/membership/admin/subscriptions${includeDeleted ? "?includeDeleted=1" : ""}`);
       const arr = Array.isArray(j) ? j : j.subscriptions ?? [];
       return arr.map((s: any) => ({ ...s, id: s.id ?? s._id }));
     },
@@ -108,10 +108,24 @@ export function useAssignMembership() {
 export function useCancelMembership() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, reason }: { id: string; reason?: string }) => {
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
       const r = await apiFetch(`/api/membership/admin/cancel/${id}`, {
         method: "POST",
-        body: JSON.stringify({ reason: reason || "" }),
+        body: JSON.stringify({ reason }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["membership", "subscriptions"] }),
+  });
+}
+
+export function useDeleteMembership() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const r = await apiFetch(`/api/membership/admin/${id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason }),
       });
       if (!r.ok) throw new Error(await r.text());
     },

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pencil, Trash2, Plus, XCircle, Loader2, KeyRound } from "lucide-react";
+import { Pencil, Trash2, Plus, XCircle, Loader2, KeyRound, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useMembershipPlans,
@@ -19,6 +19,7 @@ import {
   useAdminSubscriptions,
   useAssignMembership,
   useCancelMembership,
+  useDeleteMembership,
   useAssignMembershipLocker,
   useUpdateLockerPin,
   type MembershipPlan,
@@ -27,6 +28,8 @@ import { useAvailableLockers } from "@/hooks/useLockers";
 
 import { useAdminCustomers } from "@/hooks/useAdmin";
 import { fmtDateSG } from "@/lib/sgTime";
+import ReasonDialog from "./ReasonDialog";
+import DeletedBanner, { getDeletedInfo, isDeleted, isCancelled } from "./DeletedBanner";
 
 type PlanForm = {
   name: string;
@@ -440,14 +443,22 @@ function LockerCell({ sub }: { sub: any }) {
 export default function MembershipTab() {
   const { toast } = useToast();
   const { data: plans = [] } = useMembershipPlans();
-  const { data: subs = [] } = useAdminSubscriptions();
+  const { data: subs = [] } = useAdminSubscriptions(true);
   const del = useDeleteMembershipPlan();
   const cancel = useCancelMembership();
+  const deleteSub = useDeleteMembership();
   const [planDlgOpen, setPlanDlgOpen] = useState(false);
   const [editPlan, setEditPlan] = useState<MembershipPlan | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
-  const [cancelReason, setCancelReason] = useState("");
+  const [cancelTarget, setCancelTarget] = useState<any | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [detailRecord, setDetailRecord] = useState<any | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
+
+  const visibleSubs = useMemo(
+    () => (subs || []).filter((s: any) => showDeleted || !isDeleted(s)),
+    [subs, showDeleted],
+  );
 
   const openCreate = () => { setEditPlan(null); setPlanDlgOpen(true); };
   const openEdit = (p: MembershipPlan) => {
@@ -463,24 +474,6 @@ export default function MembershipTab() {
     if (!confirm(`Delete plan "${p.name}"?`)) return;
     try { await del.mutateAsync(id); toast({ title: "Plan deleted" }); }
     catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
-  };
-
-  const openCancelSub = (s: any) => {
-    const id = s._id ?? s.id;
-    if (!id) { toast({ title: "Membership ID missing", variant: "destructive" }); return; }
-    setCancelTarget(id);
-    setCancelReason("");
-  };
-  const confirmCancelSub = async () => {
-    if (!cancelTarget) return;
-    try {
-      await cancel.mutateAsync({ id: cancelTarget, reason: cancelReason.trim().slice(0, 500) });
-      toast({ title: "Subscription cancelled" });
-      setCancelTarget(null);
-      setCancelReason("");
-    } catch (e: any) {
-      toast({ title: "Failed", description: e?.message, variant: "destructive" });
-    }
   };
 
   return (
@@ -523,13 +516,23 @@ export default function MembershipTab() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Active Subscriptions</CardTitle>
-          <Button size="sm" onClick={() => setAssignOpen(true)}><Plus className="h-4 w-4" /> Assign Membership</Button>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <CardTitle className="text-base">Subscriptions</CardTitle>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={showDeleted ? "secondary" : "outline"}
+              onClick={() => setShowDeleted((v) => !v)}
+            >
+              {showDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+              {showDeleted ? "Hide Deleted" : "Show Deleted"}
+            </Button>
+            <Button size="sm" onClick={() => setAssignOpen(true)}><Plus className="h-4 w-4" /> Assign Membership</Button>
+          </div>
         </CardHeader>
         <CardContent>
-          {subs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No active subscriptions.</p>
+          {visibleSubs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No subscriptions.</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -542,11 +545,11 @@ export default function MembershipTab() {
                     <TableHead>Renewal</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Locker</TableHead>
-                    <TableHead></TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {subs.map((s: any) => {
+                  {visibleSubs.map((s: any) => {
                     const user = typeof s.userId === "object" && s.userId ? s.userId : null;
                     const plan = typeof s.planId === "object" && s.planId ? s.planId : null;
                     const customerName = user?.name || user?.legal_name || s.customerName || "—";
@@ -554,24 +557,46 @@ export default function MembershipTab() {
                     const planName = plan?.name || s.planName || "—";
                     const price = s.pricePaid ?? plan?.price ?? s.price ?? 0;
                     const rowId = s._id ?? s.id;
+                    const deleted = isDeleted(s);
+                    const cancelled = !deleted && isCancelled(s);
                     return (
-                      <TableRow key={rowId}>
+                      <TableRow
+                        key={rowId}
+                        className={deleted ? "text-muted-foreground cursor-pointer" : ""}
+                        onClick={deleted ? () => setDetailRecord(s) : undefined}
+                      >
                         <TableCell>
                           <div className="font-medium">{customerName}</div>
                           <div className="text-xs text-muted-foreground">{customerEmail}</div>
                         </TableCell>
                         <TableCell>{planName}</TableCell>
-                        <TableCell>${price}</TableCell>
+                        <TableCell className={deleted ? "line-through" : ""}>${price}</TableCell>
                         <TableCell>{s.startDate ? fmtDateSG(s.startDate) : "—"}</TableCell>
                         <TableCell>{s.renewalDate ? fmtDateSG(s.renewalDate) : "—"}</TableCell>
                         <TableCell>
-                          <Badge variant={s.status === "active" ? "default" : "secondary"} className="capitalize">{s.status || "—"}</Badge>
+                          {deleted ? (
+                            <Badge variant="outline" className="bg-muted">Deleted</Badge>
+                          ) : (
+                            <Badge variant={s.status === "active" ? "default" : "secondary"} className="capitalize">{s.status || "—"}</Badge>
+                          )}
                         </TableCell>
-                        <TableCell><LockerCell sub={s} /></TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="sm" onClick={() => openCancelSub(s)}>
-                            <XCircle className="h-4 w-4" /> Cancel
-                          </Button>
+                        <TableCell>{!deleted ? <LockerCell sub={s} /> : "—"}</TableCell>
+                        <TableCell className="text-right">
+                          {!deleted && !cancelled && (
+                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setCancelTarget(s); }}>
+                              <XCircle className="h-4 w-4" /> Cancel
+                            </Button>
+                          )}
+                          {!deleted && cancelled && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={(e) => { e.stopPropagation(); setDeleteTarget(s); }}
+                            >
+                              <Trash2 className="h-4 w-4" /> Delete
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -592,29 +617,85 @@ export default function MembershipTab() {
       )}
       <AssignMembershipDialog open={assignOpen} onOpenChange={setAssignOpen} />
 
-      <Dialog open={!!cancelTarget} onOpenChange={(o) => { if (!o) { setCancelTarget(null); setCancelReason(""); } }}>
+      <ReasonDialog
+        open={!!cancelTarget}
+        onOpenChange={(o) => !o && setCancelTarget(null)}
+        title="Cancel Membership"
+        label="Reason for cancellation"
+        placeholder="e.g. user requested cancellation"
+        confirmLabel="Cancel Membership"
+        destructive
+        loading={cancel.isPending}
+        onConfirm={async (reason) => {
+          if (!cancelTarget) return;
+          try {
+            await cancel.mutateAsync({ id: cancelTarget._id ?? cancelTarget.id, reason });
+            toast({ title: "Subscription cancelled" });
+            setCancelTarget(null);
+          } catch (e: any) {
+            toast({ title: "Failed", description: e?.message, variant: "destructive" });
+          }
+        }}
+      />
+
+      <ReasonDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title="Delete Membership Record?"
+        description="This will permanently remove the record from active lists."
+        label="Reason for deletion"
+        placeholder="e.g. duplicate entry"
+        confirmLabel="Delete"
+        destructive
+        loading={deleteSub.isPending}
+        onConfirm={async (reason) => {
+          if (!deleteTarget) return;
+          try {
+            await deleteSub.mutateAsync({ id: deleteTarget._id ?? deleteTarget.id, reason });
+            toast({ title: "Membership deleted" });
+            setDeleteTarget(null);
+          } catch (e: any) {
+            toast({ title: "Failed", description: e?.message, variant: "destructive" });
+          }
+        }}
+      />
+
+      <Dialog open={!!detailRecord} onOpenChange={(o) => !o && setDetailRecord(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cancel Membership</DialogTitle>
+            <DialogTitle>Membership Details</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="mem-cancel-reason">Reason for cancellation (optional)</Label>
-            <Textarea
-              id="mem-cancel-reason"
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value.slice(0, 500))}
-              placeholder="e.g. user requested cancellation"
-              maxLength={500}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setCancelTarget(null); setCancelReason(""); }}>Go Back</Button>
-            <Button variant="destructive" onClick={confirmCancelSub} disabled={cancel.isPending}>
-              {cancel.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Cancel Membership
-            </Button>
-          </DialogFooter>
+          {detailRecord && (
+            <div className="space-y-3">
+              <DeletedBanner info={getDeletedInfo(detailRecord)} />
+              <div className="opacity-70 text-sm space-y-1.5">
+                {(() => {
+                  const user = typeof detailRecord.userId === "object" ? detailRecord.userId : null;
+                  const plan = typeof detailRecord.planId === "object" ? detailRecord.planId : null;
+                  return (
+                    <>
+                      <DetailRow label="Customer" value={`${user?.name || user?.legal_name || detailRecord.customerName || "—"} (${user?.email || detailRecord.customerEmail || "—"})`} />
+                      <DetailRow label="Plan" value={plan?.name || detailRecord.planName || "—"} />
+                      <DetailRow label="Price" value={`$${detailRecord.pricePaid ?? plan?.price ?? detailRecord.price ?? 0}`} />
+                      <DetailRow label="Start" value={detailRecord.startDate ? fmtDateSG(detailRecord.startDate) : "—"} />
+                      <DetailRow label="Renewal" value={detailRecord.renewalDate ? fmtDateSG(detailRecord.renewalDate) : "—"} />
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span>{value}</span>
     </div>
   );
 }

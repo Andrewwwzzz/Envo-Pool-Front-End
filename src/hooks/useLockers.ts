@@ -20,11 +20,11 @@ async function getJson(path: string) {
   return r.json();
 }
 
-export function useLockerUnits() {
+export function useLockerUnits(includeDeleted: boolean = true) {
   return useQuery<LockerUnit[]>({
-    queryKey: ["lockers", "units"],
+    queryKey: ["lockers", "units", { includeDeleted }],
     queryFn: async () => {
-      const j = await getJson("/api/lockers/units");
+      const j = await getJson(`/api/lockers/units${includeDeleted ? "?includeDeleted=1" : ""}`);
       return Array.isArray(j) ? j : j.units ?? [];
     },
   });
@@ -78,10 +78,24 @@ export function useRenewLocker() {
 export function useCancelLocker() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ rentalId, reason }: { rentalId: string; reason?: string }) => {
+    mutationFn: async ({ rentalId, reason }: { rentalId: string; reason: string }) => {
       const r = await apiFetch(`/api/lockers/rentals/${rentalId}/cancel`, {
         method: "POST",
-        body: JSON.stringify({ reason: reason || "" }),
+        body: JSON.stringify({ reason }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lockers"] }),
+  });
+}
+
+export function useDeleteLockerRental() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ rentalId, reason }: { rentalId: string; reason: string }) => {
+      const r = await apiFetch(`/api/lockers/rentals/${rentalId}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason }),
       });
       if (!r.ok) throw new Error(await r.text());
     },

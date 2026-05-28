@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAdminRewards, useIssueReward, useDeleteReward, RewardType, RewardReason } from "@/hooks/useRewards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,13 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Gift, Copy, Loader2, Check, Trash2 } from "lucide-react";
+import { Gift, Copy, Loader2, Check, Trash2, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fmtDateSG } from "@/lib/sgTime";
+import ReasonDialog from "./ReasonDialog";
+import DeletedBanner, { getDeletedInfo, isDeleted } from "./DeletedBanner";
 
 const TYPE_LABELS: Record<RewardType, string> = {
   free_session: "Free Session (1 hr)",
@@ -36,8 +34,14 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const { data: rewards, isLoading } = useAdminRewards(userId);
   const issueReward = useIssueReward();
   const deleteReward = useDeleteReward();
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [detailRecord, setDetailRecord] = useState<any | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
+
+  const visibleRewards = useMemo(
+    () => (rewards || []).filter((r: any) => showDeleted || !isDeleted(r)),
+    [rewards, showDeleted],
+  );
 
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<RewardType>("free_session");
@@ -108,20 +112,30 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Gift className="h-4 w-4 text-accent" /> Rewards
           </CardTitle>
-          <Button size="sm" onClick={() => setOpen(true)}>
-            <Gift className="mr-1 h-3 w-3" /> Issue Reward
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={showDeleted ? "secondary" : "outline"}
+              onClick={() => setShowDeleted((v) => !v)}
+            >
+              {showDeleted ? <EyeOff className="h-3 w-3 mr-1" /> : <Eye className="h-3 w-3 mr-1" />}
+              {showDeleted ? "Hide Deleted" : "Show Deleted"}
+            </Button>
+            <Button size="sm" onClick={() => setOpen(true)}>
+              <Gift className="mr-1 h-3 w-3" /> Issue Reward
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
           <p className="text-muted-foreground text-sm">Loading rewards…</p>
-        ) : !rewards?.length ? (
-          <p className="text-muted-foreground text-sm">No rewards issued yet.</p>
+        ) : !visibleRewards.length ? (
+          <p className="text-muted-foreground text-sm">No rewards to show.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -136,103 +150,112 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
                 </tr>
               </thead>
               <tbody>
-                {rewards.map((r: any) => (
-                  <tr key={r._id || r.id || r.code} className="border-b border-border last:border-0">
-                    <td className="py-2 pr-4">
-                      <div className="flex items-center gap-1">
-                        <span className="font-mono text-xs">{r.code}</span>
-                        <Button
-                          size="sm" variant="ghost" className="h-6 w-6 p-0"
-                          onClick={() => { navigator.clipboard.writeText(r.code); toast({ title: "Code copied" }); }}
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </td>
-                    <td className="py-2 pr-4">
-                      <Badge variant="outline" className="capitalize">{TYPE_LABELS[r.type as RewardType] || r.type}</Badge>
-                    </td>
-                    <td className="py-2 pr-4">{r.description}</td>
-                    <td className="py-2 pr-4">{fmtDateSG(r.createdAt || r.created_at)}</td>
-                    <td className="py-2">
-                      {(() => {
-                        if (r.unlimited) {
-                          return <Badge>Unlimited uses</Badge>;
-                        }
-                        const allowed = Number(r.usesAllowed);
-                        const remaining = Number(r.usesRemaining);
-                        const isMulti = Number.isFinite(allowed) && allowed > 1;
-                        if (isMulti) {
-                          if (Number.isFinite(remaining) && remaining <= 0) {
-                            return <Badge variant="outline" className="bg-muted">Redeemed</Badge>;
+                {visibleRewards.map((r: any) => {
+                  const deleted = isDeleted(r);
+                  return (
+                    <tr
+                      key={r._id || r.id || r.code}
+                      className={`border-b border-border last:border-0 ${deleted ? "text-muted-foreground cursor-pointer" : ""}`}
+                      onClick={deleted ? () => setDetailRecord(r) : undefined}
+                    >
+                      <td className="py-2 pr-4">
+                        <div className="flex items-center gap-1">
+                          <span className={`font-mono text-xs ${deleted ? "line-through" : ""}`}>{r.code}</span>
+                          {!deleted && (
+                            <Button
+                              size="sm" variant="ghost" className="h-6 w-6 p-0"
+                              onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(r.code); toast({ title: "Code copied" }); }}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2 pr-4">
+                        <Badge variant="outline" className="capitalize">{TYPE_LABELS[r.type as RewardType] || r.type}</Badge>
+                      </td>
+                      <td className={`py-2 pr-4 ${deleted ? "line-through" : ""}`}>{r.description}</td>
+                      <td className="py-2 pr-4">{fmtDateSG(r.createdAt || r.created_at)}</td>
+                      <td className="py-2">
+                        {deleted ? (
+                          <Badge variant="outline" className="bg-muted">Deleted</Badge>
+                        ) : (() => {
+                          if (r.unlimited) return <Badge>Unlimited uses</Badge>;
+                          const allowed = Number(r.usesAllowed);
+                          const remaining = Number(r.usesRemaining);
+                          const isMulti = Number.isFinite(allowed) && allowed > 1;
+                          if (isMulti) {
+                            if (Number.isFinite(remaining) && remaining <= 0) {
+                              return <Badge variant="outline" className="bg-muted">Redeemed</Badge>;
+                            }
+                            return <Badge>{remaining}/{allowed} uses remaining</Badge>;
                           }
-                          return <Badge>{remaining}/{allowed} uses remaining</Badge>;
-                        }
-                        return r.redeemed
-                          ? <Badge variant="outline" className="bg-muted">Redeemed</Badge>
-                          : <Badge>Active</Badge>;
-                      })()}
-                    </td>
-                    <td className="py-2 text-right">
-                      {!r.redeemed && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                          onClick={() => setDeleteId(r._id || r.id)}
-                          disabled={deleteReward.isPending}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                          return r.redeemed
+                            ? <Badge variant="outline" className="bg-muted">Redeemed</Badge>
+                            : <Badge>Active</Badge>;
+                        })()}
+                      </td>
+                      <td className="py-2 text-right">
+                        {!deleted && !r.redeemed && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                            onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}
+                            disabled={deleteReward.isPending}
+                            title="Delete reward"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </CardContent>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) { setDeleteId(null); setDeleteReason(""); } }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete reward?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Why are you deleting this reward? This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="cust-reward-delete-reason">Reason (optional)</Label>
-            <Textarea
-              id="cust-reward-delete-reason"
-              value={deleteReason}
-              onChange={(e) => setDeleteReason(e.target.value.slice(0, 500))}
-              placeholder="e.g. issued in error"
-              maxLength={500}
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteReward.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async (e) => {
-                e.preventDefault();
-                if (!deleteId) return;
-                try {
-                  await deleteReward.mutateAsync({ id: deleteId, userId, reason: deleteReason.trim() });
-                  setDeleteId(null);
-                  setDeleteReason("");
-                } catch {}
-              }}
-              disabled={deleteReward.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteReward.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ReasonDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title="Delete reward?"
+        description="This action cannot be undone."
+        label="Reason for deletion"
+        placeholder="e.g. issued in error"
+        confirmLabel="Delete"
+        destructive
+        loading={deleteReward.isPending}
+        onConfirm={async (reason) => {
+          if (!deleteTarget) return;
+          try {
+            await deleteReward.mutateAsync({ id: deleteTarget._id || deleteTarget.id, userId, reason });
+            setDeleteTarget(null);
+          } catch {}
+        }}
+      />
+
+      <Dialog open={!!detailRecord} onOpenChange={(o) => !o && setDetailRecord(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reward {detailRecord?.code}</DialogTitle>
+          </DialogHeader>
+          {detailRecord && (
+            <div className="space-y-3">
+              <DeletedBanner info={getDeletedInfo(detailRecord)} />
+              <div className="opacity-70 text-sm space-y-1.5">
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Code</span><span className="font-mono text-xs">{detailRecord.code}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Type</span><span>{TYPE_LABELS[detailRecord.type as RewardType] || detailRecord.type}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Description</span><span>{detailRecord.description || "—"}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Issued</span><span>{fmtDateSG(detailRecord.createdAt || detailRecord.created_at)}</span></div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
 
       <Dialog open={open} onOpenChange={(o) => { if (!o) { setOpen(false); reset(); } }}>
         <DialogContent>
