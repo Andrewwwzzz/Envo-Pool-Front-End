@@ -203,6 +203,7 @@ function AssignMembershipDialog({ open, onOpenChange }: { open: boolean; onOpenC
       toast({ title: "Customer and plan are required", variant: "destructive" });
       return;
     }
+    console.log("[AssignMembership] submitting", { userId, planId, startDate });
     try {
       await assign.mutateAsync({
         userId,
@@ -301,8 +302,10 @@ export default function MembershipTab() {
   };
 
   const cancelSub = async (s: any) => {
+    const id = s._id ?? s.id;
+    if (!id) { toast({ title: "Membership ID missing", variant: "destructive" }); return; }
     if (!confirm("Cancel this subscription?")) return;
-    try { await cancel.mutateAsync(s.id); toast({ title: "Subscription cancelled" }); }
+    try { await cancel.mutateAsync(id); toast({ title: "Subscription cancelled" }); }
     catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
   };
 
@@ -369,27 +372,36 @@ export default function MembershipTab() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {subs.map((s: any) => (
-                    <TableRow key={s.id}>
-                      <TableCell>
-                        <div className="font-medium">{s.customerName || "—"}</div>
-                        <div className="text-xs text-muted-foreground">{s.customerEmail}</div>
-                      </TableCell>
-                      <TableCell>{s.planName || "—"}</TableCell>
-                      <TableCell>${s.price ?? 0}</TableCell>
-                      <TableCell>{s.startDate ? fmtDateSG(s.startDate) : "—"}</TableCell>
-                      <TableCell>{s.renewalDate ? fmtDateSG(s.renewalDate) : "—"}</TableCell>
-                      <TableCell>
-                        <Badge variant={s.status === "active" ? "default" : "secondary"} className="capitalize">{s.status || "—"}</Badge>
-                      </TableCell>
-                      <TableCell>{s.lockerNumber ? `#${s.lockerNumber}` : "—"}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm" onClick={() => cancelSub(s)}>
-                          <XCircle className="h-4 w-4" /> Cancel
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {subs.map((s: any) => {
+                    const user = typeof s.userId === "object" && s.userId ? s.userId : null;
+                    const plan = typeof s.planId === "object" && s.planId ? s.planId : null;
+                    const customerName = user?.name || user?.legal_name || s.customerName || "—";
+                    const customerEmail = user?.email || s.customerEmail || "";
+                    const planName = plan?.name || s.planName || "—";
+                    const price = s.pricePaid ?? plan?.price ?? s.price ?? 0;
+                    const rowId = s._id ?? s.id;
+                    return (
+                      <TableRow key={rowId}>
+                        <TableCell>
+                          <div className="font-medium">{customerName}</div>
+                          <div className="text-xs text-muted-foreground">{customerEmail}</div>
+                        </TableCell>
+                        <TableCell>{planName}</TableCell>
+                        <TableCell>${price}</TableCell>
+                        <TableCell>{s.startDate ? fmtDateSG(s.startDate) : "—"}</TableCell>
+                        <TableCell>{s.renewalDate ? fmtDateSG(s.renewalDate) : "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant={s.status === "active" ? "default" : "secondary"} className="capitalize">{s.status || "—"}</Badge>
+                        </TableCell>
+                        <TableCell>{s.lockerNumber ? `#${s.lockerNumber}` : "—"}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm" onClick={() => cancelSub(s)}>
+                            <XCircle className="h-4 w-4" /> Cancel
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

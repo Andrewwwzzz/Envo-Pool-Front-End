@@ -80,11 +80,12 @@ export function useDeleteMembershipPlan() {
 }
 
 export function useAdminSubscriptions() {
-  return useQuery<Subscription[]>({
+  return useQuery<any[]>({
     queryKey: ["membership", "subscriptions"],
     queryFn: async () => {
       const j = await getJson("/api/membership/admin/subscriptions");
-      return Array.isArray(j) ? j : j.subscriptions ?? [];
+      const arr = Array.isArray(j) ? j : j.subscriptions ?? [];
+      return arr.map((s: any) => ({ ...s, id: s.id ?? s._id }));
     },
   });
 }
@@ -123,6 +124,28 @@ export function useMyMembership() {
       if (r.status === 404) return null;
       if (!r.ok) throw new Error(`${r.status}`);
       return r.json();
+    },
+  });
+}
+
+export function useSubscribeMembership() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (planId: string) => {
+      const r = await apiFetch("/api/membership/subscribe", {
+        method: "POST",
+        body: JSON.stringify({ planId }),
+      });
+      const text = await r.text();
+      let body: any = null;
+      try { body = text ? JSON.parse(text) : null; } catch { body = { message: text }; }
+      if (!r.ok) throw new Error(body?.message || body?.error || text || `${r.status}`);
+      return body;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["membership", "my"] });
+      qc.invalidateQueries({ queryKey: ["profile"] });
+      qc.invalidateQueries({ queryKey: ["lockers"] });
     },
   });
 }
