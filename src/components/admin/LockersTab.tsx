@@ -215,7 +215,7 @@ export default function LockersTab() {
                                   <Button variant="ghost" size="sm" onClick={() => doRenew(rentalId)}>
                                     <RotateCcw className="h-4 w-4" /> Renew
                                   </Button>
-                                  <Button variant="ghost" size="sm" onClick={() => doCancel(rentalId)}>
+                                  <Button variant="ghost" size="sm" onClick={() => { setCancelTarget(rentalId); setCancelReason(""); }}>
                                     <XCircle className="h-4 w-4" /> Cancel
                                   </Button>
                                 </>
