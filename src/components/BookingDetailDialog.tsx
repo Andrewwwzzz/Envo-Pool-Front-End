@@ -75,8 +75,8 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
         return {
           startTime: new Date(sStart),
           endTime: new Date(sEnd),
-          hourlyRate: Number(s.hourlyRate ?? s.hourly_rate ?? s.rate ?? 0),
-          segmentCost: Number(s.segmentCost ?? s.segment_cost ?? s.cost ?? s.amount ?? 0),
+          hourlyRate: Number(s.ratePerHour ?? s.rate_per_hour ?? s.hourlyRate ?? s.hourly_rate ?? s.rate ?? 0),
+          segmentCost: Number(s.amount ?? s.segmentCost ?? s.segment_cost ?? s.cost ?? 0),
         };
       })
       .filter(Boolean) as Array<{ startTime: Date; endTime: Date; hourlyRate: number; segmentCost: number }>;
