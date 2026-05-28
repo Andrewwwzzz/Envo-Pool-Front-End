@@ -105,10 +105,22 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
     b.promo_code ||
     null;
   const rewardCode = b.rewardCode || b.reward_code || (typeof b.reward === "object" ? b.reward?.code : null) || null;
+  const activeMembership = (membershipData?.memberships || []).find(
+    (m: any) => m?.status === "active"
+  );
+  const planBenefitPct = Number(
+    activeMembership?.planId?.benefits?.bookingDiscount ??
+      activeMembership?.plan?.benefits?.bookingDiscount ??
+      activeMembership?.planId?.bookingDiscountPct ??
+      0
+  );
   const membershipPct = Number(
-    b.membershipDiscountPct ??
+    b.membershipDiscountPercent ??
+      b.membership_discount_percent ??
+      b.membershipDiscountPct ??
       b.membership_discount_pct ??
-      (subtotal > 0 && membershipDiscount > 0 ? (membershipDiscount / subtotal) * 100 : 0)
+      planBenefitPct ??
+      0
   );
 
   const tableLabel =
