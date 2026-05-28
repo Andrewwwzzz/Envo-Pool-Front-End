@@ -34,8 +34,14 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const { data: rewards, isLoading } = useAdminRewards(userId);
   const issueReward = useIssueReward();
   const deleteReward = useDeleteReward();
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [detailRecord, setDetailRecord] = useState<any | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
+
+  const visibleRewards = useMemo(
+    () => (rewards || []).filter((r: any) => showDeleted || !isDeleted(r)),
+    [rewards, showDeleted],
+  );
 
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<RewardType>("free_session");
