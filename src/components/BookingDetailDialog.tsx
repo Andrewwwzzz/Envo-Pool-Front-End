@@ -190,7 +190,7 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
             </div>
 
             <div className="rounded-lg border border-border/60 bg-background/40 p-3 space-y-1.5">
-              {segments.length > 1 ? (
+              {segments.length >= 1 ? (
                 segments.map((seg, i) => {
                   const segMins = Math.round((seg.endTime.getTime() - seg.startTime.getTime()) / 60000);
                   const sH = Math.floor(segMins / 60);
