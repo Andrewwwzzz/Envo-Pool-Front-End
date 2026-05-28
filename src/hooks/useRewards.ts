@@ -49,6 +49,7 @@ export function useIssueReward() {
       expiresAt?: string | null;
       qty?: number;
       multiUse?: boolean;
+      unlimited?: boolean;
     }) => {
       const res = await apiFetch("/api/rewards/issue", {
         method: "POST",

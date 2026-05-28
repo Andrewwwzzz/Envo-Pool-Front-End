@@ -46,7 +46,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const [otherReason, setOtherReason] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [qty, setQty] = useState("1");
-  const [multiUse, setMultiUse] = useState(false);
+  const [issueMode, setIssueMode] = useState<"single" | "multi" | "unlimited">("single");
   const [issuedCodes, setIssuedCodes] = useState<string[] | null>(null);
 
   const valueLabel =
@@ -56,7 +56,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
 
   const reset = () => {
     setType("free_session"); setValue("1"); setDescription(""); setReason("reviews"); setOtherReason(""); setExpiresAt("");
-    setQty("1"); setMultiUse(false);
+    setQty("1"); setIssueMode("single");
   };
 
   const submit = async () => {
@@ -68,15 +68,20 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
       toast({ title: "Please specify the reason", variant: "destructive" });
       return;
     }
-    const qtyNum = Math.max(1, Math.min(20, parseInt(qty) || 1));
+    const isWalletCredit = type === "wallet_credit";
+    const mode = isWalletCredit ? "single" : issueMode;
+    const qtyNum = mode === "multi"
+      ? Math.max(1, Math.min(100, parseInt(qty) || 1))
+      : 1;
     const payload: any = {
       userId,
       type,
       description: description.trim(),
       reason: reason === "other" ? otherReason.trim() : reason,
       expiresAt: expiresAt || null,
-      qty: qtyNum,
-      multiUse: qtyNum > 1 ? multiUse : false,
+      qty: mode === "unlimited" ? 0 : qtyNum,
+      multiUse: mode !== "single",
+      unlimited: mode === "unlimited",
     };
     if (type !== "free_item") {
       const v = parseFloat(value);
@@ -150,6 +155,9 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
                     <td className="py-2 pr-4">{fmtDateSG(r.createdAt || r.created_at)}</td>
                     <td className="py-2">
                       {(() => {
+                        if (r.unlimited) {
+                          return <Badge>Unlimited uses</Badge>;
+                        }
                         const allowed = Number(r.usesAllowed);
                         const remaining = Number(r.usesRemaining);
                         const isMulti = Number.isFinite(allowed) && allowed > 1;
@@ -270,26 +278,31 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
               <Label>Expires At (optional)</Label>
               <Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
             </div>
-            <div className="space-y-2">
-              <Label>Quantity</Label>
-              <Input
-                type="number" min="1" max="20" step="1"
-                value={qty}
-                onChange={(e) => setQty(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">Number of uses or separate codes to generate</p>
-            </div>
-            {(parseInt(qty) || 1) > 1 && (
-              <div className="space-y-2">
-                <Label>Issue Mode</Label>
-                <Select value={multiUse ? "multi" : "separate"} onValueChange={(v) => setMultiUse(v === "multi")}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="separate">Separate codes (one per use)</SelectItem>
-                    <SelectItem value="multi">One code, multiple uses</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            {type !== "wallet_credit" && (
+              <>
+                <div className="space-y-2">
+                  <Label>Issue Mode</Label>
+                  <Select value={issueMode} onValueChange={(v) => setIssueMode(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="single">Single use (1 code, used once)</SelectItem>
+                      <SelectItem value="multi">Multiple uses (1 code, used N times)</SelectItem>
+                      <SelectItem value="unlimited">Unlimited (1 code, used forever)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {issueMode === "multi" && (
+                  <div className="space-y-2">
+                    <Label>Quantity</Label>
+                    <Input
+                      type="number" min="1" max="100" step="1"
+                      value={qty}
+                      onChange={(e) => setQty(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">Number of times this code can be redeemed</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
           <DialogFooter>
