@@ -294,11 +294,18 @@ export default function MembershipTab() {
   const [assignOpen, setAssignOpen] = useState(false);
 
   const openCreate = () => { setEditPlan(null); setPlanDlgOpen(true); };
-  const openEdit = (p: MembershipPlan) => { setEditPlan(p); setPlanDlgOpen(true); };
+  const openEdit = (p: MembershipPlan) => {
+    const id = (p as any).id ?? (p as any)._id;
+    if (!id) { toast({ title: "Plan ID missing", variant: "destructive" }); return; }
+    setEditPlan({ ...p, id });
+    setPlanDlgOpen(true);
+  };
 
   const removePlan = async (p: MembershipPlan) => {
+    const id = (p as any).id ?? (p as any)._id;
+    if (!id) { toast({ title: "Plan ID missing", variant: "destructive" }); return; }
     if (!confirm(`Delete plan "${p.name}"?`)) return;
-    try { await del.mutateAsync(p.id); toast({ title: "Plan deleted" }); }
+    try { await del.mutateAsync(id); toast({ title: "Plan deleted" }); }
     catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
   };
 
