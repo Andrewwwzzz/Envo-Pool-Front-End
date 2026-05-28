@@ -192,29 +192,26 @@ function AssignMembershipDialog({ open, onOpenChange }: { open: boolean; onOpenC
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const { data: customers = [] } = useAdminCustomers(search);
-  const [customerId, setCustomerId] = useState("");
+  const [userId, setUserId] = useState("");
   const [planId, setPlanId] = useState("");
   const [startDate, setStartDate] = useState("");
-  const [lockerId, setLockerId] = useState("");
   const { data: plans = [] } = useMembershipPlans();
-  const { data: lockers = [] } = useAvailableLockers();
   const assign = useAssignMembership();
 
   const submit = async () => {
-    if (!customerId || !planId) {
+    if (!userId || !planId) {
       toast({ title: "Customer and plan are required", variant: "destructive" });
       return;
     }
     try {
       await assign.mutateAsync({
-        customerId,
+        userId,
         planId,
         startDate: startDate || undefined,
-        lockerId: lockerId || undefined,
-      });
+      } as any);
       toast({ title: "Membership assigned" });
       onOpenChange(false);
-      setCustomerId(""); setPlanId(""); setStartDate(""); setLockerId(""); setSearch("");
+      setUserId(""); setPlanId(""); setStartDate(""); setSearch("");
     } catch (e: any) {
       toast({ title: "Failed", description: e?.message, variant: "destructive" });
     }
@@ -229,17 +226,20 @@ function AssignMembershipDialog({ open, onOpenChange }: { open: boolean; onOpenC
             <Label>Search Customer</Label>
             <Input placeholder="Name or email" value={search} onChange={(e) => setSearch(e.target.value)} />
             <div className="max-h-40 overflow-y-auto rounded-md border">
-              {customers.slice(0, 20).map((c: any) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setCustomerId(c.id)}
-                  className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${customerId === c.id ? "bg-muted" : ""}`}
-                >
-                  <div className="font-medium">{c.name || c.legal_name || "—"}</div>
-                  <div className="text-xs text-muted-foreground">{c.email}</div>
-                </button>
-              ))}
+              {customers.slice(0, 20).map((c: any) => {
+                const cid = c._id ?? c.id;
+                return (
+                  <button
+                    key={cid}
+                    type="button"
+                    onClick={() => setUserId(cid)}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${userId === cid ? "bg-muted" : ""}`}
+                  >
+                    <div className="font-medium">{c.name || c.legal_name || "—"}</div>
+                    <div className="text-xs text-muted-foreground">{c.email}</div>
+                  </button>
+                );
+              })}
               {customers.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">No customers</div>}
             </div>
           </div>
@@ -248,27 +248,18 @@ function AssignMembershipDialog({ open, onOpenChange }: { open: boolean; onOpenC
             <Select value={planId} onValueChange={setPlanId}>
               <SelectTrigger><SelectValue placeholder="Select plan" /></SelectTrigger>
               <SelectContent>
-                {plans.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name} — ${p.price}/{p.billingCycle}</SelectItem>
-                ))}
+                {plans.map((p) => {
+                  const pid = (p as any)._id ?? p.id;
+                  return (
+                    <SelectItem key={pid} value={pid}>{p.name} — ${p.price}/{p.billingCycle}</SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
             <Label>Start Date (optional)</Label>
             <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Assign Locker (optional)</Label>
-            <Select value={lockerId || "none"} onValueChange={(v) => setLockerId(v === "none" ? "" : v)}>
-              <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                {lockers.map((l) => (
-                  <SelectItem key={l.id} value={l.id}>#{l.number} — ${l.monthlyPrice}/mo</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         </div>
         <DialogFooter>
