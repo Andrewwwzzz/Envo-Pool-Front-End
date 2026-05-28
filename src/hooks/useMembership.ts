@@ -92,7 +92,7 @@ export function useAdminSubscriptions() {
 export function useAssignMembership() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { customerId?: string; customerEmail?: string; planId: string; startDate?: string; lockerId?: string }) => {
+    mutationFn: async (data: { userId: string; planId: string; startDate?: string }) => {
       const r = await apiFetch("/api/membership/admin/assign", { method: "POST", body: JSON.stringify(data) });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
