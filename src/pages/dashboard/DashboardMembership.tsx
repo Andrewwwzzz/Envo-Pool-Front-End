@@ -27,10 +27,6 @@ import { useMyLocker } from "@/hooks/useLockers";
 import { useProfile } from "@/hooks/useProfile";
 import { fmtDateSG } from "@/lib/sgTime";
 
-import { useMyLocker } from "@/hooks/useLockers";
-import { useProfile } from "@/hooks/useProfile";
-import { fmtDateSG } from "@/lib/sgTime";
-
 function daysBetween(future?: string) {
   if (!future) return 0;
   const ms = new Date(future).getTime() - Date.now();
