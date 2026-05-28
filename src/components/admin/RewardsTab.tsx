@@ -93,7 +93,8 @@ export default function RewardsTab({
   onCustomerClick?: (info: { id?: string; email: string; name: string }) => void;
 }) {
   const { toast } = useToast();
-  const { data: rewards, isLoading } = useAllAdminRewards();
+  const [showDeletedToggle, setShowDeletedToggle] = useState(false);
+  const { data: rewards, isLoading } = useAllAdminRewards(showDeletedToggle ? "deleted" : "default");
   const deleteReward = useDeleteReward();
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailRecord, setDetailRecord] = useState<any | null>(null);
