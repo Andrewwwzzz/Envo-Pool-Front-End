@@ -387,15 +387,22 @@ const Booking = () => {
           startTime: startDate.toISOString(),
           endTime: endDate.toISOString(),
           amount: Number(finalPrice.toFixed(2)),
-          promoCode: appliedPromo?.code || null,
-          promoDiscount: discountAmount || 0,
           originalAmount: Number((originalPrice || finalPrice).toFixed(2)),
-          rewardCode: appliedReward?.code || null,
-          rewardDiscount: rewardDiscount || 0,
-          membershipDiscount: membershipDiscount || 0,
+          // Only send the winning discount source. free_item rewards are
+          // tracked for counter pickup even when they don't win on price.
+          promoCode: winningDiscount.source === "promo" ? appliedPromo?.code || null : null,
+          promoDiscount: winningDiscount.source === "promo" ? discountAmount : 0,
+          rewardCode:
+            winningDiscount.source === "reward" || appliedReward?.type === "free_item"
+              ? appliedReward?.code || null
+              : null,
+          rewardDiscount: winningDiscount.source === "reward" ? rewardDiscount : 0,
+          membershipDiscount: winningDiscount.source === "membership" ? membershipDiscount : 0,
           membershipPlanId:
-            activeMembershipPlan?._id ?? activeMembershipPlan?.id ??
-            (typeof activeMembership?.planId === "string" ? activeMembership.planId : null),
+            winningDiscount.source === "membership"
+              ? activeMembershipPlan?._id ?? activeMembershipPlan?.id ??
+                (typeof activeMembership?.planId === "string" ? activeMembership.planId : null)
+              : null,
         }),
       });
 
