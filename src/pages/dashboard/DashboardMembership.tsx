@@ -202,14 +202,26 @@ export default function DashboardMembership() {
   }
 
 
+  const endDate = membership?.endDate ?? membership?.cancelledUntil ?? membership?.renewalDate;
+  const endDatePassed = endDate ? new Date(endDate).getTime() < Date.now() : false;
+  const isActive = status === "active" || (!status && membership?.active);
+  const isCancelled = status === "cancelled";
+  const isExpired = status === "expired" || (isCancelled && endDatePassed);
+
   const statusBadgeVariant: "default" | "secondary" | "destructive" =
-    status === "active" ? "default" : status === "cancelled" ? "secondary" : "destructive";
-  const statusLabel = status ? status.charAt(0).toUpperCase() + status.slice(1) : "Active";
-  const canCancel = status === "active";
+    isActive ? "default" : isCancelled && !isExpired ? "secondary" : "destructive";
+  const statusLabel = isExpired ? "Expired" : isCancelled ? "Cancelled" : "Active";
+  const canCancel = isActive;
+  const showRenew = isExpired || status === "expired";
+
+  const planPrice = Number(plan?.price ?? 0);
+  const planCycle = plan?.billingCycle ?? "monthly";
+  const canAffordRenew = walletBalance >= planPrice;
+  const dimmed = isExpired ? "opacity-60" : "";
 
   return (
     <div className="space-y-6">
-      <Card className="card-premium">
+      <Card className={`card-premium ${dimmed}`}>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
             <Crown className="h-5 w-5 text-accent" />
@@ -224,12 +236,18 @@ export default function DashboardMembership() {
               <div className="font-medium">${plan?.price ?? 0} / {plan?.billingCycle ?? "monthly"}</div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Renewal Date</div>
+              <div className="text-xs text-muted-foreground">
+                {isExpired ? "Ended" : isCancelled ? "Active Until" : "Renewal Date"}
+              </div>
               <div className="font-medium">
-                {membership.renewalDate ? `Renews ${fmtDateSG(membership.renewalDate)}` : "—"}
+                {isExpired && endDate ? fmtDateSG(endDate)
+                  : isCancelled && endDate ? `Active until ${fmtDateSG(endDate)}`
+                  : membership.renewalDate ? `Renews ${fmtDateSG(membership.renewalDate)}`
+                  : "—"}
               </div>
             </div>
           </div>
+
 
           <div className="space-y-2">
             <div className="text-xs uppercase tracking-wide text-muted-foreground">Benefits</div>
