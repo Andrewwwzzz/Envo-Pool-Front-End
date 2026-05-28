@@ -372,27 +372,36 @@ export default function MembershipTab() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {subs.map((s: any) => (
-                    <TableRow key={s.id}>
-                      <TableCell>
-                        <div className="font-medium">{s.customerName || "—"}</div>
-                        <div className="text-xs text-muted-foreground">{s.customerEmail}</div>
-                      </TableCell>
-                      <TableCell>{s.planName || "—"}</TableCell>
-                      <TableCell>${s.price ?? 0}</TableCell>
-                      <TableCell>{s.startDate ? fmtDateSG(s.startDate) : "—"}</TableCell>
-                      <TableCell>{s.renewalDate ? fmtDateSG(s.renewalDate) : "—"}</TableCell>
-                      <TableCell>
-                        <Badge variant={s.status === "active" ? "default" : "secondary"} className="capitalize">{s.status || "—"}</Badge>
-                      </TableCell>
-                      <TableCell>{s.lockerNumber ? `#${s.lockerNumber}` : "—"}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm" onClick={() => cancelSub(s)}>
-                          <XCircle className="h-4 w-4" /> Cancel
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {subs.map((s: any) => {
+                    const user = typeof s.userId === "object" && s.userId ? s.userId : null;
+                    const plan = typeof s.planId === "object" && s.planId ? s.planId : null;
+                    const customerName = user?.name || user?.legal_name || s.customerName || "—";
+                    const customerEmail = user?.email || s.customerEmail || "";
+                    const planName = plan?.name || s.planName || "—";
+                    const price = s.pricePaid ?? plan?.price ?? s.price ?? 0;
+                    const rowId = s._id ?? s.id;
+                    return (
+                      <TableRow key={rowId}>
+                        <TableCell>
+                          <div className="font-medium">{customerName}</div>
+                          <div className="text-xs text-muted-foreground">{customerEmail}</div>
+                        </TableCell>
+                        <TableCell>{planName}</TableCell>
+                        <TableCell>${price}</TableCell>
+                        <TableCell>{s.startDate ? fmtDateSG(s.startDate) : "—"}</TableCell>
+                        <TableCell>{s.renewalDate ? fmtDateSG(s.renewalDate) : "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant={s.status === "active" ? "default" : "secondary"} className="capitalize">{s.status || "—"}</Badge>
+                        </TableCell>
+                        <TableCell>{s.lockerNumber ? `#${s.lockerNumber}` : "—"}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm" onClick={() => cancelSub(s)}>
+                            <XCircle className="h-4 w-4" /> Cancel
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
