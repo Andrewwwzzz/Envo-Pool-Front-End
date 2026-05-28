@@ -1199,7 +1199,13 @@ function InvoicesTab() {
   );
 }
 
-function CustomersTab() {
+function CustomersTab({
+  pendingEmail,
+  onPendingHandled,
+}: {
+  pendingEmail?: string | null;
+  onPendingHandled?: () => void;
+} = {}) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const { data: customers, isLoading } = useAdminCustomers(debouncedSearch);
@@ -1210,9 +1216,31 @@ function CustomersTab() {
     return () => clearTimeout(t);
   }, [search]);
 
+  // Handle incoming pending customer email (e.g. from Rewards tab)
+  useEffect(() => {
+    if (pendingEmail) {
+      setSearch(pendingEmail);
+      setDebouncedSearch(pendingEmail);
+      setSelectedCustomer(null);
+    }
+  }, [pendingEmail]);
+
+  useEffect(() => {
+    if (pendingEmail && customers && customers.length) {
+      const match = customers.find((c: any) =>
+        (c.email || "").toLowerCase() === pendingEmail.toLowerCase()
+      );
+      if (match) {
+        setSelectedCustomer(match);
+        onPendingHandled?.();
+      }
+    }
+  }, [pendingEmail, customers, onPendingHandled]);
+
   if (selectedCustomer) {
     return <CustomerDetail customer={selectedCustomer} onBack={() => setSelectedCustomer(null)} />;
   }
+
 
   return (
     <Card>
