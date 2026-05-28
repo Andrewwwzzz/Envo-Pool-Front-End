@@ -20,7 +20,6 @@ import {
   useMyMembership,
   useMembershipPlans,
   useSubscribeMembership,
-  useCancelMyMembership,
   useRenewMembership,
   type MembershipPlan,
 } from "@/hooks/useMembership";
