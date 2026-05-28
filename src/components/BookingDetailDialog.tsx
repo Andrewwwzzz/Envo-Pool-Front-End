@@ -54,19 +54,12 @@ const paymentLabel: Record<string, string> = {
 
 const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialogProps) => {
   const [copied, setCopied] = useState(false);
-  const { data: pricingRules } = usePricingRules();
   const { data: membershipData } = useMyMembership();
 
   const b = booking as any;
   const startTime = b?.startTime || b?.start_time;
   const endTime = b?.endTime || b?.end_time;
 
-  // Resolve table id for pricing lookup (hardware id or populated table object)
-  const tableIdForPricing = useMemo(() => {
-    if (!b) return "";
-    if (typeof b.tableId === "string") return b.tableId;
-    return b.tableId?._id || b.tableId?.id || b.tableId?.hardware_id || "";
-  }, [b]);
 
   // Prefer backend-stored segments (snapshot at booking time). Fall back to
   // live pricing-rule computation only if backend didn't provide them AND the
