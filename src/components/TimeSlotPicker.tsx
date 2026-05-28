@@ -4,8 +4,9 @@ import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { isTodaySG, nowSGMinutes, sgSlotToUTC } from "@/lib/sgTime";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { isSlotWithinHours, type WeekSchedule } from "@/hooks/useOperatingHours";
 
-type SlotState = "available" | "booked" | "pending" | "past" | "maintenance";
+type SlotState = "available" | "booked" | "pending" | "past" | "maintenance" | "closed";
 
 interface TimeSlot {
   time: string;
@@ -38,6 +39,7 @@ interface TimeSlotPickerProps {
   date: Date;
   bookedSlots: BookedSlot[];
   maintenanceWindows?: MaintenanceWindow[];
+  operatingHours?: WeekSchedule;
   startSlot: string | null;
   endSlot: string | null;
   onSelectStart: (slot: string) => void;
@@ -103,6 +105,7 @@ export function TimeSlotPicker({
   date,
   bookedSlots,
   maintenanceWindows = [],
+  operatingHours,
   startSlot,
   endSlot,
   onSelectStart,
