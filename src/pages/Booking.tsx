@@ -740,22 +740,34 @@ const Booking = () => {
                 )}
               </div>
 
-              {discountAmount > 0 && (
+              {/* Single winning discount line (promo / reward / membership) */}
+              {winningDiscount.source === "promo" && discountAmount > 0 && (
                 <div className="flex justify-between text-sm text-primary">
-                  <span>Promo discount</span>
+                  <span>Promo discount ({Math.round(promoPct)}% off)</span>
                   <span>-${discountAmount.toFixed(2)}</span>
                 </div>
               )}
 
-              {rewardDiscount > 0 && (
+              {winningDiscount.source === "reward" && rewardDiscount > 0 && (
                 <div className="flex justify-between text-sm text-accent">
                   <span>
                     {appliedReward?.type === "free_session"
                       ? `Free session reward (${rewardFreeHours}hr)`
-                      : `Discount (${rewardDiscountPercent}% off)`}
+                      : `Reward discount (${rewardDiscountPercent}% off)`}
                   </span>
                   <span>-${rewardDiscount.toFixed(2)}</span>
                 </div>
+              )}
+
+              {winningDiscount.source === "membership" && membershipDiscount > 0 && (
+                <div className="flex justify-between text-sm text-primary">
+                  <span>{membershipPlanName} discount ({membershipDiscountPct}% off)</span>
+                  <span>-${membershipDiscount.toFixed(2)}</span>
+                </div>
+              )}
+
+              {discountNotice && (
+                <p className="text-xs text-muted-foreground italic">{discountNotice}</p>
               )}
 
               {appliedReward?.type === "free_item" && (
@@ -764,12 +776,6 @@ const Booking = () => {
                 </div>
               )}
 
-              {membershipDiscount > 0 && (
-                <div className="flex justify-between text-sm text-primary">
-                  <span>{membershipPlanName} discount ({membershipDiscountPct}% off)</span>
-                  <span>-${membershipDiscount.toFixed(2)}</span>
-                </div>
-              )}
 
 
 
