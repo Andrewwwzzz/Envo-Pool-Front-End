@@ -631,7 +631,9 @@ const Booking = () => {
                       <Tag className="h-4 w-4 text-accent" />
                       <span className="text-sm font-medium text-accent">{appliedReward.code}</span>
                       <span className="text-sm text-muted-foreground">
-                        {rewardFreeHours}hr free applied
+                        {appliedReward.type === "free_session" && `${rewardFreeHours}hr free applied`}
+                        {appliedReward.type === "booking_discount" && `${rewardDiscountPercent}% off applied`}
+                        {appliedReward.type === "free_item" && `Free item — collect at counter`}
                       </span>
                     </div>
                     <Button variant="ghost" size="sm" onClick={handleRemoveReward} className="text-xs h-7">
