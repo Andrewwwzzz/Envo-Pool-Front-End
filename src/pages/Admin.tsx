@@ -2055,7 +2055,137 @@ function PromosTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PromoDetailDialog promo={detailPromo} onClose={() => setDetailPromo(null)} />
     </div>
+  );
+}
+
+function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () => void }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["promo-usage", promo?.code],
+    enabled: !!promo?.code,
+    queryFn: async () => {
+      const res = await apiFetch(`/api/promos/${encodeURIComponent(promo.code)}/usage`);
+      if (res.status === 404) return { __missing: true };
+      if (!res.ok) throw new Error("Failed to fetch usage");
+      const raw = await res.json();
+      const list = Array.isArray(raw) ? raw : (raw?.usage || raw?.usages || raw?.history || []);
+      return { usage: list };
+    },
+  });
+
+  if (!promo) return null;
+
+  const isPct = promo.discount_type === "percentage";
+  const valueLabel = isPct ? `${promo.discount_value}%` : `$${Number(promo.discount_value).toFixed(2)}`;
+  const minSpend = promo.minimum_spend ? `$${Number(promo.minimum_spend).toFixed(2)}` : "—";
+  const maxDisc = promo.max_discount_amount ? `$${Number(promo.max_discount_amount).toFixed(2)}` : "—";
+  const perUser = promo.per_user_limit ?? "Unlimited";
+  const usageCount = promo.usage_count ?? 0;
+  const usageLimit = promo.usage_limit ?? "unlimited";
+  const expiryLabel = promo.expiry_date ? fmtDateSG(promo.expiry_date) : "No expiry";
+
+  const usage = (data as any)?.usage as any[] | undefined;
+  const missing = (data as any)?.__missing;
+
+  const money = (n: any) => {
+    const v = Number(n);
+    if (!isFinite(v)) return "—";
+    return `$${v.toFixed(2)}`;
+  };
+
+  return (
+    <Dialog open={!!promo} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={onClose} className="-ml-2">
+              <ArrowLeft className="h-4 w-4" /> Back
+            </Button>
+          </div>
+          <DialogTitle className="font-mono">{promo.code}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+            <div><div className="text-muted-foreground">Type</div><div>{isPct ? "Percentage" : "Fixed"}</div></div>
+            <div><div className="text-muted-foreground">Value</div><div>{valueLabel}</div></div>
+            <div><div className="text-muted-foreground">Min Spend</div><div>{minSpend}</div></div>
+            <div><div className="text-muted-foreground">Max Discount</div><div>{maxDisc}</div></div>
+            <div><div className="text-muted-foreground">Per User Limit</div><div>{perUser}</div></div>
+            <div><div className="text-muted-foreground">Expiry</div><div>{expiryLabel}</div></div>
+            <div>
+              <div className="text-muted-foreground">Status</div>
+              <Badge variant="outline" className={promo.is_active
+                ? "border-transparent bg-green-500/15 text-green-500"
+                : "border-transparent bg-muted text-muted-foreground"}>
+                {promo.is_active ? "Active" : "Inactive"}
+              </Badge>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Total Uses</div>
+              <Badge variant="outline">{usageCount} / {usageLimit}</Badge>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold mb-2">Usage History</h4>
+            {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+            {error && <p className="text-sm text-destructive">Failed to load usage history.</p>}
+            {!isLoading && missing && (
+              <p className="text-sm text-muted-foreground">
+                Usage history endpoint not available yet. Please add <code className="font-mono">GET /api/promos/:code/usage</code> to the backend.
+              </p>
+            )}
+            {!isLoading && !missing && usage && usage.length === 0 && (
+              <p className="text-sm text-muted-foreground">No usage yet.</p>
+            )}
+            {!isLoading && !missing && usage && usage.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-muted-foreground">
+                      <th className="py-2 pr-3 font-medium">Customer</th>
+                      <th className="py-2 pr-3 font-medium">Short ID</th>
+                      <th className="py-2 pr-3 font-medium">Discount</th>
+                      <th className="py-2 pr-3 font-medium">Original → Final</th>
+                      <th className="py-2 pr-3 font-medium">Booking Date</th>
+                      <th className="py-2 pr-3 font-medium">Used At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usage.map((u: any, i: number) => {
+                      const name = u.customerName || u.customer_name || u.user?.name || u.userName || "—";
+                      const email = u.customerEmail || u.customer_email || u.user?.email || u.userEmail || "";
+                      const shortId = u.shortId || u.short_id || u.bookingShortId || u.booking?.shortId || u.bookingId || u.booking_id || "—";
+                      const discount = u.discountApplied ?? u.discount_applied ?? u.discount ?? u.discountAmount;
+                      const original = u.originalAmount ?? u.original_amount ?? u.originalPrice ?? u.original_price;
+                      const final = u.finalAmount ?? u.final_amount ?? u.finalPrice ?? u.final_price;
+                      const bookingDate = u.bookingDate || u.booking_date || u.bookingStartTime || u.booking?.startTime || u.booking?.start_time;
+                      const usedAt = u.usedAt || u.used_at || u.createdAt || u.created_at;
+                      return (
+                        <tr key={u.id || u._id || i} className="border-b border-border/50">
+                          <td className="py-2 pr-3">
+                            <div className="font-medium">{name}</div>
+                            {email && <div className="text-xs text-muted-foreground">{email}</div>}
+                          </td>
+                          <td className="py-2 pr-3 font-mono text-xs">{shortId}</td>
+                          <td className="py-2 pr-3 text-destructive">-{money(discount)}</td>
+                          <td className="py-2 pr-3">{money(original)} → {money(final)}</td>
+                          <td className="py-2 pr-3">{bookingDate ? fmtDateTimeSG(bookingDate) : "—"}</td>
+                          <td className="py-2 pr-3">{usedAt ? fmtDateTimeSG(usedAt) : "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
