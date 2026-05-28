@@ -91,7 +91,7 @@ function AssignLockerDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Assign Locker {locker ? `#${locker.number}` : ""}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Assign Locker {locker ? `#${(locker as any).lockerNumber ?? locker.number}` : ""}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label>Search Customer</Label>
