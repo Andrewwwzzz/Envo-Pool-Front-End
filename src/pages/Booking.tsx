@@ -161,7 +161,12 @@ const Booking = () => {
     );
   }, [appliedPromo, originalPrice]);
 
-  const finalPrice = appliedReward?.type === "free_session" ? 0 : Math.max(0, originalPrice - discountAmount);
+  // Free session reward: value = number of free hours, applied as credit at the booking's hourly rate
+  const rewardHourlyRate = pricing?.segments?.[0]?.hourlyRate ?? 0;
+  const rewardFreeHours = appliedReward?.type === "free_session" ? (appliedReward.value ?? 0) : 0;
+  const priceAfterPromo = Math.max(0, originalPrice - discountAmount);
+  const rewardDiscount = Math.min(priceAfterPromo, rewardFreeHours * rewardHourlyRate);
+  const finalPrice = Math.max(0, priceAfterPromo - rewardDiscount);
 
   const durationError = useMemo(() => {
     if (!startDate || !endDate || endDate <= startDate) return null;
