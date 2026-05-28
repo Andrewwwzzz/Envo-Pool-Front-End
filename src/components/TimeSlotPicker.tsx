@@ -129,6 +129,11 @@ export function TimeSlotPicker({
         return { ...slot, available: false, state: "past" as const, userName: null, expiresAt: null, maintenanceReason: null };
       }
 
+      // Outside configured operating hours
+      if (operatingHours && !isSlotWithinHours(operatingHours, date, slot.time)) {
+        return { ...slot, available: false, state: "closed" as const, userName: null, expiresAt: null, maintenanceReason: null };
+      }
+
       const slotStartStr = `${Math.floor(slotMin / 60).toString().padStart(2, "0")}:${(slotMin % 60).toString().padStart(2, "0")}`;
       const slotEndStr = `${Math.floor(slotEndMin / 60).toString().padStart(2, "0")}:${(slotEndMin % 60).toString().padStart(2, "0")}`;
       const slotStart = sgSlotToUTC(date, slotStartStr);
