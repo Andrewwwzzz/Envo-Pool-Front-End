@@ -296,6 +296,29 @@ export default function DashboardMembership() {
         </CardContent>
       </Card>
 
+      {showRenew && (
+        <Card className="border-destructive/40">
+          <CardContent className="py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="space-y-0.5">
+              <div className="text-sm font-medium">Your membership has expired</div>
+              <div className="text-xs text-muted-foreground">
+                Wallet balance: ${walletBalance.toFixed(2)}
+                {!canAffordRenew && " — top up to renew"}
+              </div>
+            </div>
+            <Button
+              size="lg"
+              disabled={!canAffordRenew || renewMine.isPending}
+              onClick={() => setConfirmRenew(true)}
+            >
+              Renew for ${planPrice}/{planCycle}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
