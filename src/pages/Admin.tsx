@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import AdminBookingDetailDialog from "@/components/admin/AdminBookingDetailDialog";
 import CustomerRewardsSection from "@/components/admin/CustomerRewardsSection";
+import RewardsTab from "@/components/admin/RewardsTab";
 import { useDeviceState, useDeviceControl } from "@/hooks/useDeviceControl";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG, sgSlotToUTC, getSGDateStr } from "@/lib/sgTime";
 
