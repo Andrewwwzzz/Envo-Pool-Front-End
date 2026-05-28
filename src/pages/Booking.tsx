@@ -180,7 +180,36 @@ const Booking = () => {
       : appliedReward?.type === "booking_discount"
       ? Math.min(priceAfterPromo, priceAfterPromo * (rewardDiscountPercent / 100))
       : 0;
-  const finalPrice = Math.max(0, priceAfterPromo - rewardDiscount);
+
+  // Membership discount — auto-applied from highest active membership benefit.
+  // Hidden when a reward code is applied (reward takes priority).
+  const activeMembership = useMemo(() => {
+    const list: any[] = myMembership?.memberships ?? [];
+    const actives = list.filter((m) => {
+      const status = String(m?.status ?? (m?.active ? "active" : "")).toLowerCase();
+      return status === "active";
+    });
+    if (!actives.length) return null;
+    return actives.reduce((best, m) => {
+      const pct = Number(m?.plan?.benefits?.bookingDiscount ?? m?.benefits?.bookingDiscount ?? 0);
+      const bestPct = Number(best?.plan?.benefits?.bookingDiscount ?? best?.benefits?.bookingDiscount ?? 0);
+      return pct > bestPct ? m : best;
+    }, actives[0]);
+  }, [myMembership]);
+
+  const membershipDiscountPct = Number(
+    activeMembership?.plan?.benefits?.bookingDiscount ??
+      activeMembership?.benefits?.bookingDiscount ??
+      0
+  );
+  const membershipPlanName = activeMembership?.plan?.name ?? activeMembership?.planName ?? "Membership";
+  const priceAfterReward = Math.max(0, priceAfterPromo - rewardDiscount);
+  const membershipDiscount =
+    !appliedReward && membershipDiscountPct > 0
+      ? Math.min(priceAfterReward, priceAfterReward * (membershipDiscountPct / 100))
+      : 0;
+  const finalPrice = Math.max(0, priceAfterReward - membershipDiscount);
+
 
   const durationError = useMemo(() => {
     if (!startDate || !endDate || endDate <= startDate) return null;
