@@ -119,9 +119,17 @@ export function useCancelMembership() {
 export function useMyMembership() {
   return useQuery<any>({
     queryKey: ["membership", "my"],
+    enabled: typeof window !== "undefined" && !!localStorage.getItem("token"),
     queryFn: async () => {
-      const r = await apiFetch("/api/membership/my");
+      const token = localStorage.getItem("token");
+      const r = await apiFetch("/api/membership/my", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
       if (r.status === 404) return null;
+      if (r.status === 401) return null;
       if (!r.ok) throw new Error(`${r.status}`);
       return r.json();
     },
