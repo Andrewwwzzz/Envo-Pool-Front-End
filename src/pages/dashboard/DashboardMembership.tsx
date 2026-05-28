@@ -310,8 +310,6 @@ export default function DashboardMembership() {
     })
     .map((m: any) => m.lockerRentalId);
 
-  const cancelTargetEnd =
-    cancelTarget?.endDate ?? cancelTarget?.cancelledUntil ?? cancelTarget?.renewalDate;
   const renewTargetPlan = getPlanObj(renewTarget) || renewTarget;
   const renewTargetPrice = Number(renewTargetPlan?.price ?? 0);
 
