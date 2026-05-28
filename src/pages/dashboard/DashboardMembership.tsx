@@ -34,6 +34,7 @@ export default function DashboardMembership() {
   const { data: profile } = useProfile();
   const subscribe = useSubscribeMembership();
   const [confirmPlan, setConfirmPlan] = useState<MembershipPlan | null>(null);
+  const [showPin, setShowPin] = useState(false);
 
   const walletBalance = Number(profile?.wallet_balance ?? 0);
 
