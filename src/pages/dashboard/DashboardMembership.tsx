@@ -39,13 +39,45 @@ export default function DashboardMembership() {
   const { data: plans = [] } = useMembershipPlans();
   const { data: profile } = useProfile();
   const subscribe = useSubscribeMembership();
+  const cancelMine = useCancelMyMembership();
   const [confirmPlan, setConfirmPlan] = useState<MembershipPlan | null>(null);
   const [showPin, setShowPin] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   const walletBalance = Number(profile?.wallet_balance ?? 0);
 
-  const active = membership && (membership.status === "active" || membership.active);
+  const status: string = String(membership?.status ?? (membership?.active ? "active" : "")).toLowerCase();
+  const active = membership && (status === "active" || membership.active);
   const plan = membership?.plan || membership;
+  const benefitsObj = (plan?.benefits ?? {}) as any;
+  const bookingDiscount = benefitsObj.bookingDiscount ?? plan?.bookingDiscountPct ?? 0;
+  const freeMinutesPerVisit = benefitsObj.freeMinutesPerVisit ?? plan?.freeMinutesPerVisit ?? 0;
+  const freeDrinkPerVisit = benefitsObj.freeDrinkPerVisit ?? plan?.freeDrinkPerVisit ?? false;
+  const lockerIncluded = benefitsObj.lockerIncluded ?? plan?.lockerIncluded ?? false;
+  const totalSaved = Number(membership?.totalSaved ?? 0);
+  const lockerRental = membership?.lockerRentalId;
+  const hasLockerAssigned = !!(lockerRental && typeof lockerRental === "object" ? (lockerRental as any)._id || (lockerRental as any).id : lockerRental);
+  const lockerNum = (lockerRental as any)?.lockerUnitId?.lockerNumber ?? (lockerRental as any)?.lockerUnitId?.number ?? (lockerRental as any)?.lockerNumber ?? locker?.lockerNumber ?? locker?.number;
+  const lockerPin = (lockerRental as any)?.pin ?? locker?.pin;
+  const lockerRenewal = (lockerRental as any)?.renewalDate ?? locker?.renewalDate;
+
+  const lastVisitDate = membership?.lastVisitDate;
+  const visitedToday = (() => {
+    if (!lastVisitDate) return false;
+    const sgFmt = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" });
+    return sgFmt(new Date(lastVisitDate)) === sgFmt(new Date());
+  })();
+
+  const handleCancel = async () => {
+    try {
+      await cancelMine.mutateAsync();
+      toast.success("Membership cancelled");
+      setConfirmCancel(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to cancel membership");
+    }
+  };
+
 
   const handleConfirmSubscribe = async () => {
     if (!confirmPlan) return;
