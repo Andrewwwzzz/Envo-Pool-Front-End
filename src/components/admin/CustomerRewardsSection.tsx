@@ -45,7 +45,9 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const [reason, setReason] = useState<RewardReason>("reviews");
   const [otherReason, setOtherReason] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
-  const [issuedCode, setIssuedCode] = useState<string | null>(null);
+  const [qty, setQty] = useState("1");
+  const [multiUse, setMultiUse] = useState(false);
+  const [issuedCodes, setIssuedCodes] = useState<string[] | null>(null);
 
   const valueLabel =
     type === "free_session" ? "Sessions (1 hr each)" :
