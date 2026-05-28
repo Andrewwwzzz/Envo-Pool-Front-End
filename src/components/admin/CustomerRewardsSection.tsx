@@ -275,26 +275,31 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
               <Label>Expires At (optional)</Label>
               <Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
             </div>
-            <div className="space-y-2">
-              <Label>Quantity</Label>
-              <Input
-                type="number" min="1" max="20" step="1"
-                value={qty}
-                onChange={(e) => setQty(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">Number of uses or separate codes to generate</p>
-            </div>
-            {(parseInt(qty) || 1) > 1 && (
-              <div className="space-y-2">
-                <Label>Issue Mode</Label>
-                <Select value={multiUse ? "multi" : "separate"} onValueChange={(v) => setMultiUse(v === "multi")}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="separate">Separate codes (one per use)</SelectItem>
-                    <SelectItem value="multi">One code, multiple uses</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            {type !== "wallet_credit" && (
+              <>
+                <div className="space-y-2">
+                  <Label>Issue Mode</Label>
+                  <Select value={issueMode} onValueChange={(v) => setIssueMode(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="single">Single use (1 code, used once)</SelectItem>
+                      <SelectItem value="multi">Multiple uses (1 code, used N times)</SelectItem>
+                      <SelectItem value="unlimited">Unlimited (1 code, used forever)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {issueMode === "multi" && (
+                  <div className="space-y-2">
+                    <Label>Quantity</Label>
+                    <Input
+                      type="number" min="1" max="100" step="1"
+                      value={qty}
+                      onChange={(e) => setQty(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">Number of times this code can be redeemed</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
           <DialogFooter>
