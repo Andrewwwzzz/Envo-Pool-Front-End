@@ -299,6 +299,7 @@ const Booking = () => {
           promoDiscount: discountAmount || 0,
           originalAmount: originalPrice || finalPrice,
           rewardCode: appliedReward?.code || null,
+          rewardDiscount: rewardDiscount || 0,
         }),
       });
 
