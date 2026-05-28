@@ -206,6 +206,23 @@ export default function DashboardMembership() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
+            {locker.pin && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">PIN</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono">{showPin ? locker.pin : "••••"}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => setShowPin((v) => !v)}
+                    aria-label={showPin ? "Hide PIN" : "Show PIN"}
+                  >
+                    {showPin ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Renewal</span>
               <span>{locker.renewalDate ? fmtDateSG(locker.renewalDate) : "—"}</span>
@@ -221,13 +238,13 @@ export default function DashboardMembership() {
             )}
           </CardContent>
         </Card>
-      ) : (
+      ) : plan?.lockerIncluded ? (
         <Card>
           <CardContent className="py-6 text-center text-sm text-muted-foreground">
-            No locker assigned — contact staff
+            Locker pending assignment — contact staff
           </CardContent>
         </Card>
-      )}
+      ) : null}
     </div>
   );
 }
