@@ -6,6 +6,7 @@ import { usePricingRules } from "@/hooks/usePricing";
 import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
 import { validateRewardCode, Reward } from "@/hooks/useRewards";
 import { useProfile } from "@/hooks/useProfile";
+import { useMyMembership } from "@/hooks/useMembership";
 import { calculateBookingPrice, calculateDiscount } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
