@@ -119,8 +119,12 @@ export function useCancelMembership() {
 export function useCancelMyMembership() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      const r = await apiFetch(`/api/membership/cancel`, { method: "POST" });
+    mutationFn: async (membershipId?: string) => {
+      const path = membershipId ? `/api/membership/cancel/${membershipId}` : `/api/membership/cancel`;
+      const r = await apiFetch(path, {
+        method: "POST",
+        body: membershipId ? JSON.stringify({ membershipId }) : undefined,
+      });
       if (!r.ok) throw new Error(await r.text());
       const text = await r.text();
       try { return text ? JSON.parse(text) : null; } catch { return null; }
@@ -133,7 +137,7 @@ export function useCancelMyMembership() {
 }
 
 export function useMyMembership() {
-  return useQuery<any>({
+  return useQuery<{ memberships: any[]; totalSaved: number }>({
     queryKey: ["membership", "my"],
     enabled: typeof window !== "undefined" && !!localStorage.getItem("token"),
     queryFn: async () => {
@@ -144,10 +148,18 @@ export function useMyMembership() {
           "Content-Type": "application/json",
         },
       });
-      if (r.status === 404) return null;
-      if (r.status === 401) return null;
+      if (r.status === 404 || r.status === 401) return { memberships: [], totalSaved: 0 };
       if (!r.ok) throw new Error(`${r.status}`);
-      return r.json();
+      const j = await r.json();
+      // New shape: { memberships: [...], totalSaved }
+      if (j && Array.isArray(j.memberships)) {
+        return { memberships: j.memberships, totalSaved: Number(j.totalSaved ?? 0) };
+      }
+      // Legacy shape: single membership object
+      if (j && (j.status || j.plan || j.active)) {
+        return { memberships: [j], totalSaved: Number(j.totalSaved ?? 0) };
+      }
+      return { memberships: [], totalSaved: Number(j?.totalSaved ?? 0) };
     },
   });
 }
@@ -177,8 +189,12 @@ export function useSubscribeMembership() {
 export function useRenewMembership() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      const r = await apiFetch("/api/membership/renew", { method: "POST" });
+    mutationFn: async (membershipId?: string) => {
+      const path = membershipId ? `/api/membership/renew/${membershipId}` : `/api/membership/renew`;
+      const r = await apiFetch(path, {
+        method: "POST",
+        body: membershipId ? JSON.stringify({ membershipId }) : undefined,
+      });
       const text = await r.text();
       let body: any = null;
       try { body = text ? JSON.parse(text) : null; } catch { body = { message: text }; }
