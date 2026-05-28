@@ -581,17 +581,18 @@ export default function MembershipTab() {
                         </TableCell>
                         <TableCell>{!deleted ? <LockerCell sub={s} /> : "—"}</TableCell>
                         <TableCell className="text-right">
-                          {!deleted && !cancelled && (
+                          {isActive && (
                             <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setCancelTarget(s); }}>
                               <XCircle className="h-4 w-4" /> Cancel
                             </Button>
                           )}
-                          {!deleted && cancelled && (
+                          {isExpired && (
                             <Button
                               variant="ghost"
                               size="sm"
                               className="text-destructive hover:text-destructive"
                               onClick={(e) => { e.stopPropagation(); setDeleteTarget(s); }}
+                              title="Delete membership"
                             >
                               <Trash2 className="h-4 w-4" /> Delete
                             </Button>
