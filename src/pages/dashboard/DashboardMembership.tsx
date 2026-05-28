@@ -503,32 +503,6 @@ export default function DashboardMembership() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!cancelTarget} onOpenChange={(o) => !o && setCancelTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel this membership?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure? Your membership stays active until{" "}
-              {cancelTargetEnd ? fmtDateSG(cancelTargetEnd) : "the end of the billing period"}.
-              You won't be charged again.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={cancelMine.isPending}>Keep Membership</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                handleCancel();
-              }}
-              disabled={cancelMine.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {cancelMine.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Cancel Membership
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={!!renewTarget} onOpenChange={(o) => !o && setRenewTarget(null)}>
         <AlertDialogContent>
