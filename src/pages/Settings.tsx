@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Settings as SettingsIcon, Eye, Save, Loader2, Gift, Copy } from "lucide-react";
+import { ArrowLeft, List as ListIcon, Eye, Save, Loader2, Gift, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 import { fmtDateSG } from "@/lib/sgTime";
@@ -168,7 +168,7 @@ const Settings = () => {
         <Card className="card-premium">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <SettingsIcon className="h-5 w-5 text-accent" />
+              <ListIcon className="h-[20px] w-[20px] text-accent" />
               Account Details
             </CardTitle>
           </CardHeader>
