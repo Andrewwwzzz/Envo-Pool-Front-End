@@ -284,14 +284,24 @@ export default function RewardsTab({
         )}
       </CardContent>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) { setDeleteId(null); setDeleteReason(""); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete reward?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this reward? This cannot be undone.
+              Why are you deleting this reward? This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="reward-delete-reason">Reason (optional)</Label>
+            <Textarea
+              id="reward-delete-reason"
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value.slice(0, 500))}
+              placeholder="e.g. issued in error"
+              maxLength={500}
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteReward.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -299,8 +309,9 @@ export default function RewardsTab({
                 e.preventDefault();
                 if (!deleteId) return;
                 try {
-                  await deleteReward.mutateAsync({ id: deleteId });
+                  await deleteReward.mutateAsync({ id: deleteId, reason: deleteReason.trim() });
                   setDeleteId(null);
+                  setDeleteReason("");
                 } catch {}
               }}
               disabled={deleteReward.isPending}
