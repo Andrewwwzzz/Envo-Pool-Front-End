@@ -356,6 +356,9 @@ const Booking = () => {
           originalAmount: originalPrice || finalPrice,
           rewardCode: appliedReward?.code || null,
           rewardDiscount: rewardDiscount || 0,
+          membershipDiscount: membershipDiscount || 0,
+          membershipPlanId:
+            activeMembership?.plan?.id ?? activeMembership?.plan?._id ?? activeMembership?.planId ?? null,
         }),
       });
 
