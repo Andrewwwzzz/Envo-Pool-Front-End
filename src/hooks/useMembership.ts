@@ -157,3 +157,40 @@ export function useSubscribeMembership() {
     },
   });
 }
+
+export function useAssignMembershipLocker() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ membershipId, lockerUnitId, pin }: { membershipId: string; lockerUnitId: string; pin?: string }) => {
+      const r = await apiFetch(`/api/membership/admin/assign-locker/${membershipId}`, {
+        method: "POST",
+        body: JSON.stringify({ lockerUnitId, pin }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["membership", "subscriptions"] });
+      qc.invalidateQueries({ queryKey: ["lockers"] });
+    },
+  });
+}
+
+export function useUpdateLockerPin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ rentalId, pin }: { rentalId: string; pin: string }) => {
+      const r = await apiFetch(`/api/membership/admin/locker-pin/${rentalId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ pin }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["membership", "subscriptions"] });
+      qc.invalidateQueries({ queryKey: ["lockers"] });
+    },
+  });
+}
+
