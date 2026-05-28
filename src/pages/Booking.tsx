@@ -17,6 +17,7 @@ import { LogOut, CalendarDays, Tag, CreditCard, Wallet, ChevronRight, Shield } f
 import { Link } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
 import { TimeSlotPicker } from "@/components/TimeSlotPicker";
+import { useOperatingHours } from "@/hooks/useOperatingHours";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiFetch, BASE_URL } from "@/lib/api";
