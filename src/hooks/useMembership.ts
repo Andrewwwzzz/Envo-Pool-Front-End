@@ -80,11 +80,12 @@ export function useDeleteMembershipPlan() {
 }
 
 export function useAdminSubscriptions() {
-  return useQuery<Subscription[]>({
+  return useQuery<any[]>({
     queryKey: ["membership", "subscriptions"],
     queryFn: async () => {
       const j = await getJson("/api/membership/admin/subscriptions");
-      return Array.isArray(j) ? j : j.subscriptions ?? [];
+      const arr = Array.isArray(j) ? j : j.subscriptions ?? [];
+      return arr.map((s: any) => ({ ...s, id: s.id ?? s._id }));
     },
   });
 }
