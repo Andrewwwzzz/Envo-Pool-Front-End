@@ -569,7 +569,7 @@ export default function MembershipTab() {
                         </TableCell>
                         <TableCell><LockerCell sub={s} /></TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="sm" onClick={() => cancelSub(s)}>
+                          <Button variant="ghost" size="sm" onClick={() => openCancelSub(s)}>
                             <XCircle className="h-4 w-4" /> Cancel
                           </Button>
                         </TableCell>
