@@ -405,9 +405,7 @@ function BookingsTab() {
     const q = search.trim().toLowerCase();
     if (!q) return true;
     const u = b.userId || b.user || {};
-    const tableName = typeof b.tableId === "string"
-      ? `table ${b.tableId.replace("T", "")}`
-      : `table ${(b as any).tables?.table_number ?? b.tableId?.tableNumber ?? ""}`;
+    const tableName = getTableLabel(b.tableId, tablesList as any, b).toLowerCase();
     const dateStr = (fmtDateSG(getField(b, "startTime", "start_time")) || "").toLowerCase();
     const haystack = [
       typeof u === "object" ? u.name : "",
