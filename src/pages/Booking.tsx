@@ -446,7 +446,7 @@ const Booking = () => {
       // STEP 1: Create booking via POST /api/bookings
       // Backend handles all discount calculations server-side. Always send the
       // original (pre-discount) subtotal as both `amount` and `originalAmount`.
-      const subtotal = Number((originalPrice || finalPrice).toFixed(2));
+      const subtotal = Number(Number(originalPrice || 0).toFixed(2));
       const createRes = await apiFetch("/api/bookings", {
         method: "POST",
         body: JSON.stringify({
