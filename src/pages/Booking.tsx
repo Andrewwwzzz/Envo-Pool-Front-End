@@ -229,41 +229,86 @@ const Booking = () => {
       0
   );
   const membershipPlanName = activeMembershipPlan?.name ?? activeMembership?.planName ?? "Membership";
-  const membershipDiscountAmt = originalPrice > 0 ? originalPrice * (membershipDiscountPct / 100) : 0;
+
+  // Free minutes per visit — granted once per SGT day. Consumed from first
+  // segments at their respective hourly rates, like a free_session reward.
+  const freeMinutesPerVisit = Number(
+    activeMembershipPlan?.benefits?.freeMinutesPerVisit ??
+      activeMembership?.benefits?.freeMinutesPerVisit ??
+      0
+  );
+  const lastVisitDateRaw = activeMembership?.lastVisitDate ?? activeMembership?.last_visit_date ?? null;
+  const freeMinutesAvailable = useMemo(() => {
+    if (!activeMembership || freeMinutesPerVisit <= 0) return 0;
+    if (!lastVisitDateRaw) return freeMinutesPerVisit;
+    const lastVisit = new Date(lastVisitDateRaw);
+    if (isNaN(lastVisit.getTime())) return freeMinutesPerVisit;
+    return isTodaySG(lastVisit) ? 0 : freeMinutesPerVisit;
+  }, [activeMembership, freeMinutesPerVisit, lastVisitDateRaw]);
+
+  const { freeMinutesCredit, freeMinutesApplied } = useMemo(() => {
+    if (freeMinutesAvailable <= 0 || originalPrice <= 0) {
+      return { freeMinutesCredit: 0, freeMinutesApplied: 0 };
+    }
+    let remaining = freeMinutesAvailable;
+    let credit = 0;
+    let used = 0;
+    const segs = pricing?.segments ?? [];
+    for (const seg of segs) {
+      if (remaining <= 0) break;
+      const segMins =
+        (new Date(seg.endTime).getTime() - new Date(seg.startTime).getTime()) / (1000 * 60);
+      const minsToUse = Math.min(segMins, remaining);
+      credit += (minsToUse / 60) * (seg.hourlyRate ?? 0);
+      used += minsToUse;
+      remaining -= minsToUse;
+    }
+    const cappedCredit = Math.min(originalPrice, parseFloat(credit.toFixed(2)));
+    return { freeMinutesCredit: cappedCredit, freeMinutesApplied: used };
+  }, [freeMinutesAvailable, originalPrice, pricing?.segments]);
+
+  // Membership % applies AFTER free minutes credit
+  const membershipPercentBase = Math.max(0, originalPrice - freeMinutesCredit);
+  const membershipDiscountAmt = membershipPercentBase * (membershipDiscountPct / 100);
+  // Total membership benefit (free mins + percent) — used to compare against promo/reward
+  const membershipBenefitAmt = freeMinutesCredit + membershipDiscountAmt;
 
   // ---- Pick the single winning discount ----
   type DiscountSource = "none" | "promo" | "reward" | "membership";
   const winningDiscount = useMemo(() => {
     const candidates: { source: DiscountSource; amount: number; pct: number }[] = [];
-    if (membershipDiscountPct > 0) candidates.push({ source: "membership", amount: membershipDiscountAmt, pct: membershipDiscountPct });
+    if (membershipBenefitAmt > 0) candidates.push({ source: "membership", amount: membershipBenefitAmt, pct: membershipDiscountPct });
     if (appliedPromo) candidates.push({ source: "promo", amount: promoDiscountAmt, pct: promoPct });
     if (appliedReward && rewardDiscountAmt > 0) candidates.push({ source: "reward", amount: rewardDiscountAmt, pct: rewardPct });
     if (!candidates.length) return { source: "none" as DiscountSource, amount: 0, pct: 0 };
     return candidates.reduce((best, c) => (c.amount > best.amount ? c : best), candidates[0]);
-  }, [appliedPromo, appliedReward, membershipDiscountPct, promoDiscountAmt, rewardDiscountAmt, membershipDiscountAmt, promoPct, rewardPct]);
+  }, [appliedPromo, appliedReward, membershipDiscountPct, membershipBenefitAmt, promoDiscountAmt, rewardDiscountAmt, promoPct, rewardPct]);
 
   // Notice shown when user-entered code interacts with the membership rate
   const discountNotice = useMemo(() => {
     const userApplied = !!appliedPromo || (!!appliedReward && rewardDiscountAmt > 0);
-    if (!userApplied || membershipDiscountPct <= 0) return null;
+    if (!userApplied || membershipBenefitAmt <= 0) return null;
     const userCandidate = appliedPromo
-      ? { pct: promoPct, label: "Promo" }
-      : { pct: rewardPct, label: "Reward" };
+      ? { amount: promoDiscountAmt, label: "Promo" }
+      : { amount: rewardDiscountAmt, label: "Reward" };
     if (winningDiscount.source === "membership") {
-      return `Your membership discount (${Math.round(membershipDiscountPct)}%) is higher — membership rate applied instead.`;
+      return `Your membership benefits are higher — membership rate applied instead.`;
     }
-    if ((winningDiscount.source === "promo" || winningDiscount.source === "reward") && userCandidate.pct > membershipDiscountPct) {
-      return `${userCandidate.label} discount (${Math.round(userCandidate.pct)}%) applied — better than your membership rate.`;
+    if ((winningDiscount.source === "promo" || winningDiscount.source === "reward") && userCandidate.amount > membershipBenefitAmt) {
+      return `${userCandidate.label} discount applied — better than your membership rate.`;
     }
     return null;
-  }, [appliedPromo, appliedReward, rewardDiscountAmt, membershipDiscountPct, promoPct, rewardPct, winningDiscount]);
+  }, [appliedPromo, appliedReward, rewardDiscountAmt, membershipBenefitAmt, promoDiscountAmt, winningDiscount]);
 
   const finalPrice = Math.max(0, originalPrice - winningDiscount.amount);
 
   // Amounts to send/show, derived from the winner only (no stacking)
   const discountAmount = winningDiscount.source === "promo" ? winningDiscount.amount : 0;
   const rewardDiscount = winningDiscount.source === "reward" ? winningDiscount.amount : 0;
-  const membershipDiscount = winningDiscount.source === "membership" ? winningDiscount.amount : 0;
+  const membershipDiscount = winningDiscount.source === "membership" ? membershipDiscountAmt : 0;
+  const appliedFreeMinutesCredit = winningDiscount.source === "membership" ? freeMinutesCredit : 0;
+  const appliedFreeMinutesUsed = winningDiscount.source === "membership" ? freeMinutesApplied : 0;
+
 
 
   const durationError = useMemo(() => {
