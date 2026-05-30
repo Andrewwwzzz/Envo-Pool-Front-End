@@ -154,7 +154,8 @@ export default function DashboardBookings() {
     return (
       <div
         key={`w-${w._id || w.id}`}
-        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-lg border p-3 sm:p-4 ${
+        onClick={() => setSelectedWalkin({ session: w, live: !!opts.live })}
+        className={`cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-lg border p-3 sm:p-4 transition-colors hover:bg-primary/5 hover:border-primary/30 ${
           opts.live ? "border-green-500/40 bg-green-500/5" : "border-border/50"
         }`}
       >
