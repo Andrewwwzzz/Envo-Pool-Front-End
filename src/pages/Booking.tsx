@@ -25,6 +25,9 @@ import { apiFetch, BASE_URL } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isBefore } from "date-fns";
 import { todaySG, sgSlotToUTC, sgDayBoundsUTC, isTodaySG } from "@/lib/sgTime";
+import WalkinSessionPanel from "@/components/WalkinSessionPanel";
+import { useMyWalkinSession, useStartWalkin } from "@/hooks/useWalkin";
+import { Timer } from "lucide-react";
 
 const statusColor: Record<TableStatus, string> = {
   Available: "bg-primary/10 text-primary border-primary/20",
