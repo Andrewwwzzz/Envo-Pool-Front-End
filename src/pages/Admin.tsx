@@ -472,7 +472,7 @@ function BookingsTab() {
                 const canCancel = b.status === "confirmed";
                 return (
                   <tr key={bookingId} className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setSelectedBooking(b)}>
-                    <td className="py-3 pr-4">Table {typeof b.tableId === "string" ? b.tableId.replace("T", "") : (b as any).tables?.table_number ?? b.tableId?.tableNumber ?? "?"}</td>
+                    <td className="py-3 pr-4">{getTableLabel(b.tableId, tablesList as any, b)}</td>
                     <td className="py-3 pr-4">{fmtDateSG(getField(b, "startTime", "start_time"))}</td>
                     <td className="py-3 pr-4">{fmtTimeSG(getField(b, "startTime", "start_time"))} – {fmtTimeSG(getField(b, "endTime", "end_time"))}</td>
                     <td className="py-3 pr-4">{(() => { const s = b.startTime || b.start_time; const e = b.endTime || b.end_time; const mins = s && e ? Math.round((new Date(e).getTime() - new Date(s).getTime()) / 60000) : 0; const h = Math.floor(mins / 60); const m = mins % 60; return m > 0 ? `${h}h ${m}m` : `${h}h`; })()}</td>
