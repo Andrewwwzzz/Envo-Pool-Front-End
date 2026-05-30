@@ -71,6 +71,28 @@ const fmtDur = (mins: number) => {
 
 const AdminBookingDetailDialog = ({ booking, open, onOpenChange, onCancel }: Props) => {
   const { data: tablesList } = useAdminTables();
+
+  const segments = useMemo(() => {
+    if (!booking) return [];
+    const b = booking;
+    const raw = b.pricingSegments || b.pricing_segments || b.segments;
+    if (!Array.isArray(raw) || raw.length === 0) return [];
+    return raw
+      .map((s: any) => {
+        const sStart = s.startTime || s.start_time || s.start;
+        const sEnd = s.endTime || s.end_time || s.end;
+        if (!sStart || !sEnd) return null;
+        return {
+          startTime: new Date(sStart),
+          endTime: new Date(sEnd),
+          ratePerHour: Number(s.ratePerHour ?? s.rate_per_hour ?? s.hourlyRate ?? s.hourly_rate ?? s.rate ?? 0),
+          amount: Number(s.amount ?? s.segmentCost ?? s.segment_cost ?? s.cost ?? 0),
+          ruleName: s.ruleName || s.rule_name || null,
+        };
+      })
+      .filter(Boolean) as Array<{ startTime: Date; endTime: Date; ratePerHour: number; amount: number; ruleName: string | null }>;
+  }, [booking]);
+
   if (!booking) return null;
   const b = booking;
   const id: string = b._id || b.id || "";
@@ -98,25 +120,6 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange, onCancel }: Pro
       shortId: u.shortId || b.shortId || null,
     };
   })();
-
-  const segments = useMemo(() => {
-    const raw = b.pricingSegments || b.pricing_segments || b.segments;
-    if (!Array.isArray(raw) || raw.length === 0) return [];
-    return raw
-      .map((s: any) => {
-        const sStart = s.startTime || s.start_time || s.start;
-        const sEnd = s.endTime || s.end_time || s.end;
-        if (!sStart || !sEnd) return null;
-        return {
-          startTime: new Date(sStart),
-          endTime: new Date(sEnd),
-          ratePerHour: Number(s.ratePerHour ?? s.rate_per_hour ?? s.hourlyRate ?? s.hourly_rate ?? s.rate ?? 0),
-          amount: Number(s.amount ?? s.segmentCost ?? s.segment_cost ?? s.cost ?? 0),
-          ruleName: s.ruleName || s.rule_name || null,
-        };
-      })
-      .filter(Boolean) as Array<{ startTime: Date; endTime: Date; ratePerHour: number; amount: number; ruleName: string | null }>;
-  }, [b]);
 
   const finalAmount = Number(
     b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? b.price ?? 0,
