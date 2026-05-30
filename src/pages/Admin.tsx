@@ -2411,6 +2411,8 @@ function VerificationTab() {
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejecting, setRejecting] = useState<string | null>(null);
+  const [rejectedDetail, setRejectedDetail] = useState<any | null>(null);
+  const [unrejecting, setUnrejecting] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchUnverified = async () => {
@@ -2511,6 +2513,31 @@ function VerificationTab() {
       setRejecting(null);
     }
   };
+
+  const handleUnreject = async () => {
+    if (!rejectedDetail) return;
+    const userId = rejectedDetail._id || rejectedDetail.userId || rejectedDetail.id;
+    try {
+      setUnrejecting(userId);
+      const res = await apiFetch("/api/admin/unreject-user", {
+        method: "POST",
+        body: JSON.stringify({ userId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Failed to unreject user");
+      }
+      toast({ title: "User re-opened", description: "Moved back to pending" });
+      setRejectedDetail(null);
+      await refresh();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setUnrejecting(null);
+    }
+  };
+
+
 
 
   const matchesSearch = (u: any) => {
@@ -2630,8 +2657,12 @@ function VerificationTab() {
                       const reason = u.rejectionReason || u.rejection_reason || u.rejectReason || "—";
                       const rejectedAt = u.rejectedAt || u.rejected_at;
                       return (
-                        <tr key={uid} className="border-b border-border last:border-0">
-                          <td className="py-3 pr-4">{u.name || "—"}</td>
+                        <tr
+                          key={uid}
+                          className="border-b border-border last:border-0 text-muted-foreground cursor-pointer hover:bg-muted/30"
+                          onClick={() => setRejectedDetail(u)}
+                        >
+                          <td className="py-3 pr-4 line-through">{u.name || "—"}</td>
                           <td className="py-3 pr-4">{u.email || "—"}</td>
                           <td className="py-3 pr-4">{u.createdAt ? fmtDateTimeSG(u.createdAt) : "—"}</td>
                           <td className="py-3 pr-4 whitespace-pre-wrap text-destructive">{reason}</td>
@@ -2702,6 +2733,52 @@ function VerificationTab() {
             <Button variant="destructive" onClick={handleReject} disabled={!rejectReason.trim() || !!rejecting}>
               {rejecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
               Confirm Rejection
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!rejectedDetail} onOpenChange={(o) => { if (!o) setRejectedDetail(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rejected User</DialogTitle>
+          </DialogHeader>
+          {rejectedDetail && (() => {
+            const u = rejectedDetail;
+            const uid = u._id || u.userId || u.id;
+            const reason = u.rejectionReason || u.rejection_reason || u.rejectReason || "—";
+            const rejectedAt = u.rejectedAt || u.rejected_at;
+            const rb = u.rejectedBy || u.rejected_by;
+            const rejectedByName = rb && typeof rb === "object"
+              ? (rb.name || rb.legalName || rb.email || "—")
+              : (typeof rb === "string" && !/^[a-f0-9]{24}$/i.test(rb) ? rb : "—");
+            return (
+              <div className="space-y-4">
+                <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm space-y-1">
+                  <div className="flex items-center gap-2 font-medium text-destructive">
+                    <AlertTriangle className="h-4 w-4" /> This account has been rejected
+                  </div>
+                  <div className="text-xs text-foreground/80 space-y-0.5 pl-6">
+                    <div><span className="text-muted-foreground">Reason:</span> {reason}</div>
+                    <div><span className="text-muted-foreground">Rejected by:</span> {rejectedByName}</div>
+                    <div><span className="text-muted-foreground">Rejected at:</span> {rejectedAt ? fmtDateTimeSG(rejectedAt) : "—"}</div>
+                  </div>
+                </div>
+                <div className="text-sm space-y-1.5">
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">Name</span><span>{u.name || "—"}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">Email</span><span>{u.email || "—"}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">Phone</span><span>{u.phone || u.phoneNumber || "—"}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">Joined</span><span>{u.createdAt ? fmtDateTimeSG(u.createdAt) : "—"}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">User ID</span><span className="font-mono text-xs">{uid ? String(uid).slice(-8) : "—"}</span></div>
+                </div>
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectedDetail(null)} disabled={!!unrejecting}>Close</Button>
+            <Button onClick={handleUnreject} disabled={!!unrejecting}>
+              {unrejecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+              Unreject / Re-open
             </Button>
           </DialogFooter>
         </DialogContent>
