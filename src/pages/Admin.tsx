@@ -999,32 +999,98 @@ function TableMaintenanceList({ tableId }: { tableId: string }) {
 
 
 function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | null; onClose: () => void; onDelete: () => void }) {
+  const [nowTick, setNowTick] = useState(Date.now());
+  const isWalkin = !!session?._walkin || (session && !!session.userId && !session.startedBy && session.status !== "active" ? false : !!session?._walkin);
+  const walkin = !!session?._walkin || !!session?.userId;
+  const isActive = !!session && walkin && (session.status === "active" || (!session.endedAt && !session.endTime && !session.ended_at));
+
+  useEffect(() => {
+    if (!isActive) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isActive]);
+
   if (!session) return null;
   const s = session;
   const id = String(s._id || s.id || "");
   const shortId = id.slice(-8).toUpperCase();
   const isDeleted = s.isDeleted === true;
-  const startedAt = s.startedAt || s.started_at;
-  const endedAt = s.endedAt || s.ended_at;
+  const startedAt = s.startedAt || s.started_at || s.startTime;
+  const endedAtRaw = s.endedAt || s.ended_at || s.endTime;
   const createdAt = s.createdAt || s.created_at || startedAt;
-  const durationSeconds = Number(s.durationSeconds ?? s.duration_seconds ?? 0);
+
+  const startMs = startedAt ? new Date(startedAt).getTime() : 0;
+  const endMs = endedAtRaw ? new Date(endedAtRaw).getTime() : (isActive ? nowTick : 0);
+  const durationSecondsCalc = startMs && endMs ? Math.max(0, Math.floor((endMs - startMs) / 1000)) : 0;
+  const durationSeconds = Number(s.durationSeconds ?? s.duration_seconds ?? (s.durationMinutes ? s.durationMinutes * 60 : 0)) || durationSecondsCalc;
+
   const h = Math.floor(durationSeconds / 3600);
   const m = Math.floor((durationSeconds % 3600) / 60);
-  const durationLabel = h && m ? `${h}h ${m}m` : h ? `${h}h` : `${m}m`;
-  const hours = durationSeconds / 3600;
+  const sec = durationSeconds % 60;
+  const durationLabel = h > 0
+    ? `${h}h ${m} mins ${sec} secs`
+    : `${m} mins ${sec} secs`;
+
   const rate = Number(s.hourlyRate ?? s.hourly_rate ?? 0);
-  const amount = Number(s.amountCharged ?? s.amount_charged ?? s.total_cost ?? 0);
+  const liveAmount = isActive ? Number(s.runningCost ?? 0) : 0;
+  const amount = isActive
+    ? liveAmount
+    : Number(s.amountCharged ?? s.amount_charged ?? s.total_cost ?? s.totalCost ?? s.runningCost ?? 0);
   const staff = s.startedBy?.name || s.startedBy?.email || "—";
-  const tableName = s.tableName || (s.tables?.table_number ? `Table ${s.tables.table_number}` : "—");
+  const customerName =
+    (typeof s.userId === "object"
+      ? s.userId?.name || s.userId?.username || s.userId?.email
+      : null) || s.userName || s.customerName || "—";
+  const tableName = s.tableName || (s.tables?.table_number ? `Table ${s.tables.table_number}` : (s.tableId ? getTableLabel(s.tableId) : "—"));
+
+  // pricingSegments: prefer explicit segments array; otherwise fall back to single segment from rate+duration.
+  const rawSegments: any[] = Array.isArray(s.pricingSegments)
+    ? s.pricingSegments
+    : Array.isArray(s.pricing_segments)
+    ? s.pricing_segments
+    : Array.isArray(s.segments)
+    ? s.segments
+    : [];
+  const segments = rawSegments.length
+    ? rawSegments.map((seg: any) => {
+        const sStart = seg.startTime || seg.start_time || seg.startedAt || seg.from;
+        const sEnd = seg.endTime || seg.end_time || seg.endedAt || seg.to;
+        const sRate = Number(seg.rate ?? seg.hourlyRate ?? seg.hourly_rate ?? 0);
+        const segStartMs = sStart ? new Date(sStart).getTime() : 0;
+        const segEndMs = sEnd ? new Date(sEnd).getTime() : 0;
+        const segSeconds = Number(seg.durationSeconds ?? seg.duration_seconds ??
+          (segStartMs && segEndMs ? Math.max(0, Math.floor((segEndMs - segStartMs) / 1000)) : 0));
+        const sMins = Math.floor(segSeconds / 60);
+        const sSecs = segSeconds % 60;
+        const sCost = Number(seg.cost ?? seg.amount ?? (sRate * (segSeconds / 3600)));
+        return { sStart, sEnd, sRate, segSeconds, sMins, sSecs, sCost };
+      })
+    : (rate > 0 && startedAt
+        ? [{
+            sStart: startedAt,
+            sEnd: endedAtRaw,
+            sRate: rate,
+            segSeconds: durationSeconds,
+            sMins: Math.floor(durationSeconds / 60),
+            sSecs: durationSeconds % 60,
+            sCost: amount,
+          }]
+        : []);
 
   const copyId = () => { if (id) navigator.clipboard.writeText(id); };
+
+  const endLabel = isActive
+    ? "In Progress"
+    : endedAtRaw ? fmtDateTimeSG(endedAtRaw) : "—";
 
   return (
     <Dialog open={!!session} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-card border-border">
         <DialogHeader>
-          <DialogTitle className="text-lg gold-gradient">Invoice Details</DialogTitle>
-          <DialogDescription className="sr-only">Timer session invoice</DialogDescription>
+          <DialogTitle className="text-lg gold-gradient">
+            {walkin ? "Walk-in Session Details" : "Invoice Details"}
+          </DialogTitle>
+          <DialogDescription className="sr-only">Session details</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 pt-2">
@@ -1056,10 +1122,17 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                 <div className="text-muted-foreground">Status</div>
                 {isDeleted ? (
                   <Badge variant="outline" className="bg-destructive/15 text-destructive border-destructive/40">Deleted</Badge>
+                ) : isActive ? (
+                  <Badge variant="outline" className="bg-accent/15 text-accent border-accent/40">In Progress</Badge>
                 ) : (
-                  <Badge variant="outline" className="bg-emerald-500/15 text-emerald-500 border-emerald-500/40">Active</Badge>
+                  <Badge variant="outline" className="bg-emerald-500/15 text-emerald-500 border-emerald-500/40">Completed</Badge>
                 )}
               </div>
+              {walkin && (
+                <div className="col-span-2">
+                  <Badge variant="outline" className="bg-accent/10 text-accent border-accent/30">Walk-in</Badge>
+                </div>
+              )}
               <div className="col-span-2">
                 <div className="text-muted-foreground">Created</div>
                 <div className="font-medium">{createdAt ? fmtDateTimeSG(createdAt) : "—"}</div>
@@ -1081,69 +1154,95 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                 <div className="text-muted-foreground">Date</div>
                 <div className="font-medium">{startedAt ? fmtDateSG(startedAt) : "—"}</div>
               </div>
-            </div>
-
-            <div className="rounded-md border border-border/50 bg-background/40 p-3 text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground tabular-nums">
-                  {startedAt ? fmtTimeSG(startedAt) : "—"} – {endedAt ? fmtTimeSG(endedAt) : "—"}
-                  <span className="ml-2 text-xs opacity-70">@ ${rate.toFixed(2)}/hr · {durationLabel}</span>
-                </span>
-                <span className="font-medium tabular-nums">${amount.toFixed(2)}</span>
+              <div>
+                <div className="text-muted-foreground">Start time</div>
+                <div className="font-medium tabular-nums">{startedAt ? fmtDateTimeSG(startedAt) : "—"}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">End time</div>
+                <div className={`font-medium tabular-nums ${isActive ? "text-accent" : ""}`}>{endLabel}</div>
               </div>
             </div>
           </section>
 
           <Separator className="bg-border/50" />
 
-          {/* Billing */}
+          {/* Billing Segments */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Billing Details</h3>
-            <div className="rounded-md border border-border/50 p-3 space-y-1.5 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Hourly rate</span>
-                <span className="tabular-nums">${rate.toFixed(2)} / hr</span>
+
+            {segments.length > 0 ? (
+              <div className="rounded-md border border-border/50 p-3 space-y-1.5 text-sm">
+                {segments.map((seg, idx) => (
+                  <div key={idx} className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground tabular-nums">
+                      {seg.sStart ? fmtTimeSG(seg.sStart) : "—"} – {seg.sEnd ? fmtTimeSG(seg.sEnd) : (isActive ? "now" : "—")}
+                      <span className="ml-2 text-xs opacity-70">
+                        @ ${seg.sRate.toFixed(2)}/hr · {seg.sMins} mins {seg.sSecs} secs
+                      </span>
+                    </span>
+                    <span className="tabular-nums font-medium">${Number(seg.sCost).toFixed(2)}</span>
+                  </div>
+                ))}
+                <Separator className="bg-border/50 my-1" />
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total duration</span>
+                  <span className="tabular-nums">{durationLabel}</span>
+                </div>
+                <div className="flex justify-between font-bold text-base">
+                  <span>{isActive ? "Running Total" : "Total Charged"}</span>
+                  <span className={isDeleted ? "line-through text-muted-foreground tabular-nums" : "gold-gradient tabular-nums"}>
+                    ${amount.toFixed(2)}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Duration</span>
-                <span className="tabular-nums">{hours.toFixed(2)} hrs</span>
+            ) : (
+              <div className="rounded-md border border-border/50 p-3 space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Duration</span>
+                  <span className="tabular-nums">{durationLabel}</span>
+                </div>
+                <Separator className="bg-border/50 my-1" />
+                <div className="flex justify-between font-bold text-base">
+                  <span>{isActive ? "Running Total" : "Total Charged"}</span>
+                  <span className={isDeleted ? "line-through text-muted-foreground tabular-nums" : "gold-gradient tabular-nums"}>
+                    ${amount.toFixed(2)}
+                  </span>
+                </div>
               </div>
-              <Separator className="bg-border/50 my-1" />
-              <div className="flex justify-between font-bold text-base">
-                <span>Total Charged</span>
-                <span className={isDeleted ? "line-through text-muted-foreground tabular-nums" : "gold-gradient tabular-nums"}>
-                  ${amount.toFixed(2)}
-                </span>
-              </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3 text-sm pt-1">
               <div>
                 <div className="text-muted-foreground">Method</div>
-                <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Cash</Badge>
+                <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
+                  {walkin ? "Wallet" : "Cash"}
+                </Badge>
               </div>
               <div>
                 <div className="text-muted-foreground">Closed at</div>
-                <div className="font-medium">{endedAt ? fmtDateTimeSG(endedAt) : "—"}</div>
+                <div className="font-medium">{endLabel}</div>
               </div>
             </div>
           </section>
 
           <Separator className="bg-border/50" />
 
-          {/* Staff */}
+          {/* Customer / Staff */}
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Staff Details</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              {walkin ? "Customer" : "Staff Details"}
+            </h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <div className="text-muted-foreground">Opened by</div>
-                <div className="font-medium">{staff}</div>
+                <div className="text-muted-foreground">{walkin ? "Customer" : "Opened by"}</div>
+                <div className="font-medium">{walkin ? customerName : staff}</div>
               </div>
             </div>
           </section>
         </div>
 
-        {!isDeleted && (
+        {!isDeleted && !isActive && !walkin && (
           <DialogFooter className="pt-2">
             <Button variant="destructive" onClick={onDelete}>
               <Trash2 className="h-4 w-4 mr-1" /> Delete Invoice
@@ -1154,6 +1253,7 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
     </Dialog>
   );
 }
+
 
 
 function InvoicesTab() {
