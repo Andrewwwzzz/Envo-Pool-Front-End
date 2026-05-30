@@ -1352,8 +1352,10 @@ function InvoicesTab() {
 
   const formatDuration = (seconds: number) => {
     const total = Math.max(0, Math.floor(Number(seconds) || 0));
-    const h = Math.floor(total / 3600);
-    const m = Math.floor((total % 3600) / 60);
+    if (total > 0 && total < 60) return "< 1m";
+    const mins = Math.ceil(total / 60);
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
     return `${h}h ${m}m`;
   };
 
