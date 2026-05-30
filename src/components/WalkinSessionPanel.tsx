@@ -147,9 +147,33 @@ export default function WalkinSessionPanel() {
                 <span className="text-muted-foreground">Duration</span>
                 <span className="font-medium">{receipt.duration} min</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Amount charged</span>
-                <span className="font-medium">${Number(receipt.amount).toFixed(2)}</span>
+              {(receipt.membershipDiscountAmount > 0 || receipt.freeMinutesCredit > 0) && (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="font-medium">${Number(receipt.baseTotal).toFixed(2)}</span>
+                  </div>
+                  {receipt.membershipDiscountAmount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Membership Discount{receipt.membershipDiscountPercent > 0 ? ` (${receipt.membershipDiscountPercent}%)` : ""}
+                      </span>
+                      <span className="font-medium text-emerald-500">-${Number(receipt.membershipDiscountAmount).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {receipt.freeMinutesCredit > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Free Minutes{receipt.freeMinutesApplied > 0 ? ` (${receipt.freeMinutesApplied}m)` : ""}
+                      </span>
+                      <span className="font-medium text-emerald-500">-${Number(receipt.freeMinutesCredit).toFixed(2)}</span>
+                    </div>
+                  )}
+                </>
+              )}
+              <div className="flex justify-between text-sm border-t border-border pt-2 mt-2">
+                <span className="text-muted-foreground font-semibold">Total Charged</span>
+                <span className="font-bold">${Number(receipt.amount).toFixed(2)}</span>
               </div>
               {receipt.walletBalance !== null && (
                 <div className="flex justify-between text-sm border-t border-border pt-2 mt-2">
