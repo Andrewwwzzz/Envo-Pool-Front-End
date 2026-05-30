@@ -149,7 +149,7 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange, onCancel }: Pro
 
   const hasBreakdown =
     originalAmount > 0 &&
-    (membershipDiscount > 0 || promoDiscount > 0 || rewardDiscount > 0 || Math.abs(originalAmount - finalAmount) > 0.005);
+    (membershipDiscount > 0 || freeMinutesCredit > 0 || promoDiscount > 0 || rewardDiscount > 0 || Math.abs(originalAmount - finalAmount) > 0.005);
 
   const paymentMethodRaw =
     b.paymentMethod ||
