@@ -252,6 +252,7 @@ const Auth = () => {
                     </p>
                   </div>
                 )}
+              </form>
             </CardContent>
           </Card>
         )}
