@@ -60,7 +60,7 @@ export default function WalkinSessionPanel() {
       const result: any = await stop.mutateAsync();
       const r = result?.session ?? result;
       setReceipt({
-        duration: r?.durationMinutes ?? Math.floor((Date.now() - new Date(session!.startTime).getTime()) / 60000),
+        duration: r?.durationMinutes ?? Math.floor((Date.now() - getStartDate(session).getTime()) / 60000),
         amount: r?.amountCharged ?? r?.totalCost ?? r?.runningCost ?? 0,
         walletBalance: r?.walletBalanceAfter ?? r?.walletBalance ?? null,
       });
