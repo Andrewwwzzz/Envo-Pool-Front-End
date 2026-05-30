@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pencil, Trash2, Plus, XCircle, Loader2, KeyRound, Eye, EyeOff } from "lucide-react";
+import { Pencil, Trash2, Plus, Loader2, KeyRound, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useMembershipPlans,
@@ -18,7 +18,6 @@ import {
   useDeleteMembershipPlan,
   useAdminSubscriptions,
   useAssignMembership,
-  useCancelMembership,
   useDeleteMembership,
   useAssignMembershipLocker,
   useUpdateLockerPin,
@@ -29,7 +28,7 @@ import { useAvailableLockers } from "@/hooks/useLockers";
 import { useAdminCustomers } from "@/hooks/useAdmin";
 import { fmtDateSG } from "@/lib/sgTime";
 import ReasonDialog from "./ReasonDialog";
-import DeletedBanner, { getDeletedInfo, isDeleted, isCancelled } from "./DeletedBanner";
+import DeletedBanner, { getDeletedInfo, isDeleted } from "./DeletedBanner";
 
 type PlanForm = {
   name: string;
@@ -447,12 +446,10 @@ export default function MembershipTab() {
   const { data: subs = [] } = useAdminSubscriptions(hideDeleted ? "default" : "all");
   const { data: customers = [] } = useAdminCustomers("");
   const del = useDeleteMembershipPlan();
-  const cancel = useCancelMembership();
   const deleteSub = useDeleteMembership();
   const [planDlgOpen, setPlanDlgOpen] = useState(false);
   const [editPlan, setEditPlan] = useState<MembershipPlan | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [cancelTarget, setCancelTarget] = useState<any | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailRecord, setDetailRecord] = useState<any | null>(null);
 
@@ -557,9 +554,6 @@ export default function MembershipTab() {
                     const price = s.pricePaid ?? plan?.price ?? s.price ?? 0;
                     const rowId = s._id ?? s.id;
                     const deleted = isDeleted(s);
-                    const cancelled = !deleted && isCancelled(s);
-                    const isActive = !deleted && s.status === "active" && !cancelled;
-                    const isExpired = !deleted && (s.status === "expired" || cancelled);
                     return (
                       <TableRow
                         key={rowId}
@@ -583,12 +577,7 @@ export default function MembershipTab() {
                         </TableCell>
                         <TableCell>{!deleted ? <LockerCell sub={s} /> : "—"}</TableCell>
                         <TableCell className="text-right">
-                          {isActive && (
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setCancelTarget(s); }}>
-                              <XCircle className="h-4 w-4" /> Cancel
-                            </Button>
-                          )}
-                          {isExpired && (
+                          {!deleted && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -618,27 +607,6 @@ export default function MembershipTab() {
         />
       )}
       <AssignMembershipDialog open={assignOpen} onOpenChange={setAssignOpen} />
-
-      <ReasonDialog
-        open={!!cancelTarget}
-        onOpenChange={(o) => !o && setCancelTarget(null)}
-        title="Cancel Membership"
-        label="Reason for cancellation"
-        placeholder="e.g. user requested cancellation"
-        confirmLabel="Cancel Membership"
-        destructive
-        loading={cancel.isPending}
-        onConfirm={async (reason) => {
-          if (!cancelTarget) return;
-          try {
-            await cancel.mutateAsync({ id: cancelTarget._id ?? cancelTarget.id, reason });
-            toast({ title: "Subscription cancelled" });
-            setCancelTarget(null);
-          } catch (e: any) {
-            toast({ title: "Failed", description: e?.message, variant: "destructive" });
-          }
-        }}
-      />
 
       <ReasonDialog
         open={!!deleteTarget}
