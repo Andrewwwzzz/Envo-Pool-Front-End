@@ -3452,7 +3452,7 @@ function WalkinSessionsTab() {
                       (typeof s.userId === "object"
                         ? s.userId?.name || s.userId?.username || s.userId?.email
                         : null) || s.userName || s.customerName || "—";
-                    const startMs = new Date(s.startTime).getTime();
+                    const startMs = new Date(s.startedAt ?? s.startTime).getTime();
                     const elapsedMs = now - startMs;
                     const h = Math.floor(elapsedMs / 3600000);
                     const m = Math.floor((elapsedMs % 3600000) / 60000);
