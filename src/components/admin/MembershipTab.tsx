@@ -18,7 +18,6 @@ import {
   useDeleteMembershipPlan,
   useAdminSubscriptions,
   useAssignMembership,
-  useCancelMembership,
   useDeleteMembership,
   useAssignMembershipLocker,
   useUpdateLockerPin,
