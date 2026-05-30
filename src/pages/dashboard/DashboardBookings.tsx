@@ -5,6 +5,7 @@ import { useMyWalkinHistory, useMyWalkinSession } from "@/hooks/useWalkin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
+import WalkinReceiptDialog from "@/components/WalkinReceiptDialog";
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, nowSG } from "@/lib/sgTime";
 import { getTableLabel as resolveTableLabel } from "@/lib/tableLabel";
 
@@ -49,6 +50,7 @@ export default function DashboardBookings() {
   const { data: walkinHistory } = useMyWalkinHistory();
   const { data: activeWalkin } = useMyWalkinSession();
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [selectedWalkin, setSelectedWalkin] = useState<{ session: any; live: boolean } | null>(null);
   const [, setNowTick] = useState(0);
 
   // Tick every 30s so running cost / elapsed updates for active walk-in
@@ -152,7 +154,8 @@ export default function DashboardBookings() {
     return (
       <div
         key={`w-${w._id || w.id}`}
-        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-lg border p-3 sm:p-4 ${
+        onClick={() => setSelectedWalkin({ session: w, live: !!opts.live })}
+        className={`cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-lg border p-3 sm:p-4 transition-colors hover:bg-primary/5 hover:border-primary/30 ${
           opts.live ? "border-green-500/40 bg-green-500/5" : "border-border/50"
         }`}
       >
@@ -217,6 +220,13 @@ export default function DashboardBookings() {
         booking={selectedBooking}
         open={!!selectedBooking}
         onOpenChange={(open) => !open && setSelectedBooking(null)}
+      />
+
+      <WalkinReceiptDialog
+        session={selectedWalkin?.session ?? null}
+        live={selectedWalkin?.live}
+        open={!!selectedWalkin}
+        onOpenChange={(open) => !open && setSelectedWalkin(null)}
       />
     </>
   );

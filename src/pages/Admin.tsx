@@ -1063,8 +1063,8 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
   const m = Math.floor((durationSeconds % 3600) / 60);
   const sec = durationSeconds % 60;
   const durationLabel = h > 0
-    ? `${h}h ${m} mins ${sec} secs`
-    : `${m} mins ${sec} secs`;
+    ? `${h}h ${m}m ${sec}s`
+    : `${m}m ${sec}s`;
 
   const rate = Number(s.hourlyRate ?? s.hourly_rate ?? 0);
   const liveAmount = isActive ? Number(s.runningCost ?? 0) : 0;
@@ -1219,10 +1219,10 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                     <span className="text-muted-foreground tabular-nums">
                       {seg.sStart ? fmtTimeSG(seg.sStart) : "—"} – {seg.sEnd ? fmtTimeSG(seg.sEnd) : (isActive ? "now" : "—")}
                       <span className="ml-2 text-xs opacity-70">
-                        @ ${seg.sRate.toFixed(2)}/hr · {seg.sMins} mins {seg.sSecs} secs
+                        @ ${seg.sRate.toFixed(2)}/hr
                       </span>
                     </span>
-                    <span className="tabular-nums font-medium">${Number(seg.sCost).toFixed(2)}</span>
+                    <span className="tabular-nums font-medium">= ${Number(seg.sCost).toFixed(2)}</span>
                   </div>
                 ))}
                 <Separator className="bg-border/50 my-1" />
