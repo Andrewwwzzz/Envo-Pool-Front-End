@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Copy, Check } from "lucide-react";
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime } from "@/lib/sgTime";
 import { useMyMembership } from "@/hooks/useMembership";
+import { useTables } from "@/hooks/useBooking";
 
 interface BookingData {
   id: string;
