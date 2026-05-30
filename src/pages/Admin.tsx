@@ -1072,7 +1072,7 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
     ? liveAmount
     : Number(s.amountCharged ?? s.amount_charged ?? s.total_cost ?? s.totalCost ?? s.runningCost ?? 0);
   const baseTotal = Number(s.baseTotal ?? s.base_total ?? 0);
-  const membershipDiscountAmount = Number(s.membershipDiscountAmount ?? s.membership_discount_amount ?? 0);
+  const membershipDiscountAmount = Number(s.membershipDiscountAmount ?? s.membershipDiscount ?? s.membership_discount_amount ?? s.membership_discount ?? 0);
   const membershipDiscountPercent = Number(s.membershipDiscountPercent ?? s.membership_discount_percent ?? 0);
   const freeMinutesCredit = Number(s.freeMinutesCredit ?? s.free_minutes_credit ?? 0);
   const freeMinutesApplied = Number(s.freeMinutesApplied ?? s.free_minutes_applied ?? 0);
@@ -1247,7 +1247,7 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                     {freeMinutesCredit > 0 && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
-                          Free Minutes{freeMinutesApplied > 0 ? ` (${freeMinutesApplied}m)` : ""}
+                          Free Minutes Credit{freeMinutesApplied > 0 ? ` (${freeMinutesApplied}m)` : ""}
                         </span>
                         <span className="tabular-nums text-emerald-500">-${freeMinutesCredit.toFixed(2)}</span>
                       </div>
@@ -1285,7 +1285,7 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                     {freeMinutesCredit > 0 && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
-                          Free Minutes{freeMinutesApplied > 0 ? ` (${freeMinutesApplied}m)` : ""}
+                          Free Minutes Credit{freeMinutesApplied > 0 ? ` (${freeMinutesApplied}m)` : ""}
                         </span>
                         <span className="tabular-nums text-emerald-500">-${freeMinutesCredit.toFixed(2)}</span>
                       </div>

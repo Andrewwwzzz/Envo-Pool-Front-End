@@ -53,10 +53,10 @@ const WalkinReceiptDialog = ({ session, open, onOpenChange, live }: Props) => {
     isLive ? (s.runningCost ?? 0) : (s.amountCharged ?? s.totalCost ?? 0)
   );
   const baseTotal = Number(s.baseTotal ?? 0);
-  const membershipDiscountAmount = Number(s.membershipDiscountAmount ?? 0);
-  const membershipDiscountPercent = Number(s.membershipDiscountPercent ?? 0);
-  const freeMinutesCredit = Number(s.freeMinutesCredit ?? 0);
-  const freeMinutesApplied = Number(s.freeMinutesApplied ?? 0);
+  const membershipDiscountAmount = Number(s.membershipDiscountAmount ?? s.membershipDiscount ?? s.membership_discount_amount ?? s.membership_discount ?? 0);
+  const membershipDiscountPercent = Number(s.membershipDiscountPercent ?? s.membership_discount_percent ?? 0);
+  const freeMinutesCredit = Number(s.freeMinutesCredit ?? s.free_minutes_credit ?? 0);
+  const freeMinutesApplied = Number(s.freeMinutesApplied ?? s.free_minutes_applied ?? 0);
   const hasBreakdown = baseTotal > 0 && (membershipDiscountAmount > 0 || freeMinutesCredit > 0);
   const effectiveSubtotal = baseTotal > 0 ? baseTotal : amount;
 
@@ -173,7 +173,7 @@ const WalkinReceiptDialog = ({ session, open, onOpenChange, live }: Props) => {
             </div>
 
             {hasBreakdown && membershipDiscountAmount > 0 && (
-              <div className="flex items-center justify-between text-primary">
+              <div className="flex items-center justify-between text-emerald-500">
                 <span>
                   Membership Discount{membershipDiscountPercent > 0 ? ` (${Math.round(membershipDiscountPercent)}%)` : ""}
                 </span>
@@ -182,8 +182,8 @@ const WalkinReceiptDialog = ({ session, open, onOpenChange, live }: Props) => {
             )}
 
             {hasBreakdown && freeMinutesCredit > 0 && (
-              <div className="flex items-center justify-between text-primary">
-                <span>Free Minutes{freeMinutesApplied > 0 ? ` (${freeMinutesApplied}m)` : ""}</span>
+              <div className="flex items-center justify-between text-emerald-500">
+                <span>Free Minutes Credit{freeMinutesApplied > 0 ? ` (${freeMinutesApplied}m)` : ""}</span>
                 <span className="tabular-nums">−${freeMinutesCredit.toFixed(2)}</span>
               </div>
             )}
