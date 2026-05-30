@@ -888,9 +888,13 @@ function ScheduleMaintenanceButton({ tableId, tableNumber }: { tableId: string; 
 }
 
 function TableMaintenanceList({ tableId }: { tableId: string }) {
-  const { data: windows } = useTableMaintenance(tableId);
+  const [hideDeleted, setHideDeleted] = useState(false);
+  const { data: windows } = useTableMaintenance(tableId, hideDeleted ? "default" : "all");
   const remove = useDeleteMaintenance();
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [detailRecord, setDetailRecord] = useState<any | null>(null);
   const list = (Array.isArray(windows) ? windows : []).filter((w: any) => {
+    if (isRecordDeleted(w)) return true;
     const end = new Date(w.endTime || w.end_time);
     return !isNaN(end.getTime()) && end.getTime() > Date.now();
   }).sort((a: any, b: any) =>
@@ -901,33 +905,90 @@ function TableMaintenanceList({ tableId }: { tableId: string }) {
 
   return (
     <div className="space-y-1.5 pt-1">
-      <p className="text-xs font-medium text-muted-foreground">Scheduled Maintenance</p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-muted-foreground">Scheduled Maintenance</p>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 px-2 text-xs"
+          onClick={() => setHideDeleted((v) => !v)}
+        >
+          {hideDeleted ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
+          {hideDeleted ? "Show Deleted" : "Hide Deleted"}
+        </Button>
+      </div>
       {list.map((w: any) => {
         const id = w._id || w.id;
         const start = w.startTime || w.start_time;
         const end = w.endTime || w.end_time;
+        const deleted = isRecordDeleted(w);
         return (
-          <div key={id} className="flex items-start justify-between gap-2 rounded-md border border-border bg-muted/30 px-2 py-1.5 text-xs">
+          <div
+            key={id}
+            className={`flex items-start justify-between gap-2 rounded-md border border-border px-2 py-1.5 text-xs ${deleted ? "bg-muted/10 text-muted-foreground cursor-pointer" : "bg-muted/30"}`}
+            onClick={deleted ? () => setDetailRecord(w) : undefined}
+          >
             <div className="min-w-0 flex-1">
-              <p className="font-medium">{fmtDateSG(start)} · {fmtTimeSG(start)}–{fmtTimeSG(end)}</p>
+              <p className={`font-medium ${deleted ? "line-through" : ""}`}>{fmtDateSG(start)} · {fmtTimeSG(start)}–{fmtTimeSG(end)}</p>
               {w.reason && <p className="text-muted-foreground truncate">{w.reason}</p>}
             </div>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
-              onClick={() => remove.mutate({ id, tableId })}
-              disabled={remove.isPending}
-              title="Remove"
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
+            {deleted ? (
+              <Badge variant="outline" className="bg-muted whitespace-nowrap text-[10px]">Deleted</Badge>
+            ) : (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
+                onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id, tableId }); }}
+                disabled={remove.isPending}
+                title="Remove"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
         );
       })}
+
+      <ReasonDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title="Remove maintenance window?"
+        label="Reason for removal"
+        placeholder="e.g. cancelled by ops"
+        confirmLabel="Remove"
+        destructive
+        loading={remove.isPending}
+        onConfirm={async (reason) => {
+          if (!deleteTarget) return;
+          try {
+            await remove.mutateAsync({ id: deleteTarget.id, tableId: deleteTarget.tableId, reason });
+            setDeleteTarget(null);
+          } catch {}
+        }}
+      />
+
+      <Dialog open={!!detailRecord} onOpenChange={(o) => !o && setDetailRecord(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Maintenance Window</DialogTitle>
+          </DialogHeader>
+          {detailRecord && (
+            <div className="space-y-3">
+              <DeletedBanner info={getDeletedInfo(detailRecord)} />
+              <div className="opacity-70 text-sm space-y-1.5">
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Start</span><span>{fmtDateTimeSG(detailRecord.startTime || detailRecord.start_time)}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">End</span><span>{fmtDateTimeSG(detailRecord.endTime || detailRecord.end_time)}</span></div>
+                {detailRecord.reason && <div className="flex justify-between gap-3"><span className="text-muted-foreground">Reason</span><span>{detailRecord.reason}</span></div>}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
 
 function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | null; onClose: () => void; onDelete: () => void }) {
   if (!session) return null;
