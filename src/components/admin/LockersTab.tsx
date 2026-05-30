@@ -153,17 +153,7 @@ export default function LockersTab() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
           <CardTitle className="text-base">Locker Units</CardTitle>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant={hideDeleted ? "secondary" : "outline"}
-              onClick={() => setHideDeleted((v) => !v)}
-            >
-              {hideDeleted ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
-              {hideDeleted ? "Show Deleted" : "Hide Deleted"}
-            </Button>
-            <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add Locker</Button>
-          </div>
+          <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add Locker</Button>
         </CardHeader>
         <CardContent>
           {lockers.length === 0 ? (
