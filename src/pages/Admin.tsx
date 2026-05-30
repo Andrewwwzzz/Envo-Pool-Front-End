@@ -2632,8 +2632,12 @@ function VerificationTab() {
                       const reason = u.rejectionReason || u.rejection_reason || u.rejectReason || "—";
                       const rejectedAt = u.rejectedAt || u.rejected_at;
                       return (
-                        <tr key={uid} className="border-b border-border last:border-0">
-                          <td className="py-3 pr-4">{u.name || "—"}</td>
+                        <tr
+                          key={uid}
+                          className="border-b border-border last:border-0 text-muted-foreground cursor-pointer hover:bg-muted/30"
+                          onClick={() => setRejectedDetail(u)}
+                        >
+                          <td className="py-3 pr-4 line-through">{u.name || "—"}</td>
                           <td className="py-3 pr-4">{u.email || "—"}</td>
                           <td className="py-3 pr-4">{u.createdAt ? fmtDateTimeSG(u.createdAt) : "—"}</td>
                           <td className="py-3 pr-4 whitespace-pre-wrap text-destructive">{reason}</td>
