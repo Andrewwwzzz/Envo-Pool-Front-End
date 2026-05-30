@@ -53,6 +53,8 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { getTableLabel } from "@/lib/tableLabel";
+import { useActiveWalkinSessions, useForceStopWalkin } from "@/hooks/useWalkin";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
