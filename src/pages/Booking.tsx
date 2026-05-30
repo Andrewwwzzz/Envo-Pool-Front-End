@@ -25,6 +25,9 @@ import { apiFetch, BASE_URL } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isBefore } from "date-fns";
 import { todaySG, sgSlotToUTC, sgDayBoundsUTC, isTodaySG } from "@/lib/sgTime";
+import WalkinSessionPanel from "@/components/WalkinSessionPanel";
+import { useMyWalkinSession, useStartWalkin } from "@/hooks/useWalkin";
+import { Timer } from "lucide-react";
 
 const statusColor: Record<TableStatus, string> = {
   Available: "bg-primary/10 text-primary border-primary/20",
@@ -63,6 +66,21 @@ const Booking = () => {
   const today = useMemo(() => todaySG(), []);
 
   const { data: tables, isLoading: tablesLoading } = useTables(null, null);
+  const { data: activeWalkin } = useMyWalkinSession();
+  const startWalkin = useStartWalkin();
+
+  const handleStartWalkin = async (table: { id: string; hardware_id: string | null; table_number: number }) => {
+    if (!table.hardware_id) {
+      toast({ title: "Cannot start session", description: "This table has no hardware ID configured.", variant: "destructive" });
+      return;
+    }
+    try {
+      await startWalkin.mutateAsync(table.hardware_id);
+      toast({ title: "Walk-in session started", description: `Table ${table.table_number} is now live.` });
+    } catch (err: any) {
+      toast({ title: "Failed to start session", description: err?.message || "Please try again.", variant: "destructive" });
+    }
+  };
 
   const selectedTableData_pre = tables?.find((t) => t.id === selectedTable);
   const { data: tableBookings } = useQuery({
@@ -626,6 +644,7 @@ const Booking = () => {
       </header>
 
       <main className="relative z-10 mx-auto max-w-4xl p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <WalkinSessionPanel />
         {!kycVerified && (
           <Card className="card-premium border-yellow-500/30 bg-yellow-500/5">
             <CardContent className="pt-6 text-center space-y-3">
@@ -670,24 +689,42 @@ const Booking = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {tables.map((table) => {
                     const bookable = isTableBookable(table);
+                    const canStartWalkin =
+                      kycVerified &&
+                      !activeWalkin &&
+                      table.status === "Available" &&
+                      !!table.hardware_id;
                     return (
-                      <button
-                        key={table.id}
-                        onClick={() => bookable && handleTableSelect(table.id)}
-                        disabled={!bookable}
-                        className={`rounded-xl border p-4 text-left transition-all duration-200 ${
-                          selectedTable === table.id
-                            ? "border-accent ring-2 ring-accent/20 bg-accent/5"
-                            : "border-border hover:border-muted-foreground/30 hover:bg-card"
-                        } ${!bookable ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
-                      >
-                        <p className="font-semibold text-foreground">Table {table.table_number}</p>
-                        {!bookable && (
-                          <Badge variant="outline" className={`mt-2 text-xs ${statusColor[table.status]}`}>
-                            {table.status}
-                          </Badge>
+                      <div key={table.id} className="flex flex-col gap-2">
+                        <button
+                          onClick={() => bookable && handleTableSelect(table.id)}
+                          disabled={!bookable}
+                          className={`rounded-xl border p-4 text-left transition-all duration-200 ${
+                            selectedTable === table.id
+                              ? "border-accent ring-2 ring-accent/20 bg-accent/5"
+                              : "border-border hover:border-muted-foreground/30 hover:bg-card"
+                          } ${!bookable ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                        >
+                          <p className="font-semibold text-foreground">Table {table.table_number}</p>
+                          {!bookable && (
+                            <Badge variant="outline" className={`mt-2 text-xs ${statusColor[table.status]}`}>
+                              {table.status}
+                            </Badge>
+                          )}
+                        </button>
+                        {canStartWalkin && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 text-xs border-accent/30 text-accent hover:bg-accent/10"
+                            disabled={startWalkin.isPending}
+                            onClick={() => handleStartWalkin(table)}
+                          >
+                            <Timer className="h-3 w-3" />
+                            {startWalkin.isPending ? "Starting..." : "Start Walk-in"}
+                          </Button>
                         )}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
