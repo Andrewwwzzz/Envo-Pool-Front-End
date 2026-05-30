@@ -555,9 +555,6 @@ export default function MembershipTab() {
                     const price = s.pricePaid ?? plan?.price ?? s.price ?? 0;
                     const rowId = s._id ?? s.id;
                     const deleted = isDeleted(s);
-                    const cancelled = !deleted && isCancelled(s);
-                    const isActive = !deleted && s.status === "active" && !cancelled;
-                    const isExpired = !deleted && (s.status === "expired" || cancelled);
                     return (
                       <TableRow
                         key={rowId}
