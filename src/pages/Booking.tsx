@@ -827,6 +827,13 @@ const Booking = () => {
                 </div>
               )}
 
+              {winningDiscount.source === "membership" && appliedFreeMinutesCredit > 0 && (
+                <div className="flex justify-between text-sm text-primary">
+                  <span>Free {appliedFreeMinutesUsed} mins (membership benefit)</span>
+                  <span>-${appliedFreeMinutesCredit.toFixed(2)}</span>
+                </div>
+              )}
+
               {winningDiscount.source === "membership" && membershipDiscount > 0 && (
                 <div className="flex justify-between text-sm text-primary">
                   <span>{membershipPlanName} discount ({membershipDiscountPct}% off)</span>
