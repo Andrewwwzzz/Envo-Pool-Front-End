@@ -644,6 +644,7 @@ const Booking = () => {
       </header>
 
       <main className="relative z-10 mx-auto max-w-4xl p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <WalkinSessionPanel />
         {!kycVerified && (
           <Card className="card-premium border-yellow-500/30 bg-yellow-500/5">
             <CardContent className="pt-6 text-center space-y-3">
