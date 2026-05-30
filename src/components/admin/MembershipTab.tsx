@@ -447,12 +447,10 @@ export default function MembershipTab() {
   const { data: subs = [] } = useAdminSubscriptions(hideDeleted ? "default" : "all");
   const { data: customers = [] } = useAdminCustomers("");
   const del = useDeleteMembershipPlan();
-  const cancel = useCancelMembership();
   const deleteSub = useDeleteMembership();
   const [planDlgOpen, setPlanDlgOpen] = useState(false);
   const [editPlan, setEditPlan] = useState<MembershipPlan | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [cancelTarget, setCancelTarget] = useState<any | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailRecord, setDetailRecord] = useState<any | null>(null);
 
