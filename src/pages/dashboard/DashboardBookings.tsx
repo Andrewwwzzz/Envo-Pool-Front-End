@@ -221,6 +221,13 @@ export default function DashboardBookings() {
         open={!!selectedBooking}
         onOpenChange={(open) => !open && setSelectedBooking(null)}
       />
+
+      <WalkinReceiptDialog
+        session={selectedWalkin?.session ?? null}
+        live={selectedWalkin?.live}
+        open={!!selectedWalkin}
+        onOpenChange={(open) => !open && setSelectedWalkin(null)}
+      />
     </>
   );
 }
