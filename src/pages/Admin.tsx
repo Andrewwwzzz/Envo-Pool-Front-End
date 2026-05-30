@@ -1415,11 +1415,30 @@ function InvoicesTab() {
               <tbody>
                 {sessions.map((s: any) => {
                   const startedAt = s.startedAt || s.started_at;
-                  const endedAt = s.endedAt || s.ended_at;
+                  const endedAt = s._walkin
+                    ? (s.stoppedAt || s.endedAt || s.ended_at || s.endTime)
+                    : (s.endedAt || s.ended_at);
                   const duration = s.durationSeconds ?? s.duration_seconds ?? 0;
-                  const rate = Number(s.hourlyRate ?? s.hourly_rate ?? 0);
-                  const amount = Number(s.amountCharged ?? s.amount_charged ?? s.total_cost ?? 0);
-                  const staff = s.startedBy?.name || s.startedBy?.email || "—";
+                  const segments: any[] = Array.isArray(s.pricingSegments)
+                    ? s.pricingSegments
+                    : Array.isArray(s.pricing_segments)
+                    ? s.pricing_segments
+                    : [];
+                  const segmentRate = segments.length
+                    ? Number(segments[0].rate ?? segments[0].hourlyRate ?? segments[0].hourly_rate ?? 0)
+                    : 0;
+                  const rate = s._walkin
+                    ? segmentRate
+                    : Number(s.hourlyRate ?? s.hourly_rate ?? 0);
+                  const amount = s._walkin
+                    ? Number(s.amountCharged ?? 0)
+                    : Number(s.amountCharged ?? s.amount_charged ?? s.total_cost ?? 0);
+                  const staff = s._walkin
+                    ? ((typeof s.userId === "object"
+                        ? (s.userId?.name || s.userId?.username || s.userId?.email)
+                        : null) || s.startedBy?.name || s.startedBy?.email || "—")
+                    : (s.startedBy?.name || s.startedBy?.email || "—");
+                  const showNoRate = rate <= 0 && amount <= 0;
                   const isDeleted = s.isDeleted === true;
                   const deletedBy = s.deletedBy?.name || s.deletedBy?.email || (typeof s.deletedBy === "string" ? s.deletedBy : "");
                   const tooltipText = isDeleted
@@ -1446,9 +1465,19 @@ function InvoicesTab() {
                       <td className="py-3 pr-4">{startedAt ? fmtTimeSG(startedAt) : "—"}</td>
                       <td className="py-3 pr-4">{endedAt ? fmtTimeSG(endedAt) : "—"}</td>
                       <td className="py-3 pr-4 font-mono">{formatDuration(duration)}</td>
-                      <td className="py-3 pr-4">{s._walkin ? "—" : `$${rate.toFixed(0)}/hr`}</td>
+                      <td className="py-3 pr-4">
+                        {showNoRate ? (
+                          <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-[10px] py-0 px-1.5">
+                            No Rate
+                          </Badge>
+                        ) : rate > 0 ? (
+                          `$${rate.toFixed(0)}/hr`
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                       <td className={`py-3 pr-4 font-medium ${isDeleted ? "line-through text-muted-foreground" : ""}`}>${amount.toFixed(2)}</td>
-                      <td className="py-3 pr-4 text-muted-foreground">{s._walkin ? "Customer" : staff}</td>
+                      <td className="py-3 pr-4 text-muted-foreground">{staff}</td>
                       <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         {s._walkin ? (
                           <span className="text-xs text-muted-foreground">—</span>
