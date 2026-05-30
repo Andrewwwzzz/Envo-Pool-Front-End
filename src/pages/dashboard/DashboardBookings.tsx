@@ -4,7 +4,7 @@ import { useMyBookings } from "@/hooks/useBooking";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
-import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime } from "@/lib/sgTime";
+import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, nowSG } from "@/lib/sgTime";
 
 const statusBadge: Record<string, string> = {
   confirmed: "bg-primary/10 text-primary border-primary/20",
@@ -34,7 +34,7 @@ export default function DashboardBookings() {
   const { data: bookings } = useMyBookings();
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
 
-  const now = new Date();
+  const now = nowSG();
   const getStartTime = (b: any) => b.startTime || b.start_time;
   const getEndTime = (b: any) => b.endTime || b.end_time;
   const getTableLabel = (b: any) => {
@@ -58,8 +58,12 @@ export default function DashboardBookings() {
     return !uid || !currentUserId || String(uid) === String(currentUserId);
   });
 
-  const upcoming = myBookings.filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled");
-  const past = myBookings.filter((b: any) => (new Date(getStartTime(b)) < now || getStatus(b) === "cancelled"));
+  const upcoming = myBookings
+    .filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled")
+    .sort((a: any, b: any) => new Date(getStartTime(a)).getTime() - new Date(getStartTime(b)).getTime());
+  const past = myBookings
+    .filter((b: any) => new Date(getStartTime(b)) < now || getStatus(b) === "cancelled")
+    .sort((a: any, b: any) => new Date(getStartTime(b)).getTime() - new Date(getStartTime(a)).getTime());
 
   const renderRow = (b: any, clickable: boolean) => (
     <div

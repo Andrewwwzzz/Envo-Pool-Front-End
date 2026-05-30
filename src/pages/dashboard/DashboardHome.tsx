@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Wallet, Calendar, History } from "lucide-react";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
 import TopUpWalletDialog from "@/components/dashboard/TopUpWalletDialog";
-import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime } from "@/lib/sgTime";
+import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, nowSG } from "@/lib/sgTime";
 
 const statusBadge: Record<string, string> = {
   confirmed: "bg-primary/10 text-primary border-primary/20",
@@ -41,7 +41,7 @@ export default function DashboardHome() {
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [topUpOpen, setTopUpOpen] = useState(false);
 
-  const now = new Date();
+  const now = nowSG();
   const displayTotalSpent = profile?.total_spent ?? 0;
 
   const getStartTime = (b: any) => b.startTime || b.start_time;
@@ -67,7 +67,9 @@ export default function DashboardHome() {
     return !uid || !currentUserId || String(uid) === String(currentUserId);
   });
 
-  const upcoming = myBookings.filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled");
+  const upcoming = myBookings
+    .filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled")
+    .sort((a: any, b: any) => new Date(getStartTime(a)).getTime() - new Date(getStartTime(b)).getTime());
   const upcomingPreview = upcoming.slice(0, 5);
 
   return (
@@ -102,11 +104,9 @@ export default function DashboardHome() {
       <Card className="card-premium">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Upcoming Reservations</CardTitle>
-          {upcoming.length > upcomingPreview.length && (
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/dashboard/bookings">View All</Link>
-            </Button>
-          )}
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/dashboard/bookings">View All Bookings</Link>
+          </Button>
         </CardHeader>
         <CardContent>
           {upcomingPreview.length === 0 ? (
