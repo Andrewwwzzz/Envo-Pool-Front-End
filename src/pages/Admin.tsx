@@ -1230,6 +1230,30 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                   <span className="text-muted-foreground">Total duration</span>
                   <span className="tabular-nums">{durationLabel}</span>
                 </div>
+                {hasDiscountBreakdown && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="tabular-nums">${baseTotal.toFixed(2)}</span>
+                    </div>
+                    {membershipDiscountAmount > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Membership Discount{membershipDiscountPercent > 0 ? ` (${membershipDiscountPercent}%)` : ""}
+                        </span>
+                        <span className="tabular-nums text-emerald-500">-${membershipDiscountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {freeMinutesCredit > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Free Minutes{freeMinutesApplied > 0 ? ` (${freeMinutesApplied}m)` : ""}
+                        </span>
+                        <span className="tabular-nums text-emerald-500">-${freeMinutesCredit.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </>
+                )}
                 <div className="flex justify-between font-bold text-base">
                   <span>{isActive ? "Running Total" : "Total Charged"}</span>
                   <span className={isDeleted ? "line-through text-muted-foreground tabular-nums" : "gold-gradient tabular-nums"}>
