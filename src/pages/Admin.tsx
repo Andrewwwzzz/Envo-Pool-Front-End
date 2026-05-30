@@ -2512,25 +2512,6 @@ function VerificationTab() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    const userId = deleteTarget._id || deleteTarget.userId || deleteTarget.id;
-    try {
-      setDeleting(userId);
-      const res = await apiFetch(`/api/users/${userId}`, { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || "Failed to delete request");
-      }
-      toast({ title: "Verification request deleted" });
-      setDeleteTarget(null);
-      await refresh();
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    } finally {
-      setDeleting(null);
-    }
-  };
 
   const matchesSearch = (u: any) => {
     if (!search.trim()) return true;
