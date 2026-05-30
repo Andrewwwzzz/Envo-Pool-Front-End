@@ -24,7 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { apiFetch, BASE_URL } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isBefore } from "date-fns";
-import { todaySG, sgSlotToUTC, sgDayBoundsUTC } from "@/lib/sgTime";
+import { todaySG, sgSlotToUTC, sgDayBoundsUTC, isTodaySG } from "@/lib/sgTime";
 
 const statusColor: Record<TableStatus, string> = {
   Available: "bg-primary/10 text-primary border-primary/20",
