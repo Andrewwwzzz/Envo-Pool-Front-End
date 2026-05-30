@@ -239,19 +239,19 @@ const Auth = () => {
                     <p className="text-sm text-muted-foreground">
                       Don't have an account?{" "}
                       <button
-                      type="button"
-                      className="text-accent hover:text-accent/80 font-medium transition-colors"
-                      onClick={() => {
-                        const next = !isLogin;
-                        setIsLogin(next);
-                        setSignupMode("choose");
-                      }}
-                    >
-                      {isLogin ? "Sign Up" : "Sign In"}
-                    </button>
-                  </p>
-                </div>
-              </form>
+                        type="button"
+                        className="text-accent hover:text-accent/80 font-medium transition-colors"
+                        onClick={() => {
+                          const next = !isLogin;
+                          setIsLogin(next);
+                          setSignupMode("choose");
+                        }}
+                      >
+                        {isLogin ? "Sign Up" : "Sign In"}
+                      </button>
+                    </p>
+                  </div>
+                )}
             </CardContent>
           </Card>
         )}
