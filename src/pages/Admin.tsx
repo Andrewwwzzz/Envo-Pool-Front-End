@@ -1495,6 +1495,12 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
 
+  // Reset password state
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resettingPassword, setResettingPassword] = useState(false);
+
   const fmtDob = (v: any) => {
     if (!v) return "—";
     const s = String(v).slice(0, 10);
