@@ -7,8 +7,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { useSocket } from "@/hooks/useSocket";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
 import Booking from "./pages/Booking";
 import PaymentVerification from "./pages/PaymentVerification";
 import BookingConfirmed from "./pages/BookingConfirmed";
@@ -51,8 +49,6 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/login" element={<Navigate to="/auth" replace />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/booking" element={<Booking />} />
               <Route path="/payment-verification" element={<PaymentVerification />} />
               <Route path="/payment-success" element={<PaymentVerification />} />

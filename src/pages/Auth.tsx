@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -235,31 +235,23 @@ const Auth = () => {
                   {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
                 </Button>
                 {isLogin && (
-                  <div className="text-center">
-                    <Link
-                      to="/forgot-password"
-                      className="text-sm text-accent hover:text-accent/80 font-medium transition-colors"
-                    >
-                      Forgot password?
-                    </Link>
+                  <div className="text-center space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Don't have an account?{" "}
+                      <button
+                        type="button"
+                        className="text-accent hover:text-accent/80 font-medium transition-colors"
+                        onClick={() => {
+                          const next = !isLogin;
+                          setIsLogin(next);
+                          setSignupMode("choose");
+                        }}
+                      >
+                        {isLogin ? "Sign Up" : "Sign In"}
+                      </button>
+                    </p>
                   </div>
                 )}
-                <div className="text-center space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-                    <button
-                      type="button"
-                      className="text-accent hover:text-accent/80 font-medium transition-colors"
-                      onClick={() => {
-                        const next = !isLogin;
-                        setIsLogin(next);
-                        setSignupMode("choose");
-                      }}
-                    >
-                      {isLogin ? "Sign Up" : "Sign In"}
-                    </button>
-                  </p>
-                </div>
               </form>
             </CardContent>
           </Card>
