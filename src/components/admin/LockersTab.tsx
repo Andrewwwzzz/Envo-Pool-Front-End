@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, RotateCcw, XCircle, Loader2, Trash2, Eye, EyeOff } from "lucide-react";
+import { Plus, RotateCcw, XCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useLockerUnits,
@@ -16,13 +16,12 @@ import {
   useAssignLocker,
   useRenewLocker,
   useCancelLocker,
-  useDeleteLockerUnit,
   type LockerUnit,
 } from "@/hooks/useLockers";
 import { useAdminCustomers } from "@/hooks/useAdmin";
 import { fmtDateSG } from "@/lib/sgTime";
 import ReasonDialog from "./ReasonDialog";
-import DeletedBanner, { isCancelled, isDeleted, getDeletedInfo } from "./DeletedBanner";
+import { isCancelled } from "./DeletedBanner";
 
 function AddLockerDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { toast } = useToast();
