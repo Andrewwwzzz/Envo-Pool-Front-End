@@ -50,6 +50,7 @@ export default function DashboardBookings() {
   const { data: walkinHistory } = useMyWalkinHistory();
   const { data: activeWalkin } = useMyWalkinSession();
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [selectedWalkin, setSelectedWalkin] = useState<{ session: any; live: boolean } | null>(null);
   const [, setNowTick] = useState(0);
 
   // Tick every 30s so running cost / elapsed updates for active walk-in
