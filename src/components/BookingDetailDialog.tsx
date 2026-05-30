@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Copy, Check } from "lucide-react";
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime } from "@/lib/sgTime";
 import { useMyMembership } from "@/hooks/useMembership";
+import { useTables } from "@/hooks/useBooking";
 
 interface BookingData {
   id: string;
@@ -55,6 +56,7 @@ const paymentLabel: Record<string, string> = {
 const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialogProps) => {
   const [copied, setCopied] = useState(false);
   const { data: membershipData } = useMyMembership();
+  const { data: tables } = useTables(null, null);
 
   const b = booking as any;
   const startTime = b?.startTime || b?.start_time;
@@ -139,10 +141,30 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
       0
   );
 
-  const tableLabel =
-    typeof b.tableId === "string"
-      ? `Table ${b.tableId.replace(/^T/i, "")}`
-      : b.tableId?.name || `Table ${b.tables?.table_number || b.tableId?.table_number || "?"}`;
+  const tableLabel = (() => {
+    const tid = b.tableId;
+    // Populated object from backend
+    if (tid && typeof tid === "object") {
+      if (tid.name) return tid.name;
+      const num = tid.tableNumber ?? tid.table_number;
+      if (num !== undefined && num !== null) return `Table ${num}`;
+      if (tid.hardware_id || tid.hardwareId) return `Table ${String(tid.hardware_id ?? tid.hardwareId).replace(/^T/i, "")}`;
+    }
+    // String tableId — could be hardware id (e.g. "T6") or a MongoDB ObjectId
+    if (typeof tid === "string") {
+      if (/^T\d+$/i.test(tid)) return `Table ${tid.replace(/^T/i, "")}`;
+      // Resolve ObjectId via tables list
+      const match = (tables || []).find((t: any) => t.id === tid);
+      if (match) {
+        return match.hardware_id
+          ? `Table ${String(match.hardware_id).replace(/^T/i, "")}`
+          : `Table ${match.table_number ?? "?"}`;
+      }
+    }
+    const tableNum = b.tables?.table_number;
+    if (tableNum !== undefined && tableNum !== null) return `Table ${tableNum}`;
+    return "Table ?";
+  })();
 
   const paymentMethodRaw =
     b.paymentMethod || b.payment_method || b.inferredPaymentMethod || (b.paymentStatus === "paid" ? "paynow" : null);
