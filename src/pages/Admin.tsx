@@ -1071,6 +1071,12 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
   const amount = isActive
     ? liveAmount
     : Number(s.amountCharged ?? s.amount_charged ?? s.total_cost ?? s.totalCost ?? s.runningCost ?? 0);
+  const baseTotal = Number(s.baseTotal ?? s.base_total ?? 0);
+  const membershipDiscountAmount = Number(s.membershipDiscountAmount ?? s.membership_discount_amount ?? 0);
+  const membershipDiscountPercent = Number(s.membershipDiscountPercent ?? s.membership_discount_percent ?? 0);
+  const freeMinutesCredit = Number(s.freeMinutesCredit ?? s.free_minutes_credit ?? 0);
+  const freeMinutesApplied = Number(s.freeMinutesApplied ?? s.free_minutes_applied ?? 0);
+  const hasDiscountBreakdown = !isActive && (membershipDiscountAmount > 0 || freeMinutesCredit > 0);
   const staff = s.startedBy?.name || s.startedBy?.email || "—";
   const customerName =
     (typeof s.userId === "object"
@@ -1224,6 +1230,30 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                   <span className="text-muted-foreground">Total duration</span>
                   <span className="tabular-nums">{durationLabel}</span>
                 </div>
+                {hasDiscountBreakdown && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="tabular-nums">${baseTotal.toFixed(2)}</span>
+                    </div>
+                    {membershipDiscountAmount > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Membership Discount{membershipDiscountPercent > 0 ? ` (${membershipDiscountPercent}%)` : ""}
+                        </span>
+                        <span className="tabular-nums text-emerald-500">-${membershipDiscountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {freeMinutesCredit > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Free Minutes{freeMinutesApplied > 0 ? ` (${freeMinutesApplied}m)` : ""}
+                        </span>
+                        <span className="tabular-nums text-emerald-500">-${freeMinutesCredit.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </>
+                )}
                 <div className="flex justify-between font-bold text-base">
                   <span>{isActive ? "Running Total" : "Total Charged"}</span>
                   <span className={isDeleted ? "line-through text-muted-foreground tabular-nums" : "gold-gradient tabular-nums"}>
@@ -1238,6 +1268,30 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                   <span className="tabular-nums">{durationLabel}</span>
                 </div>
                 <Separator className="bg-border/50 my-1" />
+                {hasDiscountBreakdown && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="tabular-nums">${baseTotal.toFixed(2)}</span>
+                    </div>
+                    {membershipDiscountAmount > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Membership Discount{membershipDiscountPercent > 0 ? ` (${membershipDiscountPercent}%)` : ""}
+                        </span>
+                        <span className="tabular-nums text-emerald-500">-${membershipDiscountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {freeMinutesCredit > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Free Minutes{freeMinutesApplied > 0 ? ` (${freeMinutesApplied}m)` : ""}
+                        </span>
+                        <span className="tabular-nums text-emerald-500">-${freeMinutesCredit.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </>
+                )}
                 <div className="flex justify-between font-bold text-base">
                   <span>{isActive ? "Running Total" : "Total Charged"}</span>
                   <span className={isDeleted ? "line-through text-muted-foreground tabular-nums" : "gold-gradient tabular-nums"}>
