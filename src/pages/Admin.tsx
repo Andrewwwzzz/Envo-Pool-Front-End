@@ -53,7 +53,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { getTableLabel } from "@/lib/tableLabel";
-import { useActiveWalkinSessions, useForceStopWalkin } from "@/hooks/useWalkin";
+import { useActiveWalkinSessions, useForceStopWalkin, useStoppedWalkinSessions } from "@/hooks/useWalkin";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -1159,7 +1159,35 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
 function InvoicesTab() {
   const [showDeleted, setShowDeleted] = useState(false);
   const { data, isLoading } = useAdminTimerSessions(showDeleted);
-  const sessions: any[] = Array.isArray(data) ? data : (data?.sessions || data?.timerSessions || []);
+  const timerSessions: any[] = Array.isArray(data) ? data : (data?.sessions || data?.timerSessions || []);
+  const { data: stoppedWalkinsData } = useStoppedWalkinSessions();
+  const stoppedWalkins: any[] = Array.isArray(stoppedWalkinsData) ? stoppedWalkinsData : [];
+  // Merge stopped walk-ins into the sessions list with a marker.
+  const sessions: any[] = [
+    ...timerSessions.map((s) => ({ ...s, _walkin: false })),
+    ...stoppedWalkins.map((s) => ({
+      ...s,
+      _walkin: true,
+      startedAt: s.startedAt ?? s.startTime,
+      endedAt: s.endedAt ?? s.endTime,
+      durationSeconds:
+        s.durationSeconds ??
+        (s.durationMinutes ? s.durationMinutes * 60 : undefined) ??
+        (s.startedAt && s.endedAt
+          ? Math.max(0, Math.floor((new Date(s.endedAt).getTime() - new Date(s.startedAt).getTime()) / 1000))
+          : 0),
+      amountCharged: s.amountCharged ?? s.totalCost ?? s.runningCost ?? 0,
+      tableName: s.tableName || (s.tableId ? getTableLabel(s.tableId) : ""),
+      startedBy:
+        typeof s.userId === "object"
+          ? { name: s.userId?.name || s.userId?.username, email: s.userId?.email }
+          : undefined,
+    })),
+  ].sort(
+    (a, b) =>
+      new Date(b.startedAt || b.started_at || 0).getTime() -
+      new Date(a.startedAt || a.started_at || 0).getTime(),
+  );
   const { toast } = useToast();
   const qc = useQueryClient();
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -1204,7 +1232,9 @@ function InvoicesTab() {
 
   return (
     <>
+    <ActiveWalkinSessionsSection />
     <Card>
+
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2">
@@ -1266,15 +1296,26 @@ function InvoicesTab() {
                       onClick={() => setSelectedSession(s)}
                     >
                       <td className="py-3 pr-4">{startedAt ? formatDateLong(startedAt) : "—"}</td>
-                      <td className="py-3 pr-4">{s.tableName || (s.tables?.table_number ? `Table ${s.tables.table_number}` : "—")}</td>
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-2">
+                          <span>{s.tableName || (s.tables?.table_number ? `Table ${s.tables.table_number}` : "—")}</span>
+                          {s._walkin && (
+                            <Badge variant="outline" className="bg-accent/10 text-accent border-accent/30 text-[10px] py-0 px-1.5">
+                              Walk-in
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-3 pr-4">{startedAt ? fmtTimeSG(startedAt) : "—"}</td>
                       <td className="py-3 pr-4">{endedAt ? fmtTimeSG(endedAt) : "—"}</td>
                       <td className="py-3 pr-4 font-mono">{formatDuration(duration)}</td>
-                      <td className="py-3 pr-4">${rate.toFixed(0)}/hr</td>
+                      <td className="py-3 pr-4">{s._walkin ? "—" : `$${rate.toFixed(0)}/hr`}</td>
                       <td className={`py-3 pr-4 font-medium ${isDeleted ? "line-through text-muted-foreground" : ""}`}>${amount.toFixed(2)}</td>
-                      <td className="py-3 pr-4 text-muted-foreground">{staff}</td>
+                      <td className="py-3 pr-4 text-muted-foreground">{s._walkin ? "Customer" : staff}</td>
                       <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                        {isDeleted ? (
+                        {s._walkin ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : isDeleted ? (
                           <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Deleted</Badge>
                         ) : (
                           <Button
@@ -3348,6 +3389,125 @@ function TopUpDetailDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ActiveWalkinSessionsSection() {
+  const { toast } = useToast();
+  const { data: sessions, refetch } = useActiveWalkinSessions();
+  const { data: tablesList } = useAdminTables();
+  const forceStop = useForceStopWalkin();
+  const [now, setNow] = useState(Date.now());
+  const [reasonOpen, setReasonOpen] = useState(false);
+  const [reasonValue, setReasonValue] = useState("");
+  const [targetId, setTargetId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const list = Array.isArray(sessions) ? sessions : [];
+  if (list.length === 0) return null;
+
+  const openForceStop = (id: string) => {
+    setTargetId(id);
+    setReasonValue("");
+    setReasonOpen(true);
+  };
+
+  const submitForceStop = async () => {
+    if (!targetId || !reasonValue.trim()) {
+      toast({ title: "Reason required", variant: "destructive" });
+      return;
+    }
+    try {
+      await forceStop.mutateAsync({ id: targetId, reason: reasonValue.trim() });
+      toast({ title: "Session force-stopped" });
+      setReasonOpen(false);
+      setTargetId(null);
+      refetch();
+    } catch (err: any) {
+      toast({ title: "Failed to force stop", description: err?.message, variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card className="mb-4 border-accent/40">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Timer className="h-5 w-5 text-accent" /> Active Walk-in Sessions ({list.length})
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-muted-foreground border-b border-border">
+                <th className="py-2 pr-4">Customer</th>
+                <th className="py-2 pr-4">Table</th>
+                <th className="py-2 pr-4">Started</th>
+                <th className="py-2 pr-4">Elapsed</th>
+                <th className="py-2 pr-4">Running Cost</th>
+                <th className="py-2 pr-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((s: any) => {
+                const id = s._id || s.id;
+                const customer =
+                  (typeof s.userId === "object"
+                    ? s.userId?.name || s.userId?.username || s.userId?.email
+                    : null) || s.userName || s.customerName || "—";
+                const startMs = new Date(s.startedAt ?? s.startTime).getTime();
+                const elapsedMs = Math.max(0, now - startMs);
+                const h = Math.floor(elapsedMs / 3600000);
+                const m = Math.floor((elapsedMs % 3600000) / 60000);
+                const sec = Math.floor((elapsedMs % 60000) / 1000);
+                const elapsed = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+                return (
+                  <tr key={id} className="border-b border-border/50">
+                    <td className="py-2 pr-4">{customer}</td>
+                    <td className="py-2 pr-4 font-medium">{getTableLabel(s.tableId, tablesList as any)}</td>
+                    <td className="py-2 pr-4">{new Date(s.startedAt ?? s.startTime).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}</td>
+                    <td className="py-2 pr-4 font-mono">{elapsed}</td>
+                    <td className="py-2 pr-4 font-mono">${Number(s.runningCost ?? 0).toFixed(2)}</td>
+                    <td className="py-2 pr-4 text-right">
+                      <Button size="sm" variant="destructive" onClick={() => openForceStop(id)}>
+                        Force Stop
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+
+      <Dialog open={reasonOpen} onOpenChange={setReasonOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Force Stop Walk-in Session</DialogTitle>
+            <DialogDescription>
+              The customer's wallet will be charged for the elapsed time. Please provide a reason.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="Reason for force stopping..."
+            value={reasonValue}
+            onChange={(e) => setReasonValue(e.target.value)}
+            rows={3}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReasonOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={submitForceStop} disabled={forceStop.isPending}>
+              {forceStop.isPending ? "Stopping..." : "Force Stop"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
   );
 }
 

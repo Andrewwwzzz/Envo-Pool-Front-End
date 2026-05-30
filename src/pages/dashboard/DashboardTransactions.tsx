@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
@@ -9,12 +9,32 @@ import { Button } from "@/components/ui/button";
 import { fmtDateTimeSG as fmtDateTime } from "@/lib/sgTime";
 import { deriveTransactionDescription } from "@/lib/transactionLabel";
 import { useMembershipPlans } from "@/hooks/useMembership";
+import { useMyWalkinSession } from "@/hooks/useWalkin";
+import { getTableLabel } from "@/lib/tableLabel";
+import { Timer } from "lucide-react";
 
 export default function DashboardTransactions() {
   const { user } = useAuth();
   const [showAll, setShowAll] = useState(true);
   const { data: plans } = useMembershipPlans();
   const membershipPrices = (plans || []).map((p: any) => Number(p.price)).filter((n) => !isNaN(n));
+  const { data: walkinSession } = useMyWalkinSession();
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    if (!walkinSession) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [walkinSession]);
+
+  const walkinStartMs = walkinSession ? new Date(walkinSession.startedAt ?? walkinSession.startTime ?? Date.now()).getTime() : 0;
+  const walkinElapsedSec = walkinSession ? Math.max(0, Math.floor((nowTick - walkinStartMs) / 1000)) : 0;
+  const walkinElapsedLabel = (() => {
+    const h = Math.floor(walkinElapsedSec / 3600);
+    const m = Math.floor((walkinElapsedSec % 3600) / 60);
+    const s = walkinElapsedSec % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  })();
+
 
   const fmtNiceDate = (s: string) => {
     if (!s) return "";
@@ -105,44 +125,86 @@ export default function DashboardTransactions() {
   const visible = showAll ? list : list.slice(0, 10);
 
   return (
-    <Card className="card-premium">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-lg">Transaction History</CardTitle>
-        {list.length > 10 && (
-          <Button variant="ghost" size="sm" onClick={() => setShowAll((v) => !v)}>
-            {showAll ? "Show Less" : "View All"}
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent>
-        {!list.length ? (
-          <p className="text-muted-foreground text-sm">No transactions yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {visible.map((t: any) => {
-              const desc = deriveTransactionDescription(
-                { description: t.description, type: t.rawType, paymentMethod: t.rawMethod, amount: t.amtRaw },
-                membershipPrices
-              );
-              return (
-                <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
-                  <div className="flex items-center gap-3">
-                    <Badge variant="outline" className={txBadge(t.typeKey)}>{t.typeLabel}</Badge>
-                    <div>
-                      {desc && <p className="text-sm font-medium text-foreground">{desc}</p>}
-                      <p className="text-xs text-muted-foreground">{fmtNiceDate(t.date)}</p>
-                      {t.method && <p className="text-xs text-muted-foreground">{t.method}</p>}
+    <div className="space-y-4">
+      {walkinSession && (
+        <Card className="card-premium border-accent/40">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Timer className="h-4 w-4 text-accent" />
+              Walk-in Session In Progress
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-3 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Table</p>
+                <p className="font-medium">{getTableLabel((walkinSession as any).tableId)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Started</p>
+                <p className="font-medium">{fmtNiceDate(String(walkinSession.startedAt ?? walkinSession.startTime ?? ""))}</p>
+                <p className="text-xs text-muted-foreground font-mono mt-0.5">{walkinElapsedLabel}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Running Cost</p>
+                <p className="font-mono text-lg font-bold">${Number(walkinSession.runningCost ?? 0).toFixed(2)}</p>
+              </div>
+            </div>
+            <div className="mt-3">
+              <Badge variant="outline" className="bg-accent/10 text-accent border-accent/30">In Progress</Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="card-premium">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg">Transaction History</CardTitle>
+          {list.length > 10 && (
+            <Button variant="ghost" size="sm" onClick={() => setShowAll((v) => !v)}>
+              {showAll ? "Show Less" : "View All"}
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {!list.length ? (
+            <p className="text-muted-foreground text-sm">No transactions yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {visible.map((t: any) => {
+                const desc = deriveTransactionDescription(
+                  { description: t.description, type: t.rawType, paymentMethod: t.rawMethod, amount: t.amtRaw },
+                  membershipPrices
+                );
+                const isWalkin = typeof t.description === "string" && /^walk-?in session/i.test(t.description.trim());
+                return (
+                  <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
+                    <div className="flex items-center gap-3">
+                      {isWalkin ? (
+                        <Badge variant="outline" className="bg-accent/10 text-accent border-accent/30 flex items-center gap-1">
+                          <Timer className="h-3 w-3" /> Walk-in
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className={txBadge(t.typeKey)}>{t.typeLabel}</Badge>
+                      )}
+                      <div>
+                        {(isWalkin ? t.description : desc) && (
+                          <p className="text-sm font-medium text-foreground">{isWalkin ? t.description : desc}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">{fmtNiceDate(t.date)}</p>
+                        {t.method && <p className="text-xs text-muted-foreground">{t.method}</p>}
+                      </div>
                     </div>
+                    <span className={t.positive ? "text-primary font-medium" : "text-destructive font-medium"}>
+                      {t.amount}
+                    </span>
                   </div>
-                  <span className={t.positive ? "text-primary font-medium" : "text-destructive font-medium"}>
-                    {t.amount}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
