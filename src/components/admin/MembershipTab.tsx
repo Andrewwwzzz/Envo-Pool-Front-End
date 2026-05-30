@@ -583,12 +583,7 @@ export default function MembershipTab() {
                         </TableCell>
                         <TableCell>{!deleted ? <LockerCell sub={s} /> : "—"}</TableCell>
                         <TableCell className="text-right">
-                          {isActive && (
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setCancelTarget(s); }}>
-                              <XCircle className="h-4 w-4" /> Cancel
-                            </Button>
-                          )}
-                          {isExpired && (
+                          {!deleted && (
                             <Button
                               variant="ghost"
                               size="sm"
