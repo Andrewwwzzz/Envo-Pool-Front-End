@@ -41,11 +41,13 @@ const WalkinReceiptDialog = ({ session, open, onOpenChange, live }: Props) => {
   const end = s.stoppedAt || s.endedAt || s.endTime;
   const isLive = !!live || s.status === "active";
 
-  const durationSeconds = Number(
-    s.durationSeconds ??
-      (s.durationMinutes ? s.durationMinutes * 60 : 0) ??
-      (start && end ? Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000)) : 0)
-  ) || (start ? Math.max(0, Math.floor(((isLive ? Date.now() : (end ? new Date(end).getTime() : 0)) - new Date(start).getTime()) / 1000)) : 0);
+  const fallbackSecs = start
+    ? Math.max(0, Math.floor(((isLive ? Date.now() : (end ? new Date(end).getTime() : 0)) - new Date(start).getTime()) / 1000))
+    : 0;
+  const explicitSecs = Number(
+    s.durationSeconds ?? (s.durationMinutes ? s.durationMinutes * 60 : 0)
+  );
+  const durationSeconds = explicitSecs > 0 ? explicitSecs : fallbackSecs;
 
   const amount = Number(
     isLive ? (s.runningCost ?? 0) : (s.amountCharged ?? s.totalCost ?? 0)
