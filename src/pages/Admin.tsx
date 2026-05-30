@@ -2411,6 +2411,8 @@ function VerificationTab() {
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejecting, setRejecting] = useState<string | null>(null);
+  const [rejectedDetail, setRejectedDetail] = useState<any | null>(null);
+  const [unrejecting, setUnrejecting] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchUnverified = async () => {
