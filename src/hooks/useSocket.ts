@@ -96,6 +96,35 @@ export function useSocket() {
       queryClient.invalidateQueries({ queryKey: ["admin-transactions"] });
     });
 
+    // Walk-in session events
+    const invalidateWalkin = () => {
+      queryClient.invalidateQueries({ queryKey: ["walkin-my"] });
+      queryClient.invalidateQueries({ queryKey: ["walkin-active"] });
+      queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    };
+    socket.on("walkin_session_started", invalidateWalkin);
+    socket.on("walkin_session_stopped", invalidateWalkin);
+    socket.on("walkin_session_updated", invalidateWalkin);
+
+    socket.on("walkin_booking_conflict", (payload: any) => {
+      console.log("Socket: walkin_booking_conflict", payload);
+      invalidateWalkin();
+      window.dispatchEvent(new CustomEvent("walkin_booking_conflict", { detail: payload }));
+    });
+
+    socket.on("walkin_insufficient_balance", (payload: any) => {
+      console.log("Socket: walkin_insufficient_balance", payload);
+      invalidateWalkin();
+      window.dispatchEvent(new CustomEvent("walkin_insufficient_balance", { detail: payload }));
+    });
+
+    socket.on("walkin_booking_conflict_admin", (payload: any) => {
+      console.log("Socket: walkin_booking_conflict_admin", payload);
+      invalidateWalkin();
+      window.dispatchEvent(new CustomEvent("walkin_booking_conflict_admin", { detail: payload }));
+    });
+
     socket.on("disconnect", (reason) => {
       console.log("Socket disconnected:", reason);
     });
