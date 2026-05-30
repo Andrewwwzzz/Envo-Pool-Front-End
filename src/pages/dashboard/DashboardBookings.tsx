@@ -5,6 +5,7 @@ import { useMyWalkinHistory, useMyWalkinSession } from "@/hooks/useWalkin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
+import WalkinReceiptDialog from "@/components/WalkinReceiptDialog";
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, nowSG } from "@/lib/sgTime";
 import { getTableLabel as resolveTableLabel } from "@/lib/tableLabel";
 
