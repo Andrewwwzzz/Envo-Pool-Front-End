@@ -1000,9 +1000,44 @@ function TableMaintenanceList({ tableId }: { tableId: string }) {
 
 function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | null; onClose: () => void; onDelete: () => void }) {
   const [nowTick, setNowTick] = useState(Date.now());
-  const isWalkin = !!session?._walkin || (session && !!session.userId && !session.startedBy && session.status !== "active" ? false : !!session?._walkin);
-  const walkin = !!session?._walkin || !!session?.userId;
-  const isActive = !!session && walkin && (session.status === "active" || (!session.endedAt && !session.endTime && !session.ended_at));
+  const propWalkin = !!session?._walkin || !!session?.userId;
+  const propId = session ? String(session._id || session.id || "") : "";
+
+  // Re-fetch latest session details (especially for walk-in sessions) so that when
+  // the session is stopped/force-stopped elsewhere, the modal reflects the new
+  // status, end time, and final amount instead of stale "In Progress" / $0.00.
+  const { data: fresh, refetch: refetchSession } = useQuery({
+    queryKey: ["session-detail", propId],
+    enabled: !!session && propWalkin && !!propId,
+    refetchInterval: 5000,
+    staleTime: 0,
+    queryFn: async () => {
+      const res = await apiFetch(`/api/sessions/${propId}`);
+      if (!res.ok) return null;
+      const data = await res.json().catch(() => null);
+      return data?.session ?? data ?? null;
+    },
+  });
+
+  // Listen for stop / force-stop socket events and immediately re-fetch.
+  useEffect(() => {
+    if (!session || !propWalkin || !propId) return;
+    const handler = (e: Event) => {
+      const detail: any = (e as CustomEvent).detail || {};
+      const evtId = String(detail?.sessionId || detail?._id || detail?.id || "");
+      if (!evtId || evtId === propId) refetchSession();
+    };
+    window.addEventListener("walkin_session_stopped", handler);
+    window.addEventListener("walkin_session_force_stopped", handler);
+    return () => {
+      window.removeEventListener("walkin_session_stopped", handler);
+      window.removeEventListener("walkin_session_force_stopped", handler);
+    };
+  }, [session, propWalkin, propId, refetchSession]);
+
+  const merged = fresh ? { ...session, ...fresh } : session;
+  const walkin = !!merged?._walkin || !!merged?.userId;
+  const isActive = !!merged && walkin && (merged.status === "active" || (!merged.endedAt && !merged.endTime && !merged.ended_at));
 
   useEffect(() => {
     if (!isActive) return;
@@ -1011,7 +1046,7 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
   }, [isActive]);
 
   if (!session) return null;
-  const s = session;
+  const s = merged;
   const id = String(s._id || s.id || "");
   const shortId = id.slice(-8).toUpperCase();
   const isDeleted = s.isDeleted === true;
