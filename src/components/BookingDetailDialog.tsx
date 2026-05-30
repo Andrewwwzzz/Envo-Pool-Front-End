@@ -243,6 +243,13 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
               <span className="font-medium tabular-nums">${subtotal.toFixed(2)}</span>
             </div>
 
+            {freeMinutesCredit > 0 && (
+              <div className="flex items-center justify-between text-primary">
+                <span>Free {freeMinutesApplied > 0 ? `${freeMinutesApplied} ` : ""}mins (membership benefit)</span>
+                <span className="tabular-nums">−${freeMinutesCredit.toFixed(2)}</span>
+              </div>
+            )}
+
             {membershipDiscount > 0 && (
               <div className="flex items-center justify-between text-primary">
                 <span>
