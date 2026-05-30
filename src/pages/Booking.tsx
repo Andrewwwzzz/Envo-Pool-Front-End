@@ -466,6 +466,8 @@ const Booking = () => {
           rewardDiscount: winningDiscount.source === "reward" ? rewardDiscount : 0,
           membershipDiscount: winningDiscount.source === "membership" ? membershipDiscount : 0,
           membershipDiscountPercent: winningDiscount.source === "membership" ? membershipDiscountPct : 0,
+          freeMinutesCredit: appliedFreeMinutesCredit,
+          freeMinutesApplied: appliedFreeMinutesUsed,
           membershipPlanId:
             winningDiscount.source === "membership"
               ? activeMembershipPlan?._id ?? activeMembershipPlan?.id ??
