@@ -66,6 +66,21 @@ const Booking = () => {
   const today = useMemo(() => todaySG(), []);
 
   const { data: tables, isLoading: tablesLoading } = useTables(null, null);
+  const { data: activeWalkin } = useMyWalkinSession();
+  const startWalkin = useStartWalkin();
+
+  const handleStartWalkin = async (table: { id: string; hardware_id: string | null; table_number: number }) => {
+    if (!table.hardware_id) {
+      toast({ title: "Cannot start session", description: "This table has no hardware ID configured.", variant: "destructive" });
+      return;
+    }
+    try {
+      await startWalkin.mutateAsync(table.hardware_id);
+      toast({ title: "Walk-in session started", description: `Table ${table.table_number} is now live.` });
+    } catch (err: any) {
+      toast({ title: "Failed to start session", description: err?.message || "Please try again.", variant: "destructive" });
+    }
+  };
 
   const selectedTableData_pre = tables?.find((t) => t.id === selectedTable);
   const { data: tableBookings } = useQuery({
