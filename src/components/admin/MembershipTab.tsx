@@ -615,27 +615,6 @@ export default function MembershipTab() {
       <AssignMembershipDialog open={assignOpen} onOpenChange={setAssignOpen} />
 
       <ReasonDialog
-        open={!!cancelTarget}
-        onOpenChange={(o) => !o && setCancelTarget(null)}
-        title="Cancel Membership"
-        label="Reason for cancellation"
-        placeholder="e.g. user requested cancellation"
-        confirmLabel="Cancel Membership"
-        destructive
-        loading={cancel.isPending}
-        onConfirm={async (reason) => {
-          if (!cancelTarget) return;
-          try {
-            await cancel.mutateAsync({ id: cancelTarget._id ?? cancelTarget.id, reason });
-            toast({ title: "Subscription cancelled" });
-            setCancelTarget(null);
-          } catch (e: any) {
-            toast({ title: "Failed", description: e?.message, variant: "destructive" });
-          }
-        }}
-      />
-
-      <ReasonDialog
         open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
         title="Delete Membership Record?"
