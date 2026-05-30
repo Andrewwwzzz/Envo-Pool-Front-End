@@ -1702,7 +1702,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                       className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/40 transition-colors"
                       onClick={() => setSelectedBooking(b)}
                     >
-                      <td className="py-2 pr-4">Table {typeof b.tableId === "string" ? b.tableId.replace("T", "") : b.tables?.table_number ?? "?"}</td>
+                      <td className="py-2 pr-4">{getTableLabel(b.tableId, tablesList as any, b)}</td>
                       <td className="py-2 pr-4">{fmtDateSG(b.startTime || b.start_time)}</td>
                       <td className="py-2 pr-4">{fmtTimeSG(b.startTime || b.start_time)}</td>
                       <td className="py-2 pr-4">{(() => { const s = b.startTime || b.start_time; const e = b.endTime || b.end_time; const mins = s && e ? Math.round((new Date(e).getTime() - new Date(s).getTime()) / 60000) : 0; const h = Math.floor(mins / 60); const m = mins % 60; return m > 0 ? `${h}h ${m}m` : `${h}h`; })()}</td>
