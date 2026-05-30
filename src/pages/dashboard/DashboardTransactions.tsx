@@ -18,6 +18,23 @@ export default function DashboardTransactions() {
   const [showAll, setShowAll] = useState(true);
   const { data: plans } = useMembershipPlans();
   const membershipPrices = (plans || []).map((p: any) => Number(p.price)).filter((n) => !isNaN(n));
+  const { data: walkinSession } = useMyWalkinSession();
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    if (!walkinSession) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [walkinSession]);
+
+  const walkinStartMs = walkinSession ? new Date(walkinSession.startedAt ?? walkinSession.startTime ?? Date.now()).getTime() : 0;
+  const walkinElapsedSec = walkinSession ? Math.max(0, Math.floor((nowTick - walkinStartMs) / 1000)) : 0;
+  const walkinElapsedLabel = (() => {
+    const h = Math.floor(walkinElapsedSec / 3600);
+    const m = Math.floor((walkinElapsedSec % 3600) / 60);
+    const s = walkinElapsedSec % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  })();
+
 
   const fmtNiceDate = (s: string) => {
     if (!s) return "";
