@@ -13,6 +13,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Copy, Check } from "lucide-react";
 import { useMemo, useState } from "react";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
+import { getTableLabel } from "@/lib/tableLabel";
+import { useAdminTables } from "@/hooks/useAdmin";
 
 interface Props {
   booking: any | null;
@@ -68,6 +70,7 @@ const fmtDur = (mins: number) => {
 };
 
 const AdminBookingDetailDialog = ({ booking, open, onOpenChange, onCancel }: Props) => {
+  const { data: tablesList } = useAdminTables();
   if (!booking) return null;
   const b = booking;
   const id: string = b._id || b.id || "";
@@ -82,12 +85,7 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange, onCancel }: Pro
       ? Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000)
       : 0;
 
-  const tableName =
-    typeof b.tableId === "string"
-      ? `Table ${b.tableId.replace("T", "")}`
-      : b.tableId?.name ||
-        (b.tableId?.tableNumber ? `Table ${b.tableId.tableNumber}` : null) ||
-        (b.tables?.table_number ? `Table ${b.tables.table_number}` : "—");
+  const tableName = getTableLabel(b.tableId, tablesList as any, b);
 
   const customer = (() => {
     const u = b.userId || b.user || {};

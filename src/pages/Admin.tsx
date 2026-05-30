@@ -52,6 +52,7 @@ import { getAuthHeaders, apiFetch } from "@/lib/api";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { getTableLabel } from "@/lib/tableLabel";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -373,6 +374,7 @@ function BookingsTab() {
   const [filter, setFilter] = useState<BookingFilter>("all");
   const [search, setSearch] = useState("");
   const { data: bookings, isLoading } = useAdminBookings(false);
+  const { data: tablesList } = useAdminTables();
   const updateStatus = useUpdateBookingStatus();
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
@@ -403,9 +405,7 @@ function BookingsTab() {
     const q = search.trim().toLowerCase();
     if (!q) return true;
     const u = b.userId || b.user || {};
-    const tableName = typeof b.tableId === "string"
-      ? `table ${b.tableId.replace("T", "")}`
-      : `table ${(b as any).tables?.table_number ?? b.tableId?.tableNumber ?? ""}`;
+    const tableName = getTableLabel(b.tableId, tablesList as any, b).toLowerCase();
     const dateStr = (fmtDateSG(getField(b, "startTime", "start_time")) || "").toLowerCase();
     const haystack = [
       typeof u === "object" ? u.name : "",
@@ -472,7 +472,7 @@ function BookingsTab() {
                 const canCancel = b.status === "confirmed";
                 return (
                   <tr key={bookingId} className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setSelectedBooking(b)}>
-                    <td className="py-3 pr-4">Table {typeof b.tableId === "string" ? b.tableId.replace("T", "") : (b as any).tables?.table_number ?? b.tableId?.tableNumber ?? "?"}</td>
+                    <td className="py-3 pr-4">{getTableLabel(b.tableId, tablesList as any, b)}</td>
                     <td className="py-3 pr-4">{fmtDateSG(getField(b, "startTime", "start_time"))}</td>
                     <td className="py-3 pr-4">{fmtTimeSG(getField(b, "startTime", "start_time"))} – {fmtTimeSG(getField(b, "endTime", "end_time"))}</td>
                     <td className="py-3 pr-4">{(() => { const s = b.startTime || b.start_time; const e = b.endTime || b.end_time; const mins = s && e ? Math.round((new Date(e).getTime() - new Date(s).getTime()) / 60000) : 0; const h = Math.floor(mins / 60); const m = mins % 60; return m > 0 ? `${h}h ${m}m` : `${h}h`; })()}</td>
@@ -1467,6 +1467,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const { data: walletHistory } = useCustomerWalletHistory(customer.user_id);
   const { data: activityLogs } = useAdminActivityLogs();
   const { data: allCustomers } = useAdminCustomers("");
+  const { data: tablesList } = useAdminTables();
 
   const verifyInfo = (() => {
     const lookupName = (id: string) => {
@@ -1701,7 +1702,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                       className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/40 transition-colors"
                       onClick={() => setSelectedBooking(b)}
                     >
-                      <td className="py-2 pr-4">Table {typeof b.tableId === "string" ? b.tableId.replace("T", "") : b.tables?.table_number ?? "?"}</td>
+                      <td className="py-2 pr-4">{getTableLabel(b.tableId, tablesList as any, b)}</td>
                       <td className="py-2 pr-4">{fmtDateSG(b.startTime || b.start_time)}</td>
                       <td className="py-2 pr-4">{fmtTimeSG(b.startTime || b.start_time)}</td>
                       <td className="py-2 pr-4">{(() => { const s = b.startTime || b.start_time; const e = b.endTime || b.end_time; const mins = s && e ? Math.round((new Date(e).getTime() - new Date(s).getTime()) / 60000) : 0; const h = Math.floor(mins / 60); const m = mins % 60; return m > 0 ? `${h}h ${m}m` : `${h}h`; })()}</td>
