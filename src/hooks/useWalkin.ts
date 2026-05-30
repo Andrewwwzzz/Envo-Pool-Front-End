@@ -107,7 +107,24 @@ export function useForceStopWalkin() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["walkin-active"] });
       qc.invalidateQueries({ queryKey: ["walkin-my"] });
+      qc.invalidateQueries({ queryKey: ["walkin-stopped"] });
       qc.invalidateQueries({ queryKey: ["tables-with-status"] });
+      qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
     },
+  });
+}
+
+export function useStoppedWalkinSessions(enabled = true) {
+  return useQuery<WalkinSession[]>({
+    queryKey: ["walkin-stopped"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/sessions?status=stopped");
+      if (!res.ok) return [];
+      const data = await res.json().catch(() => []);
+      return Array.isArray(data) ? data : data?.sessions ?? [];
+    },
+    enabled,
+    refetchInterval: 60000,
+    staleTime: 0,
   });
 }
