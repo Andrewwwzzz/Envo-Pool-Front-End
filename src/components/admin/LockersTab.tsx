@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, RotateCcw, XCircle, Loader2 } from "lucide-react";
+import { Plus, RotateCcw, XCircle, Loader2, Trash2, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useLockerUnits,
@@ -16,12 +16,13 @@ import {
   useAssignLocker,
   useRenewLocker,
   useCancelLocker,
+  useDeleteLockerUnit,
   type LockerUnit,
 } from "@/hooks/useLockers";
 import { useAdminCustomers } from "@/hooks/useAdmin";
 import { fmtDateSG } from "@/lib/sgTime";
 import ReasonDialog from "./ReasonDialog";
-import { isCancelled } from "./DeletedBanner";
+import DeletedBanner, { isCancelled, isDeleted, getDeletedInfo } from "./DeletedBanner";
 
 function AddLockerDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { toast } = useToast();
@@ -135,13 +136,17 @@ function fmtDateOrDash(d?: string) {
 
 export default function LockersTab() {
   const { toast } = useToast();
-  const { data: lockers = [] } = useLockerUnits(false);
+  const [hideDeleted, setHideDeleted] = useState(false);
+  const { data: lockers = [] } = useLockerUnits(hideDeleted ? "default" : "all");
   const { data: rentals = [] } = useLockerRentals();
   const renew = useRenewLocker();
   const cancel = useCancelLocker();
+  const deleteUnit = useDeleteLockerUnit();
   const [addOpen, setAddOpen] = useState(false);
   const [assignFor, setAssignFor] = useState<LockerUnit | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
+  const [deleteUnitTarget, setDeleteUnitTarget] = useState<LockerUnit | null>(null);
+  const [detailRecord, setDetailRecord] = useState<any | null>(null);
 
   const doRenew = async (id: string) => {
     try { await renew.mutateAsync(id); toast({ title: "Renewed" }); }
@@ -153,7 +158,17 @@ export default function LockersTab() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
           <CardTitle className="text-base">Locker Units</CardTitle>
-          <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add Locker</Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={hideDeleted ? "secondary" : "outline"}
+              onClick={() => setHideDeleted((v) => !v)}
+            >
+              {hideDeleted ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+              {hideDeleted ? "Show Deleted" : "Hide Deleted"}
+            </Button>
+            <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add Locker</Button>
+          </div>
         </CardHeader>
         <CardContent>
           {lockers.length === 0 ? (
@@ -174,6 +189,7 @@ export default function LockersTab() {
                 <TableBody>
                   {lockers.map((l) => {
                     const anyL = l as any;
+                    const deleted = isDeleted(anyL);
                     const rental = anyL.currentRentalId && typeof anyL.currentRentalId === "object" ? anyL.currentRentalId : null;
                     const rentalId = rental?._id ?? rental?.id ?? (typeof anyL.currentRentalId === "string" ? anyL.currentRentalId : l.rentalId);
                     const lockerNum = anyL.lockerNumber ?? l.number;
@@ -183,29 +199,42 @@ export default function LockersTab() {
                     const renewal = rental?.renewalDate ?? l.renewalDate;
 
                     const rentalActive = rental && !isCancelled(rental);
-                    const isAvailable = !rentalActive && (l.status ?? "available") === "available";
+                    const isAvailable = !deleted && !rentalActive && (l.status ?? "available") === "available";
 
                     return (
-                      <TableRow key={l.id}>
-                        <TableCell className="font-medium">#{lockerNum ?? "—"}</TableCell>
+                      <TableRow
+                        key={l.id}
+                        className={deleted ? "text-muted-foreground cursor-pointer" : ""}
+                        onClick={deleted ? () => setDetailRecord({ ...anyL, _kind: "locker", lockerNum }) : undefined}
+                      >
+                        <TableCell className={`font-medium ${deleted ? "line-through" : ""}`}>#{lockerNum ?? "—"}</TableCell>
                         <TableCell>
-                          <Badge variant={isAvailable ? "secondary" : "default"} className="capitalize">
-                            {isAvailable ? "Available" : "Rented"}
-                          </Badge>
+                          {deleted ? (
+                            <Badge variant="outline" className="bg-muted whitespace-nowrap">Deleted</Badge>
+                          ) : (
+                            <Badge variant={isAvailable ? "secondary" : "default"} className="capitalize">
+                              {isAvailable ? "Available" : "Rented"}
+                            </Badge>
+                          )}
                         </TableCell>
-                        <TableCell>${l.monthlyPrice ?? 0}</TableCell>
+                        <TableCell className={deleted ? "line-through" : ""}>${l.monthlyPrice ?? 0}</TableCell>
                         <TableCell>
-                          {!isAvailable && renterName ? (
+                          {!deleted && !isAvailable && renterName ? (
                             <>
                               <div className="font-medium">{renterName}</div>
                               {renterEmail && <div className="text-xs text-muted-foreground">{renterEmail}</div>}
                             </>
                           ) : "—"}
                         </TableCell>
-                        <TableCell>{!isAvailable ? fmtDateOrDash(renewal) : "—"}</TableCell>
-                        <TableCell className="text-right">
-                          {isAvailable ? (
-                            <Button variant="outline" size="sm" onClick={() => setAssignFor(l)}>Assign</Button>
+                        <TableCell>{!deleted && !isAvailable ? fmtDateOrDash(renewal) : "—"}</TableCell>
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          {deleted ? null : isAvailable ? (
+                            <div className="flex gap-1 justify-end">
+                              <Button variant="outline" size="sm" onClick={() => setAssignFor(l)}>Assign</Button>
+                              <Button variant="ghost" size="sm" onClick={() => setDeleteUnitTarget(l)} title="Delete locker">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
                           ) : (
                             <div className="flex gap-1 justify-end">
                               {rentalId && (
@@ -230,6 +259,7 @@ export default function LockersTab() {
           )}
         </CardContent>
       </Card>
+
 
       <Card>
         <CardHeader>
@@ -309,6 +339,45 @@ export default function LockersTab() {
           }
         }}
       />
+
+      <ReasonDialog
+        open={!!deleteUnitTarget}
+        onOpenChange={(o) => !o && setDeleteUnitTarget(null)}
+        title={`Delete locker #${(deleteUnitTarget as any)?.lockerNumber ?? deleteUnitTarget?.number ?? ""}?`}
+        label="Reason for deletion"
+        placeholder="e.g. unit decommissioned"
+        confirmLabel="Delete"
+        destructive
+        loading={deleteUnit.isPending}
+        onConfirm={async (reason) => {
+          if (!deleteUnitTarget) return;
+          try {
+            await deleteUnit.mutateAsync({ id: deleteUnitTarget.id, reason });
+            toast({ title: "Locker deleted" });
+            setDeleteUnitTarget(null);
+          } catch (e: any) {
+            toast({ title: "Failed", description: e?.message, variant: "destructive" });
+          }
+        }}
+      />
+
+      <Dialog open={!!detailRecord} onOpenChange={(o) => !o && setDetailRecord(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Locker #{detailRecord?.lockerNum ?? "—"}</DialogTitle>
+          </DialogHeader>
+          {detailRecord && (
+            <div className="space-y-3">
+              <DeletedBanner info={getDeletedInfo(detailRecord)} />
+              <div className="opacity-70 text-sm space-y-1.5">
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Number</span><span>#{detailRecord.lockerNum ?? "—"}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Monthly Price</span><span>${detailRecord.monthlyPrice ?? 0}</span></div>
+                {detailRecord.notes && <div className="flex justify-between gap-3"><span className="text-muted-foreground">Notes</span><span>{detailRecord.notes}</span></div>}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

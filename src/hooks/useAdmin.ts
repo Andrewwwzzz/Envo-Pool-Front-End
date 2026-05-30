@@ -136,12 +136,13 @@ export function useAdminTables() {
   return { ...tablesQuery, updateStatus, startTimer, stopTimer, setMaintenance };
 }
 
-export function useTableMaintenance(tableId: string | null | undefined) {
+export function useTableMaintenance(tableId: string | null | undefined, filter: "default" | "all" = "all") {
   return useQuery({
-    queryKey: ["table-maintenance", tableId],
+    queryKey: ["table-maintenance", tableId, { filter }],
     queryFn: async () => {
       if (!tableId) return [];
-      const res = await apiFetch(`/api/admin/maintenance/${tableId}`);
+      const qs = filter === "default" ? "" : `?filter=${filter}`;
+      const res = await apiFetch(`/api/admin/maintenance/${tableId}${qs}`);
       if (!res.ok) return [];
       const data = await res.json();
       return Array.isArray(data) ? data : (data?.maintenance || data?.windows || []);
@@ -150,6 +151,7 @@ export function useTableMaintenance(tableId: string | null | undefined) {
     refetchInterval: 60000,
   });
 }
+
 
 export function useScheduleMaintenance() {
   const queryClient = useQueryClient();
@@ -197,8 +199,11 @@ export function useDeleteMaintenance() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async ({ id }: { id: string; tableId?: string }) => {
-      const res = await apiFetch(`/api/admin/maintenance/${id}`, { method: "DELETE" });
+    mutationFn: async ({ id, reason }: { id: string; reason: string; tableId?: string }) => {
+      const res = await apiFetch(`/api/admin/maintenance/${id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason }),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || err.message || "Failed to remove maintenance");
@@ -214,6 +219,7 @@ export function useDeleteMaintenance() {
     },
   });
 }
+
 
 export function useAdminTimerSessions(showDeleted = false) {
   const key = showDeleted ? "admin-timer-sessions-deleted" : "admin-timer-sessions";
@@ -245,22 +251,30 @@ function mapPricingRule(r: any) {
   };
 }
 
-export function useAdminPricingRules() {
+export function useAdminPricingRules(filter: "default" | "all" = "all") {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const cacheKey = `admin-pricing-rules-${filter}`;
   const query = useQuery({
-    queryKey: ["admin-pricing-rules"],
+    queryKey: ["admin-pricing-rules", { filter }],
     queryFn: async () => {
-      const res = await apiFetch("/api/admin/pricing-rules");
+      const qs = filter === "default" ? "" : `?filter=${filter}`;
+      const res = await apiFetch(`/api/admin/pricing-rules${qs}`);
       if (!res.ok) throw new Error("Failed to fetch pricing rules");
       const raw = await res.json();
       const list = Array.isArray(raw) ? raw : (raw?.pricingRules || raw?.rules || []);
-      const data = list.map(mapPricingRule);
-      setCache("admin-pricing-rules", data);
+      const data = list.map((r: any) => ({
+        ...mapPricingRule(r),
+        deleted: r.deleted === true || r.isDeleted === true || !!r.deletedAt,
+        deletedAt: r.deletedAt || r.deleted_at,
+        deletedBy: r.deletedBy || r.deleted_by,
+        deleteReason: r.deleteReason || r.deletionReason || r.deleted_reason,
+      }));
+      setCache(cacheKey, data);
       return data;
     },
-    initialData: () => getCached("admin-pricing-rules") ?? [],
+    initialData: () => getCached(cacheKey) ?? [],
   });
 
   const create = useMutation({
@@ -294,8 +308,11 @@ export function useAdminPricingRules() {
   });
 
   const remove = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await apiFetch(`/api/admin/pricing-rules/${id}`, { method: "DELETE" });
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const res = await apiFetch(`/api/admin/pricing-rules/${id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason }),
+      });
       if (!res.ok) throw new Error("Failed to delete pricing rule");
     },
     onSuccess: () => {
@@ -357,14 +374,17 @@ export function useAdminPricingRules() {
   return { ...query, create, remove, toggle, update };
 }
 
-export function useAdminPromoCodes() {
+
+export function useAdminPromoCodes(filter: "default" | "all" = "all") {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const cacheKey = `admin-promo-codes-${filter}`;
   const query = useQuery({
-    queryKey: ["admin-promo-codes"],
+    queryKey: ["admin-promo-codes", { filter }],
     queryFn: async () => {
-      const res = await apiFetch("/api/admin/promo-codes");
+      const qs = filter === "default" ? "" : `?filter=${filter}`;
+      const res = await apiFetch(`/api/admin/promo-codes${qs}`);
       if (!res.ok) throw new Error("Failed to fetch promo codes");
       const raw = await res.json();
       const list = Array.isArray(raw) ? raw : (raw?.promoCodes || raw?.promos || []);
@@ -380,11 +400,15 @@ export function useAdminPromoCodes() {
         per_user_limit: p.perUserLimit ?? p.per_user_limit ?? null,
         expiry_date: p.expiryDate ?? p.expiry_date ?? null,
         is_active: p.isActive ?? p.is_active ?? false,
+        deleted: p.deleted === true || p.isDeleted === true || !!p.deletedAt,
+        deletedAt: p.deletedAt || p.deleted_at,
+        deletedBy: p.deletedBy || p.deleted_by,
+        deleteReason: p.deleteReason || p.deletionReason || p.deleted_reason,
       }));
-      setCache("admin-promo-codes", data);
+      setCache(cacheKey, data);
       return data;
     },
-    initialData: () => getCached("admin-promo-codes"),
+    initialData: () => getCached(cacheKey),
   });
 
   const create = useMutation({
@@ -429,8 +453,11 @@ export function useAdminPromoCodes() {
   });
 
   const remove = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await apiFetch(`/api/admin/promo-codes/${id}`, { method: "DELETE" });
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const res = await apiFetch(`/api/admin/promo-codes/${id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason }),
+      });
       if (!res.ok) throw new Error("Failed to delete promo code");
     },
     onSuccess: () => {
@@ -441,6 +468,7 @@ export function useAdminPromoCodes() {
 
   return { ...query, create, toggle, remove };
 }
+
 
 export function useUpdateBookingStatus() {
   const queryClient = useQueryClient();
