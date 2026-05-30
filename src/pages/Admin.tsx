@@ -1467,6 +1467,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const { data: walletHistory } = useCustomerWalletHistory(customer.user_id);
   const { data: activityLogs } = useAdminActivityLogs();
   const { data: allCustomers } = useAdminCustomers("");
+  const { data: tablesList } = useAdminTables();
 
   const verifyInfo = (() => {
     const lookupName = (id: string) => {
