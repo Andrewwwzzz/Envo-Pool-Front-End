@@ -90,7 +90,10 @@ const Booking = () => {
       const { dayStart, dayEnd } = sgDayBoundsUTC(selectedDate);
       const hardwareId = selectedTableData_pre.hardware_id;
 
-      const res = await apiFetch("/api/bookings");
+      // Pass tableId + date so the backend can scope the response; we still
+      // filter defensively below in case the backend ignores the params.
+      const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
+      const res = await apiFetch(`/api/bookings?tableId=${encodeURIComponent(hardwareId)}&date=${dateStr}`);
       if (!res.ok) throw new Error("Failed to fetch bookings");
       const allBookings = await res.json();
 
@@ -131,7 +134,7 @@ const Booking = () => {
         return {
           start_time: b.startTime,
           end_time: b.endTime,
-          status: b.status === "confirmed" ? "confirmed" : "pending",
+          status: b.status === "confirmed" ? "confirmed" : "pending", // pending_payment and other non-cancelled states render as "Pending Payment"
           created_at: b.createdAt || new Date().toISOString(),
           expires_at: b.expiresAt || null,
           user_name: showName ? (rawName || b.userName || null) : null,
