@@ -489,7 +489,7 @@ export default function MembershipTab() {
                     </div>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => removePlan(p)}><Trash2 className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => setDeletePlanTarget(p)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </div>
                   {p.description && <p className="text-xs text-muted-foreground">{p.description}</p>}
