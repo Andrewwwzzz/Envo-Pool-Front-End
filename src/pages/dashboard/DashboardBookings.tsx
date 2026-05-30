@@ -140,11 +140,10 @@ export default function DashboardBookings() {
     const start = w.startedAt || w.startTime;
     const end = w.stoppedAt || w.endTime;
     const status = opts.live ? "active" : (w.status || "stopped");
+    const fallbackLive = opts.live && start ? Math.floor((Date.now() - new Date(start).getTime()) / 1000) : 0;
     const durationSecs = Number(
-      w.durationSeconds ??
-        (w.durationMinutes ? w.durationMinutes * 60 : 0) ??
-        (opts.live && start ? Math.floor((Date.now() - new Date(start).getTime()) / 1000) : 0)
-    ) || (opts.live && start ? Math.floor((Date.now() - new Date(start).getTime()) / 1000) : 0);
+      w.durationSeconds ?? (w.durationMinutes ? w.durationMinutes * 60 : fallbackLive)
+    ) || fallbackLive;
     const amount = opts.live
       ? Number(w.runningCost ?? 0)
       : Number(w.amountCharged ?? w.totalCost ?? 0);
