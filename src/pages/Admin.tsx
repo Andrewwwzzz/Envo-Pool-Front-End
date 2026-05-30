@@ -2738,6 +2738,52 @@ function VerificationTab() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!rejectedDetail} onOpenChange={(o) => { if (!o) setRejectedDetail(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rejected User</DialogTitle>
+          </DialogHeader>
+          {rejectedDetail && (() => {
+            const u = rejectedDetail;
+            const uid = u._id || u.userId || u.id;
+            const reason = u.rejectionReason || u.rejection_reason || u.rejectReason || "—";
+            const rejectedAt = u.rejectedAt || u.rejected_at;
+            const rb = u.rejectedBy || u.rejected_by;
+            const rejectedByName = rb && typeof rb === "object"
+              ? (rb.name || rb.legalName || rb.email || "—")
+              : (typeof rb === "string" && !/^[a-f0-9]{24}$/i.test(rb) ? rb : "—");
+            return (
+              <div className="space-y-4">
+                <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm space-y-1">
+                  <div className="flex items-center gap-2 font-medium text-destructive">
+                    <AlertTriangle className="h-4 w-4" /> This account has been rejected
+                  </div>
+                  <div className="text-xs text-foreground/80 space-y-0.5 pl-6">
+                    <div><span className="text-muted-foreground">Reason:</span> {reason}</div>
+                    <div><span className="text-muted-foreground">Rejected by:</span> {rejectedByName}</div>
+                    <div><span className="text-muted-foreground">Rejected at:</span> {rejectedAt ? fmtDateTimeSG(rejectedAt) : "—"}</div>
+                  </div>
+                </div>
+                <div className="text-sm space-y-1.5">
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">Name</span><span>{u.name || "—"}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">Email</span><span>{u.email || "—"}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">Phone</span><span>{u.phone || u.phoneNumber || "—"}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">Joined</span><span>{u.createdAt ? fmtDateTimeSG(u.createdAt) : "—"}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">User ID</span><span className="font-mono text-xs">{uid ? String(uid).slice(-8) : "—"}</span></div>
+                </div>
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectedDetail(null)} disabled={!!unrejecting}>Close</Button>
+            <Button onClick={handleUnreject} disabled={!!unrejecting}>
+              {unrejecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+              Unreject / Re-open
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </Card>
   );
 }
