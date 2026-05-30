@@ -2394,13 +2394,14 @@ function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () 
 
 
 function VerificationTab() {
-  const { user } = useAuth();
+  const [tab, setTab] = useState<"pending" | "rejected">("pending");
   const [users, setUsers] = useState<any[]>(() => {
     try {
       const cached = localStorage.getItem("cache:unverified-users");
       return cached ? JSON.parse(cached) : [];
     } catch { return []; }
   });
+  const [rejectedUsers, setRejectedUsers] = useState<any[]>([]);
   const [verifying, setVerifying] = useState<string | null>(null);
   const [verifyTarget, setVerifyTarget] = useState<any | null>(null);
   const [legalName, setLegalName] = useState("");
@@ -2408,11 +2409,14 @@ function VerificationTab() {
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<any | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejecting, setRejecting] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchUnverified = async () => {
     try {
-      const res = await apiFetch("/api/admin/unverified-users");
+      const res = await apiFetch("/api/admin/unverified-users?status=pending");
       if (!res.ok) throw new Error("Failed to fetch unverified users");
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.users || [];
@@ -2423,9 +2427,21 @@ function VerificationTab() {
     }
   };
 
-  useEffect(() => {
-    fetchUnverified();
-  }, []);
+  const fetchRejected = async () => {
+    try {
+      const res = await apiFetch("/api/admin/unverified-users?status=rejected");
+      if (!res.ok) throw new Error("Failed to fetch rejected users");
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : data.users || [];
+      setRejectedUsers(list);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const refresh = () => { fetchUnverified(); fetchRejected(); };
+
+  useEffect(() => { refresh(); }, []);
 
   const openVerifyDialog = (u: any) => {
     setVerifyTarget(u);
@@ -2440,7 +2456,6 @@ function VerificationTab() {
       toast({ title: "Missing fields", description: "Legal name and date of birth are required", variant: "destructive" });
       return;
     }
-    // Enforce minimum age of 16
     const dobDate = new Date(dateOfBirth);
     const today = new Date();
     let age = today.getFullYear() - dobDate.getFullYear();
@@ -2469,6 +2484,35 @@ function VerificationTab() {
       setVerifying(null);
     }
   };
+
+  const handleReject = async () => {
+    if (!rejectTarget) return;
+    const userId = rejectTarget._id || rejectTarget.userId || rejectTarget.id;
+    if (!rejectReason.trim()) {
+      toast({ title: "Reason required", description: "Please provide a reason for rejection", variant: "destructive" });
+      return;
+    }
+    try {
+      setRejecting(userId);
+      const res = await apiFetch("/api/admin/reject-user", {
+        method: "POST",
+        body: JSON.stringify({ userId, reason: rejectReason.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Failed to reject user");
+      }
+      toast({ title: "User rejected" });
+      setRejectTarget(null);
+      setRejectReason("");
+      await refresh();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setRejecting(null);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     const userId = deleteTarget._id || deleteTarget.userId || deleteTarget.id;
@@ -2481,7 +2525,7 @@ function VerificationTab() {
       }
       toast({ title: "Verification request deleted" });
       setDeleteTarget(null);
-      await fetchUnverified();
+      await refresh();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -2489,7 +2533,7 @@ function VerificationTab() {
     }
   };
 
-  const filteredUsers = users.filter((u: any) => {
+  const matchesSearch = (u: any) => {
     if (!search.trim()) return true;
     const q = search.trim().toLowerCase();
     return (
@@ -2497,22 +2541,29 @@ function VerificationTab() {
       (u.email || "").toLowerCase().includes(q) ||
       (u.dateOfBirth || u.date_of_birth || "").toLowerCase().includes(q)
     );
-  });
+  };
 
+  const filteredUsers = users.filter(matchesSearch);
+  const filteredRejected = rejectedUsers.filter(matchesSearch);
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>User Verification</CardTitle>
-          <Button variant="outline" size="sm" onClick={fetchUnverified}>
+          <Button variant="outline" size="sm" onClick={refresh}>
             <RotateCcw className="mr-2 h-4 w-4" /> Refresh
           </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {users.length > 0 && (
-          <div className="relative">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+          <TabsList>
+            <TabsTrigger value="pending">Pending {users.length > 0 && `(${users.length})`}</TabsTrigger>
+            <TabsTrigger value="rejected">Rejected {rejectedUsers.length > 0 && `(${rejectedUsers.length})`}</TabsTrigger>
+          </TabsList>
+
+          <div className="relative mt-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name, email or date of birth..."
@@ -2521,68 +2572,108 @@ function VerificationTab() {
               className="pl-9"
             />
           </div>
-        )}
-        {users.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">No unverified users</p>
-        ) : filteredUsers.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">No matches for "{search}"</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="pb-2 pr-4">Name</th>
-                  <th className="pb-2 pr-4">Date of Birth</th>
-                  <th className="pb-2 pr-4">Email</th>
-                  <th className="pb-2 pr-4">Created</th>
-                  <th className="pb-2">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((u: any) => {
-                  const uid = u._id || u.userId || u.id;
-                  return (
-                  <tr key={uid} className="border-b border-border last:border-0">
-                    <td className="py-3 pr-4">{u.name || "—"}</td>
-                    <td className="py-3 pr-4 text-accent font-medium">{u.dateOfBirth || u.date_of_birth || "—"}</td>
-                    <td className="py-3 pr-4">{u.email || "—"}</td>
-                    <td className="py-3 pr-4">{u.createdAt ? fmtDateTimeSG(u.createdAt) : "—"}</td>
-                    <td className="py-3">
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => openVerifyDialog(u)}
-                          disabled={verifying === uid || deleting === uid}
-                        >
-                          {verifying === uid ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Check className="mr-2 h-4 w-4" />
-                          )}
-                          Verify
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setDeleteTarget(u)}
-                          disabled={verifying === uid || deleting === uid}
-                          title="Delete request"
-                        >
-                          {deleting === uid ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-destructive" />
-                          ) : (
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          )}
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+
+          <TabsContent value="pending" className="mt-4">
+            {users.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">No pending users</p>
+            ) : filteredUsers.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">No matches for "{search}"</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="pb-2 pr-4">Name</th>
+                      <th className="pb-2 pr-4">Date of Birth</th>
+                      <th className="pb-2 pr-4">Email</th>
+                      <th className="pb-2 pr-4">Created</th>
+                      <th className="pb-2">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.map((u: any) => {
+                      const uid = u._id || u.userId || u.id;
+                      const busy = verifying === uid || deleting === uid || rejecting === uid;
+                      return (
+                      <tr key={uid} className="border-b border-border last:border-0">
+                        <td className="py-3 pr-4">{u.name || "—"}</td>
+                        <td className="py-3 pr-4 text-accent font-medium">{u.dateOfBirth || u.date_of_birth || "—"}</td>
+                        <td className="py-3 pr-4">{u.email || "—"}</td>
+                        <td className="py-3 pr-4">{u.createdAt ? fmtDateTimeSG(u.createdAt) : "—"}</td>
+                        <td className="py-3">
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={() => openVerifyDialog(u)} disabled={busy}>
+                              {verifying === uid ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                              Verify
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => { setRejectTarget(u); setRejectReason(""); }}
+                              disabled={busy}
+                            >
+                              {rejecting === uid ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+                              Reject
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setDeleteTarget(u)}
+                              disabled={busy}
+                              title="Delete request"
+                            >
+                              {deleting === uid ? <Loader2 className="h-4 w-4 animate-spin text-destructive" /> : <Trash2 className="h-4 w-4 text-destructive" />}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="rejected" className="mt-4">
+            {rejectedUsers.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">No rejected users</p>
+            ) : filteredRejected.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">No matches for "{search}"</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="pb-2 pr-4">Name</th>
+                      <th className="pb-2 pr-4">Email</th>
+                      <th className="pb-2 pr-4">Joined</th>
+                      <th className="pb-2 pr-4">Rejection Reason</th>
+                      <th className="pb-2 pr-4">Rejected At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRejected.map((u: any) => {
+                      const uid = u._id || u.userId || u.id;
+                      const reason = u.rejectionReason || u.rejection_reason || u.rejectReason || "—";
+                      const rejectedAt = u.rejectedAt || u.rejected_at;
+                      return (
+                        <tr key={uid} className="border-b border-border last:border-0">
+                          <td className="py-3 pr-4">{u.name || "—"}</td>
+                          <td className="py-3 pr-4">{u.email || "—"}</td>
+                          <td className="py-3 pr-4">{u.createdAt ? fmtDateTimeSG(u.createdAt) : "—"}</td>
+                          <td className="py-3 pr-4 whitespace-pre-wrap text-destructive">{reason}</td>
+                          <td className="py-3 pr-4">{rejectedAt ? fmtDateTimeSG(rejectedAt) : "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </CardContent>
 
       <Dialog open={!!verifyTarget} onOpenChange={(o) => { if (!o) setVerifyTarget(null); }}>
@@ -2596,22 +2687,12 @@ function VerificationTab() {
             </p>
             <div className="space-y-2">
               <Label htmlFor="legal-name">Legal Name</Label>
-              <Input
-                id="legal-name"
-                value={legalName}
-                onChange={(e) => setLegalName(e.target.value)}
-                placeholder="Full legal name"
-              />
+              <Input id="legal-name" value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="Full legal name" />
               <p className="text-xs text-muted-foreground">Customer's full legal name as per IC/passport</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="legal-dob">Date of Birth</Label>
-              <Input
-                id="legal-dob"
-                type="date"
-                value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
-              />
+              <Input id="legal-dob" type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
               <p className="text-xs text-muted-foreground">Customer's date of birth as per IC/passport</p>
             </div>
           </div>
@@ -2620,6 +2701,36 @@ function VerificationTab() {
             <Button onClick={handleVerify} disabled={!legalName.trim() || !dateOfBirth || !!verifying}>
               {verifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
               Confirm Verification
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!rejectTarget} onOpenChange={(o) => { if (!o) { setRejectTarget(null); setRejectReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject User</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Rejecting account for <span className="font-medium text-foreground">{rejectTarget?.email}</span>. Please provide a reason — this will be recorded.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="reject-reason">Reason for rejection</Label>
+              <Textarea
+                id="reject-reason"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Explain why this verification request is being rejected..."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setRejectTarget(null); setRejectReason(""); }} disabled={!!rejecting}>Cancel</Button>
+            <Button variant="destructive" onClick={handleReject} disabled={!rejectReason.trim() || !!rejecting}>
+              {rejecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+              Confirm Rejection
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2679,7 +2790,7 @@ function VerificationTabTrigger() {
   const { data } = useQuery({
     queryKey: ["admin-unverified-users"],
     queryFn: async () => {
-      const res = await apiFetch("/api/admin/unverified-users");
+      const res = await apiFetch("/api/admin/unverified-users?status=pending");
       if (!res.ok) return [];
       const data = await res.json();
       return Array.isArray(data) ? data : data?.users ?? [];
