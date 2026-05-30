@@ -130,3 +130,19 @@ export function useStoppedWalkinSessions(enabled = true) {
     staleTime: 0,
   });
 }
+
+export function useMyWalkinHistory(enabled = true) {
+  return useQuery<WalkinSession[]>({
+    queryKey: ["walkin-my-history"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/sessions/my/history");
+      if (!res.ok) return [];
+      const data = await res.json().catch(() => []);
+      return Array.isArray(data) ? data : data?.sessions ?? [];
+    },
+    enabled,
+    refetchInterval: 60000,
+    staleTime: 0,
+  });
+}
+
