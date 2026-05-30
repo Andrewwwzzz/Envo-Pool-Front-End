@@ -1309,11 +1309,13 @@ function InvoicesTab() {
                       <td className="py-3 pr-4">{startedAt ? fmtTimeSG(startedAt) : "—"}</td>
                       <td className="py-3 pr-4">{endedAt ? fmtTimeSG(endedAt) : "—"}</td>
                       <td className="py-3 pr-4 font-mono">{formatDuration(duration)}</td>
-                      <td className="py-3 pr-4">${rate.toFixed(0)}/hr</td>
+                      <td className="py-3 pr-4">{s._walkin ? "—" : `$${rate.toFixed(0)}/hr`}</td>
                       <td className={`py-3 pr-4 font-medium ${isDeleted ? "line-through text-muted-foreground" : ""}`}>${amount.toFixed(2)}</td>
-                      <td className="py-3 pr-4 text-muted-foreground">{staff}</td>
+                      <td className="py-3 pr-4 text-muted-foreground">{s._walkin ? "Customer" : staff}</td>
                       <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                        {isDeleted ? (
+                        {s._walkin ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : isDeleted ? (
                           <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Deleted</Badge>
                         ) : (
                           <Button
