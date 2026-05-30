@@ -234,6 +234,16 @@ const Auth = () => {
                 <Button type="submit" className="w-full h-11 text-sm font-semibold tracking-wide uppercase" disabled={loading}>
                   {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
                 </Button>
+                {isLogin && (
+                  <div className="text-center">
+                    <Link
+                      to="/forgot-password"
+                      className="text-sm text-accent hover:text-accent/80 font-medium transition-colors"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                )}
                 <div className="text-center space-y-3">
                   <p className="text-sm text-muted-foreground">
                     {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
