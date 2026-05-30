@@ -88,6 +88,7 @@ export function useStopWalkin() {
       qc.invalidateQueries({ queryKey: ["profile"] });
       qc.invalidateQueries({ queryKey: ["transaction-history"] });
       qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
+      qc.invalidateQueries({ queryKey: ["session-detail"] });
     },
   });
 }
