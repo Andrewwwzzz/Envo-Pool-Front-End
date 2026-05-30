@@ -2514,6 +2514,31 @@ function VerificationTab() {
     }
   };
 
+  const handleUnreject = async () => {
+    if (!rejectedDetail) return;
+    const userId = rejectedDetail._id || rejectedDetail.userId || rejectedDetail.id;
+    try {
+      setUnrejecting(userId);
+      const res = await apiFetch("/api/admin/unreject-user", {
+        method: "POST",
+        body: JSON.stringify({ userId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Failed to unreject user");
+      }
+      toast({ title: "User re-opened", description: "Moved back to pending" });
+      setRejectedDetail(null);
+      await refresh();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setUnrejecting(null);
+    }
+  };
+
+
+
 
   const matchesSearch = (u: any) => {
     if (!search.trim()) return true;
