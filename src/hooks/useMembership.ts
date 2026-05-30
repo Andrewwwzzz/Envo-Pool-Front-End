@@ -106,20 +106,6 @@ export function useAssignMembership() {
   });
 }
 
-export function useCancelMembership() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-      const r = await apiFetch(`/api/membership/admin/cancel/${id}`, {
-        method: "POST",
-        body: JSON.stringify({ reason }),
-      });
-      if (!r.ok) throw new Error(await r.text());
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["membership", "subscriptions"] }),
-  });
-}
-
 export function useDeleteMembership() {
   const qc = useQueryClient();
   return useMutation({
