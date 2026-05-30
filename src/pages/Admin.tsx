@@ -1304,12 +1304,12 @@ function InvoicesTab() {
       ...s,
       _walkin: true,
       startedAt: s.startedAt ?? s.startTime,
-      endedAt: s.endedAt ?? s.endTime,
+      endedAt: s.stoppedAt ?? s.endedAt ?? s.endTime,
       durationSeconds:
         s.durationSeconds ??
         (s.durationMinutes ? s.durationMinutes * 60 : undefined) ??
-        (s.startedAt && s.endedAt
-          ? Math.max(0, Math.floor((new Date(s.endedAt).getTime() - new Date(s.startedAt).getTime()) / 1000))
+        (s.startedAt && (s.stoppedAt || s.endedAt)
+          ? Math.max(0, Math.floor((new Date(s.stoppedAt || s.endedAt).getTime() - new Date(s.startedAt).getTime()) / 1000))
           : 0),
       amountCharged: s.amountCharged ?? s.totalCost ?? s.runningCost ?? 0,
       tableName: s.tableName || (s.tableId ? getTableLabel(s.tableId) : ""),
