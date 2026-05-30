@@ -293,6 +293,12 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange, onCancel }: Pro
                     <span className="text-muted-foreground">Subtotal</span>
                     <span className="tabular-nums">${originalAmount.toFixed(2)}</span>
                   </div>
+                  {freeMinutesCredit > 0 && (
+                    <div className="flex justify-between text-primary">
+                      <span>Free {freeMinutesApplied > 0 ? `${freeMinutesApplied} ` : ""}mins (membership benefit)</span>
+                      <span className="tabular-nums">−${freeMinutesCredit.toFixed(2)}</span>
+                    </div>
+                  )}
                   {membershipDiscount > 0 && (
                     <div className="flex justify-between text-primary">
                       <span>
