@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMyBookings, useTables } from "@/hooks/useBooking";
+import { useMyWalkinHistory, useMyWalkinSession } from "@/hooks/useWalkin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, nowSG } from "@/lib/sgTime";
+import { getTableLabel as resolveTableLabel } from "@/lib/tableLabel";
 
 const statusBadge: Record<string, string> = {
   confirmed: "bg-primary/10 text-primary border-primary/20",
@@ -13,6 +15,7 @@ const statusBadge: Record<string, string> = {
   cancelled: "bg-destructive/10 text-destructive border-destructive/20",
   completed: "bg-muted text-muted-foreground border-border",
   expired: "bg-muted text-muted-foreground border-border",
+  active: "bg-green-500/20 text-green-400 border-green-500/30",
 };
 
 const paymentBadge = (method?: string | null) => {
@@ -26,14 +29,34 @@ const paymentBadge = (method?: string | null) => {
 const statusLabel = (s: string) => {
   if (s === "pending_payment") return "Pending Payment";
   if (s === "expired") return "Expired";
+  if (s === "active") return "In Progress";
+  if (s === "stopped") return "Completed";
   return s;
 };
+
+function fmtDuration(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.ceil((s % 3600) / 60);
+  if (s < 60) return "< 1m";
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
 
 export default function DashboardBookings() {
   const { user } = useAuth();
   const { data: bookings } = useMyBookings();
   const { data: tables } = useTables(null, null);
+  const { data: walkinHistory } = useMyWalkinHistory();
+  const { data: activeWalkin } = useMyWalkinSession();
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [, setNowTick] = useState(0);
+
+  // Tick every 30s so running cost / elapsed updates for active walk-in
+  useEffect(() => {
+    if (!activeWalkin) return;
+    const id = setInterval(() => setNowTick((n) => n + 1), 30000);
+    return () => clearInterval(id);
+  }, [activeWalkin]);
 
   const now = nowSG();
   const getStartTime = (b: any) => b.startTime || b.start_time;
@@ -74,13 +97,23 @@ export default function DashboardBookings() {
   const upcoming = myBookings
     .filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled")
     .sort((a: any, b: any) => new Date(getStartTime(a)).getTime() - new Date(getStartTime(b)).getTime());
-  const past = myBookings
+  const pastBookings = myBookings
     .filter((b: any) => new Date(getStartTime(b)) < now || getStatus(b) === "cancelled")
-    .sort((a: any, b: any) => new Date(getStartTime(b)).getTime() - new Date(getStartTime(a)).getTime());
+    .map((b: any) => ({ kind: "booking" as const, when: new Date(getStartTime(b)).getTime(), data: b }));
 
-  const renderRow = (b: any, clickable: boolean) => (
+  const pastWalkins = (walkinHistory || [])
+    .filter((w: any) => (w.status || "stopped") !== "active")
+    .map((w: any) => ({
+      kind: "walkin" as const,
+      when: new Date(w.stoppedAt || w.endTime || w.startedAt || w.startTime || 0).getTime(),
+      data: w,
+    }));
+
+  const past = [...pastBookings, ...pastWalkins].sort((a, b) => b.when - a.when);
+
+  const renderBookingRow = (b: any, clickable: boolean) => (
     <div
-      key={b.id || b._id}
+      key={`b-${b.id || b._id}`}
       className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-lg border border-border/50 p-3 sm:p-4 transition-colors ${
         clickable ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : ""
       }`}
@@ -103,6 +136,50 @@ export default function DashboardBookings() {
     </div>
   );
 
+  const renderWalkinRow = (w: any, opts: { live?: boolean } = {}) => {
+    const start = w.startedAt || w.startTime;
+    const end = w.stoppedAt || w.endTime;
+    const status = opts.live ? "active" : (w.status || "stopped");
+    const fallbackLive = opts.live && start ? Math.floor((Date.now() - new Date(start).getTime()) / 1000) : 0;
+    const durationSecs = Number(
+      w.durationSeconds ?? (w.durationMinutes ? w.durationMinutes * 60 : fallbackLive)
+    ) || fallbackLive;
+    const amount = opts.live
+      ? Number(w.runningCost ?? 0)
+      : Number(w.amountCharged ?? w.totalCost ?? 0);
+    const label = resolveTableLabel(w.tableId, tables as any) || "Table ?";
+
+    return (
+      <div
+        key={`w-${w._id || w.id}`}
+        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-lg border p-3 sm:p-4 ${
+          opts.live ? "border-green-500/40 bg-green-500/5" : "border-border/50"
+        }`}
+      >
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-medium">{label}</p>
+            <Badge variant="outline" className="bg-accent/20 text-accent-foreground border-accent/30">Walk-in</Badge>
+            {opts.live && (
+              <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/30">Live</Badge>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {start ? `${fmtDate(start)} ${fmtTime(start)}` : "—"}
+            {" – "}
+            {opts.live ? "now" : (end ? fmtTime(end) : "—")}
+            {durationSecs > 0 && <span className="ml-2">· {fmtDuration(durationSecs)}</span>}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <span className="font-medium tabular-nums">${amount.toFixed(2)}</span>
+          <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">Wallet</Badge>
+          <Badge variant="outline" className={statusBadge[status] ?? ""}>{statusLabel(status)}</Badge>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <Card className="card-premium">
@@ -112,20 +189,25 @@ export default function DashboardBookings() {
             <p className="text-muted-foreground text-sm">No upcoming reservations.</p>
           ) : (
             <div className="space-y-3">
-              {upcoming.map((b: any) => renderRow(b, getStatus(b) === "confirmed"))}
+              {upcoming.map((b: any) => renderBookingRow(b, getStatus(b) === "confirmed"))}
             </div>
           )}
         </CardContent>
       </Card>
 
       <Card className="card-premium">
-        <CardHeader><CardTitle className="text-lg">Past Reservations</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-lg">Activity History</CardTitle></CardHeader>
         <CardContent>
-          {past.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No past reservations.</p>
+          {!activeWalkin && past.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No past activity.</p>
           ) : (
             <div className="space-y-3">
-              {past.map((b: any) => renderRow(b, getStatus(b) === "confirmed" || getStatus(b) === "completed"))}
+              {activeWalkin && renderWalkinRow(activeWalkin, { live: true })}
+              {past.map((item) =>
+                item.kind === "booking"
+                  ? renderBookingRow(item.data, getStatus(item.data) === "confirmed" || getStatus(item.data) === "completed")
+                  : renderWalkinRow(item.data)
+              )}
             </div>
           )}
         </CardContent>
