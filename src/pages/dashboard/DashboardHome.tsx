@@ -38,6 +38,7 @@ export default function DashboardHome() {
   const { user } = useAuth();
   const { data: profile } = useProfile();
   const { data: bookings } = useMyBookings();
+  const { data: tables } = useTables(null, null);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [topUpOpen, setTopUpOpen] = useState(false);
 
