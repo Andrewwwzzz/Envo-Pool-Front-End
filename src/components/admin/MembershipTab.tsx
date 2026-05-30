@@ -28,7 +28,7 @@ import { useAvailableLockers } from "@/hooks/useLockers";
 import { useAdminCustomers } from "@/hooks/useAdmin";
 import { fmtDateSG } from "@/lib/sgTime";
 import ReasonDialog from "./ReasonDialog";
-import DeletedBanner, { getDeletedInfo, isDeleted, isCancelled } from "./DeletedBanner";
+import DeletedBanner, { getDeletedInfo, isDeleted } from "./DeletedBanner";
 
 type PlanForm = {
   name: string;
