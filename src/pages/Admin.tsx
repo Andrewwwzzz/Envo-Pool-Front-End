@@ -2573,7 +2573,7 @@ function VerificationTab() {
                   <tbody>
                     {filteredUsers.map((u: any) => {
                       const uid = u._id || u.userId || u.id;
-                      const busy = verifying === uid || deleting === uid || rejecting === uid;
+                      const busy = verifying === uid || rejecting === uid;
                       return (
                       <tr key={uid} className="border-b border-border last:border-0">
                         <td className="py-3 pr-4">{u.name || "—"}</td>
@@ -2595,15 +2595,6 @@ function VerificationTab() {
                             >
                               {rejecting === uid ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
                               Reject
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setDeleteTarget(u)}
-                              disabled={busy}
-                              title="Delete request"
-                            >
-                              {deleting === uid ? <Loader2 className="h-4 w-4 animate-spin text-destructive" /> : <Trash2 className="h-4 w-4 text-destructive" />}
                             </Button>
                           </div>
                         </td>
