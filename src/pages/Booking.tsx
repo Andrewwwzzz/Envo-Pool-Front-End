@@ -689,24 +689,42 @@ const Booking = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {tables.map((table) => {
                     const bookable = isTableBookable(table);
+                    const canStartWalkin =
+                      kycVerified &&
+                      !activeWalkin &&
+                      table.status === "Available" &&
+                      !!table.hardware_id;
                     return (
-                      <button
-                        key={table.id}
-                        onClick={() => bookable && handleTableSelect(table.id)}
-                        disabled={!bookable}
-                        className={`rounded-xl border p-4 text-left transition-all duration-200 ${
-                          selectedTable === table.id
-                            ? "border-accent ring-2 ring-accent/20 bg-accent/5"
-                            : "border-border hover:border-muted-foreground/30 hover:bg-card"
-                        } ${!bookable ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
-                      >
-                        <p className="font-semibold text-foreground">Table {table.table_number}</p>
-                        {!bookable && (
-                          <Badge variant="outline" className={`mt-2 text-xs ${statusColor[table.status]}`}>
-                            {table.status}
-                          </Badge>
+                      <div key={table.id} className="flex flex-col gap-2">
+                        <button
+                          onClick={() => bookable && handleTableSelect(table.id)}
+                          disabled={!bookable}
+                          className={`rounded-xl border p-4 text-left transition-all duration-200 ${
+                            selectedTable === table.id
+                              ? "border-accent ring-2 ring-accent/20 bg-accent/5"
+                              : "border-border hover:border-muted-foreground/30 hover:bg-card"
+                          } ${!bookable ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                        >
+                          <p className="font-semibold text-foreground">Table {table.table_number}</p>
+                          {!bookable && (
+                            <Badge variant="outline" className={`mt-2 text-xs ${statusColor[table.status]}`}>
+                              {table.status}
+                            </Badge>
+                          )}
+                        </button>
+                        {canStartWalkin && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 text-xs border-accent/30 text-accent hover:bg-accent/10"
+                            disabled={startWalkin.isPending}
+                            onClick={() => handleStartWalkin(table)}
+                          >
+                            <Timer className="h-3 w-3" />
+                            {startWalkin.isPending ? "Starting..." : "Start Walk-in"}
+                          </Button>
                         )}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
