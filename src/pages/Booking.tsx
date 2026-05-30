@@ -90,10 +90,11 @@ const Booking = () => {
       const { dayStart, dayEnd } = sgDayBoundsUTC(selectedDate);
       const hardwareId = selectedTableData_pre.hardware_id;
 
-      // Pass tableId + date so the backend can scope the response; we still
-      // filter defensively below in case the backend ignores the params.
-      const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
-      const res = await apiFetch(`/api/bookings?tableId=${encodeURIComponent(hardwareId)}&date=${dateStr}`);
+      // Fetch all bookings and filter client-side. The backend's query-param
+      // filtering (tableId/date) isn't reliable — it expects a Mongo _id for
+      // tableId and can interpret date in UTC, so filtering here on
+      // hardware_id + SG day bounds is the source of truth.
+      const res = await apiFetch("/api/bookings");
       if (!res.ok) throw new Error("Failed to fetch bookings");
       const allBookings = await res.json();
 
