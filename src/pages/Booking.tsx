@@ -134,7 +134,7 @@ const Booking = () => {
         return {
           start_time: b.startTime,
           end_time: b.endTime,
-          status: b.status === "confirmed" ? "confirmed" : "pending",
+          status: b.status === "confirmed" ? "confirmed" : "pending", // pending_payment and other non-cancelled states render as "Pending Payment"
           created_at: b.createdAt || new Date().toISOString(),
           expires_at: b.expiresAt || null,
           user_name: showName ? (rawName || b.userName || null) : null,
