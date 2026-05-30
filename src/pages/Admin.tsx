@@ -163,6 +163,7 @@ function OverviewTab() {
   const { data: bookings } = useAdminBookings() as { data: any };
   const { data: transactions } = useAdminTransactions() as { data: any };
   const { data: timerSessions } = useAdminTimerSessions() as { data: any };
+  const { data: tablesList } = useAdminTables();
 
   const [reportFrom, setReportFrom] = useState(from);
   const [reportTo, setReportTo] = useState(to);
@@ -185,15 +186,18 @@ function OverviewTab() {
 
   // Most booked table (client-side from bookings in range)
   const mostBookedTable = (() => {
-    if (stats?.mostBookedTable) return stats.mostBookedTable;
+    // If backend returns a raw ObjectId/string, resolve it through tablesList
+    if (stats?.mostBookedTable) {
+      const raw = stats.mostBookedTable;
+      // If it already looks like a friendly label, keep it
+      if (typeof raw === "string" && /^Table\s/i.test(raw)) return raw;
+      return getTableLabel(raw, tablesList as any);
+    }
     const counts: Record<string, number> = {};
     for (const b of bookings || []) {
       const created = b.createdAt || b.created_at || b.startTime || b.start_time;
       if (!inRange(created)) continue;
-      const t = b.tableId;
-      const name = typeof t === "string"
-        ? `Table ${t.replace("T", "")}`
-        : (t?.name || (t?.tableNumber ? `Table ${t.tableNumber}` : null)) || "Unknown";
+      const name = getTableLabel(b.tableId, tablesList as any, b);
       counts[name] = (counts[name] || 0) + 1;
     }
     let best: { name: string; count: number } | null = null;
