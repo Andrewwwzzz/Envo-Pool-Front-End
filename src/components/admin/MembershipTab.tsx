@@ -445,6 +445,7 @@ export default function MembershipTab() {
   const { data: plans = [] } = useMembershipPlans();
   const [hideDeleted, setHideDeleted] = useState(false);
   const { data: subs = [] } = useAdminSubscriptions(hideDeleted ? "default" : "all");
+  const { data: customers = [] } = useAdminCustomers("");
   const del = useDeleteMembershipPlan();
   const cancel = useCancelMembership();
   const deleteSub = useDeleteMembership();
