@@ -50,6 +50,9 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/login" element={<Navigate to="/auth" replace />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/booking" element={<Booking />} />
               <Route path="/payment-verification" element={<PaymentVerification />} />
               <Route path="/payment-success" element={<PaymentVerification />} />
