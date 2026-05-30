@@ -158,7 +158,17 @@ export default function LockersTab() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
           <CardTitle className="text-base">Locker Units</CardTitle>
-          <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add Locker</Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={hideDeleted ? "secondary" : "outline"}
+              onClick={() => setHideDeleted((v) => !v)}
+            >
+              {hideDeleted ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+              {hideDeleted ? "Show Deleted" : "Hide Deleted"}
+            </Button>
+            <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add Locker</Button>
+          </div>
         </CardHeader>
         <CardContent>
           {lockers.length === 0 ? (
@@ -179,6 +189,7 @@ export default function LockersTab() {
                 <TableBody>
                   {lockers.map((l) => {
                     const anyL = l as any;
+                    const deleted = isDeleted(anyL);
                     const rental = anyL.currentRentalId && typeof anyL.currentRentalId === "object" ? anyL.currentRentalId : null;
                     const rentalId = rental?._id ?? rental?.id ?? (typeof anyL.currentRentalId === "string" ? anyL.currentRentalId : l.rentalId);
                     const lockerNum = anyL.lockerNumber ?? l.number;
@@ -188,29 +199,42 @@ export default function LockersTab() {
                     const renewal = rental?.renewalDate ?? l.renewalDate;
 
                     const rentalActive = rental && !isCancelled(rental);
-                    const isAvailable = !rentalActive && (l.status ?? "available") === "available";
+                    const isAvailable = !deleted && !rentalActive && (l.status ?? "available") === "available";
 
                     return (
-                      <TableRow key={l.id}>
-                        <TableCell className="font-medium">#{lockerNum ?? "—"}</TableCell>
+                      <TableRow
+                        key={l.id}
+                        className={deleted ? "text-muted-foreground cursor-pointer" : ""}
+                        onClick={deleted ? () => setDetailRecord({ ...anyL, _kind: "locker", lockerNum }) : undefined}
+                      >
+                        <TableCell className={`font-medium ${deleted ? "line-through" : ""}`}>#{lockerNum ?? "—"}</TableCell>
                         <TableCell>
-                          <Badge variant={isAvailable ? "secondary" : "default"} className="capitalize">
-                            {isAvailable ? "Available" : "Rented"}
-                          </Badge>
+                          {deleted ? (
+                            <Badge variant="outline" className="bg-muted whitespace-nowrap">Deleted</Badge>
+                          ) : (
+                            <Badge variant={isAvailable ? "secondary" : "default"} className="capitalize">
+                              {isAvailable ? "Available" : "Rented"}
+                            </Badge>
+                          )}
                         </TableCell>
-                        <TableCell>${l.monthlyPrice ?? 0}</TableCell>
+                        <TableCell className={deleted ? "line-through" : ""}>${l.monthlyPrice ?? 0}</TableCell>
                         <TableCell>
-                          {!isAvailable && renterName ? (
+                          {!deleted && !isAvailable && renterName ? (
                             <>
                               <div className="font-medium">{renterName}</div>
                               {renterEmail && <div className="text-xs text-muted-foreground">{renterEmail}</div>}
                             </>
                           ) : "—"}
                         </TableCell>
-                        <TableCell>{!isAvailable ? fmtDateOrDash(renewal) : "—"}</TableCell>
-                        <TableCell className="text-right">
-                          {isAvailable ? (
-                            <Button variant="outline" size="sm" onClick={() => setAssignFor(l)}>Assign</Button>
+                        <TableCell>{!deleted && !isAvailable ? fmtDateOrDash(renewal) : "—"}</TableCell>
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          {deleted ? null : isAvailable ? (
+                            <div className="flex gap-1 justify-end">
+                              <Button variant="outline" size="sm" onClick={() => setAssignFor(l)}>Assign</Button>
+                              <Button variant="ghost" size="sm" onClick={() => setDeleteUnitTarget(l)} title="Delete locker">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
                           ) : (
                             <div className="flex gap-1 justify-end">
                               {rentalId && (
@@ -235,6 +259,7 @@ export default function LockersTab() {
           )}
         </CardContent>
       </Card>
+
 
       <Card>
         <CardHeader>
@@ -314,6 +339,45 @@ export default function LockersTab() {
           }
         }}
       />
+
+      <ReasonDialog
+        open={!!deleteUnitTarget}
+        onOpenChange={(o) => !o && setDeleteUnitTarget(null)}
+        title={`Delete locker #${(deleteUnitTarget as any)?.lockerNumber ?? deleteUnitTarget?.number ?? ""}?`}
+        label="Reason for deletion"
+        placeholder="e.g. unit decommissioned"
+        confirmLabel="Delete"
+        destructive
+        loading={deleteUnit.isPending}
+        onConfirm={async (reason) => {
+          if (!deleteUnitTarget) return;
+          try {
+            await deleteUnit.mutateAsync({ id: deleteUnitTarget.id, reason });
+            toast({ title: "Locker deleted" });
+            setDeleteUnitTarget(null);
+          } catch (e: any) {
+            toast({ title: "Failed", description: e?.message, variant: "destructive" });
+          }
+        }}
+      />
+
+      <Dialog open={!!detailRecord} onOpenChange={(o) => !o && setDetailRecord(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Locker #{detailRecord?.lockerNum ?? "—"}</DialogTitle>
+          </DialogHeader>
+          {detailRecord && (
+            <div className="space-y-3">
+              <DeletedBanner info={getDeletedInfo(detailRecord)} />
+              <div className="opacity-70 text-sm space-y-1.5">
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Number</span><span>#{detailRecord.lockerNum ?? "—"}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Monthly Price</span><span>${detailRecord.monthlyPrice ?? 0}</span></div>
+                {detailRecord.notes && <div className="flex justify-between gap-3"><span className="text-muted-foreground">Notes</span><span>{detailRecord.notes}</span></div>}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
