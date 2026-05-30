@@ -96,6 +96,7 @@ export default function RewardsTab({
   const { toast } = useToast();
   const [hideDeleted, setHideDeleted] = useState(false);
   const { data: rewards, isLoading } = useAllAdminRewards(hideDeleted ? "default" : "all");
+  const { data: customers = [] } = useAdminCustomers("");
   const deleteReward = useDeleteReward();
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailRecord, setDetailRecord] = useState<any | null>(null);
