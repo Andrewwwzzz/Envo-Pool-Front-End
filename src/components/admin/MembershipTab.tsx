@@ -452,8 +452,12 @@ export default function MembershipTab() {
   const [assignOpen, setAssignOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailRecord, setDetailRecord] = useState<any | null>(null);
+  const [deletePlanTarget, setDeletePlanTarget] = useState<MembershipPlan | null>(null);
+  const [detailPlan, setDetailPlan] = useState<MembershipPlan | null>(null);
+  const [hidePlanDeleted, setHidePlanDeleted] = useState(false);
 
   const visibleSubs = subs || [];
+  const visiblePlans = hidePlanDeleted ? plans.filter((p: any) => !isDeleted(p)) : plans;
 
   const openCreate = () => { setEditPlan(null); setPlanDlgOpen(true); };
   const openEdit = (p: MembershipPlan) => {
@@ -463,13 +467,6 @@ export default function MembershipTab() {
     setPlanDlgOpen(true);
   };
 
-  const removePlan = async (p: MembershipPlan) => {
-    const id = (p as any).id ?? (p as any)._id;
-    if (!id) { toast({ title: "Plan ID missing", variant: "destructive" }); return; }
-    if (!confirm(`Delete plan "${p.name}"?`)) return;
-    try { await del.mutateAsync(id); toast({ title: "Plan deleted" }); }
-    catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
-  };
 
   return (
     <div className="space-y-6">
