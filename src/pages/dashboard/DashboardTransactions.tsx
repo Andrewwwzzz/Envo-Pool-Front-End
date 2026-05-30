@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { fmtDateTimeSG as fmtDateTime } from "@/lib/sgTime";
 import { deriveTransactionDescription } from "@/lib/transactionLabel";
 import { useMembershipPlans } from "@/hooks/useMembership";
+import { useMyWalkinSession } from "@/hooks/useWalkin";
+import { getTableLabel } from "@/lib/tableLabel";
+import { Timer } from "lucide-react";
 
 export default function DashboardTransactions() {
   const { user } = useAuth();
