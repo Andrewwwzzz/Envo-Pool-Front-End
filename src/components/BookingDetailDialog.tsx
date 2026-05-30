@@ -56,6 +56,7 @@ const paymentLabel: Record<string, string> = {
 const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialogProps) => {
   const [copied, setCopied] = useState(false);
   const { data: membershipData } = useMyMembership();
+  const { data: tables } = useTables(null, null);
 
   const b = booking as any;
   const startTime = b?.startTime || b?.start_time;
