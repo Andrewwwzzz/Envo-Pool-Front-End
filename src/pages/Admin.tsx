@@ -3351,4 +3351,173 @@ function TopUpDetailDialog({
   );
 }
 
+function WalkinSessionsTab() {
+  const { toast } = useToast();
+  const { data: sessions, refetch } = useActiveWalkinSessions();
+  const { data: tablesList } = useAdminTables();
+  const forceStop = useForceStopWalkin();
+
+  const [now, setNow] = useState(Date.now());
+  const [conflictAlert, setConflictAlert] = useState<string | null>(null);
+  const [reasonOpen, setReasonOpen] = useState(false);
+  const [reasonValue, setReasonValue] = useState("");
+  const [targetId, setTargetId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const onConflict = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      const msg = detail.message || "A walk-in session conflicts with an upcoming booking.";
+      setConflictAlert(msg);
+    };
+    window.addEventListener("walkin_booking_conflict_admin", onConflict);
+    return () => window.removeEventListener("walkin_booking_conflict_admin", onConflict);
+  }, []);
+
+  const list = Array.isArray(sessions) ? sessions : [];
+
+  const openForceStop = (id: string) => {
+    setTargetId(id);
+    setReasonValue("");
+    setReasonOpen(true);
+  };
+
+  const submitForceStop = async () => {
+    if (!targetId) return;
+    if (!reasonValue.trim()) {
+      toast({ title: "Reason required", variant: "destructive" });
+      return;
+    }
+    try {
+      await forceStop.mutateAsync({ id: targetId, reason: reasonValue.trim() });
+      toast({ title: "Session force-stopped" });
+      setReasonOpen(false);
+      setTargetId(null);
+      refetch();
+    } catch (err: any) {
+      toast({ title: "Failed to force stop", description: err?.message, variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {conflictAlert && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Walk-in booking conflict</AlertTitle>
+          <AlertDescription>
+            {conflictAlert}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-2 h-7"
+              onClick={() => setConflictAlert(null)}
+            >
+              Dismiss
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Timer className="h-5 w-5" /> Active Walk-in Sessions ({list.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {list.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No active walk-in sessions.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-muted-foreground border-b border-border">
+                    <th className="py-2 pr-4">Table</th>
+                    <th className="py-2 pr-4">Customer</th>
+                    <th className="py-2 pr-4">Start Time</th>
+                    <th className="py-2 pr-4">Elapsed</th>
+                    <th className="py-2 pr-4">Running Cost</th>
+                    <th className="py-2 pr-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((s: any) => {
+                    const id = s._id || s.id;
+                    const customer =
+                      (typeof s.userId === "object"
+                        ? s.userId?.name || s.userId?.username || s.userId?.email
+                        : null) || s.userName || s.customerName || "—";
+                    const startMs = new Date(s.startTime).getTime();
+                    const elapsedMs = now - startMs;
+                    const h = Math.floor(elapsedMs / 3600000);
+                    const m = Math.floor((elapsedMs % 3600000) / 60000);
+                    const sec = Math.floor((elapsedMs % 60000) / 1000);
+                    const elapsed = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+                    return (
+                      <tr key={id} className="border-b border-border/50">
+                        <td className="py-2 pr-4 font-medium">
+                          {getTableLabel(s.tableId, tablesList as any)}
+                        </td>
+                        <td className="py-2 pr-4">{customer}</td>
+                        <td className="py-2 pr-4">{fmtDateTimeSG(s.startTime)}</td>
+                        <td className="py-2 pr-4 font-mono">{elapsed}</td>
+                        <td className="py-2 pr-4 font-mono">
+                          ${Number(s.runningCost ?? 0).toFixed(2)}
+                        </td>
+                        <td className="py-2 pr-4 text-right">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => openForceStop(id)}
+                          >
+                            Force Stop
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={reasonOpen} onOpenChange={setReasonOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Force Stop Walk-in Session</DialogTitle>
+            <DialogDescription>
+              The customer's wallet will be charged for the elapsed time. Please provide a reason.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="Reason for force stopping..."
+            value={reasonValue}
+            onChange={(e) => setReasonValue(e.target.value)}
+            rows={3}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReasonOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={submitForceStop}
+              disabled={forceStop.isPending}
+            >
+              {forceStop.isPending ? "Stopping..." : "Force Stop"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default Admin;
