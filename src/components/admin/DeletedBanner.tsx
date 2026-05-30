@@ -1,5 +1,5 @@
 import { AlertTriangle } from "lucide-react";
-import { fmtDateSG } from "@/lib/sgTime";
+import { fmtDateTimeSG } from "@/lib/sgTime";
 
 export interface DeletedInfo {
   reason?: string;
@@ -7,15 +7,30 @@ export interface DeletedInfo {
   at?: string;
 }
 
-export function getDeletedInfo(r: any): DeletedInfo {
+type UserLike = { _id?: string; id?: string; user_id?: string; name?: string; legalName?: string; legal_name?: string; email?: string };
+
+function resolveName(by: any, users?: UserLike[]): string | undefined {
+  if (!by) return undefined;
+  if (typeof by === "object") {
+    return by.name || by.legalName || by.legal_name || by.email || undefined;
+  }
+  if (typeof by === "string") {
+    if (users && users.length) {
+      const u = users.find(
+        (x) => x._id === by || x.id === by || x.user_id === by,
+      );
+      if (u) return u.name || u.legalName || u.legal_name || u.email || by;
+    }
+    // Looks like an ObjectId — fall back to nothing rather than show raw id
+    if (/^[a-f0-9]{24}$/i.test(by)) return undefined;
+    return by;
+  }
+  return undefined;
+}
+
+export function getDeletedInfo(r: any, users?: UserLike[]): DeletedInfo {
   if (!r) return {};
   const by = r.deletedBy ?? r.deleted_by ?? r.cancelledBy ?? r.cancelled_by;
-  const byName =
-    by && typeof by === "object"
-      ? by.name || by.legalName || by.email || "—"
-      : typeof by === "string"
-      ? by
-      : undefined;
   return {
     reason:
       r.deleteReason ||
@@ -25,7 +40,7 @@ export function getDeletedInfo(r: any): DeletedInfo {
       r.cancellationReason ||
       r.cancellation_reason ||
       undefined,
-    by: byName,
+    by: resolveName(by, users),
     at: r.deletedAt || r.deleted_at || r.cancelledAt || r.cancelled_at || undefined,
   };
 }
