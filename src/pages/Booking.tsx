@@ -87,26 +87,17 @@ const Booking = () => {
     queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()],
     queryFn: async () => {
       if (!selectedTable || !selectedDate || !selectedTableData_pre?.hardware_id) return [];
-      const { dayStart, dayEnd } = sgDayBoundsUTC(selectedDate);
       const hardwareId = selectedTableData_pre.hardware_id;
+      const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
 
-      // Fetch all bookings and filter client-side. The backend's query-param
-      // filtering (tableId/date) isn't reliable — it expects a Mongo _id for
-      // tableId and can interpret date in UTC, so filtering here on
-      // hardware_id + SG day bounds is the source of truth.
-      const res = await apiFetch("/api/bookings");
+      // Backend now filters by table + date + status.
+      const res = await apiFetch(
+        `/api/bookings?tableId=${encodeURIComponent(hardwareId)}&date=${dateStr}&status=confirmed,pending_payment`
+      );
       if (!res.ok) throw new Error("Failed to fetch bookings");
-      const allBookings = await res.json();
+      const data = await res.json();
+      const filtered: any[] = Array.isArray(data) ? data : (data?.bookings || []);
 
-      const filtered = (allBookings || []).filter((b: any) => {
-        // Skip cancelled — backend deletes expired
-        if (b.status === "cancelled") return false;
-        const bTableId = typeof b.tableId === "object" ? b.tableId?.hardware_id : b.tableId;
-        if (bTableId !== hardwareId) return false;
-        const bStart = new Date(b.startTime);
-        const bEnd = new Date(b.endTime);
-        return bStart < dayEnd && bEnd > dayStart;
-      });
 
       // Resolve display name based on each booker's privacy preference
       const uniqueUserIds = Array.from(new Set(filtered.map((b: any) => {
