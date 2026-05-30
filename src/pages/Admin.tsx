@@ -3464,7 +3464,7 @@ function WalkinSessionsTab() {
                           {getTableLabel(s.tableId, tablesList as any)}
                         </td>
                         <td className="py-2 pr-4">{customer}</td>
-                        <td className="py-2 pr-4">{fmtDateTimeSG(s.startTime)}</td>
+                        <td className="py-2 pr-4">{new Date(s.startedAt ?? s.startTime).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}</td>
                         <td className="py-2 pr-4 font-mono">{elapsed}</td>
                         <td className="py-2 pr-4 font-mono">
                           ${Number(s.runningCost ?? 0).toFixed(2)}
