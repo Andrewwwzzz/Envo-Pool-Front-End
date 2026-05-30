@@ -1747,13 +1747,15 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
 }
 
 function PricingTab() {
-  const { data: rules, create, remove, toggle, update } = useAdminPricingRules();
+  const [hideDeleted, setHideDeleted] = useState(false);
+  const { data: rules, create, remove, toggle, update } = useAdminPricingRules(hideDeleted ? "default" : "all");
   const [form, setForm] = useState({
     name: "", start_time: "09:00", end_time: "23:00", hourly_rate: "20",
     priority: "0", weekdays: [...WEEKDAYS] as string[], specific_date: "", table_id: "",
   });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [deleteRuleId, setDeleteRuleId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [detailRecord, setDetailRecord] = useState<any | null>(null);
   const [editForm, setEditForm] = useState({
     name: "", start_time: "", end_time: "", hourly_rate: "",
     priority: "", weekdays: [] as string[], specific_date: "",
@@ -1852,109 +1854,165 @@ function PricingTab() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Existing Rules</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <CardTitle>Existing Rules</CardTitle>
+          <Button
+            size="sm"
+            variant={hideDeleted ? "secondary" : "outline"}
+            onClick={() => setHideDeleted((v) => !v)}
+          >
+            {hideDeleted ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+            {hideDeleted ? "Show Deleted" : "Hide Deleted"}
+          </Button>
+        </CardHeader>
         <CardContent>
           {!rules?.length ? <p className="text-muted-foreground text-sm">No pricing rules.</p> : (
             <div className="space-y-3">
-              {rules.map((r) => (
-                <div key={r.id} className="rounded-lg border border-border p-4">
-                  {editingId === r.id ? (
-                    <div className="space-y-4">
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Name</Label>
-                          <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+              {rules.map((r: any) => {
+                const deleted = isRecordDeleted(r);
+                if (editingId === r.id && !deleted) {
+                  return (
+                    <div key={r.id} className="rounded-lg border border-border p-4">
+                      <div className="space-y-4">
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Name</Label>
+                            <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Start Time</Label>
+                            <Input type="time" value={editForm.start_time} onChange={(e) => setEditForm({ ...editForm, start_time: e.target.value })} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">End Time</Label>
+                            <Input type="time" value={editForm.end_time} onChange={(e) => setEditForm({ ...editForm, end_time: e.target.value })} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Rate ($)</Label>
+                            <Input type="number" value={editForm.hourly_rate} onChange={(e) => setEditForm({ ...editForm, hourly_rate: e.target.value })} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Priority</Label>
+                            <Input type="number" value={editForm.priority} onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Specific Date</Label>
+                            <Input type="date" value={editForm.specific_date} onChange={(e) => setEditForm({ ...editForm, specific_date: e.target.value })} />
+                          </div>
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">Start Time</Label>
-                          <Input type="time" value={editForm.start_time} onChange={(e) => setEditForm({ ...editForm, start_time: e.target.value })} />
+                          <Label className="text-xs">Weekdays</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {WEEKDAYS.map((d) => (
+                              <button
+                                key={d}
+                                onClick={() => setEditForm({ ...editForm, weekdays: editForm.weekdays.includes(d) ? editForm.weekdays.filter((w) => w !== d) : [...editForm.weekdays, d] })}
+                                className={`px-3 py-1 rounded-full text-xs border transition-all ${editForm.weekdays.includes(d) ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"}`}
+                              >
+                                {d}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">End Time</Label>
-                          <Input type="time" value={editForm.end_time} onChange={(e) => setEditForm({ ...editForm, end_time: e.target.value })} />
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={saveEdit} disabled={update.isPending}><Check className="mr-1 h-3 w-3" /> Save</Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}><X className="mr-1 h-3 w-3" /> Cancel</Button>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Rate ($)</Label>
-                          <Input type="number" value={editForm.hourly_rate} onChange={(e) => setEditForm({ ...editForm, hourly_rate: e.target.value })} />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Priority</Label>
-                          <Input type="number" value={editForm.priority} onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })} />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Specific Date</Label>
-                          <Input type="date" value={editForm.specific_date} onChange={(e) => setEditForm({ ...editForm, specific_date: e.target.value })} />
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Weekdays</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {WEEKDAYS.map((d) => (
-                            <button
-                              key={d}
-                              onClick={() => setEditForm({ ...editForm, weekdays: editForm.weekdays.includes(d) ? editForm.weekdays.filter((w) => w !== d) : [...editForm.weekdays, d] })}
-                              className={`px-3 py-1 rounded-full text-xs border transition-all ${editForm.weekdays.includes(d) ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"}`}
-                            >
-                              {d}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={saveEdit} disabled={update.isPending}><Check className="mr-1 h-3 w-3" /> Save</Button>
-                        <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}><X className="mr-1 h-3 w-3" /> Cancel</Button>
                       </div>
                     </div>
-                  ) : (
+                  );
+                }
+
+                const rowCls = deleted
+                  ? "rounded-lg border border-border p-4 text-muted-foreground cursor-pointer hover:bg-muted/30"
+                  : "rounded-lg border border-border p-4";
+                return (
+                  <div
+                    key={r.id}
+                    className={rowCls}
+                    onClick={deleted ? () => setDetailRecord(r) : undefined}
+                  >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium">{r.name}</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className={`font-medium ${deleted ? "line-through" : ""}`}>{r.name}</p>
+                        <p className={`text-sm text-muted-foreground ${deleted ? "line-through" : ""}`}>
                           {r.start_time} – {r.end_time} · ${r.hourly_rate}/hr · Priority {r.priority}
                           {r.specific_date && ` · ${r.specific_date}`}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">{(r.applies_to_weekdays as string[]).join(", ")}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => startEdit(r)}><Pencil className="h-4 w-4" /></Button>
-                        <Switch checked={r.is_active} onCheckedChange={(v) => toggle.mutate({ id: r.id, is_active: v })} />
-                        <Button variant="ghost" size="sm" onClick={() => setDeleteRuleId(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        {deleted ? (
+                          <Badge variant="outline" className="bg-muted whitespace-nowrap">Deleted</Badge>
+                        ) : (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => startEdit(r)}><Pencil className="h-4 w-4" /></Button>
+                            <Switch checked={r.is_active} onCheckedChange={(v) => toggle.mutate({ id: r.id, is_active: v })} />
+                            <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(r)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </>
+                        )}
                       </div>
                     </div>
-                  )}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
 
-      <Dialog open={!!deleteRuleId} onOpenChange={(o) => { if (!o) setDeleteRuleId(null); }}>
+      <ReasonDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title="Delete pricing rule?"
+        description="This rule will be marked as deleted but retained for audit history."
+        label="Reason for deletion"
+        placeholder="e.g. superseded by new schedule"
+        confirmLabel="Delete"
+        destructive
+        loading={remove.isPending}
+        onConfirm={async (reason) => {
+          if (!deleteTarget) return;
+          try {
+            await remove.mutateAsync({ id: deleteTarget.id, reason });
+            setDeleteTarget(null);
+          } catch {}
+        }}
+      />
+
+      <Dialog open={!!detailRecord} onOpenChange={(o) => !o && setDetailRecord(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Pricing Rule</DialogTitle>
+            <DialogTitle>Pricing Rule — {detailRecord?.name}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">Are you sure you want to delete this pricing rule? This cannot be undone.</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteRuleId(null)}>Cancel</Button>
-            <Button
-              variant="destructive"
-              disabled={remove.isPending}
-              onClick={() => {
-                if (deleteRuleId) {
-                  remove.mutate(deleteRuleId);
-                  setDeleteRuleId(null);
-                }
-              }}
-            >
-              Confirm Delete
-            </Button>
-          </DialogFooter>
+          {detailRecord && (
+            <div className="space-y-3">
+              <DeletedBanner info={getDeletedInfo(detailRecord)} />
+              <div className="opacity-70 text-sm space-y-1.5">
+                <DetailRow label="Name" value={detailRecord.name} />
+                <DetailRow label="Time" value={`${detailRecord.start_time} – ${detailRecord.end_time}`} />
+                <DetailRow label="Rate" value={`$${detailRecord.hourly_rate}/hr`} />
+                <DetailRow label="Priority" value={String(detailRecord.priority)} />
+                <DetailRow label="Weekdays" value={(detailRecord.applies_to_weekdays || []).join(", ") || "—"} />
+                {detailRecord.specific_date && <DetailRow label="Specific Date" value={detailRecord.specific_date} />}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span>{value}</span>
+    </div>
+  );
+}
+
 
 function PromosTab() {
   const { data: promos, create, toggle, remove } = useAdminPromoCodes();
