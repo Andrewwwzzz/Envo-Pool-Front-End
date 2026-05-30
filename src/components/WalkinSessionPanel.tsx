@@ -9,6 +9,10 @@ import { getTableLabel } from "@/lib/tableLabel";
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
+function getStartDate(session: any): Date {
+  return new Date(session?.startedAt ?? session?.startTime);
+}
+
 function formatElapsed(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(s / 3600);
