@@ -135,17 +135,13 @@ function fmtDateOrDash(d?: string) {
 
 export default function LockersTab() {
   const { toast } = useToast();
-  const [hideDeleted, setHideDeleted] = useState(false);
-  const { data: lockers = [] } = useLockerUnits(hideDeleted ? "default" : "all");
+  const { data: lockers = [] } = useLockerUnits();
   const { data: rentals = [] } = useLockerRentals();
   const renew = useRenewLocker();
   const cancel = useCancelLocker();
-  const deleteUnit = useDeleteLockerUnit();
   const [addOpen, setAddOpen] = useState(false);
   const [assignFor, setAssignFor] = useState<LockerUnit | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
-  const [deleteUnitTarget, setDeleteUnitTarget] = useState<LockerUnit | null>(null);
-  const [detailRecord, setDetailRecord] = useState<any | null>(null);
 
   const doRenew = async (id: string) => {
     try { await renew.mutateAsync(id); toast({ title: "Renewed" }); }
