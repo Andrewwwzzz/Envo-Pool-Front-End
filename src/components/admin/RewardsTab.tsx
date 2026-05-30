@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { fmtDateSG } from "@/lib/sgTime";
 import ReasonDialog from "./ReasonDialog";
 import DeletedBanner, { getDeletedInfo, isDeleted } from "./DeletedBanner";
+import { useAdminCustomers } from "@/hooks/useAdmin";
 
 const TYPE_LABELS: Record<string, string> = {
   free_session: "Free Session",
