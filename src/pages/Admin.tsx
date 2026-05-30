@@ -2248,6 +2248,8 @@ function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () 
         </DialogHeader>
 
         <div className="space-y-6">
+          {isRecordDeleted(promo) && <DeletedBanner info={getDeletedInfo(promo)} />}
+
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
             <div><div className="text-muted-foreground">Type</div><div>{isPct ? "Percentage" : "Fixed"}</div></div>
             <div><div className="text-muted-foreground">Value</div><div>{valueLabel}</div></div>
