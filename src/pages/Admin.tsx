@@ -1063,8 +1063,8 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
   const m = Math.floor((durationSeconds % 3600) / 60);
   const sec = durationSeconds % 60;
   const durationLabel = h > 0
-    ? `${h}h ${m} mins ${sec} secs`
-    : `${m} mins ${sec} secs`;
+    ? `${h}h ${m}m ${sec}s`
+    : `${m}m ${sec}s`;
 
   const rate = Number(s.hourlyRate ?? s.hourly_rate ?? 0);
   const liveAmount = isActive ? Number(s.runningCost ?? 0) : 0;
