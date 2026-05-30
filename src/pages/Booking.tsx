@@ -399,17 +399,17 @@ const Booking = () => {
 
     try {
       // STEP 1: Create booking via POST /api/bookings
-      // Backend applies membership discounts from the plan. For membership
-      // bookings, send the undiscounted amount so the discount is only applied once.
-      const bookingAmount = winningDiscount.source === "membership" ? originalPrice : finalPrice;
+      // Backend handles all discount calculations server-side. Always send the
+      // original (pre-discount) subtotal as both `amount` and `originalAmount`.
+      const subtotal = Number((originalPrice || finalPrice).toFixed(2));
       const createRes = await apiFetch("/api/bookings", {
         method: "POST",
         body: JSON.stringify({
           tableId: hardwareId,
           startTime: startDate.toISOString(),
           endTime: endDate.toISOString(),
-          amount: Number(bookingAmount.toFixed(2)),
-          originalAmount: Number((originalPrice || finalPrice).toFixed(2)),
+          amount: subtotal,
+          originalAmount: subtotal,
           // Only send the winning discount source. free_item rewards are
           // tracked for counter pickup even when they don't win on price.
           promoCode: winningDiscount.source === "promo" ? appliedPromo?.code || null : null,
