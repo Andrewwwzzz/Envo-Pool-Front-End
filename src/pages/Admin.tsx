@@ -1296,7 +1296,16 @@ function InvoicesTab() {
                       onClick={() => setSelectedSession(s)}
                     >
                       <td className="py-3 pr-4">{startedAt ? formatDateLong(startedAt) : "—"}</td>
-                      <td className="py-3 pr-4">{s.tableName || (s.tables?.table_number ? `Table ${s.tables.table_number}` : "—")}</td>
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-2">
+                          <span>{s.tableName || (s.tables?.table_number ? `Table ${s.tables.table_number}` : "—")}</span>
+                          {s._walkin && (
+                            <Badge variant="outline" className="bg-accent/10 text-accent border-accent/30 text-[10px] py-0 px-1.5">
+                              Walk-in
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-3 pr-4">{startedAt ? fmtTimeSG(startedAt) : "—"}</td>
                       <td className="py-3 pr-4">{endedAt ? fmtTimeSG(endedAt) : "—"}</td>
                       <td className="py-3 pr-4 font-mono">{formatDuration(duration)}</td>
