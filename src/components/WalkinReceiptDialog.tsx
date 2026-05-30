@@ -56,8 +56,7 @@ const WalkinReceiptDialog = ({ session, open, onOpenChange, live }: Props) => {
   const membershipDiscountAmount = Number(s.membershipDiscountAmount ?? s.membershipDiscount ?? s.membership_discount_amount ?? s.membership_discount ?? 0);
   const membershipDiscountPercent = Number(s.membershipDiscountPercent ?? s.membership_discount_percent ?? 0);
   const freeMinutesCredit = Number(s.freeMinutesCredit ?? s.free_minutes_credit ?? 0);
-  // Round free minutes to whole number
-  const freeMinutesApplied = Math.round(Number(s.freeMinutesApplied ?? s.free_minutes_applied ?? 0));
+  const freeMinutesApplied = Number(s.freeMinutesApplied ?? s.free_minutes_applied ?? 0);
   const hasBreakdown = baseTotal > 0 && (membershipDiscountAmount > 0 || freeMinutesCredit > 0);
   const effectiveSubtotal = baseTotal > 0 ? baseTotal : amount;
 
@@ -66,21 +65,12 @@ const WalkinReceiptDialog = ({ session, open, onOpenChange, live }: Props) => {
     : Array.isArray(s.pricing_segments)
     ? s.pricing_segments
     : [];
-
-  // Map segments — read segmentCost and hourlyRate correctly, filter out $0 cost segments
-  const segments = rawSegments
-    .map((seg: any) => {
-      const sStart = seg.startTime || seg.start_time || seg.startedAt;
-      const sEnd = seg.endTime || seg.end_time || seg.endedAt;
-      const sRate = Number(seg.hourlyRate ?? seg.rate ?? seg.ratePerHour ?? 0);
-      const sCost = Number(seg.segmentCost ?? seg.cost ?? seg.amount ?? 0);
-      return { sStart, sEnd, sRate, sCost };
-    })
-    .filter((seg) => seg.sCost > 0); // hide segments with no matching pricing rule
-
-  const noRuleSegments = rawSegments.filter((seg: any) => {
-    const sCost = Number(seg.segmentCost ?? seg.cost ?? seg.amount ?? 0);
-    return sCost === 0;
+  const segments = rawSegments.map((seg: any) => {
+    const sStart = seg.startTime || seg.start_time || seg.startedAt;
+    const sEnd = seg.endTime || seg.end_time || seg.endedAt;
+    const sRate = Number(seg.rate ?? seg.ratePerHour ?? seg.hourlyRate ?? 0);
+    const sCost = Number(seg.cost ?? seg.amount ?? 0);
+    return { sStart, sEnd, sRate, sCost };
   });
 
   const tableLabel = resolveTableLabel(s.tableId, tables as any) || "Table ?";
@@ -133,39 +123,25 @@ const WalkinReceiptDialog = ({ session, open, onOpenChange, live }: Props) => {
 
             <div className="rounded-lg border border-border/60 bg-background/40 p-3 space-y-1.5">
               {segments.length > 0 ? (
-                <>
-                  {segments.map((seg, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground tabular-nums">
-                        {seg.sStart ? fmtTime(seg.sStart) : "—"} – {seg.sEnd ? fmtTime(seg.sEnd) : (isLive ? "now" : "—")}
-                        <span className="ml-2 text-xs opacity-70">@ ${seg.sRate.toFixed(2)}/hr</span>
-                      </span>
-                      <span className="font-medium tabular-nums">= ${seg.sCost.toFixed(2)}</span>
-                    </div>
-                  ))}
-                  {noRuleSegments.length > 0 && (
-                    <div className="text-xs text-muted-foreground italic pt-1">
-                      No pricing rule active for part of this session
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between text-sm">
+                segments.map((seg, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground tabular-nums">
-                      {start ? fmtTime(start) : "—"} – {isLive ? "now" : (end ? fmtTime(end) : "—")}
-                      {durationSeconds > 0 && (
-                        <span className="ml-2 text-xs opacity-70">{fmtDuration(durationSeconds)}</span>
-                      )}
+                      {seg.sStart ? fmtTime(seg.sStart) : "—"} – {seg.sEnd ? fmtTime(seg.sEnd) : (isLive ? "now" : "—")}
+                      <span className="ml-2 text-xs opacity-70">@ ${seg.sRate.toFixed(2)}/hr</span>
                     </span>
-                    <span className="font-medium tabular-nums">${effectiveSubtotal.toFixed(2)}</span>
+                    <span className="font-medium tabular-nums">= ${seg.sCost.toFixed(2)}</span>
                   </div>
-                  {rawSegments.length > 0 && (
-                    <div className="text-xs text-muted-foreground italic">
-                      No pricing rule active for this time period
-                    </div>
-                  )}
-                </>
+                ))
+              ) : (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground tabular-nums">
+                    {start ? fmtTime(start) : "—"} – {isLive ? "now" : (end ? fmtTime(end) : "—")}
+                    {durationSeconds > 0 && (
+                      <span className="ml-2 text-xs opacity-70">{fmtDuration(durationSeconds)}</span>
+                    )}
+                  </span>
+                  <span className="font-medium tabular-nums">${effectiveSubtotal.toFixed(2)}</span>
+                </div>
               )}
             </div>
 
