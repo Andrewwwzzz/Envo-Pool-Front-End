@@ -100,12 +100,12 @@ export default function WalkinSessionPanel() {
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Started</p>
-                <p className="font-medium">{fmtDateTimeSG(session.startTime)}</p>
+                <p className="font-medium">{getStartDate(session).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Elapsed</p>
                 <p className="font-mono text-2xl font-bold gold-gradient">
-                  {formatElapsed(now - new Date(session.startTime).getTime())}
+                  {formatElapsed(now - getStartDate(session).getTime())}
                 </p>
               </div>
               <div>
