@@ -2408,8 +2408,6 @@ function VerificationTab() {
   const [legalName, setLegalName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [search, setSearch] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejecting, setRejecting] = useState<string | null>(null);
@@ -2514,25 +2512,6 @@ function VerificationTab() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    const userId = deleteTarget._id || deleteTarget.userId || deleteTarget.id;
-    try {
-      setDeleting(userId);
-      const res = await apiFetch(`/api/users/${userId}`, { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || "Failed to delete request");
-      }
-      toast({ title: "Verification request deleted" });
-      setDeleteTarget(null);
-      await refresh();
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    } finally {
-      setDeleting(null);
-    }
-  };
 
   const matchesSearch = (u: any) => {
     if (!search.trim()) return true;
@@ -2594,7 +2573,7 @@ function VerificationTab() {
                   <tbody>
                     {filteredUsers.map((u: any) => {
                       const uid = u._id || u.userId || u.id;
-                      const busy = verifying === uid || deleting === uid || rejecting === uid;
+                      const busy = verifying === uid || rejecting === uid;
                       return (
                       <tr key={uid} className="border-b border-border last:border-0">
                         <td className="py-3 pr-4">{u.name || "—"}</td>
@@ -2616,15 +2595,6 @@ function VerificationTab() {
                             >
                               {rejecting === uid ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
                               Reject
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setDeleteTarget(u)}
-                              disabled={busy}
-                              title="Delete request"
-                            >
-                              {deleting === uid ? <Loader2 className="h-4 w-4 animate-spin text-destructive" /> : <Trash2 className="h-4 w-4 text-destructive" />}
                             </Button>
                           </div>
                         </td>
@@ -2737,23 +2707,6 @@ function VerificationTab() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Verification Request?</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            This will permanently delete the unverified account for <span className="font-medium text-foreground">{deleteTarget?.email}</span>. This action cannot be undone.
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={!!deleting}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={!!deleting}>
-              {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }
