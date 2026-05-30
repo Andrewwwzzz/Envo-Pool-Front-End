@@ -125,7 +125,7 @@ export function useDeleteMembership() {
   return useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
       const r = await apiFetch(`/api/membership/admin/delete/${id}`, {
-        method: "DELETE",
+        method: "POST",
         body: JSON.stringify({ reason }),
       });
       if (!r.ok) throw new Error(await r.text());

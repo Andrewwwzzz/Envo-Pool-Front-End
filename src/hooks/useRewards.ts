@@ -87,8 +87,8 @@ export function useDeleteReward() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async ({ id, reason }: { id: string; userId?: string; reason: string }) => {
-      const res = await apiFetch(`/api/rewards/${id}`, {
-        method: "DELETE",
+      const res = await apiFetch(`/api/rewards/${id}/delete`, {
+        method: "POST",
         body: JSON.stringify({ reason }),
       });
       const data = await res.json().catch(() => ({}));
