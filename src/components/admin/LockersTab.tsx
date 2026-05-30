@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, RotateCcw, XCircle, Loader2 } from "lucide-react";
+import { Plus, RotateCcw, XCircle, Loader2, Trash2, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useLockerUnits,
@@ -16,12 +16,13 @@ import {
   useAssignLocker,
   useRenewLocker,
   useCancelLocker,
+  useDeleteLockerUnit,
   type LockerUnit,
 } from "@/hooks/useLockers";
 import { useAdminCustomers } from "@/hooks/useAdmin";
 import { fmtDateSG } from "@/lib/sgTime";
 import ReasonDialog from "./ReasonDialog";
-import { isCancelled } from "./DeletedBanner";
+import DeletedBanner, { isCancelled, isDeleted, getDeletedInfo } from "./DeletedBanner";
 
 function AddLockerDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { toast } = useToast();
@@ -135,13 +136,17 @@ function fmtDateOrDash(d?: string) {
 
 export default function LockersTab() {
   const { toast } = useToast();
-  const { data: lockers = [] } = useLockerUnits(false);
+  const [hideDeleted, setHideDeleted] = useState(false);
+  const { data: lockers = [] } = useLockerUnits(hideDeleted ? "default" : "all");
   const { data: rentals = [] } = useLockerRentals();
   const renew = useRenewLocker();
   const cancel = useCancelLocker();
+  const deleteUnit = useDeleteLockerUnit();
   const [addOpen, setAddOpen] = useState(false);
   const [assignFor, setAssignFor] = useState<LockerUnit | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
+  const [deleteUnitTarget, setDeleteUnitTarget] = useState<LockerUnit | null>(null);
+  const [detailRecord, setDetailRecord] = useState<any | null>(null);
 
   const doRenew = async (id: string) => {
     try { await renew.mutateAsync(id); toast({ title: "Renewed" }); }
