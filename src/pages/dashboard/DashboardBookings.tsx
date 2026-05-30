@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useMyBookings } from "@/hooks/useBooking";
+import { useMyBookings, useTables } from "@/hooks/useBooking";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
@@ -32,6 +32,7 @@ const statusLabel = (s: string) => {
 export default function DashboardBookings() {
   const { user } = useAuth();
   const { data: bookings } = useMyBookings();
+  const { data: tables } = useTables(null, null);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
 
   const now = nowSG();
@@ -39,9 +40,21 @@ export default function DashboardBookings() {
   const getEndTime = (b: any) => b.endTime || b.end_time;
   const getTableLabel = (b: any) => {
     const tid = b.tableId;
-    if (typeof tid === "string") return `Table ${tid.replace("T", "")}`;
-    if (tid?.name) return tid.name;
-    if (tid?.tableNumber ?? tid?.table_number) return `Table ${tid.tableNumber ?? tid.table_number}`;
+    if (tid && typeof tid === "object") {
+      if (tid.name) return tid.name;
+      const num = tid.tableNumber ?? tid.table_number;
+      if (num !== undefined && num !== null) return `Table ${num}`;
+      if (tid.hardware_id || tid.hardwareId) return `Table ${String(tid.hardware_id ?? tid.hardwareId).replace(/^T/i, "")}`;
+    }
+    if (typeof tid === "string") {
+      if (/^T\d+$/i.test(tid)) return `Table ${tid.replace(/^T/i, "")}`;
+      const match = (tables || []).find((t: any) => t.id === tid);
+      if (match) {
+        return match.hardware_id
+          ? `Table ${String(match.hardware_id).replace(/^T/i, "")}`
+          : `Table ${match.table_number ?? "?"}`;
+      }
+    }
     return "Table ?";
   };
   const getPrice = (b: any) => b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? 0;
