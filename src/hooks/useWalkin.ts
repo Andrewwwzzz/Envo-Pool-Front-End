@@ -6,7 +6,8 @@ export interface WalkinSession {
   id?: string;
   tableId: any;
   userId?: any;
-  startTime: string;
+  startTime?: string;
+  startedAt?: string;
   status: string;
   runningCost?: number;
   amountCharged?: number;

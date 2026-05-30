@@ -9,6 +9,10 @@ import { getTableLabel } from "@/lib/tableLabel";
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
+function getStartDate(session: any): Date {
+  return new Date(session?.startedAt ?? session?.startTime);
+}
+
 function formatElapsed(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(s / 3600);
@@ -56,7 +60,7 @@ export default function WalkinSessionPanel() {
       const result: any = await stop.mutateAsync();
       const r = result?.session ?? result;
       setReceipt({
-        duration: r?.durationMinutes ?? Math.floor((Date.now() - new Date(session!.startTime).getTime()) / 60000),
+        duration: r?.durationMinutes ?? Math.floor((Date.now() - getStartDate(session).getTime()) / 60000),
         amount: r?.amountCharged ?? r?.totalCost ?? r?.runningCost ?? 0,
         walletBalance: r?.walletBalanceAfter ?? r?.walletBalance ?? null,
       });
@@ -96,12 +100,12 @@ export default function WalkinSessionPanel() {
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Started</p>
-                <p className="font-medium">{fmtDateTimeSG(session.startTime)}</p>
+                <p className="font-medium">{getStartDate(session).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Elapsed</p>
                 <p className="font-mono text-2xl font-bold gold-gradient">
-                  {formatElapsed(now - new Date(session.startTime).getTime())}
+                  {formatElapsed(now - getStartDate(session).getTime())}
                 </p>
               </div>
               <div>
