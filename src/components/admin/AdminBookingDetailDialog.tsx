@@ -125,6 +125,8 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange, onCancel }: Pro
   );
   const originalAmount = Number(b.originalAmount ?? b.original_amount ?? b.originalPrice ?? b.original_price ?? 0);
   const membershipDiscount = Number(b.membershipDiscount ?? b.membership_discount ?? 0);
+  const freeMinutesCredit = Number(b.freeMinutesCredit ?? b.free_minutes_credit ?? 0);
+  const freeMinutesApplied = Number(b.freeMinutesApplied ?? b.free_minutes_applied ?? 0);
   const promoDiscount = Number(b.promoDiscount ?? b.promo_discount ?? b.discountAmount ?? b.discount_amount ?? 0);
   const rewardDiscount = Number(b.rewardDiscount ?? b.reward_discount ?? 0);
 
