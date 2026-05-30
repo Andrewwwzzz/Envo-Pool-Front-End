@@ -2015,12 +2015,13 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 
 function PromosTab() {
-  const { data: promos, create, toggle, remove } = useAdminPromoCodes();
+  const [hideDeleted, setHideDeleted] = useState(false);
+  const { data: promos, create, toggle, remove } = useAdminPromoCodes(hideDeleted ? "default" : "all");
   const [form, setForm] = useState({
     code: "", discount_type: "percentage" as string, discount_value: "", minimum_spend: "",
     max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
   });
-  const [deletePromo, setDeletePromo] = useState<{ id: string; code: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailPromo, setDetailPromo] = useState<any | null>(null);
 
   const handleCreate = () => {
@@ -2088,7 +2089,17 @@ function PromosTab() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Existing Promo Codes</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <CardTitle>Existing Promo Codes</CardTitle>
+          <Button
+            size="sm"
+            variant={hideDeleted ? "secondary" : "outline"}
+            onClick={() => setHideDeleted((v) => !v)}
+          >
+            {hideDeleted ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+            {hideDeleted ? "Show Deleted" : "Hide Deleted"}
+          </Button>
+        </CardHeader>
         <CardContent>
           {!promos?.length ? <p className="text-muted-foreground text-sm">No promo codes.</p> : (
             <div className="overflow-x-auto">
@@ -2106,45 +2117,54 @@ function PromosTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {promos.map((p) => {
+                  {promos.map((p: any) => {
                     const isPct = p.discount_type === "percentage";
                     const valueLabel = isPct ? `${p.discount_value}%` : `$${Number(p.discount_value).toFixed(2)}`;
                     const minSpend = p.minimum_spend ? `$${Number(p.minimum_spend).toFixed(2)}` : "—";
                     const usageLabel = `${p.usage_count ?? 0} / ${p.usage_limit ?? "unlimited"}`;
                     const expiryLabel = p.expiry_date ? fmtDateSG(p.expiry_date) : "No expiry";
-                    const handleDelete = () => setDeletePromo({ id: p.id, code: p.code });
+                    const deleted = isRecordDeleted(p);
+                    const rowCls = deleted
+                      ? "border-b border-border/50 cursor-pointer hover:bg-muted/40 text-muted-foreground"
+                      : "border-b border-border/50 cursor-pointer hover:bg-muted/40";
                     return (
                       <tr
                         key={p.id}
-                        className="border-b border-border/50 cursor-pointer hover:bg-muted/40"
+                        className={rowCls}
                         onClick={() => setDetailPromo(p)}
                       >
-                        <td className="py-3 pr-3 font-mono font-medium">{p.code}</td>
+                        <td className={`py-3 pr-3 font-mono font-medium ${deleted ? "line-through" : ""}`}>{p.code}</td>
                         <td className="py-3 pr-3">{isPct ? "Percentage" : "Fixed"}</td>
-                        <td className="py-3 pr-3">{valueLabel}</td>
+                        <td className={`py-3 pr-3 ${deleted ? "line-through" : ""}`}>{valueLabel}</td>
                         <td className="py-3 pr-3">{minSpend}</td>
                         <td className="py-3 pr-3">{usageLabel}</td>
                         <td className="py-3 pr-3">{expiryLabel}</td>
                         <td className="py-3 pr-3">
-                          <Badge
-                            variant="outline"
-                            className={p.is_active
-                              ? "border-transparent bg-green-500/15 text-green-500"
-                              : "border-transparent bg-muted text-muted-foreground"}
-                          >
-                            {p.is_active ? "Active" : "Inactive"}
-                          </Badge>
+                          {deleted ? (
+                            <Badge variant="outline" className="bg-muted whitespace-nowrap">Deleted</Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className={p.is_active
+                                ? "border-transparent bg-green-500/15 text-green-500"
+                                : "border-transparent bg-muted text-muted-foreground"}
+                            >
+                              {p.is_active ? "Active" : "Inactive"}
+                            </Badge>
+                          )}
                         </td>
                         <td className="py-3 pr-3" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-3">
-                            <Switch
-                              checked={p.is_active}
-                              onCheckedChange={() => toggle.mutate({ id: p.id, is_active: !p.is_active })}
-                            />
-                            <Button variant="ghost" size="sm" onClick={handleDelete}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
+                          {!deleted && (
+                            <div className="flex items-center justify-end gap-3">
+                              <Switch
+                                checked={p.is_active}
+                                onCheckedChange={() => toggle.mutate({ id: p.id, is_active: !p.is_active })}
+                              />
+                              <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(p)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
@@ -2156,36 +2176,30 @@ function PromosTab() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!deletePromo} onOpenChange={(o) => { if (!o) setDeletePromo(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Promo Code</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Are you sure you want to delete promo code <span className="font-mono font-semibold">{deletePromo?.code}</span>? This cannot be undone.
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeletePromo(null)}>Cancel</Button>
-            <Button
-              variant="destructive"
-              disabled={remove.isPending}
-              onClick={() => {
-                if (deletePromo) {
-                  remove.mutate(deletePromo.id);
-                  setDeletePromo(null);
-                }
-              }}
-            >
-              Confirm Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ReasonDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title={`Delete promo code ${deleteTarget?.code ?? ""}?`}
+        description="This promo code will be marked as deleted but retained for audit history."
+        label="Reason for deletion"
+        placeholder="e.g. campaign ended"
+        confirmLabel="Delete"
+        destructive
+        loading={remove.isPending}
+        onConfirm={async (reason) => {
+          if (!deleteTarget) return;
+          try {
+            await remove.mutateAsync({ id: deleteTarget.id, reason });
+            setDeleteTarget(null);
+          } catch {}
+        }}
+      />
 
       <PromoDetailDialog promo={detailPromo} onClose={() => setDetailPromo(null)} />
     </div>
   );
 }
+
 
 function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () => void }) {
   const { data, isLoading, error } = useQuery({
