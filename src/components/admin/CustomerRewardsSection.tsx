@@ -35,6 +35,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const { data: rewards, isLoading } = useAdminRewards(userId);
   const issueReward = useIssueReward();
   const deleteReward = useDeleteReward();
+  const { data: customers = [] } = useAdminCustomers("");
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailRecord, setDetailRecord] = useState<any | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
