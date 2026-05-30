@@ -2790,7 +2790,7 @@ function VerificationTabTrigger() {
   const { data } = useQuery({
     queryKey: ["admin-unverified-users"],
     queryFn: async () => {
-      const res = await apiFetch("/api/admin/unverified-users");
+      const res = await apiFetch("/api/admin/unverified-users?status=pending");
       if (!res.ok) return [];
       const data = await res.json();
       return Array.isArray(data) ? data : data?.users ?? [];
