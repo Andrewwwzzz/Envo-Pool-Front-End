@@ -668,7 +668,7 @@ export default function MembershipTab() {
           </DialogHeader>
           {detailRecord && (
             <div className="space-y-3">
-              <DeletedBanner info={getDeletedInfo(detailRecord)} />
+              <DeletedBanner info={getDeletedInfo(detailRecord, customers)} />
               <div className="opacity-70 text-sm space-y-1.5">
                 {(() => {
                   const user = typeof detailRecord.userId === "object" ? detailRecord.userId : null;
