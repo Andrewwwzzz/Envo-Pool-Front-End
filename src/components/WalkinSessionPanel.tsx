@@ -63,6 +63,11 @@ export default function WalkinSessionPanel() {
         duration: r?.durationMinutes ?? Math.floor((Date.now() - getStartDate(session).getTime()) / 60000),
         amount: r?.amountCharged ?? r?.totalCost ?? r?.runningCost ?? 0,
         walletBalance: r?.walletBalanceAfter ?? r?.walletBalance ?? null,
+        baseTotal: Number(r?.baseTotal ?? 0),
+        membershipDiscountAmount: Number(r?.membershipDiscountAmount ?? 0),
+        membershipDiscountPercent: Number(r?.membershipDiscountPercent ?? 0),
+        freeMinutesCredit: Number(r?.freeMinutesCredit ?? 0),
+        freeMinutesApplied: Number(r?.freeMinutesApplied ?? 0),
       });
     } catch (err: any) {
       toast.error(err?.message || "Failed to stop session");
