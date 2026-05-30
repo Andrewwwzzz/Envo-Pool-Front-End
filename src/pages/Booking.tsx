@@ -405,7 +405,7 @@ const Booking = () => {
       const createRes = await apiFetch("/api/bookings", {
         method: "POST",
         body: JSON.stringify({
-          tableId: hardwareId,
+          tableId: selectedTableData.id,
           startTime: startDate.toISOString(),
           endTime: endDate.toISOString(),
           amount: subtotal,
