@@ -68,7 +68,11 @@ export default function DashboardHome() {
   });
 
   const upcoming = myBookings
-    .filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled")
+    .filter((b: any) => {
+      if (getStatus(b) !== "confirmed") return false;
+      const start = new Date(getStartTime(b));
+      return start > new Date();
+    })
     .sort((a: any, b: any) => new Date(getStartTime(a)).getTime() - new Date(getStartTime(b)).getTime());
   const upcomingPreview = upcoming.slice(0, 5);
 
