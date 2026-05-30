@@ -293,3 +293,25 @@ export default function LockersTab() {
       <AssignLockerDialog open={!!assignFor} onOpenChange={(v) => !v && setAssignFor(null)} locker={assignFor} />
 
       <ReasonDialog
+        open={!!cancelTargetId}
+        onOpenChange={(o) => !o && setCancelTargetId(null)}
+        title="Cancel Locker Rental"
+        label="Reason for cancellation"
+        placeholder="e.g. user requested early termination"
+        confirmLabel="Cancel Rental"
+        destructive
+        loading={cancel.isPending}
+        onConfirm={async (reason) => {
+          if (!cancelTargetId) return;
+          try {
+            await cancel.mutateAsync({ rentalId: cancelTargetId, reason });
+            toast({ title: "Cancelled" });
+            setCancelTargetId(null);
+          } catch (e: any) {
+            toast({ title: "Failed", description: e?.message, variant: "destructive" });
+          }
+        }}
+      />
+    </div>
+  );
+}
