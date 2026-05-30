@@ -163,6 +163,7 @@ function OverviewTab() {
   const { data: bookings } = useAdminBookings() as { data: any };
   const { data: transactions } = useAdminTransactions() as { data: any };
   const { data: timerSessions } = useAdminTimerSessions() as { data: any };
+  const { data: tablesList } = useAdminTables();
 
   const [reportFrom, setReportFrom] = useState(from);
   const [reportTo, setReportTo] = useState(to);
