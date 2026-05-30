@@ -83,8 +83,11 @@ export function useStopWalkin() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["walkin-my"] });
       qc.invalidateQueries({ queryKey: ["walkin-active"] });
+      qc.invalidateQueries({ queryKey: ["walkin-stopped"] });
       qc.invalidateQueries({ queryKey: ["tables-with-status"] });
       qc.invalidateQueries({ queryKey: ["profile"] });
+      qc.invalidateQueries({ queryKey: ["transaction-history"] });
+      qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
     },
   });
 }
