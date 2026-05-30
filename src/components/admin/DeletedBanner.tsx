@@ -74,7 +74,7 @@ export default function DeletedBanner({ info }: { info: DeletedInfo }) {
       <div className="text-xs text-foreground/80 space-y-0.5 pl-6">
         <div><span className="text-muted-foreground">Reason:</span> {info.reason || "—"}</div>
         <div><span className="text-muted-foreground">Deleted by:</span> {info.by || "—"}</div>
-        <div><span className="text-muted-foreground">Deleted at:</span> {info.at ? fmtDateSG(info.at) : "—"}</div>
+        <div><span className="text-muted-foreground">Deleted at:</span> {info.at ? fmtDateTimeSG(info.at) : "—"}</div>
       </div>
     </div>
   );
