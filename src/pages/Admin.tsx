@@ -373,6 +373,7 @@ function BookingsTab() {
   const [filter, setFilter] = useState<BookingFilter>("all");
   const [search, setSearch] = useState("");
   const { data: bookings, isLoading } = useAdminBookings(false);
+  const { data: tablesList } = useAdminTables();
   const updateStatus = useUpdateBookingStatus();
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
