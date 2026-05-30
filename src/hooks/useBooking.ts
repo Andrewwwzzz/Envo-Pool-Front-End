@@ -22,25 +22,76 @@ export function validateDuration(start: Date, end: Date): string | null {
   return null;
 }
 
+async function fetchActiveWalkinHardwareIds(): Promise<Set<string>> {
+  const ids = new Set<string>();
+  const extract = (s: any) => {
+    if (!s) return;
+    const t = s.tableId;
+    if (t && typeof t === "object") {
+      const hw = t.hardwareId ?? t.hardware_id;
+      if (hw) ids.add(String(hw));
+    } else if (typeof t === "string") {
+      ids.add(t);
+    }
+  };
+
+  // /api/sessions/active is admin-only — silently ignore failures
+  try {
+    const res = await apiFetch("/api/sessions/active");
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      const list = Array.isArray(data) ? data : data?.sessions ?? [];
+      list.forEach(extract);
+    }
+  } catch { /* ignore */ }
+
+  // /api/sessions/my — current user's own session
+  try {
+    const res = await apiFetch("/api/sessions/my");
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      const session = data?.session ?? data;
+      if (session && session._id && (!session.status || session.status === "active")) {
+        extract(session);
+      }
+    }
+  } catch { /* ignore */ }
+
+  return ids;
+}
+
 export function useTables(startTime: Date | null, endTime: Date | null) {
   return useQuery({
     queryKey: ["tables-with-status", startTime?.toISOString(), endTime?.toISOString()],
     queryFn: async (): Promise<TableWithStatus[]> => {
-      const res = await apiFetch("/api/tables");
-      if (!res.ok) throw new Error("Failed to fetch tables");
-      const tables = await res.json();
+      const [tablesRes, walkinHardwareIds] = await Promise.all([
+        apiFetch("/api/tables"),
+        fetchActiveWalkinHardwareIds(),
+      ]);
+      if (!tablesRes.ok) throw new Error("Failed to fetch tables");
+      const tables = await tablesRes.json();
+
+      const hasActiveWalkin = (hardwareId: string | null) =>
+        !!hardwareId && walkinHardwareIds.has(String(hardwareId));
 
       if (!startTime || !endTime) {
-        const result = (tables || []).map((t: any) => ({
-          id: t._id || t.id,
-          table_number: t.tableNumber ?? t.table_number,
-          hardware_id: t.hardwareId ?? t.hardware_id ?? null,
-          status: t.timerStartedAt || t.timer_started_at
-            ? "In Use" as TableStatus
-            : (t.status === "maintenance" || t.isActive === false)
-            ? "Maintenance" as TableStatus
-            : "Available" as TableStatus,
-        }));
+        const result = (tables || []).map((t: any) => {
+          const hardwareId = t.hardwareId ?? t.hardware_id ?? null;
+          let status: TableStatus;
+          if (t.status === "maintenance" || t.isActive === false) {
+            status = "Maintenance";
+          } else if (t.timerStartedAt || t.timer_started_at || hasActiveWalkin(hardwareId)) {
+            status = "In Use";
+          } else {
+            status = "Available";
+          }
+          return {
+            id: t._id || t.id,
+            table_number: t.tableNumber ?? t.table_number,
+            hardware_id: hardwareId,
+            status,
+          };
+        });
         setCache("tables-basic", result);
         return result;
       }
@@ -65,7 +116,7 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
         if (t.status === "maintenance" || t.isActive === false) {
           return { id: tableId, table_number: t.tableNumber ?? t.table_number, hardware_id: hardwareId, status: "Maintenance" as TableStatus };
         }
-        if (t.timerStartedAt || t.timer_started_at) {
+        if (t.timerStartedAt || t.timer_started_at || hasActiveWalkin(hardwareId)) {
           return { id: tableId, table_number: t.tableNumber ?? t.table_number, hardware_id: hardwareId, status: "In Use" as TableStatus };
         }
 
