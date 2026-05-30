@@ -1159,7 +1159,35 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
 function InvoicesTab() {
   const [showDeleted, setShowDeleted] = useState(false);
   const { data, isLoading } = useAdminTimerSessions(showDeleted);
-  const sessions: any[] = Array.isArray(data) ? data : (data?.sessions || data?.timerSessions || []);
+  const timerSessions: any[] = Array.isArray(data) ? data : (data?.sessions || data?.timerSessions || []);
+  const { data: stoppedWalkinsData } = useStoppedWalkinSessions();
+  const stoppedWalkins: any[] = Array.isArray(stoppedWalkinsData) ? stoppedWalkinsData : [];
+  // Merge stopped walk-ins into the sessions list with a marker.
+  const sessions: any[] = [
+    ...timerSessions.map((s) => ({ ...s, _walkin: false })),
+    ...stoppedWalkins.map((s) => ({
+      ...s,
+      _walkin: true,
+      startedAt: s.startedAt ?? s.startTime,
+      endedAt: s.endedAt ?? s.endTime,
+      durationSeconds:
+        s.durationSeconds ??
+        (s.durationMinutes ? s.durationMinutes * 60 : undefined) ??
+        (s.startedAt && s.endedAt
+          ? Math.max(0, Math.floor((new Date(s.endedAt).getTime() - new Date(s.startedAt).getTime()) / 1000))
+          : 0),
+      amountCharged: s.amountCharged ?? s.totalCost ?? s.runningCost ?? 0,
+      tableName: s.tableName || (s.tableId ? getTableLabel(s.tableId) : ""),
+      startedBy:
+        typeof s.userId === "object"
+          ? { name: s.userId?.name || s.userId?.username, email: s.userId?.email }
+          : undefined,
+    })),
+  ].sort(
+    (a, b) =>
+      new Date(b.startedAt || b.started_at || 0).getTime() -
+      new Date(a.startedAt || a.started_at || 0).getTime(),
+  );
   const { toast } = useToast();
   const qc = useQueryClient();
   const [deletingId, setDeletingId] = useState<string | null>(null);
