@@ -174,7 +174,6 @@ export default function LockersTab() {
                 <TableBody>
                   {lockers.map((l) => {
                     const anyL = l as any;
-                    const deleted = isDeleted(anyL);
                     const rental = anyL.currentRentalId && typeof anyL.currentRentalId === "object" ? anyL.currentRentalId : null;
                     const rentalId = rental?._id ?? rental?.id ?? (typeof anyL.currentRentalId === "string" ? anyL.currentRentalId : l.rentalId);
                     const lockerNum = anyL.lockerNumber ?? l.number;
@@ -184,41 +183,30 @@ export default function LockersTab() {
                     const renewal = rental?.renewalDate ?? l.renewalDate;
 
                     const rentalActive = rental && !isCancelled(rental);
-                    const isAvailable = !deleted && !rentalActive && (l.status ?? "available") === "available";
+                    const isAvailable = !rentalActive && (l.status ?? "available") === "available";
 
                     return (
-                      <TableRow
-                        key={l.id}
-                        className={deleted ? "text-muted-foreground cursor-pointer" : ""}
-                        onClick={deleted ? () => setDetailRecord({ ...anyL, _kind: "locker", lockerNum }) : undefined}
-                      >
-                        <TableCell className={`font-medium ${deleted ? "line-through" : ""}`}>#{lockerNum ?? "—"}</TableCell>
+                      <TableRow key={l.id}>
+                        <TableCell className="font-medium">#{lockerNum ?? "—"}</TableCell>
                         <TableCell>
-                          {deleted ? (
-                            <Badge variant="outline" className="bg-muted whitespace-nowrap">Deleted</Badge>
-                          ) : (
-                            <Badge variant={isAvailable ? "secondary" : "default"} className="capitalize">
-                              {isAvailable ? "Available" : "Rented"}
-                            </Badge>
-                          )}
+                          <Badge variant={isAvailable ? "secondary" : "default"} className="capitalize">
+                            {isAvailable ? "Available" : "Rented"}
+                          </Badge>
                         </TableCell>
-                        <TableCell className={deleted ? "line-through" : ""}>${l.monthlyPrice ?? 0}</TableCell>
+                        <TableCell>${l.monthlyPrice ?? 0}</TableCell>
                         <TableCell>
-                          {!deleted && !isAvailable && renterName ? (
+                          {!isAvailable && renterName ? (
                             <>
                               <div className="font-medium">{renterName}</div>
                               {renterEmail && <div className="text-xs text-muted-foreground">{renterEmail}</div>}
                             </>
                           ) : "—"}
                         </TableCell>
-                        <TableCell>{!deleted && !isAvailable ? fmtDateOrDash(renewal) : "—"}</TableCell>
-                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                          {deleted ? null : isAvailable ? (
+                        <TableCell>{!isAvailable ? fmtDateOrDash(renewal) : "—"}</TableCell>
+                        <TableCell className="text-right">
+                          {isAvailable ? (
                             <div className="flex gap-1 justify-end">
                               <Button variant="outline" size="sm" onClick={() => setAssignFor(l)}>Assign</Button>
-                              <Button variant="ghost" size="sm" onClick={() => setDeleteUnitTarget(l)} title="Delete locker">
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
                             </div>
                           ) : (
                             <div className="flex gap-1 justify-end">
