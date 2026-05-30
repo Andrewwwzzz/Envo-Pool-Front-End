@@ -13,6 +13,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Copy, Check } from "lucide-react";
 import { useMemo, useState } from "react";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
+import { getTableLabel } from "@/lib/tableLabel";
+import { useAdminTables } from "@/hooks/useAdmin";
 
 interface Props {
   booking: any | null;
