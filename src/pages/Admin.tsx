@@ -2408,8 +2408,6 @@ function VerificationTab() {
   const [legalName, setLegalName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [search, setSearch] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejecting, setRejecting] = useState<string | null>(null);
