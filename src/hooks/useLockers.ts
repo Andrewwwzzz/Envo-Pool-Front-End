@@ -20,15 +20,38 @@ async function getJson(path: string) {
   return r.json();
 }
 
-export function useLockerUnits(includeDeleted: boolean = true) {
+export function useLockerUnits(filter: "default" | "all" = "all") {
   return useQuery<LockerUnit[]>({
-    queryKey: ["lockers", "units", { includeDeleted }],
+    queryKey: ["lockers", "units", { filter }],
     queryFn: async () => {
-      const j = await getJson(`/api/lockers/units${includeDeleted ? "?includeDeleted=1" : ""}`);
-      return Array.isArray(j) ? j : j.units ?? [];
+      const qs = filter === "default" ? "" : `?filter=${filter}`;
+      const j = await getJson(`/api/lockers/units${qs}`);
+      const arr = Array.isArray(j) ? j : j.units ?? [];
+      return arr.map((u: any) => ({
+        ...u,
+        deleted: u.deleted === true || u.isDeleted === true || !!u.deletedAt,
+        deletedAt: u.deletedAt || u.deleted_at,
+        deletedBy: u.deletedBy || u.deleted_by,
+        deleteReason: u.deleteReason || u.deletionReason || u.deleted_reason,
+      }));
     },
   });
 }
+
+export function useDeleteLockerUnit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const r = await apiFetch(`/api/lockers/units/${id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lockers"] }),
+  });
+}
+
 
 export function useLockerRentals() {
   return useQuery<any[]>({

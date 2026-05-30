@@ -33,13 +33,21 @@ async function getJson(path: string) {
   return r.json();
 }
 
-export function useMembershipPlans() {
+export function useMembershipPlans(filter: "default" | "all" = "default") {
   return useQuery<MembershipPlan[]>({
-    queryKey: ["membership", "plans"],
+    queryKey: ["membership", "plans", { filter }],
     queryFn: async () => {
-      const j = await getJson("/api/membership/plans");
+      const qs = filter === "default" ? "" : `?filter=${filter}`;
+      const j = await getJson(`/api/membership/plans${qs}`);
       const arr = Array.isArray(j) ? j : j.plans ?? [];
-      return arr.map((p: any) => ({ ...p, id: p.id ?? p._id }));
+      return arr.map((p: any) => ({
+        ...p,
+        id: p.id ?? p._id,
+        deleted: p.deleted === true || p.isDeleted === true || !!p.deletedAt,
+        deletedAt: p.deletedAt || p.deleted_at,
+        deletedBy: p.deletedBy || p.deleted_by,
+        deleteReason: p.deleteReason || p.deletionReason || p.deleted_reason,
+      }));
     },
   });
 }
@@ -71,13 +79,17 @@ export function useUpdateMembershipPlan() {
 export function useDeleteMembershipPlan() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const r = await apiFetch(`/api/membership/plans/${id}`, { method: "DELETE" });
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const r = await apiFetch(`/api/membership/plans/${id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason }),
+      });
       if (!r.ok) throw new Error(await r.text());
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["membership", "plans"] }),
   });
 }
+
 
 export function useAdminSubscriptions(filter: "default" | "deleted" | "all" = "default") {
   return useQuery<any[]>({
