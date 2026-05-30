@@ -93,8 +93,8 @@ export default function RewardsTab({
   onCustomerClick?: (info: { id?: string; email: string; name: string }) => void;
 }) {
   const { toast } = useToast();
-  const [showDeletedToggle, setShowDeletedToggle] = useState(false);
-  const { data: rewards, isLoading } = useAllAdminRewards(showDeletedToggle ? "deleted" : "default");
+  const [hideDeleted, setHideDeleted] = useState(false);
+  const { data: rewards, isLoading } = useAllAdminRewards(hideDeleted ? "default" : "all");
   const deleteReward = useDeleteReward();
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailRecord, setDetailRecord] = useState<any | null>(null);
@@ -103,14 +103,13 @@ export default function RewardsTab({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [reasonFilter, setReasonFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
-  const showDeleted = showDeletedToggle;
-  const setShowDeleted = setShowDeletedToggle;
+
 
   const filtered = useMemo(() => {
     const list = rewards || [];
     const q = search.trim().toLowerCase();
     return list.filter((r: any) => {
-      if (!showDeleted && isDeleted(r)) return false;
+      if (hideDeleted && isDeleted(r)) return false;
       if (typeFilter !== "all" && r.type !== typeFilter) return false;
       if (reasonFilter !== "all" && r.reason !== reasonFilter) return false;
       if (statusFilter === "active" && !isActive(r)) return false;
@@ -122,7 +121,8 @@ export default function RewardsTab({
       }
       return true;
     });
-  }, [rewards, typeFilter, statusFilter, reasonFilter, search, showDeleted]);
+  }, [rewards, typeFilter, statusFilter, reasonFilter, search, hideDeleted]);
+
 
   const summary = useMemo(() => {
     const list = (rewards || []).filter((r: any) => !isDeleted(r));
@@ -149,12 +149,13 @@ export default function RewardsTab({
           </CardTitle>
           <Button
             size="sm"
-            variant={showDeleted ? "secondary" : "outline"}
-            onClick={() => setShowDeleted((v) => !v)}
+            variant={hideDeleted ? "secondary" : "outline"}
+            onClick={() => setHideDeleted((v) => !v)}
           >
-            {showDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-            {showDeleted ? "Hide Deleted" : "Show Deleted"}
+            {hideDeleted ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+            {hideDeleted ? "Show Deleted" : "Hide Deleted"}
           </Button>
+
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

@@ -443,8 +443,8 @@ function LockerCell({ sub }: { sub: any }) {
 export default function MembershipTab() {
   const { toast } = useToast();
   const { data: plans = [] } = useMembershipPlans();
-  const [showDeleted, setShowDeleted] = useState(false);
-  const { data: subs = [] } = useAdminSubscriptions(showDeleted ? "deleted" : "default");
+  const [hideDeleted, setHideDeleted] = useState(false);
+  const { data: subs = [] } = useAdminSubscriptions(hideDeleted ? "default" : "all");
   const del = useDeleteMembershipPlan();
   const cancel = useCancelMembership();
   const deleteSub = useDeleteMembership();
@@ -518,12 +518,13 @@ export default function MembershipTab() {
           <div className="flex items-center gap-2">
             <Button
               size="sm"
-              variant={showDeleted ? "secondary" : "outline"}
-              onClick={() => setShowDeleted((v) => !v)}
+              variant={hideDeleted ? "secondary" : "outline"}
+              onClick={() => setHideDeleted((v) => !v)}
             >
-              {showDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-              {showDeleted ? "Hide Deleted" : "Show Deleted"}
+              {hideDeleted ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+              {hideDeleted ? "Show Deleted" : "Hide Deleted"}
             </Button>
+
             <Button size="sm" onClick={() => setAssignOpen(true)}><Plus className="h-4 w-4" /> Assign Membership</Button>
           </div>
         </CardHeader>
