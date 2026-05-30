@@ -7,6 +7,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { useSocket } from "@/hooks/useSocket";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Booking from "./pages/Booking";
 import PaymentVerification from "./pages/PaymentVerification";
 import BookingConfirmed from "./pages/BookingConfirmed";
