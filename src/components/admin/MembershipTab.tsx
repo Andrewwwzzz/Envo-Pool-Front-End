@@ -445,6 +445,7 @@ export default function MembershipTab() {
   const { data: plans = [] } = useMembershipPlans();
   const [hideDeleted, setHideDeleted] = useState(false);
   const { data: subs = [] } = useAdminSubscriptions(hideDeleted ? "default" : "all");
+  const { data: customers = [] } = useAdminCustomers("");
   const del = useDeleteMembershipPlan();
   const cancel = useCancelMembership();
   const deleteSub = useDeleteMembership();
@@ -668,7 +669,7 @@ export default function MembershipTab() {
           </DialogHeader>
           {detailRecord && (
             <div className="space-y-3">
-              <DeletedBanner info={getDeletedInfo(detailRecord)} />
+              <DeletedBanner info={getDeletedInfo(detailRecord, customers)} />
               <div className="opacity-70 text-sm space-y-1.5">
                 {(() => {
                   const user = typeof detailRecord.userId === "object" ? detailRecord.userId : null;

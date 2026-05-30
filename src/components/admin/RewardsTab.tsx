@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { fmtDateSG } from "@/lib/sgTime";
 import ReasonDialog from "./ReasonDialog";
 import DeletedBanner, { getDeletedInfo, isDeleted } from "./DeletedBanner";
+import { useAdminCustomers } from "@/hooks/useAdmin";
 
 const TYPE_LABELS: Record<string, string> = {
   free_session: "Free Session",
@@ -95,6 +96,7 @@ export default function RewardsTab({
   const { toast } = useToast();
   const [hideDeleted, setHideDeleted] = useState(false);
   const { data: rewards, isLoading } = useAllAdminRewards(hideDeleted ? "default" : "all");
+  const { data: customers = [] } = useAdminCustomers("");
   const deleteReward = useDeleteReward();
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailRecord, setDetailRecord] = useState<any | null>(null);
@@ -335,7 +337,7 @@ export default function RewardsTab({
           </DialogHeader>
           {detailRecord && (
             <div className="space-y-3">
-              <DeletedBanner info={getDeletedInfo(detailRecord)} />
+              <DeletedBanner info={getDeletedInfo(detailRecord, customers)} />
               <div className="opacity-70 text-sm space-y-1.5">
                 <Row label="Code" value={detailRecord.code} mono />
                 <Row label="Type" value={TYPE_LABELS[detailRecord.type] || detailRecord.type} />

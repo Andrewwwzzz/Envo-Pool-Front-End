@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { fmtDateSG } from "@/lib/sgTime";
 import ReasonDialog from "./ReasonDialog";
 import DeletedBanner, { getDeletedInfo, isDeleted } from "./DeletedBanner";
+import { useAdminCustomers } from "@/hooks/useAdmin";
 
 const TYPE_LABELS: Record<RewardType, string> = {
   free_session: "Free Session (1 hr)",
@@ -34,6 +35,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const { data: rewards, isLoading } = useAdminRewards(userId);
   const issueReward = useIssueReward();
   const deleteReward = useDeleteReward();
+  const { data: customers = [] } = useAdminCustomers("");
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailRecord, setDetailRecord] = useState<any | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
@@ -244,7 +246,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
           </DialogHeader>
           {detailRecord && (
             <div className="space-y-3">
-              <DeletedBanner info={getDeletedInfo(detailRecord)} />
+              <DeletedBanner info={getDeletedInfo(detailRecord, customers)} />
               <div className="opacity-70 text-sm space-y-1.5">
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Code</span><span className="font-mono text-xs">{detailRecord.code}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Type</span><span>{TYPE_LABELS[detailRecord.type as RewardType] || detailRecord.type}</span></div>
