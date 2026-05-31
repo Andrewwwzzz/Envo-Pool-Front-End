@@ -56,7 +56,6 @@ const WalkinReceiptDialog = ({ session, open, onOpenChange, live }: Props) => {
   const membershipDiscountAmount = Number(s.membershipDiscountAmount ?? s.membershipDiscount ?? s.membership_discount_amount ?? s.membership_discount ?? 0);
   const membershipDiscountPercent = Number(s.membershipDiscountPercent ?? s.membership_discount_percent ?? 0);
   const freeMinutesCredit = Number(s.freeMinutesCredit ?? s.free_minutes_credit ?? 0);
-  // Round free minutes to whole number
   const freeMinutesApplied = Math.round(Number(s.freeMinutesApplied ?? s.free_minutes_applied ?? 0));
   const hasBreakdown = baseTotal > 0 && (membershipDiscountAmount > 0 || freeMinutesCredit > 0);
   const effectiveSubtotal = baseTotal > 0 ? baseTotal : amount;
@@ -66,8 +65,6 @@ const WalkinReceiptDialog = ({ session, open, onOpenChange, live }: Props) => {
     : Array.isArray(s.pricing_segments)
     ? s.pricing_segments
     : [];
-
-  // Map segments — read segmentCost and hourlyRate correctly, filter out $0 cost segments
   const segments = rawSegments
     .map((seg: any) => {
       const sStart = seg.startTime || seg.start_time || seg.startedAt;
@@ -76,12 +73,9 @@ const WalkinReceiptDialog = ({ session, open, onOpenChange, live }: Props) => {
       const sCost = Number(seg.segmentCost ?? seg.cost ?? seg.amount ?? 0);
       return { sStart, sEnd, sRate, sCost };
     })
-    .filter((seg) => seg.sCost > 0); // hide segments with no matching pricing rule
+    .filter((seg) => seg.sCost > 0);
 
-  const noRuleSegments = rawSegments.filter((seg: any) => {
-    const sCost = Number(seg.segmentCost ?? seg.cost ?? seg.amount ?? 0);
-    return sCost === 0;
-  });
+  const hasNoRuleSegments = rawSegments.some((seg: any) => Number(seg.segmentCost ?? seg.cost ?? seg.amount ?? 0) === 0);
 
   const tableLabel = resolveTableLabel(s.tableId, tables as any) || "Table ?";
 
@@ -143,7 +137,7 @@ const WalkinReceiptDialog = ({ session, open, onOpenChange, live }: Props) => {
                       <span className="font-medium tabular-nums">= ${seg.sCost.toFixed(2)}</span>
                     </div>
                   ))}
-                  {noRuleSegments.length > 0 && (
+                  {hasNoRuleSegments && (
                     <div className="text-xs text-muted-foreground italic pt-1">
                       No pricing rule active for part of this session
                     </div>
