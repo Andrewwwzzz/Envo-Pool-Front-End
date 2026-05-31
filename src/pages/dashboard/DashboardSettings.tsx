@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { List as ListIcon, Eye, Save, Loader2 } from "lucide-react";
+import { List as ListIcon, Eye, Save, Loader2, CheckCircle, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 import { fmtDateSG } from "@/lib/sgTime";
@@ -27,6 +27,12 @@ export default function DashboardSettings() {
   const [hasChanges, setHasChanges] = useState(false);
 
   const kycVerified = !!profile?.kyc?.verified;
+  const isPhoneVerified = !!profile?.isPhoneVerified;
+
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpVerifyLoading, setOtpVerifyLoading] = useState(false);
   const kycDob = profile?.kyc?.dob ?? null;
   const kycName = profile?.kyc?.name ?? null;
 
@@ -104,6 +110,48 @@ export default function DashboardSettings() {
     }
   };
 
+  const handleSendOtp = async () => {
+    if (!phone.trim()) {
+      toast({ title: "Please enter a phone number first", variant: "destructive" });
+      return;
+    }
+    setOtpLoading(true);
+    try {
+      const res = await apiFetch("/api/auth/send-otp", {
+        method: "POST",
+        body: JSON.stringify({ phone: phone.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send OTP");
+      setOtpSent(true);
+      toast({ title: "OTP sent to your WhatsApp!" });
+    } catch (err: any) {
+      toast({ title: "Failed to send OTP", description: err.message, variant: "destructive" });
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otp.trim()) return;
+    setOtpVerifyLoading(true);
+    try {
+      const res = await apiFetch("/api/auth/verify-otp", {
+        method: "POST",
+        body: JSON.stringify({ otp: otp.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Invalid OTP");
+      toast({ title: "✅ Phone number verified!" });
+      setOtpSent(false);
+      setOtp("");
+    } catch (err: any) {
+      toast({ title: "Verification failed", description: err.message, variant: "destructive" });
+    } finally {
+      setOtpVerifyLoading(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     if (usernameError) return;
     try {
@@ -171,7 +219,42 @@ export default function DashboardSettings() {
 
           <div className="space-y-2">
             <Label htmlFor="phone">Phone Number</Label>
-            <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 91234567" />
+            {isPhoneVerified ? (
+              <div className="flex items-center gap-2">
+                <Input id="phone" type="tel" value={phone} disabled className="bg-muted/50 cursor-not-allowed" />
+                <CheckCircle className="h-5 w-5 text-emerald-500 shrink-0" />
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 91234567" />
+                  {kycVerified && (
+                    <Button type="button" variant="outline" onClick={handleSendOtp} disabled={otpLoading} className="shrink-0">
+                      {otpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
+                    </Button>
+                  )}
+                </div>
+                {!kycVerified && (
+                  <p className="text-xs text-muted-foreground">Account must be verified before you can verify your phone number</p>
+                )}
+                {otpSent && (
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      placeholder="Enter 6-digit OTP from WhatsApp"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      maxLength={6}
+                    />
+                    <Button type="button" onClick={handleVerifyOtp} disabled={otpVerifyLoading || otp.length !== 6} className="shrink-0">
+                      {otpVerifyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {isPhoneVerified ? "Verified · WhatsApp notifications enabled" : "Verify your phone to receive WhatsApp notifications"}
+            </p>
           </div>
 
           <div className="space-y-2">
