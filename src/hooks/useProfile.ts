@@ -26,7 +26,6 @@ export function useProfile() {
       return profile;
     },
     enabled: !!user,
-    initialData: () => user ? getCached(`profile-${user.id}`) : undefined,
   });
 }
 
