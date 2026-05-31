@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 import { useProfile, useUpdateProfile } from "@/hooks/useProfile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ export default function DashboardSettings() {
   const { data: profile, isLoading: profileLoading } = useProfile();
   const updateProfile = useUpdateProfile();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
@@ -296,3 +298,6 @@ export default function DashboardSettings() {
     </>
   );
 }
+
+
+
