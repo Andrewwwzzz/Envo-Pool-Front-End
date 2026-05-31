@@ -492,7 +492,7 @@ export default function MembershipTab() {
                       <Button variant="ghost" size="icon" onClick={() => setDeletePlanTarget(p)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </div>
-                  {p.description && <p className="text-xs text-muted-foreground">{p.description}</p>}
+                  {p.description && <p className="text-xs text-muted-foreground whitespace-pre-line">{p.description}</p>}
                   <div className="flex flex-wrap gap-1">
                     {!!p.bookingDiscountPct && <Badge variant="secondary">{p.bookingDiscountPct}% off</Badge>}
                     {!!p.freeMinutesPerVisit && <Badge variant="secondary">{p.freeMinutesPerVisit}m free/visit</Badge>}
@@ -666,3 +666,4 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
