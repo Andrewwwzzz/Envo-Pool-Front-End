@@ -349,17 +349,17 @@ export default function DashboardMembership() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
-                    <ul className="space-y-1 text-muted-foreground list-none">
-                      {!!p.freeMinutesPerVisit && (
-                        <li>⏱ Free {p.freeMinutesPerVisit} mins on first booking each day</li>
+                    {!(p.freeMinutesPerVisit ?? p.benefits?.freeMinutesPerVisit) && !(p.bookingDiscountPct ?? p.benefits?.bookingDiscountPct) && !p.lockerIncluded && !p.benefits?.lockerIncluded && p.description && <p className="text-muted-foreground whitespace-pre-line text-sm">{p.description}</p>}<ul className="space-y-1 text-muted-foreground list-none">
+                      {!!(p.freeMinutesPerVisit ?? p.benefits?.freeMinutesPerVisit) && (
+                        <li>⏱ Free {p.freeMinutesPerVisit ?? p.benefits?.freeMinutesPerVisit} mins on first booking each day</li>
                       )}
-                      {!!p.bookingDiscountPct && (
-                        <li>% {p.bookingDiscountPct}% discount on all bookings</li>
+                      {!!(p.bookingDiscountPct ?? p.benefits?.bookingDiscountPct) && (
+                        <li>% {p.bookingDiscountPct ?? p.benefits?.bookingDiscountPct}% discount on all bookings</li>
                       )}
                       {p.freeDrinkPerVisit && (
                         <li>🍺 Free drink / snack per visit</li>
                       )}
-                      {p.lockerIncluded && (
+                      {(p.lockerIncluded ?? p.benefits?.lockerIncluded) && (
                         <li>🔒 Locker rental included</li>
                       )}
                     </ul>
@@ -532,3 +532,4 @@ export default function DashboardMembership() {
     </div>
   );
 }
+
