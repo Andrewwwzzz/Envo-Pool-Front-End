@@ -1075,7 +1075,7 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
   const membershipDiscountAmount = Number(s.membershipDiscountAmount ?? s.membershipDiscount ?? s.membership_discount_amount ?? s.membership_discount ?? 0);
   const membershipDiscountPercent = Number(s.membershipDiscountPercent ?? s.membership_discount_percent ?? 0);
   const freeMinutesCredit = Number(s.freeMinutesCredit ?? s.free_minutes_credit ?? 0);
-  const freeMinutesApplied = Math.round(Number(s.freeMinutesApplied ?? s.free_minutes_applied ?? 0);
+  const freeMinutesApplied = Math.round(Number(s.freeMinutesApplied ?? s.free_minutes_applied ?? 0));
   const hasDiscountBreakdown = !isActive && (membershipDiscountAmount > 0 || freeMinutesCredit > 0);
   const staff = s.startedBy?.name || s.startedBy?.email || "—";
   const customerName =
