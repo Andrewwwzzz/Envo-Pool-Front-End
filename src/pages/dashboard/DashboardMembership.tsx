@@ -180,8 +180,7 @@ function MembershipCard({
                 <li className="flex items-start gap-2">
                   <Timer className="h-4 w-4 text-accent mt-0.5" />
                   <span>
-                    <span className="font-medium">⏱ {freeMinutesPerVisit}mins free per visit</span>
-                    <span className="text-muted-foreground"> — auto-applied daily</span>
+                    <span className="font-medium">⏱ {freeMinutesPerVisit} mins free daily (1st booking)</span>
                   </span>
                 </li>
               )}
@@ -350,17 +349,20 @@ export default function DashboardMembership() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
-                    {p.description && <p className="text-muted-foreground">{p.description}</p>}
-                    <div className="flex flex-wrap gap-1">
-                      {!!p.bookingDiscountPct && (
-                        <Badge variant="secondary">{p.bookingDiscountPct}% off</Badge>
-                      )}
+                    <ul className="space-y-1 text-muted-foreground list-none">
                       {!!p.freeMinutesPerVisit && (
-                        <Badge variant="secondary">{p.freeMinutesPerVisit}m free</Badge>
+                        <li>⏱ Free {p.freeMinutesPerVisit} mins on first booking each day</li>
                       )}
-                      {p.freeDrinkPerVisit && <Badge variant="secondary">Free drink</Badge>}
-                      {p.lockerIncluded && <Badge variant="secondary">Locker</Badge>}
-                    </div>
+                      {!!p.bookingDiscountPct && (
+                        <li>% {p.bookingDiscountPct}% discount on all bookings</li>
+                      )}
+                      {p.freeDrinkPerVisit && (
+                        <li>🍺 Free drink / snack per visit</li>
+                      )}
+                      {p.lockerIncluded && (
+                        <li>🔒 Locker rental included</li>
+                      )}
+                    </ul>
                     {alreadySubscribed || canAfford ? (
                       btn
                     ) : (
@@ -530,4 +532,3 @@ export default function DashboardMembership() {
     </div>
   );
 }
-
