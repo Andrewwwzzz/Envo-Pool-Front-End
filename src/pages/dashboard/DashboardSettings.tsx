@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { List as ListIcon, Eye, Save, Loader2, CheckCircle, Phone } from "lucide-react";
+import { List as ListIcon, Eye, Save, Loader2, CheckCircle, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 import { fmtDateSG } from "@/lib/sgTime";
@@ -230,7 +230,7 @@ export default function DashboardSettings() {
                   <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 91234567" />
                   {kycVerified && (
                     <Button type="button" variant="outline" onClick={handleSendOtp} disabled={otpLoading} className="shrink-0">
-                      {otpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
+                      {otpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
                     </Button>
                   )}
                 </div>
