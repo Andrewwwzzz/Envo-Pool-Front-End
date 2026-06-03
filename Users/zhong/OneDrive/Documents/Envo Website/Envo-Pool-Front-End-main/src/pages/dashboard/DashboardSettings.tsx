@@ -32,6 +32,7 @@ export default function DashboardSettings() {
   const isPhoneVerified = !!profile?.isPhoneVerified;
 
   const [otpSent, setOtpSent] = useState(false);
+  const [waLink, setWaLink] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpVerifyLoading, setOtpVerifyLoading] = useState(false);
@@ -126,7 +127,8 @@ export default function DashboardSettings() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to send OTP");
       setOtpSent(true);
-      toast({ title: "OTP sent to your WhatsApp!" });
+      setWaLink(data.waLink || null);
+      toast({ title: "Open WhatsApp to receive your OTP" });
     } catch (err: any) {
       toast({ title: "Failed to send OTP", description: err.message, variant: "destructive" });
     } finally {
@@ -239,7 +241,17 @@ export default function DashboardSettings() {
                 {!kycVerified && (
                   <p className="text-xs text-muted-foreground">Account must be verified before you can verify your phone number</p>
                 )}
-                {otpSent && (
+                {otpSent && waLink && (
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full rounded-md bg-green-600 hover:bg-green-700 text-white py-2 px-4 text-sm font-medium transition-colors"
+                >
+                  💬 Open WhatsApp to get OTP
+                </a>
+              )}
+              {otpSent && (
                   <div className="flex gap-2 mt-2">
                     <Input
                       placeholder="Enter 6-digit OTP from WhatsApp"
@@ -298,8 +310,3 @@ export default function DashboardSettings() {
     </>
   );
 }
-
-
-
-
-
