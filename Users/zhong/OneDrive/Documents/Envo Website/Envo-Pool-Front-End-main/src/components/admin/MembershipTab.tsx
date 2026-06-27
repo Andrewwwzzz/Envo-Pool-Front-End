@@ -40,7 +40,6 @@ type PlanForm = {
   freeDrinkPerVisit: boolean;
   lockerIncluded: boolean;
   sortOrder: string;
-  pointsMultiplier: string;
 };
 
 const emptyForm: PlanForm = {
@@ -53,7 +52,6 @@ const emptyForm: PlanForm = {
   freeDrinkPerVisit: false,
   lockerIncluded: false,
   sortOrder: "0",
-  pointsMultiplier: "1",
 };
 
 function toPayload(f: PlanForm): any {
@@ -68,7 +66,6 @@ function toPayload(f: PlanForm): any {
       freeMinutesPerVisit: Number(f.freeMinutesPerVisit) || 0,
       freeDrinkPerVisit: Boolean(f.freeDrinkPerVisit),
       lockerIncluded: Boolean(f.lockerIncluded),
-      pointsMultiplier: Math.max(1, Number(f.pointsMultiplier) || 1),
     },
   };
 }
@@ -85,7 +82,6 @@ function fromPlan(p: MembershipPlan): PlanForm {
     freeDrinkPerVisit: !!(b.freeDrinkPerVisit ?? p.freeDrinkPerVisit),
     lockerIncluded: !!(b.lockerIncluded ?? p.lockerIncluded),
     sortOrder: String(p.sortOrder ?? 0),
-    pointsMultiplier: String((p as any).benefits?.pointsMultiplier ?? 1),
   };
 }
 
@@ -168,17 +164,6 @@ function PlanFormDialog({
               <div className="space-y-1.5">
                 <Label className="text-xs">Sort Order</Label>
                 <Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Points Multiplier</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  step="0.5"
-                  value={form.pointsMultiplier}
-                  onChange={(e) => setForm({ ...form, pointsMultiplier: e.target.value })}
-                  placeholder="e.g. 2 = double points"
-                />
               </div>
             </div>
             <div className="flex items-center justify-between">
@@ -513,9 +498,6 @@ export default function MembershipTab() {
                     {!!p.freeMinutesPerVisit && <Badge variant="secondary">{p.freeMinutesPerVisit}m free/visit</Badge>}
                     {p.freeDrinkPerVisit && <Badge variant="secondary">Free drink</Badge>}
                     {p.lockerIncluded && <Badge variant="secondary">Locker</Badge>}
-                    {!!((p as any).benefits?.pointsMultiplier > 1) && (
-                      <Badge variant="secondary">⚡ {(p as any).benefits.pointsMultiplier}x Points</Badge>
-                    )}
                     {!!p.guestPassesPerMonth && <Badge variant="secondary">{p.guestPassesPerMonth} guest/mo</Badge>}
                   </div>
                 </div>
@@ -684,3 +666,4 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
