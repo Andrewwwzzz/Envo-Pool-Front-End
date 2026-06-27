@@ -1,0 +1,81 @@
+import { Toaster } from "@/components/ui/toaster";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { useSocket } from "@/hooks/useSocket";
+import Index from "./pages/Index";
+import Auth from "./pages/Auth";
+import Booking from "./pages/Booking";
+import PaymentVerification from "./pages/PaymentVerification";
+import BookingConfirmed from "./pages/BookingConfirmed";
+import BookingRefunded from "./pages/BookingRefunded";
+import DashboardLayout from "./components/dashboard/DashboardLayout";
+import DashboardHome from "./pages/dashboard/DashboardHome";
+import DashboardTransactions from "./pages/dashboard/DashboardTransactions";
+import DashboardSettings from "./pages/dashboard/DashboardSettings";
+import DashboardRewards from "./pages/dashboard/DashboardRewards";
+import DashboardMembership from "./pages/dashboard/DashboardMembership";
+import DashboardBookings from "./pages/dashboard/DashboardBookings";
+import Admin from "./pages/Admin";
+import Terms from "./pages/Terms";
+import Kyc from "./pages/Kyc";
+import NotFound from "./pages/NotFound";
+
+// Legacy redirects — send old URLs to payment-verification (socket-driven)
+const LegacyRedirect = () => {
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get("session_id");
+  return <Navigate to={`/payment-verification${sessionId ? `?session_id=${sessionId}` : ""}`} replace />;
+};
+
+const queryClient = new QueryClient();
+
+const SocketProvider = ({ children }: { children: React.ReactNode }) => {
+  useSocket();
+  return <>{children}</>;
+};
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <SocketProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/login" element={<Navigate to="/auth" replace />} />
+              <Route path="/booking" element={<Booking />} />
+              <Route path="/payment-verification" element={<PaymentVerification />} />
+              <Route path="/payment-success" element={<PaymentVerification />} />
+              <Route path="/booking-confirmed" element={<BookingConfirmed />} />
+              <Route path="/booking-refunded" element={<BookingRefunded />} />
+              {/* Legacy redirects */}
+              <Route path="/booking-success" element={<LegacyRedirect />} />
+              <Route path="/dashboard" element={<DashboardLayout />}>
+                <Route index element={<DashboardHome />} />
+                <Route path="transactions" element={<DashboardTransactions />} />
+                <Route path="settings" element={<DashboardSettings />} />
+                <Route path="rewards" element={<DashboardRewards />} />
+                <Route path="membership" element={<DashboardMembership />} />
+                <Route path="bookings" element={<DashboardBookings />} />
+              </Route>
+              <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/kyc" element={<Kyc />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </SocketProvider>
+    </AuthProvider>
+  </QueryClientProvider>
+);
+
+export default App;
