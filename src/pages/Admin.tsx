@@ -3758,6 +3758,7 @@ function WalkinSessionsTab() {
   const { data: sessions, refetch } = useActiveWalkinSessions();
   const { data: tablesList } = useAdminTables();
   const forceStop = useForceStopWalkin();
+  const { data: pendingFnbOrders = [] } = useAdminFnbOrders("pending");
 
   const [now, setNow] = useState(Date.now());
   const [conflictAlert, setConflictAlert] = useState<string | null>(null);
@@ -3830,7 +3831,7 @@ function WalkinSessionsTab() {
           <AlertTitle className="text-amber-400">F&B Orders Pending</AlertTitle>
           <AlertDescription className="text-amber-300">
             {pendingFnbOrders.length} order{pendingFnbOrders.length > 1 ? "s" : ""} waiting to be served.{" "}
-            <Button variant="ghost" size="sm" className="ml-1 h-6 text-amber-300 hover:text-amber-100 px-1" onClick={() => setTab("fnb")}>
+            <Button variant="ghost" size="sm" className="ml-1 h-6 text-amber-300 hover:text-amber-100 px-1" onClick={() => window.location.href = "/admin?tab=fnb"}>
               View Orders →
             </Button>
           </AlertDescription>
