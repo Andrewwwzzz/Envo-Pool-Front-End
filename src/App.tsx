@@ -1,4 +1,4 @@
-import { Toaster } from "@/components/ui/toaster";
+﻿import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -23,7 +23,7 @@ import Terms from "./pages/Terms";
 import Kyc from "./pages/Kyc";
 import NotFound from "./pages/NotFound";
 
-// Legacy redirects — send old URLs to payment-verification (socket-driven)
+// Legacy redirects â€” send old URLs to payment-verification (socket-driven)
 const LegacyRedirect = () => {
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("session_id");
