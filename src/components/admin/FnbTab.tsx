@@ -43,8 +43,9 @@ const EMPTY_FORM = {
 
 export function FnbTab() {
   const [orderFilter, setOrderFilter] = useState("all");
-  const [cancelDialog, setCancelDialog] = useState<{ id: string; name: string } | null>(null);
+  const [cancelDialog, setCancelDialog] = useState<{ id: string; name: string; price: number } | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [cancelRefund, setCancelRefund] = useState(false);
   const [productDialog, setProductDialog] = useState<"create" | "edit" | "restock" | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<FnbProduct | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -118,8 +119,8 @@ export function FnbTab() {
   const handleCancel = () => {
     if (!cancelDialog) return;
     cancelOrder.mutate(
-      { orderId: cancelDialog.id, reason: cancelReason },
-      { onSettled: () => { setCancelDialog(null); setCancelReason(""); } }
+      { orderId: cancelDialog.id, reason: cancelReason, refund: cancelRefund },
+      { onSettled: () => { setCancelDialog(null); setCancelReason(""); setCancelRefund(false); } }
     );
   };
 
@@ -237,7 +238,7 @@ export function FnbTab() {
                           <Button
                             size="sm"
                             variant="destructive"
-                            onClick={() => { setCancelDialog({ id: order._id, name: order.productName }); setCancelReason(""); }}
+                            onClick={() => { setCancelDialog({ id: order._id, name: order.productName, price: order.totalPrice || 0 }); setCancelReason(""); setCancelRefund(false); }}
                           >
                             <XCircle className="h-4 w-4" />
                           </Button>
@@ -313,6 +314,15 @@ export function FnbTab() {
               <Label className="text-xs">Reason <span className="text-red-400">*</span></Label>
               <Input placeholder="e.g. Out of stock (required)" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
             </div>
+            {cancelDialog && cancelDialog.price > 0 && (
+              <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
+                <div>
+                  <p className="text-sm font-medium">Refund to wallet</p>
+                  <p className="text-xs text-muted-foreground">${cancelDialog.price.toFixed(2)} back to customer wallet</p>
+                </div>
+                <Switch checked={cancelRefund} onCheckedChange={setCancelRefund} />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCancelDialog(null)}>Back</Button>

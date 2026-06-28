@@ -400,6 +400,7 @@ function BookingsTab() {
   const updateStatus = useUpdateBookingStatus();
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
+  const [cancelRefund, setCancelRefund] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
 
   const now = new Date();
@@ -548,7 +549,7 @@ function BookingsTab() {
       }}
     />
 
-    <Dialog open={!!cancelTargetId} onOpenChange={(o) => { if (!o) { setCancelTargetId(null); setCancelReason(""); } }}>
+    <Dialog open={!!cancelTargetId} onOpenChange={(o) => { if (!o) { setCancelTargetId(null); setCancelReason(""); setCancelRefund(false); } }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Cancel Booking</DialogTitle>
@@ -561,6 +562,13 @@ function BookingsTab() {
           rows={4}
           maxLength={500}
         />
+        <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
+          <div>
+            <p className="text-sm font-medium">Refund to wallet</p>
+            <p className="text-xs text-muted-foreground">Return booking amount to customer wallet</p>
+          </div>
+          <Switch checked={cancelRefund} onCheckedChange={setCancelRefund} />
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { setCancelTargetId(null); setCancelReason(""); }}>Go Back</Button>
           <Button
@@ -569,8 +577,8 @@ function BookingsTab() {
             onClick={() => {
               if (!cancelTargetId) return;
               updateStatus.mutate(
-                { bookingId: cancelTargetId, status: "cancelled", reason: cancelReason.trim() },
-                { onSuccess: () => { setCancelTargetId(null); setCancelReason(""); } },
+                { bookingId: cancelTargetId, status: "cancelled", reason: cancelReason.trim(), refund: cancelRefund },
+                { onSuccess: () => { setCancelTargetId(null); setCancelReason(""); setCancelRefund(false); } },
               );
             }}
           >

@@ -174,10 +174,10 @@ export function useCancelFnbOrder() {
   const qc = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async ({ orderId, reason }: { orderId: string; reason?: string }) => {
+    mutationFn: async ({ orderId, reason, refund = false }: { orderId: string; reason?: string; refund?: boolean }) => {
       const res = await apiFetch(`/api/fnb/orders/${orderId}/cancel`, {
         method: "PATCH",
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify({ reason, refund }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to cancel order");
