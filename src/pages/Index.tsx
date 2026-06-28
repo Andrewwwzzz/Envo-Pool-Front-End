@@ -219,7 +219,7 @@ const Index = () => {
               </div>
               <div>
                 <p className="text-xs text-accent uppercase tracking-widest mb-1">Nearest MRT</p>
-                <p className="text-foreground">Aljunied MRT (EW9) — 8 min walk</p>
+                <p className="text-foreground">Paya Lebar MRT (EW8/CC9) — 4 min walk</p>
               </div>
               <div>
                 <p className="text-xs text-accent uppercase tracking-widest mb-2">Opening Hours</p>
@@ -237,7 +237,7 @@ const Index = () => {
             </div>
             <div className="rounded-2xl overflow-hidden ring-1 ring-accent/10" style={{ minHeight: "320px" }}>
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3988.741!2d103.8793!3d1.3145!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31da181a4c8f5b4f%3A0x1234!2s511+Guillemard+Rd%2C+Singapore+399849!5e0!3m2!1sen!2ssg!4v1"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3988.8083782233!2d103.89068747460635!3d1.3162054986939!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31da181563e748a9%3A0xa4c80f429d4b7bcc!2s511+Guillemard+Rd%2C+Singapore+399849!5e0!3m2!1sen!2ssg!4v1"
                 width="100%"
                 height="320"
                 style={{ border: 0 }}
