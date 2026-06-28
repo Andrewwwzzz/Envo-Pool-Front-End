@@ -111,10 +111,7 @@
     @apply border-border;
   }
 
-  html {
-    background-color: hsl(220 30% 6%);
-    color-scheme: dark;
-  }
+  html { background-color: hsl(220, 30%, 6%) !important; }
 
   body {
     @apply bg-background text-foreground antialiased;
