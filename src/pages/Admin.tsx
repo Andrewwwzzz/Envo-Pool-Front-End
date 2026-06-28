@@ -32,6 +32,7 @@ import {
 import LogsTab from "@/components/admin/LogsTab";
 import MembershipTab from "@/components/admin/MembershipTab";
 import LockersTab from "@/components/admin/LockersTab";
+import { FnbTab } from "@/components/admin/FnbTab";
 import { OperatingHoursSection } from "@/components/admin/OperatingHoursSection";
 import { useAdminTransactions, useAdminActivityLogs } from "@/hooks/useAdminLogs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,6 +98,7 @@ const Admin = () => {
             <TabsTrigger value="promos">Promos</TabsTrigger>
             <TabsTrigger value="membership">Membership</TabsTrigger>
             <TabsTrigger value="lockers">Lockers</TabsTrigger>
+            <TabsTrigger value="fnb">F&B</TabsTrigger>
             <TabsTrigger value="walkin">Walk-in Sessions</TabsTrigger>
             
             <VerificationTabTrigger />
@@ -119,6 +121,8 @@ const Admin = () => {
           <TabsContent value="promos"><PromosTab /></TabsContent>
           <TabsContent value="membership"><MembershipTab /></TabsContent>
           <TabsContent value="lockers"><LockersTab /></TabsContent>
+          <TabsContent value="fnb"><FnbTab /></TabsContent>
+
           <TabsContent value="walkin"><WalkinSessionsTab /></TabsContent>
           
           <TabsContent value="verification"><VerificationTab /></TabsContent>

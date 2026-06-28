@@ -17,6 +17,7 @@ import DashboardTransactions from "./pages/dashboard/DashboardTransactions";
 import DashboardSettings from "./pages/dashboard/DashboardSettings";
 import DashboardRewards from "./pages/dashboard/DashboardRewards";
 import DashboardMembership from "./pages/dashboard/DashboardMembership";
+import DashboardFnb from "./pages/dashboard/DashboardFnb";
 import DashboardBookings from "./pages/dashboard/DashboardBookings";
 import Admin from "./pages/Admin";
 import Terms from "./pages/Terms";
@@ -62,6 +63,7 @@ const App = () => (
                 <Route path="settings" element={<DashboardSettings />} />
                 <Route path="rewards" element={<DashboardRewards />} />
                 <Route path="membership" element={<DashboardMembership />} />
+                <Route path="fnb" element={<DashboardFnb />} />
                 <Route path="bookings" element={<DashboardBookings />} />
               </Route>
               <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />

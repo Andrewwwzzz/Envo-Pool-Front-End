@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Menu, LogOut, LayoutDashboard, History, Settings as SettingsIcon, Gift, Crown } from "lucide-react";
+import { ArrowLeft, Menu, LogOut, LayoutDashboard, History, Settings as SettingsIcon, Gift, Crown, ShoppingBag } from "lucide-react";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -18,6 +18,7 @@ const navItems = [
   { to: "/dashboard/settings", label: "Account Settings", icon: SettingsIcon },
   { to: "/dashboard/rewards", label: "My Rewards", icon: Gift },
   { to: "/dashboard/membership", label: "Membership", icon: Crown },
+  { to: "/dashboard/fnb", label: "F&B", icon: ShoppingBag },
 ];
 
 export default function DashboardLayout() {
