@@ -27,6 +27,7 @@ interface CatalogItem {
   creditValue: number | null;
   isActive: boolean;
   sortOrder: number;
+  fnbProductId: string | null;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -55,6 +56,7 @@ const EMPTY_FORM = {
   discountValue: "",
   creditValue: "",
   sortOrder: "0",
+  fnbProductId: "",
 };
 
 function useAdminCatalog() {
@@ -69,10 +71,23 @@ function useAdminCatalog() {
   });
 }
 
+function useFnbProducts() {
+  return useQuery({
+    queryKey: ["fnb-menu-admin"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/fnb/products/admin");
+      if (!res.ok) return [] as { _id: string; name: string; category: string; isActive: boolean }[];
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []) as { _id: string; name: string; category: string; isActive: boolean }[];
+    },
+  });
+}
+
 export function RewardCatalogTab() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { data: items = [] } = useAdminCatalog();
+  const { data: fnbProducts = [] } = useFnbProducts();
   const [dialog, setDialog] = useState<"create" | "edit" | null>(null);
   const [selected, setSelected] = useState<CatalogItem | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -140,6 +155,7 @@ export function RewardCatalogTab() {
       discountValue: item.discountValue != null ? String(item.discountValue) : "",
       creditValue: item.creditValue != null ? String(item.creditValue) : "",
       sortOrder: String(item.sortOrder || 0),
+      fnbProductId: item.fnbProductId || "",
     });
     setDialog("edit");
   };
@@ -157,6 +173,7 @@ export function RewardCatalogTab() {
       discountValue: form.discountValue ? Number(form.discountValue) : null,
       creditValue: form.creditValue ? Number(form.creditValue) : null,
       sortOrder: Number(form.sortOrder),
+      fnbProductId: form.category === "food_drinks" && form.fnbProductId ? form.fnbProductId : null,
     });
   };
 
@@ -189,6 +206,11 @@ export function RewardCatalogTab() {
                     {item.type === "milestone" && <span>🏆 {item.milestoneThreshold} lifetime pts</span>}
                     {item.type === "points_exchange" && <span>💰 {item.pointCost} pts</span>}
                     {item.expiryDays && <span>Expires: {item.expiryDays}d</span>}
+                    {item.category === "food_drinks" && (
+                      item.fnbProductId
+                        ? <span className="text-emerald-400">✓ Menu item linked</span>
+                        : <span className="text-red-400 font-medium">⚠ No menu item linked — orders will fail</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
@@ -261,6 +283,29 @@ export function RewardCatalogTab() {
               <div className="space-y-1.5">
                 <Label className="text-xs">Points cost</Label>
                 <Input type="number" value={form.pointCost} onChange={(e) => setForm({ ...form, pointCost: e.target.value })} placeholder="e.g. 200" />
+              </div>
+            )}
+            {/* FnB product link — only for food_drinks category */}
+            {form.category === "food_drinks" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Linked Menu Item <span className="text-red-400">*</span></Label>
+                <Select
+                  value={form.fnbProductId || "__none__"}
+                  onValueChange={(v) => setForm({ ...form, fnbProductId: v === "__none__" ? "" : v })}
+                >
+                  <SelectTrigger className={!form.fnbProductId ? "border-red-500/50" : ""}>
+                    <SelectValue placeholder="Select a menu item to deliver..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— Not linked —</SelectItem>
+                    {fnbProducts.filter(p => p.isActive).map(p => (
+                      <SelectItem key={p._id} value={p._id}>{p.name} <span className="text-muted-foreground text-xs ml-1">({p.category})</span></SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!form.fnbProductId && (
+                  <p className="text-xs text-red-400">Required — customers won't be able to place orders without this</p>
+                )}
               </div>
             )}
             <div className="space-y-1.5">
