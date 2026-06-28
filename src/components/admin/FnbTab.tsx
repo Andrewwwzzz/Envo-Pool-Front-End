@@ -9,11 +9,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle2, XCircle, Clock, Plus, Pencil, Package, RotateCcw, AlertTriangle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api";
 import {
   useAdminFnbOrders, useAdminMenu, useServeOrder, useCancelFnbOrder,
   useCreateProduct, useUpdateProduct, useRestockProduct,
   FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS,
 } from "@/hooks/useFnb";
+
+function useFnbAnalytics() {
+  return useQuery({
+    queryKey: ["fnb-analytics"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/fnb/analytics");
+      if (!res.ok) throw new Error("Failed to load analytics");
+      return res.json();
+    },
+  });
+}
 import { fmtDateTimeSG } from "@/lib/sgTime";
 
 const EMPTY_FORM = {
@@ -38,6 +51,7 @@ export function FnbTab() {
   const [restockQty, setRestockQty] = useState("1");
 
   const { data: orders = [], isLoading: ordersLoading } = useAdminFnbOrders(orderFilter);
+  const { data: analytics } = useFnbAnalytics();
   const { data: products = [] } = useAdminMenu();
   const serveOrder = useServeOrder();
   const cancelOrder = useCancelFnbOrder();
@@ -117,6 +131,54 @@ export function FnbTab() {
 
   return (
     <div className="space-y-4">
+      {/* Analytics cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="border-border/50">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Today Revenue</p>
+            <p className="text-xl font-bold text-accent mt-1">${(analytics?.revenue || 0).toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Orders Today</p>
+            <p className="text-xl font-bold text-foreground mt-1">{analytics?.orderCount || 0}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Stock Cost Value</p>
+            <p className="text-xl font-bold text-foreground mt-1">${(analytics?.stockCostValue || 0).toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Stock Retail Value</p>
+            <p className="text-xl font-bold text-foreground mt-1">${(analytics?.stockRetailValue || 0).toFixed(2)}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Top items */}
+      {analytics?.topItems?.length > 0 && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Top Items Today</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {analytics.topItems.map((item: any) => (
+              <div key={item._id} className="flex items-center justify-between text-sm">
+                <span className="text-foreground">{item.name}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-muted-foreground">{item.count} orders</span>
+                  <span className="text-accent">${item.revenue.toFixed(2)}</span>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="orders">
         <TabsList>
           <TabsTrigger value="orders">Live Orders</TabsTrigger>
@@ -248,13 +310,13 @@ export function FnbTab() {
           <div className="space-y-3 py-2">
             <p className="text-sm text-muted-foreground">Cancel order for <span className="text-foreground font-medium">{cancelDialog?.name}</span>? Wallet will be refunded.</p>
             <div className="space-y-1.5">
-              <Label className="text-xs">Reason (optional)</Label>
-              <Input placeholder="e.g. Out of stock" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
+              <Label className="text-xs">Reason <span className="text-red-400">*</span></Label>
+              <Input placeholder="e.g. Out of stock (required)" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCancelDialog(null)}>Back</Button>
-            <Button variant="destructive" onClick={handleCancel} disabled={cancelOrder.isPending}>
+            <Button variant="destructive" onClick={handleCancel} disabled={cancelOrder.isPending || !cancelReason.trim()}>
               {cancelOrder.isPending ? "Cancelling..." : "Cancel Order"}
             </Button>
           </DialogFooter>

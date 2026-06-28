@@ -33,6 +33,7 @@ import LogsTab from "@/components/admin/LogsTab";
 import MembershipTab from "@/components/admin/MembershipTab";
 import LockersTab from "@/components/admin/LockersTab";
 import { FnbTab } from "@/components/admin/FnbTab";
+import { useAdminFnbOrders } from "@/hooks/useFnb";
 import { OperatingHoursSection } from "@/components/admin/OperatingHoursSection";
 import { useAdminTransactions, useAdminActivityLogs } from "@/hooks/useAdminLogs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,24 +87,32 @@ const Admin = () => {
 
       <main className="mx-auto max-w-6xl p-4 sm:p-6">
         <Tabs value={tab} onValueChange={setTab} className="space-y-6">
-          <TabsList className="flex-wrap">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="bookings">Bookings</TabsTrigger>
-            <TabsTrigger value="tables">Tables</TabsTrigger>
-            <TabsTrigger value="invoices">Invoices</TabsTrigger>
-            <TopUpsTabTrigger />
-            <TabsTrigger value="customers">Customers</TabsTrigger>
-            <TabsTrigger value="rewards">Rewards</TabsTrigger>
-            <TabsTrigger value="pricing">Pricing</TabsTrigger>
-            <TabsTrigger value="promos">Promos</TabsTrigger>
-            <TabsTrigger value="membership">Membership</TabsTrigger>
-            <TabsTrigger value="lockers">Lockers</TabsTrigger>
-            <TabsTrigger value="fnb">F&B</TabsTrigger>
-            <TabsTrigger value="walkin">Walk-in Sessions</TabsTrigger>
-            
-            <VerificationTabTrigger />
-            <TabsTrigger value="logs">Logs</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto pb-1">
+            <TabsList className="inline-flex w-max gap-0.5 min-w-full">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="bookings">Bookings</TabsTrigger>
+              <TabsTrigger value="tables">Tables</TabsTrigger>
+              <TabsTrigger value="invoices">Invoices</TabsTrigger>
+              <TopUpsTabTrigger />
+              <TabsTrigger value="customers">Customers</TabsTrigger>
+              <TabsTrigger value="rewards">Rewards</TabsTrigger>
+              <TabsTrigger value="pricing">Pricing</TabsTrigger>
+              <TabsTrigger value="promos">Promos</TabsTrigger>
+              <TabsTrigger value="membership">Membership</TabsTrigger>
+              <TabsTrigger value="lockers">Lockers</TabsTrigger>
+              <TabsTrigger value="fnb" className="relative">
+                F&B
+                {pendingFnbOrders.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                    {pendingFnbOrders.length > 9 ? "9+" : pendingFnbOrders.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="walkin">Walk-in</TabsTrigger>
+              <VerificationTabTrigger />
+              <TabsTrigger value="logs">Logs</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="overview"><OverviewTab /></TabsContent>
           <TabsContent value="bookings"><BookingsTab /></TabsContent>
@@ -3743,6 +3752,7 @@ function WalkinSessionsTab() {
 
   const [now, setNow] = useState(Date.now());
   const [conflictAlert, setConflictAlert] = useState<string | null>(null);
+  const { data: pendingFnbOrders = [] } = useAdminFnbOrders("pending");
   const [reasonOpen, setReasonOpen] = useState(false);
   const [reasonValue, setReasonValue] = useState("");
   const [targetId, setTargetId] = useState<string | null>(null);
@@ -3802,6 +3812,18 @@ function WalkinSessionsTab() {
               onClick={() => setConflictAlert(null)}
             >
               Dismiss
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      {pendingFnbOrders.length > 0 && (
+        <Alert className="border-amber-500/50 bg-amber-500/10">
+          <AlertTriangle className="h-4 w-4 text-amber-400" />
+          <AlertTitle className="text-amber-400">F&B Orders Pending</AlertTitle>
+          <AlertDescription className="text-amber-300">
+            {pendingFnbOrders.length} order{pendingFnbOrders.length > 1 ? "s" : ""} waiting to be served.{" "}
+            <Button variant="ghost" size="sm" className="ml-1 h-6 text-amber-300 hover:text-amber-100 px-1" onClick={() => setTab("fnb")}>
+              View Orders →
             </Button>
           </AlertDescription>
         </Alert>
