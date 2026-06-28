@@ -5,6 +5,10 @@
 @tailwind utilities;
 
 @layer base {
+  :root, html, body {
+    background-color: hsl(220 30% 6%);
+  }
+
   :root {
     --background: 220 20% 97%;
     --foreground: 220 25% 10%;
@@ -140,5 +144,6 @@
     box-shadow: 0 4px 24px -4px hsl(0 0% 0% / 0.4), 0 0 0 1px hsl(40 65% 48% / 0.06);
   }
 }
+
 
 
