@@ -147,7 +147,7 @@ export default function DashboardRewards() {
                     </div>
                   </div>
                   {canClaim && (
-                    <Button size="sm" onClick={() => claim.mutate(m._id || m.id)} disabled={claim.isPending}>
+                    <Button size="sm" onClick={() => claim.mutate(m.catalogId || m._id || m.id)} disabled={claim.isPending}>
                       Claim
                     </Button>
                   )}

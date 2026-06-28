@@ -55,7 +55,7 @@ export interface PointsLedgerEntry {
 }
 
 const arr = <T,>(data: any): T[] =>
-  Array.isArray(data) ? data : (data?.items ?? data?.catalog ?? data?.history ?? data?.rewards ?? data?.events ?? data?.milestones ?? []);
+  Array.isArray(data) ? data : (data?.items ?? data?.catalog ?? data?.history ?? data?.transactions ?? data?.rewards ?? data?.events ?? data?.milestones ?? []);
 
 // ---------- Catalog ----------
 export function useRewardCatalog() {
@@ -63,8 +63,8 @@ export function useRewardCatalog() {
     queryKey: ["reward-catalog"],
     queryFn: async () => {
       const res = await apiFetch("/api/rewards/catalog");
-      if (!res.ok) throw new Error("Failed to load catalog");
-      return arr<CatalogItem>(await res.json());
+      if (!res.ok) return [] as CatalogItem[];
+      return arr<CatalogItem>(await res.json().catch(() => []));
     },
   });
 }
@@ -150,8 +150,11 @@ export function useMyMilestones() {
     queryKey: ["my-milestones"],
     queryFn: async () => {
       const res = await apiFetch("/api/rewards/milestones");
-      if (!res.ok) throw new Error("Failed to load milestones");
-      return arr<MilestoneProgress>(await res.json());
+      if (!res.ok) return [] as MilestoneProgress[];
+      const data = await res.json().catch(() => ({}));
+      // Backend returns { lifetimePoints, currentPoints, milestones: [...], nextMilestone }
+      const list = Array.isArray(data) ? data : (data?.milestones ?? data?.items ?? []);
+      return list as MilestoneProgress[];
     },
   });
 }
@@ -205,8 +208,11 @@ export function usePointsHistory(userId?: string) {
     queryFn: async () => {
       const path = userId ? `/api/rewards/points/history/${userId}` : "/api/rewards/points/history";
       const res = await apiFetch(path);
-      if (!res.ok) throw new Error("Failed to load history");
-      return arr<PointsLedgerEntry>(await res.json());
+      if (!res.ok) return [] as PointsLedgerEntry[];
+      const data = await res.json().catch(() => ({}));
+      // Backend returns { transactions, history (alias), pagination }
+      const list = Array.isArray(data) ? data : (data?.history ?? data?.transactions ?? []);
+      return list as PointsLedgerEntry[];
     },
   });
 }

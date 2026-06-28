@@ -10,10 +10,14 @@ import { fmtDateTimeSG } from "@/lib/sgTime";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 function getStartDate(session: any): Date {
-  return new Date(session?.startedAt ?? session?.startTime);
+  const raw = session?.startedAt ?? session?.startTime ?? session?.start_time;
+  if (!raw) return new Date();
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? new Date() : d;
 }
 
 function formatElapsed(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return "00:00:00";
   const s = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
