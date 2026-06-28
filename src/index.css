@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -117,6 +121,9 @@
     font-family: 'Inter', system-ui, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
     padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 
   h1, h2, h3 {

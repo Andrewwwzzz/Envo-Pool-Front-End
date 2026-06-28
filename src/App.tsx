@@ -39,44 +39,46 @@ const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <SocketProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/login" element={<Navigate to="/auth" replace />} />
-              <Route path="/booking" element={<Booking />} />
-              <Route path="/payment-verification" element={<PaymentVerification />} />
-              <Route path="/payment-success" element={<PaymentVerification />} />
-              <Route path="/booking-confirmed" element={<BookingConfirmed />} />
-              <Route path="/booking-refunded" element={<BookingRefunded />} />
-              {/* Legacy redirects */}
-              <Route path="/booking-success" element={<LegacyRedirect />} />
-              <Route path="/dashboard" element={<DashboardLayout />}>
-                <Route index element={<DashboardHome />} />
-                <Route path="transactions" element={<DashboardTransactions />} />
-                <Route path="settings" element={<DashboardSettings />} />
-                <Route path="rewards" element={<DashboardRewards />} />
-                <Route path="membership" element={<DashboardMembership />} />
-                <Route path="bookings" element={<DashboardBookings />} />
-              </Route>
-              <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/kyc" element={<Kyc />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-          <PWAInstallPrompt />
-        </TooltipProvider>
-      </SocketProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+  <div style={{ paddingTop: 'env(safe-area-inset-top)', minHeight: '100dvh' }}>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <SocketProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/login" element={<Navigate to="/auth" replace />} />
+                <Route path="/booking" element={<Booking />} />
+                <Route path="/payment-verification" element={<PaymentVerification />} />
+                <Route path="/payment-success" element={<PaymentVerification />} />
+                <Route path="/booking-confirmed" element={<BookingConfirmed />} />
+                <Route path="/booking-refunded" element={<BookingRefunded />} />
+                {/* Legacy redirects */}
+                <Route path="/booking-success" element={<LegacyRedirect />} />
+                <Route path="/dashboard" element={<DashboardLayout />}>
+                  <Route index element={<DashboardHome />} />
+                  <Route path="transactions" element={<DashboardTransactions />} />
+                  <Route path="settings" element={<DashboardSettings />} />
+                  <Route path="rewards" element={<DashboardRewards />} />
+                  <Route path="membership" element={<DashboardMembership />} />
+                  <Route path="bookings" element={<DashboardBookings />} />
+                </Route>
+                <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/kyc" element={<Kyc />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+            <PWAInstallPrompt />
+          </TooltipProvider>
+        </SocketProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </div>
 );
 
 export default App;
