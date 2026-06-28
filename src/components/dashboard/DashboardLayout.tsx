@@ -2,11 +2,19 @@ import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, LogOut, Home } from "lucide-react";
+import { ArrowLeft, LogOut } from "lucide-react";
+
+const PAGE_TITLES: Record<string, string> = {
+  "/dashboard/bookings": "My Bookings",
+  "/dashboard/transactions": "Transactions",
+  "/dashboard/settings": "Account Settings",
+  "/dashboard/rewards": "My Rewards",
+  "/dashboard/membership": "Membership",
+  "/dashboard/fnb": "F&B",
+};
 
 export default function DashboardLayout() {
   const { user, loading, signOut } = useAuth();
-  const { data: profile } = useProfile();
   const location = useLocation();
 
   if (loading) {
@@ -15,12 +23,16 @@ export default function DashboardLayout() {
   if (!user) return <Navigate to="/auth" replace />;
 
   const isHome = location.pathname === "/dashboard";
+  const pageTitle = PAGE_TITLES[location.pathname];
 
   return (
     <div className="min-h-screen bg-background dark">
       <div className="fixed inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, hsl(var(--foreground)) 1px, transparent 0)', backgroundSize: '40px 40px' }} />
 
-      <header className="relative z-10 border-b border-border/50 bg-card/80 backdrop-blur-md px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)" }}>
+      <header
+        className="relative z-10 border-b border-border/50 bg-card/80 backdrop-blur-md px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2"
+        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
+      >
         <div className="flex items-center gap-3">
           {isHome ? (
             <Link to="/booking">
@@ -30,12 +42,15 @@ export default function DashboardLayout() {
             </Link>
           ) : (
             <Link to="/dashboard">
-              <Button variant="outline" size="sm" className="border-border text-muted-foreground hover:text-foreground">
-                <Home className="mr-2 h-4 w-4" /> Home
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-2 pl-1">
+                <ArrowLeft className="h-5 w-5" />
+                <span className="text-sm font-medium">{pageTitle || "Dashboard"}</span>
               </Button>
             </Link>
           )}
-          <h1 className="text-xl font-bold tracking-tight gold-gradient">Envo Pool</h1>
+          {isHome && (
+            <h1 className="text-xl font-bold tracking-tight gold-gradient">Envo Pool</h1>
+          )}
         </div>
 
         <Button
