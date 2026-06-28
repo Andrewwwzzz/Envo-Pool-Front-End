@@ -9,6 +9,9 @@ import { useToast } from "@/hooks/use-toast";
 import { fmtDateSG } from "@/lib/sgTime";
 import { useProfile } from "@/hooks/useProfile";
 import { useMyRewards, useRedeemCreditReward, Reward } from "@/hooks/useRewards";
+import { usePlaceOrder } from "@/hooks/useFnb";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   useRewardCatalog, useMyMilestones, useExchangeReward, useClaimMilestone,
   usePointsHistory, useMultiplierEvents, isMultiplierLive,
@@ -35,6 +38,8 @@ export default function DashboardRewards() {
   const claim = useClaimMilestone();
 
   const [confirmExchange, setConfirmExchange] = useState<CatalogItem | null>(null);
+  const [fnbTableInput, setFnbTableInput] = useState("");
+  const placeFnbOrder = usePlaceOrder();
 
   const currentPoints = Math.max(0, Math.floor(Number((profile as any)?.rewardPoints ?? (profile as any)?.reward_points ?? 0)));
   const lifetimePoints = Math.max(0, Math.floor(Number((profile as any)?.lifetimePoints ?? (profile as any)?.lifetime_points ?? currentPoints)));
@@ -294,25 +299,57 @@ export default function DashboardRewards() {
       </Card>
 
       {/* Confirm exchange */}
-      <Dialog open={!!confirmExchange} onOpenChange={(o) => !o && setConfirmExchange(null)}>
+      <Dialog open={!!confirmExchange} onOpenChange={(o) => { if (!o) { setConfirmExchange(null); setFnbTableInput(""); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Redeem {confirmExchange?.name}?</DialogTitle>
             <DialogDescription>
-              This will spend <strong className="text-amber-400">{confirmExchange?.pointCost} points</strong> from your balance and generate a unique reward code tied to your account.
+              {confirmExchange?.category === "food_drinks"
+                ? <>This will spend <strong className="text-amber-400">{confirmExchange?.pointCost} points</strong>. Enter your table number and we'll deliver it to you.</>
+                : <>This will spend <strong className="text-amber-400">{confirmExchange?.pointCost} points</strong> and generate a unique reward code tied to your account.</>
+              }
             </DialogDescription>
           </DialogHeader>
+          {confirmExchange?.category === "food_drinks" && (
+            <div className="space-y-1.5 py-2">
+              <Label className="text-xs">Table Number <span className="text-red-400">*</span></Label>
+              <Input
+                placeholder="e.g. Table 5"
+                value={fnbTableInput}
+                onChange={(e) => setFnbTableInput(e.target.value)}
+                className={!fnbTableInput.trim() ? "border-red-500/50" : ""}
+              />
+              {!fnbTableInput.trim() && <p className="text-xs text-red-400">Required to place order</p>}
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmExchange(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setConfirmExchange(null); setFnbTableInput(""); }}>Cancel</Button>
             <Button
+              disabled={
+                exchange.isPending ||
+                placeFnbOrder.isPending ||
+                (confirmExchange?.category === "food_drinks" && !fnbTableInput.trim())
+              }
               onClick={async () => {
                 if (!confirmExchange) return;
-                await exchange.mutateAsync((confirmExchange._id || confirmExchange.id)!);
+                if (confirmExchange.category === "food_drinks") {
+                  // For F&B items: deduct points then place F&B order
+                  await exchange.mutateAsync((confirmExchange._id || confirmExchange.id)!);
+                  // Place the F&B order (free since points were spent)
+                  await placeFnbOrder.mutateAsync({
+                    productId: (confirmExchange._id || confirmExchange.id)!,
+                    tableId: fnbTableInput,
+                    tableName: fnbTableInput,
+                    isFreeRedemption: false,
+                  }).catch(() => {}); // F&B order is best-effort after points deducted
+                } else {
+                  await exchange.mutateAsync((confirmExchange._id || confirmExchange.id)!);
+                }
                 setConfirmExchange(null);
+                setFnbTableInput("");
               }}
-              disabled={exchange.isPending}
             >
-              Confirm Redemption
+              {confirmExchange?.category === "food_drinks" ? "Place Order" : "Confirm Redemption"}
             </Button>
           </DialogFooter>
         </DialogContent>

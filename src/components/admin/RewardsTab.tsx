@@ -143,6 +143,20 @@ export default function RewardsTab({
   }, [rewards]);
 
   return (
+    <div className="space-y-4">
+      <Tabs defaultValue="codes">
+        <TabsList>
+          <TabsTrigger value="codes">Reward Codes</TabsTrigger>
+          <TabsTrigger value="catalog">Reward Catalog</TabsTrigger>
+          <TabsTrigger value="multipliers">Multiplier Events</TabsTrigger>
+        </TabsList>
+        <TabsContent value="catalog" className="mt-4">
+          <RewardCatalogTab />
+        </TabsContent>
+        <TabsContent value="multipliers" className="mt-4">
+          <MultiplierEventsTab />
+        </TabsContent>
+        <TabsContent value="codes" className="mt-4">
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
@@ -353,6 +367,10 @@ export default function RewardsTab({
         </DialogContent>
       </Dialog>
     </Card>
+  );
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
 
