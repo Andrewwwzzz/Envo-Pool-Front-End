@@ -111,8 +111,8 @@ export function useMyRewards() {
     queryKey: ["my-rewards"],
     queryFn: async () => {
       const res = await apiFetch("/api/rewards/my");
-      if (!res.ok) throw new Error("Failed to fetch rewards");
-      const data = await res.json();
+      if (!res.ok) return [] as Reward[];
+      const data = await res.json().catch(() => []);
       return (Array.isArray(data) ? data : (data?.rewards ?? [])) as Reward[];
     },
   });
