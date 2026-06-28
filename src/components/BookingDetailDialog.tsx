@@ -323,6 +323,15 @@ const BookingDetailDialog = ({ booking, open, onOpenChange }: BookingDetailDialo
               </span>
             </div>
           </section>
+
+          {/* Cancel note */}
+          {status === "confirmed" && (
+            <div className="px-6 py-3 border-t border-border/50 bg-muted/30">
+              <p className="text-xs text-muted-foreground text-center">
+                Need to cancel? Contact our staff via WhatsApp or visit the counter.
+              </p>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
