@@ -370,7 +370,6 @@ export default function RewardsTab({
         </DialogContent>
       </Dialog>
     </Card>
-  );
         </TabsContent>
       </Tabs>
     </div>
