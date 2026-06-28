@@ -16,6 +16,7 @@ export interface CatalogItem {
   pointCost?: number | null;
   tangible: boolean;
   expiryDays?: number | null;
+  fnbProductId?: string | null;
   isActive: boolean;
   discountValue?: number | null;
   creditValue?: number | null;
@@ -185,15 +186,23 @@ export function useExchangeReward() {
   const qc = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async (catalogId: string) => {
-      const res = await apiFetch(`/api/rewards/exchange/${catalogId}`, { method: "POST" });
+    mutationFn: async ({ catalogId, tableId, tableName }: { catalogId: string; tableId?: string; tableName?: string }) => {
+      const res = await apiFetch(`/api/rewards/exchange/${catalogId}`, {
+        method: "POST",
+        body: JSON.stringify({ tableId, tableName }),
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to redeem");
-      return data;
+      return data as { isFnbOrder?: boolean; message?: string; [key: string]: any };
     },
-    onSuccess: () => {
-      toast({ title: "Reward redeemed!" });
-      qc.invalidateQueries({ queryKey: ["my-rewards"] });
+    onSuccess: (data) => {
+      if (data?.isFnbOrder) {
+        toast({ title: "Order placed!", description: data.message || "Your item will be delivered to your table." });
+        qc.invalidateQueries({ queryKey: ["fnb-orders-my"] });
+      } else {
+        toast({ title: "Reward redeemed!", description: "Your code is now in My Reward Codes." });
+        qc.invalidateQueries({ queryKey: ["my-rewards"] });
+      }
       qc.invalidateQueries({ queryKey: ["points-history"] });
       qc.invalidateQueries({ queryKey: ["profile"] });
     },

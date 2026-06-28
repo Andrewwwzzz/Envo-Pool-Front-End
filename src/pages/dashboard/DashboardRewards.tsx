@@ -4,14 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Gift, Copy, Sparkles, Zap, AlertTriangle, Check, Lock, Store, Trophy, History } from "lucide-react";
+import { Gift, Copy, Sparkles, Zap, AlertTriangle, Check, Lock, Store, Trophy, History, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fmtDateSG } from "@/lib/sgTime";
 import { useProfile } from "@/hooks/useProfile";
 import { useMyRewards, useRedeemCreditReward, Reward } from "@/hooks/useRewards";
-import { usePlaceOrder } from "@/hooks/useFnb";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api";
 import {
   useRewardCatalog, useMyMilestones, useExchangeReward, useClaimMilestone,
   usePointsHistory, useMultiplierEvents, isMultiplierLive,
@@ -25,6 +26,31 @@ const TYPE_LABELS: Record<string, string> = {
   booking_discount: "Discount",
 };
 
+/** Hook to fulfil an existing F&B reward (milestone-issued tangible free_item) */
+function useFulfilFnbReward() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ rewardId, tableName }: { rewardId: string; tableName: string }) => {
+      const res = await apiFetch(`/api/rewards/fulfil-fnb/${rewardId}`, {
+        method: "POST",
+        body: JSON.stringify({ tableName }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to place order");
+      return data as { message: string };
+    },
+    onSuccess: (data) => {
+      toast({ title: "Order placed!", description: data.message });
+      qc.invalidateQueries({ queryKey: ["my-rewards"] });
+      qc.invalidateQueries({ queryKey: ["fnb-orders-my"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Order failed", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
 export default function DashboardRewards() {
   const { toast } = useToast();
   const { data: profile } = useProfile();
@@ -36,10 +62,15 @@ export default function DashboardRewards() {
   const redeemCredit = useRedeemCreditReward();
   const exchange = useExchangeReward();
   const claim = useClaimMilestone();
+  const fulfilFnb = useFulfilFnbReward();
 
+  // Points-shop exchange dialog
   const [confirmExchange, setConfirmExchange] = useState<CatalogItem | null>(null);
   const [fnbTableInput, setFnbTableInput] = useState("");
-  const placeFnbOrder = usePlaceOrder();
+
+  // "Place Order Now" dialog for existing F&B reward entries
+  const [fnbOrderReward, setFnbOrderReward] = useState<Reward | null>(null);
+  const [fnbOrderTable, setFnbOrderTable] = useState("");
 
   const currentPoints = Math.max(0, Math.floor(Number((profile as any)?.rewardPoints ?? (profile as any)?.reward_points ?? 0)));
   const lifetimePoints = Math.max(0, Math.floor(Number((profile as any)?.lifetimePoints ?? (profile as any)?.lifetime_points ?? currentPoints)));
@@ -48,7 +79,6 @@ export default function DashboardRewards() {
   const showExpiryWarning = currentPoints > 0 && expiryDays != null && expiryDays <= 30 && expiryDays >= 0;
 
   const liveMultiplier = multipliers.find(isMultiplierLive);
-
   const shop = useMemo(() => catalog.filter(c => c.isActive && c.type === "points_exchange"), [catalog]);
 
   const sortedMilestones = useMemo(
@@ -56,7 +86,10 @@ export default function DashboardRewards() {
     [milestones]
   );
   const nextMilestone = sortedMilestones.find(m => !m.claimed && lifetimePoints < m.milestoneThreshold);
-  const claimableMilestones = sortedMilestones.filter(m => !m.claimed && lifetimePoints >= m.milestoneThreshold);
+
+  /** True if reward is a tangible F&B free item (needs delivery, not a code) */
+  const isFnbReward = (r: Reward) =>
+    r.type === "free_item" && ((r as any).tangible === true || (r as any).catalogId?.tangible === true);
 
   return (
     <div className="space-y-6">
@@ -100,7 +133,7 @@ export default function DashboardRewards() {
         </CardContent>
       </Card>
 
-      {/* Section 2 — Milestone Progress */}
+      {/* Section 2 — Milestones */}
       <Card className="card-premium">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
@@ -159,7 +192,7 @@ export default function DashboardRewards() {
         </CardContent>
       </Card>
 
-      {/* Section 3 — Points Exchange Shop */}
+      {/* Section 3 — Points Shop */}
       <Card className="card-premium">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
@@ -174,6 +207,7 @@ export default function DashboardRewards() {
               {shop.map((item) => {
                 const cost = Number(item.pointCost) || 0;
                 const affordable = currentPoints >= cost;
+                const isFnb = item.category === "food_drinks";
                 return (
                   <div key={item._id || item.id} className="rounded-lg border border-border p-4 space-y-2 flex flex-col">
                     <div className="flex items-start justify-between gap-2">
@@ -181,13 +215,16 @@ export default function DashboardRewards() {
                       <Badge variant="outline" className={CATEGORY_BADGE[item.category]}>{CATEGORY_LABELS[item.category]}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground flex-1">{item.description}</p>
+                    {isFnb && (
+                      <p className="text-xs text-blue-400/80">🍹 Delivered to your table — enter table number when ordering</p>
+                    )}
                     <div className="flex items-center justify-between pt-2">
                       <span className="font-mono text-amber-400 font-semibold">{cost.toLocaleString()} pts</span>
                       <Button size="sm" disabled={!affordable || exchange.isPending} onClick={() => setConfirmExchange(item)}>
-                        Redeem
+                        {isFnb ? "Order Now" : "Redeem"}
                       </Button>
                     </div>
-                    {!affordable && <p className="text-xs text-muted-foreground">Need {cost - currentPoints} more points</p>}
+                    {!affordable && <p className="text-xs text-muted-foreground">Need {(cost - currentPoints).toLocaleString()} more points</p>}
                   </div>
                 );
               })}
@@ -196,7 +233,7 @@ export default function DashboardRewards() {
         </CardContent>
       </Card>
 
-      {/* Section 4 — My Rewards (codes) */}
+      {/* Section 4 — My Reward Codes */}
       <Card className="card-premium">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
@@ -215,9 +252,12 @@ export default function DashboardRewards() {
                 const isMulti = Number.isFinite(allowed) && allowed > 1;
                 const multiExhausted = isMulti && Number.isFinite(remaining) && remaining <= 0;
                 const isActive = !r.redeemed && !expired && !multiExhausted;
-                const tangible = (r as any).tangible === true || (r as any).source === "milestone" && ["free_item"].includes(r.type);
+                const fnb = isFnbReward(r);
+                const discount = r.type === "booking_discount";
+
                 return (
                   <div key={r._id || r.id || r.code} className="rounded-lg border border-border p-4 space-y-2">
+                    {/* Header row */}
                     <div className="flex items-start justify-between gap-2 flex-wrap">
                       <div className="space-y-1">
                         <p className="font-medium">{r.description}</p>
@@ -232,15 +272,53 @@ export default function DashboardRewards() {
                           {r.expiresAt && <span className="text-xs text-muted-foreground">Expires {fmtDateSG(r.expiresAt)}</span>}
                         </div>
                       </div>
+                      {/* Wallet credit — self-redeem button */}
                       {isActive && r.type === "wallet_credit" && (r as any).source !== "points_exchange" && (
                         <Button size="sm" onClick={() => redeemCredit.mutate(r.code)} disabled={redeemCredit.isPending}>Redeem</Button>
                       )}
                     </div>
-                    {isActive && tangible ? (
-                      <div className="rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-xs text-amber-200">
-                        🎁 Present this code at the counter — code <span className="font-mono">{r.code}</span>
+
+                    {/* ── F&B tangible rewards: "Place Order Now" instead of code ── */}
+                    {fnb ? (
+                      isActive ? (
+                        <div className="rounded-md bg-blue-500/10 border border-blue-500/30 px-3 py-2.5 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <ShoppingBag className="h-4 w-4 text-blue-400 shrink-0" />
+                            <p className="text-xs text-blue-300">Ready to order — we'll deliver it to your table.</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-blue-500/40 text-blue-300 hover:bg-blue-500/10 shrink-0"
+                            onClick={() => setFnbOrderReward(r)}
+                          >
+                            Place Order
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="rounded-md bg-muted/20 border border-border px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+                          <ShoppingBag className="h-3.5 w-3.5 shrink-0" />
+                          {r.redeemed ? "Order has been placed and fulfilled." : "This reward has expired."}
+                        </div>
+                      )
+                    ) : discount ? (
+                      /* ── Discount codes: copyable code + booking-payment instruction ── */
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1 rounded-md bg-muted/30 px-3 py-2">
+                          <span className="font-mono text-sm flex-1">{r.code}</span>
+                          <Button
+                            size="sm" variant="ghost" className="h-7 w-7 p-0"
+                            onClick={() => { navigator.clipboard.writeText(r.code); toast({ title: "Code copied" }); }}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        {isActive && (
+                          <p className="text-xs text-muted-foreground px-1">Enter this code at checkout when making a booking payment to apply your discount.</p>
+                        )}
                       </div>
                     ) : (
+                      /* ── All other codes (free session, wallet credit, etc.) ── */
                       <div className="flex items-center gap-1 rounded-md bg-muted/30 px-3 py-2">
                         <span className="font-mono text-sm flex-1">{r.code}</span>
                         <Button
@@ -298,18 +376,19 @@ export default function DashboardRewards() {
         </CardContent>
       </Card>
 
-      {/* Confirm exchange */}
+      {/* ── Dialog: confirm points-shop exchange ── */}
       <Dialog open={!!confirmExchange} onOpenChange={(o) => { if (!o) { setConfirmExchange(null); setFnbTableInput(""); } }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Redeem {confirmExchange?.name}?</DialogTitle>
+            <DialogTitle>Redeem — {confirmExchange?.name}</DialogTitle>
             <DialogDescription>
               {confirmExchange?.category === "food_drinks"
                 ? <>This will spend <strong className="text-amber-400">{confirmExchange?.pointCost} points</strong>. Enter your table number and we'll deliver it to you.</>
-                : <>This will spend <strong className="text-amber-400">{confirmExchange?.pointCost} points</strong> and generate a unique reward code tied to your account.</>
+                : <>This will spend <strong className="text-amber-400">{confirmExchange?.pointCost} points</strong>. A discount code will be added to your My Reward Codes — use it at checkout when paying for a booking.</>
               }
             </DialogDescription>
           </DialogHeader>
+
           {confirmExchange?.category === "food_drinks" && (
             <div className="space-y-1.5 py-2">
               <Label className="text-xs">Table Number <span className="text-red-400">*</span></Label>
@@ -322,34 +401,63 @@ export default function DashboardRewards() {
               {!fnbTableInput.trim() && <p className="text-xs text-red-400">Required to place order</p>}
             </div>
           )}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => { setConfirmExchange(null); setFnbTableInput(""); }}>Cancel</Button>
             <Button
               disabled={
                 exchange.isPending ||
-                placeFnbOrder.isPending ||
                 (confirmExchange?.category === "food_drinks" && !fnbTableInput.trim())
               }
               onClick={async () => {
                 if (!confirmExchange) return;
-                if (confirmExchange.category === "food_drinks") {
-                  // For F&B items: deduct points then place F&B order
-                  await exchange.mutateAsync((confirmExchange._id || confirmExchange.id)!);
-                  // Place the F&B order (free since points were spent)
-                  await placeFnbOrder.mutateAsync({
-                    productId: (confirmExchange._id || confirmExchange.id)!,
-                    tableId: fnbTableInput,
-                    tableName: fnbTableInput,
-                    isFreeRedemption: false,
-                  }).catch(() => {}); // F&B order is best-effort after points deducted
-                } else {
-                  await exchange.mutateAsync((confirmExchange._id || confirmExchange.id)!);
-                }
+                await exchange.mutateAsync({
+                  catalogId: (confirmExchange._id || confirmExchange.id)!,
+                  tableId: fnbTableInput || undefined,
+                  tableName: fnbTableInput || undefined,
+                });
                 setConfirmExchange(null);
                 setFnbTableInput("");
               }}
             >
               {confirmExchange?.category === "food_drinks" ? "Place Order" : "Confirm Redemption"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: place order for existing F&B reward (milestone-issued) ── */}
+      <Dialog open={!!fnbOrderReward} onOpenChange={(o) => { if (!o) { setFnbOrderReward(null); setFnbOrderTable(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Place Order — {fnbOrderReward?.description}</DialogTitle>
+            <DialogDescription>
+              Enter your table number and we'll bring <strong>{fnbOrderReward?.description}</strong> right to you.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5 py-2">
+            <Label className="text-xs">Table Number <span className="text-red-400">*</span></Label>
+            <Input
+              placeholder="e.g. Table 5"
+              value={fnbOrderTable}
+              onChange={(e) => setFnbOrderTable(e.target.value)}
+              className={!fnbOrderTable.trim() ? "border-red-500/50" : ""}
+            />
+            {!fnbOrderTable.trim() && <p className="text-xs text-red-400">Required to place order</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setFnbOrderReward(null); setFnbOrderTable(""); }}>Cancel</Button>
+            <Button
+              disabled={!fnbOrderTable.trim() || fulfilFnb.isPending}
+              onClick={async () => {
+                if (!fnbOrderReward || !fnbOrderTable.trim()) return;
+                const id = (fnbOrderReward as any)._id || (fnbOrderReward as any).id;
+                await fulfilFnb.mutateAsync({ rewardId: id, tableName: fnbOrderTable });
+                setFnbOrderReward(null);
+                setFnbOrderTable("");
+              }}
+            >
+              Place Order
             </Button>
           </DialogFooter>
         </DialogContent>
