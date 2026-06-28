@@ -13,6 +13,7 @@ import { fmtDateSG } from "@/lib/sgTime";
 import ReasonDialog from "./ReasonDialog";
 import DeletedBanner, { getDeletedInfo, isDeleted } from "./DeletedBanner";
 import { useAdminCustomers } from "@/hooks/useAdmin";
+import { MultiplierEventsTab, RewardCatalogTab } from "./MultiplierEventsTab";
 
 const TYPE_LABELS: Record<string, string> = {
   free_session: "Free Session",
