@@ -64,6 +64,7 @@ const Admin = () => {
   const { user, loading, signOut } = useAuth();
   const [tab, setTab] = useState("overview");
   const [pendingCustomerEmail, setPendingCustomerEmail] = useState<string | null>(null);
+  const { data: pendingFnbOrders = [] } = useAdminFnbOrders("pending");
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
@@ -3752,7 +3753,6 @@ function WalkinSessionsTab() {
 
   const [now, setNow] = useState(Date.now());
   const [conflictAlert, setConflictAlert] = useState<string | null>(null);
-  const { data: pendingFnbOrders = [] } = useAdminFnbOrders("pending");
   const [reasonOpen, setReasonOpen] = useState(false);
   const [reasonValue, setReasonValue] = useState("");
   const [targetId, setTargetId] = useState<string | null>(null);
