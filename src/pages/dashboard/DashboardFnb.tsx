@@ -85,13 +85,18 @@ export default function DashboardFnb() {
 
       {/* Table input */}
       <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground uppercase tracking-wider">Your Table</label>
+        <label className="text-xs text-muted-foreground uppercase tracking-wider">
+          Your Table <span className="text-red-400">*</span>
+        </label>
         <Input
           placeholder="e.g. Table 5"
           value={tableInput}
           onChange={(e) => setTableInput(e.target.value)}
-          className="max-w-xs"
+          className={`max-w-xs ${!tableInput.trim() ? "border-red-500/50" : ""}`}
         />
+        {!tableInput.trim() && (
+          <p className="text-xs text-red-400">Enter your table number to order</p>
+        )}
       </div>
 
       {/* Category tabs */}
@@ -134,6 +139,7 @@ export default function DashboardFnb() {
                       <Button
                         size="sm"
                         className="w-full bg-green-600 hover:bg-green-700 text-white text-xs"
+                        disabled={!tableInput.trim()}
                         onClick={() => setConfirm({ product, isFree: true })}
                       >
                         Redeem Free
@@ -143,10 +149,10 @@ export default function DashboardFnb() {
                       size="sm"
                       variant="outline"
                       className="w-full text-xs"
-                      disabled={!canAfford}
+                      disabled={!canAfford || !tableInput.trim()}
                       onClick={() => setConfirm({ product, isFree: false })}
                     >
-                      {canAfford ? `Order $${product.sellingPrice.toFixed(2)}` : "Insufficient Balance"}
+                      {!tableInput.trim() ? "Enter table first" : canAfford ? `Order $${product.sellingPrice.toFixed(2)}` : "Insufficient Balance"}
                     </Button>
                   </div>
                 )}
