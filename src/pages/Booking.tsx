@@ -291,6 +291,9 @@ const Booking = () => {
   // today's date doesn't qualify (day-of-week or PH/PH-eve restriction).
   const freeMinutesUnavailableReason = useMemo(() => {
     if (!activeMembership || freeMinutesPerVisit <= 0 || !startDate) return null;
+    if (!isTodaySG(startDate)) {
+      return `Free ${freeMinutesPerVisit} mins only applies to same-day bookings`;
+    }
     if (!freeMinutesDayAllowed) {
       const dayNames = freeMinutesDays.map((d) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d]).join("/");
       return `Free ${freeMinutesPerVisit} mins is only available on ${dayNames}`;
@@ -305,11 +308,14 @@ const Booking = () => {
   const freeMinutesAvailable = useMemo(() => {
     if (!activeMembership || freeMinutesPerVisit <= 0) return 0;
     if (!freeMinutesDayAllowed || !freeMinutesPHAllowed) return 0;
+    // Free minutes only apply when the booking START date is today's SGT operating day
+    // (10am SGT to 4am SGT next day). Advance bookings get no free minutes.
+    if (!startDate || !isTodaySG(startDate)) return 0;
     if (!lastVisitDateRaw) return freeMinutesPerVisit;
     const lastVisit = new Date(lastVisitDateRaw);
     if (isNaN(lastVisit.getTime())) return freeMinutesPerVisit;
     return isTodaySG(lastVisit) ? 0 : freeMinutesPerVisit;
-  }, [activeMembership, freeMinutesPerVisit, lastVisitDateRaw, freeMinutesDayAllowed, freeMinutesPHAllowed]);
+  }, [activeMembership, freeMinutesPerVisit, lastVisitDateRaw, freeMinutesDayAllowed, freeMinutesPHAllowed, startDate]);
 
   const { freeMinutesCredit, freeMinutesApplied } = useMemo(() => {
     if (freeMinutesAvailable <= 0 || originalPrice <= 0) {
