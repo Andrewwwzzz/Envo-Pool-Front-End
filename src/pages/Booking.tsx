@@ -86,13 +86,14 @@ const Booking = () => {
   const { data: tableBookings } = useQuery({
     queryKey: ["table-day-bookings", selectedTable, selectedDate?.toISOString()],
     queryFn: async () => {
-      if (!selectedTable || !selectedDate || !selectedTableData_pre?.hardware_id) return [];
-      const hardwareId = selectedTableData_pre.hardware_id;
+      if (!selectedTable || !selectedDate) return [];
+      // Use hardware_id if available, fall back to MongoDB _id
+      const tableRef = selectedTableData_pre?.hardware_id || selectedTable;
       const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
 
       // Backend now filters by table + date + status.
       const res = await apiFetch(
-        `/api/bookings?tableId=${encodeURIComponent(hardwareId)}&date=${dateStr}&status=confirmed,pending_payment`
+        `/api/bookings?tableId=${encodeURIComponent(tableRef)}&date=${dateStr}&status=confirmed,pending_payment`
       );
       if (!res.ok) throw new Error("Failed to fetch bookings");
       const data = await res.json();
@@ -133,7 +134,7 @@ const Booking = () => {
         };
       });
     },
-    enabled: !!selectedTable && !!selectedDate && !!selectedTableData_pre?.hardware_id,
+    enabled: !!selectedTable && !!selectedDate,
     refetchInterval: 30000,
     staleTime: 0,
   });
