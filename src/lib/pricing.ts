@@ -1,6 +1,7 @@
 /**
  * Dynamic pricing calculation engine.
  * Supports global and per-table pricing rules with priority-based resolution.
+ * Public holidays (PH) and PH eves are treated as Fri–Sun for pricing.
  */
 
 export interface PricingRule {
@@ -16,11 +17,42 @@ export interface PricingRule {
   is_active: boolean;
 }
 
+export interface PublicHoliday {
+  _id?: string;
+  date: string; // YYYY-MM-DD
+  name: string;
+}
+
 import { getSGWeekday, getSGTimeMinutes, getSGDateStr } from "@/lib/sgTime";
 
 function timeToMinutes(timeStr: string): number {
   const [h, m] = timeStr.split(":").map(Number);
   return h * 60 + m;
+}
+
+/**
+ * Given a SGT date string (YYYY-MM-DD) and a Set of PH dates,
+ * return the effective extra weekdays to inject for pricing.
+ *
+ * PH itself  → treated as "Sun" (peak weekend rate)
+ * PH eve     → treated as "Fri" (peak start-of-weekend rate)
+ *
+ * We inject these ALONGSIDE the real weekday, so a rule that covers
+ * e.g. ["Fri","Sat","Sun"] will match on PH or PH-eve even if the
+ * calendar day is a Tuesday.
+ */
+function extraWeekdaysForDate(dateStr: string, phDates: Set<string>): string[] {
+  if (phDates.has(dateStr)) {
+    return ["Fri", "Sat", "Sun"]; // PH itself → full weekend rate
+  }
+  // Check if tomorrow is a PH (i.e. today is PH eve)
+  const d = new Date(dateStr + "T00:00:00+08:00");
+  d.setDate(d.getDate() + 1);
+  const nextStr = d.toISOString().slice(0, 10);
+  if (phDates.has(nextStr)) {
+    return ["Fri", "Sat", "Sun"]; // PH eve → same weekend rate as PH
+  }
+  return [];
 }
 
 /**
@@ -31,11 +63,15 @@ function timeToMinutes(timeStr: string): number {
 function findBestRule(
   rules: PricingRule[],
   dateTime: Date,
-  tableId: string
+  tableId: string,
+  phDates: Set<string> = new Set()
 ): PricingRule | null {
   const weekday = getSGWeekday(dateTime);
   const timeMin = getSGTimeMinutes(dateTime);
   const dateStr = getSGDateStr(dateTime);
+
+  // Effective weekdays: real day + any PH/PH-eve bonus days
+  const effectiveWeekdays = new Set([weekday, ...extraWeekdaysForDate(dateStr, phDates)]);
 
   const matching = rules.filter((r) => {
     if (!r.is_active) return false;
@@ -43,7 +79,6 @@ function findBestRule(
     // Check time range
     const rStart = timeToMinutes(r.start_time);
     const rEnd = timeToMinutes(r.end_time);
-    // Handle overnight ranges
     const inTimeRange = rEnd > rStart
       ? timeMin >= rStart && timeMin < rEnd
       : timeMin >= rStart || timeMin < rEnd;
@@ -53,7 +88,10 @@ function findBestRule(
     if (r.specific_date) {
       if (r.specific_date !== dateStr) return false;
     } else {
-      if (!r.applies_to_weekdays.includes(weekday)) return false;
+      // Match if any of the effective weekdays is in the rule's weekday list
+      const ruleWeekdays = new Set(r.applies_to_weekdays);
+      const overlaps = [...effectiveWeekdays].some((d) => ruleWeekdays.has(d));
+      if (!overlaps) return false;
     }
 
     // Check table scope
@@ -66,10 +104,8 @@ function findBestRule(
 
   // Sort by specificity then priority
   matching.sort((a, b) => {
-    // Specific date rules beat weekday rules
     const aDateScore = a.specific_date ? 2 : 0;
     const bDateScore = b.specific_date ? 2 : 0;
-    // Table-specific rules beat global rules
     const aTableScore = a.applies_to_table_id ? 1 : 0;
     const bTableScore = b.applies_to_table_id ? 1 : 0;
     const aTotal = aDateScore + aTableScore;
@@ -95,12 +131,14 @@ const DEFAULT_HOURLY_RATE = 20; // fallback if no rules match
 /**
  * Calculate booking price with multi-period support.
  * Splits the booking into 15-minute segments and applies the best matching rule for each.
+ * Pass phDates (Set of "YYYY-MM-DD") for public-holiday-aware pricing.
  */
 export function calculateBookingPrice(
   rules: PricingRule[],
   tableId: string,
   startTime: Date,
-  endTime: Date
+  endTime: Date,
+  phDates: Set<string> = new Set()
 ): { totalPrice: number; segments: PricingSegment[] } {
   const segments: PricingSegment[] = [];
   const intervalMs = 15 * 60 * 1000; // 15 minutes
@@ -108,7 +146,7 @@ export function calculateBookingPrice(
 
   while (current < endTime) {
     const segEnd = new Date(Math.min(current.getTime() + intervalMs, endTime.getTime()));
-    const rule = findBestRule(rules, current, tableId);
+    const rule = findBestRule(rules, current, tableId, phDates);
     const hourlyRate = rule?.hourly_rate ?? DEFAULT_HOURLY_RATE;
     const durationHours = (segEnd.getTime() - current.getTime()) / (1000 * 60 * 60);
 
@@ -154,6 +192,5 @@ export function calculateDiscount(
     discount = maxDiscountAmount;
   }
 
-  // Can't discount more than original
   return Math.min(discount, originalPrice);
 }

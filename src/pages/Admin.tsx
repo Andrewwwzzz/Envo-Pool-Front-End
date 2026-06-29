@@ -34,6 +34,7 @@ import MembershipTab from "@/components/admin/MembershipTab";
 import LockersTab from "@/components/admin/LockersTab";
 import { FnbTab } from "@/components/admin/FnbTab";
 import { useAdminFnbOrders } from "@/hooks/useFnb";
+import { useAdminPublicHolidays } from "@/hooks/usePricing";
 import { OperatingHoursSection } from "@/components/admin/OperatingHoursSection";
 import { useAdminTransactions, useAdminActivityLogs } from "@/hooks/useAdminLogs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -2204,6 +2205,12 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
 function PricingTab() {
   const [hideDeleted, setHideDeleted] = useState(false);
   const { data: rules, create, remove, toggle, update } = useAdminPricingRules(hideDeleted ? "default" : "all");
+  const {
+    data: holidays = [],
+    create: createHoliday,
+    remove: removeHoliday,
+  } = useAdminPublicHolidays();
+
   const [form, setForm] = useState({
     name: "", start_time: "09:00", end_time: "23:00", hourly_rate: "20",
     priority: "0", weekdays: [...WEEKDAYS] as string[], specific_date: "", table_id: "",
@@ -2215,6 +2222,7 @@ function PricingTab() {
     name: "", start_time: "", end_time: "", hourly_rate: "",
     priority: "", weekdays: [] as string[], specific_date: "",
   });
+  const [phForm, setPhForm] = useState({ date: "", name: "" });
 
   const startEdit = (r: any) => {
     setEditingId(r.id);
@@ -2259,8 +2267,123 @@ function PricingTab() {
     setForm({ name: "", start_time: "09:00", end_time: "23:00", hourly_rate: "20", priority: "0", weekdays: [...WEEKDAYS], specific_date: "", table_id: "" });
   };
 
+  const handleAddHoliday = () => {
+    if (!phForm.date || !phForm.name.trim()) return;
+    createHoliday.mutate({ date: phForm.date, name: phForm.name.trim() }, {
+      onSuccess: () => setPhForm({ date: "", name: "" }),
+    });
+  };
+
+  // Group holidays: upcoming vs past
+  const today = new Date().toISOString().slice(0, 10);
+  const upcomingHolidays = holidays.filter((h: any) => h.date >= today);
+  const pastHolidays = holidays.filter((h: any) => h.date < today);
+
   return (
     <div className="space-y-6">
+
+      {/* ── Public Holidays ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-amber-400" />
+            Public Holidays
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Dates listed here (and their eves) will automatically use Fri–Sun pricing regardless of the calendar day.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Add form */}
+          <div className="flex gap-2 flex-wrap">
+            <Input
+              type="date"
+              value={phForm.date}
+              onChange={(e) => setPhForm({ ...phForm, date: e.target.value })}
+              className="w-40"
+            />
+            <Input
+              placeholder="Holiday name (e.g. National Day)"
+              value={phForm.name}
+              onChange={(e) => setPhForm({ ...phForm, name: e.target.value })}
+              className="flex-1 min-w-40"
+            />
+            <Button
+              onClick={handleAddHoliday}
+              disabled={!phForm.date || !phForm.name.trim() || createHoliday.isPending}
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+            >
+              Add
+            </Button>
+          </div>
+
+          {/* Upcoming holidays */}
+          {upcomingHolidays.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Upcoming</p>
+              {upcomingHolidays.map((h: any) => {
+                // Compute eve date
+                const d = new Date(h.date + "T00:00:00+08:00");
+                d.setDate(d.getDate() - 1);
+                const eveStr = d.toISOString().slice(0, 10);
+                return (
+                  <div key={h._id || h.date} className="flex items-center justify-between rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{h.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {h.date} <span className="text-amber-400/70">· Eve: {eveStr}</span>
+                          <span className="ml-2 text-amber-400">↑ Fri–Sun pricing</span>
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => removeHoliday.mutate(h._id || h.id)}
+                      disabled={removeHoliday.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Past holidays (compact) */}
+          {pastHolidays.length > 0 && (
+            <details className="group">
+              <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1">
+                <span>{pastHolidays.length} past holiday{pastHolidays.length !== 1 ? "s" : ""}</span>
+              </summary>
+              <div className="mt-2 space-y-1">
+                {pastHolidays.map((h: any) => (
+                  <div key={h._id || h.date} className="flex items-center justify-between rounded-lg border border-border/30 px-3 py-1.5 opacity-50">
+                    <p className="text-xs text-muted-foreground">{h.date} — {h.name}</p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeHoliday.mutate(h._id || h.id)}
+                      disabled={removeHoliday.isPending}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {holidays.length === 0 && (
+            <p className="text-sm text-muted-foreground">No public holidays configured.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Add Pricing Rule ── */}
       <Card>
         <CardHeader><CardTitle>Add Pricing Rule</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -2291,7 +2414,7 @@ function PricingTab() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Weekdays</Label>
+            <Label>Applies To</Label>
             <div className="flex flex-wrap gap-2">
               {WEEKDAYS.map((d) => (
                 <button
@@ -2303,11 +2426,15 @@ function PricingTab() {
                 </button>
               ))}
             </div>
+            <p className="text-xs text-muted-foreground">
+              To apply this rule on public holidays & eves, make sure <span className="text-amber-400">Fri, Sat, Sun</span> are selected — PH dates automatically match those days.
+            </p>
           </div>
           <Button onClick={handleCreate} disabled={!form.name || create.isPending}>Create Rule</Button>
         </CardContent>
       </Card>
 
+      {/* ── Existing Rules ── */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
           <CardTitle>Existing Rules</CardTitle>
@@ -2356,7 +2483,7 @@ function PricingTab() {
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">Weekdays</Label>
+                          <Label className="text-xs">Applies To</Label>
                           <div className="flex flex-wrap gap-2">
                             {WEEKDAYS.map((d) => (
                               <button
@@ -2458,6 +2585,7 @@ function PricingTab() {
     </div>
   );
 }
+
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (

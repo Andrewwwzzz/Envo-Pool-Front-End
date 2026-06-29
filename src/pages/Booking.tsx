@@ -164,7 +164,7 @@ const Booking = () => {
 
   const pricing = useMemo(() => {
     if (!startDate || !endDate || !selectedTable || endDate <= startDate || !pricingRules) return null;
-    return calculateBookingPrice(pricingRules, selectedTable, startDate, endDate);
+    return calculateBookingPrice(pricingRules, selectedTable, startDate, endDate, publicHolidayDateSet);
   }, [startDate, endDate, selectedTable, pricingRules]);
 
   const originalPrice = pricing?.totalPrice ?? 0;
