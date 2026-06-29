@@ -808,16 +808,25 @@ const Booking = () => {
               <CardTitle className="text-lg">Pricing</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {pricing.segments.map((seg, i) => (
-                <div key={i} className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {new Date(seg.startTime).toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "2-digit", minute: "2-digit" })} –{" "}
-                    {new Date(seg.endTime).toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "2-digit", minute: "2-digit" })}
-                    <span className="ml-2 text-xs opacity-60">@ ${seg.hourlyRate}/hr</span>
-                  </span>
-                  <span className="font-medium">${seg.segmentCost.toFixed(2)}</span>
-                </div>
-              ))}
+              {pricing.segments.map((seg, i) => {
+                try {
+                  const startT = new Date(seg.startTime);
+                  const endT = new Date(seg.endTime);
+                  const fmtOpts: Intl.DateTimeFormatOptions = { timeZone: "Asia/Singapore", hour: "2-digit", minute: "2-digit" };
+                  return (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {isNaN(startT.getTime()) ? "—" : startT.toLocaleTimeString("en-SG", fmtOpts)} –{" "}
+                        {isNaN(endT.getTime()) ? "—" : endT.toLocaleTimeString("en-SG", fmtOpts)}
+                        <span className="ml-2 text-xs opacity-60">@ ${(seg.hourlyRate ?? 0).toFixed(2)}/hr</span>
+                      </span>
+                      <span className="font-medium">${(seg.segmentCost ?? 0).toFixed(2)}</span>
+                    </div>
+                  );
+                } catch {
+                  return null;
+                }
+              })}
               <div className="border-t border-border pt-3 flex justify-between font-medium">
                 <span>Subtotal</span>
                 <span>${originalPrice.toFixed(2)}</span>

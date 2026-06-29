@@ -14,7 +14,8 @@ export function useAdminBookings(showDeleted = false) {
       setCache(key, data);
       return data;
     },
-    refetchInterval: 30000,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
     initialData: () => getCached(key),
   });
 }
@@ -148,7 +149,8 @@ export function useTableMaintenance(tableId: string | null | undefined, filter: 
       return Array.isArray(data) ? data : (data?.maintenance || data?.windows || []);
     },
     enabled: !!tableId,
-    refetchInterval: 60000,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -529,7 +531,8 @@ export function useAdminStats(from?: string, to?: string) {
       setCache(cacheKey, stats);
       return stats;
     },
-    refetchInterval: 60000,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
     initialData: () => getCached(cacheKey),
   });
 }

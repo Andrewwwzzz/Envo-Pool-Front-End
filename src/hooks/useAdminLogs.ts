@@ -12,7 +12,8 @@ export function useAdminTransactions() {
       setCache("admin-transactions", data);
       return data;
     },
-    refetchInterval: 30000,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
     initialData: () => getCached("admin-transactions"),
   });
 }
@@ -27,7 +28,8 @@ export function useAdminBookingLogs() {
       setCache("admin-booking-logs", data);
       return data;
     },
-    refetchInterval: 30000,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
     initialData: () => getCached("admin-booking-logs"),
   });
 }
@@ -42,7 +44,8 @@ export function useAdminActivityLogs() {
       setCache("admin-activity-logs", data);
       return data;
     },
-    refetchInterval: 30000,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
     initialData: () => getCached("admin-activity-logs"),
   });
 }
