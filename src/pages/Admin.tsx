@@ -638,6 +638,7 @@ function DeviceControlPanel({ hardwareId }: { hardwareId: string | null }) {
 function TablesTab() {
   const { data: tables, startTimer, stopTimer, setMaintenance } = useAdminTables();
   const { data: bookings } = useAdminBookings();
+  const { data: walkinSessions = [] } = useActiveWalkinSessions();
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
   const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number }>>({});
   const [hourlyRate, setHourlyRate] = useState("20");
@@ -738,13 +739,23 @@ function TablesTab() {
 
               // Check if table has active bookings blocking timer open
               const now = new Date();
+              const tableHwId = t.hardware_id;
               const hasActiveBooking = !isRunning && (bookings || []).some((b) => {
-                if (b.table_id !== t.id) return false;
-                if (!["pending", "confirmed"].includes(b.status)) return false;
-                return new Date(b.start_time) <= now && new Date(b.end_time) > now;
+                const bTableId = typeof b.tableId === "object" ? b.tableId?._id || b.tableId?.hardware_id : b.tableId;
+                const matchesId = bTableId === t.id || bTableId === tableHwId;
+                if (!matchesId) return false;
+                if (!["pending_payment", "confirmed"].includes(b.status)) return false;
+                const bStart = new Date(b.startTime || b.start_time);
+                const bEnd = new Date(b.endTime || b.end_time);
+                return bStart <= now && bEnd > now;
+              });
+              // Check for user-initiated walk-in sessions
+              const hasUserWalkin = !isRunning && (walkinSessions as any[]).some((s: any) => {
+                const sTableId = s.tableId || s.table_id;
+                return sTableId === tableHwId || sTableId === t.id;
               });
 
-              const isMaintenance = !isRunning && t.status === "maintenance";
+              const isMaintenance = !(isRunning || hasUserWalkin) && t.status === "maintenance";
 
               return (
                 <div key={t.id} className={`rounded-xl border p-4 space-y-3 ${isMaintenance ? "border-destructive/30 bg-destructive/5" : "border-border"}`}>
@@ -756,7 +767,7 @@ function TablesTab() {
                       : hasActiveBooking ? "bg-accent/20 text-accent-foreground border-accent/30" 
                       : "capitalize"
                     }>
-                      {isRunning ? "In Use" : isMaintenance ? "Maintenance" : hasActiveBooking ? "Has Booking" : "Available"}
+                      {table.status === "in_use" ? "In Use" : table.status === "maintenance" ? "Maintenance" : table.status === "booked" ? "Booked" : "Available"}
                     </Badge>
                   </div>
 
