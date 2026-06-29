@@ -6,7 +6,7 @@ import { usePricingRules } from "@/hooks/usePricing";
 import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
 import { validateRewardCode, Reward } from "@/hooks/useRewards";
 import { useProfile } from "@/hooks/useProfile";
-import { useMyMembership } from "@/hooks/useMembership";
+import { useMyMembership, usePublicHolidays } from "@/hooks/useMembership";
 import { calculateBookingPrice, calculateDiscount } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { apiFetch, BASE_URL } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isBefore } from "date-fns";
-import { todaySG, sgSlotToUTC, sgDayBoundsUTC, isTodaySG } from "@/lib/sgTime";
+import { todaySG, sgSlotToUTC, sgDayBoundsUTC, isTodaySG, toSG, getSGDateStr } from "@/lib/sgTime";
 import WalkinSessionPanel from "@/components/WalkinSessionPanel";
 import { useMyWalkinSession, useStartWalkin } from "@/hooks/useWalkin";
 import { Timer } from "lucide-react";
@@ -155,6 +155,7 @@ const Booking = () => {
   const { data: pricingRules } = usePricingRules();
   const { data: profile } = useProfile();
   const { data: myMembership } = useMyMembership();
+  const { data: publicHolidays = [] } = usePublicHolidays();
   const isAdmin = user?.isAdmin === true;
   const validatePromo = useValidatePromo();
 
@@ -250,14 +251,62 @@ const Booking = () => {
       activeMembership?.benefits?.freeMinutesPerVisit ??
       0
   );
+  const freeMinutesDays: number[] = Array.isArray(activeMembershipPlan?.benefits?.freeMinutesDays)
+    ? activeMembershipPlan.benefits.freeMinutesDays
+    : Array.isArray(activeMembership?.benefits?.freeMinutesDays)
+    ? activeMembership.benefits.freeMinutesDays
+    : [];
+  const freeMinutesExcludePH = Boolean(
+    activeMembershipPlan?.benefits?.freeMinutesExcludePH ??
+      activeMembership?.benefits?.freeMinutesExcludePH ??
+      false
+  );
+  const publicHolidayDateSet = useMemo(
+    () => new Set((publicHolidays ?? []).map((h: any) => h.date)),
+    [publicHolidays]
+  );
+  // Is the booking's start date (in SGT) a public holiday or the day before one?
+  const bookingIsPHOrPHEve = useMemo(() => {
+    if (!startDate) return false;
+    const dateStr = getSGDateStr(startDate);
+    if (publicHolidayDateSet.has(dateStr)) return true;
+    const sgNextDay = toSG(startDate);
+    sgNextDay.setDate(sgNextDay.getDate() + 1);
+    const nextDayStr = getSGDateStr(sgNextDay);
+    return publicHolidayDateSet.has(nextDayStr);
+  }, [startDate, publicHolidayDateSet]);
+  // Day-of-week eligibility — empty freeMinutesDays = every day. Evaluated
+  // against the booking's actual start date, not "today" (advance bookings).
+  const freeMinutesDayAllowed = useMemo(() => {
+    if (!startDate) return false;
+    if (freeMinutesDays.length === 0) return true;
+    return freeMinutesDays.includes(toSG(startDate).getDay());
+  }, [startDate, freeMinutesDays]);
+  const freeMinutesPHAllowed = !freeMinutesExcludePH || !bookingIsPHOrPHEve;
+
+  // Why free minutes aren't showing today, if the plan has the benefit but
+  // today's date doesn't qualify (day-of-week or PH/PH-eve restriction).
+  const freeMinutesUnavailableReason = useMemo(() => {
+    if (!activeMembership || freeMinutesPerVisit <= 0 || !startDate) return null;
+    if (!freeMinutesDayAllowed) {
+      const dayNames = freeMinutesDays.map((d) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d]).join("/");
+      return `Free ${freeMinutesPerVisit} mins is only available on ${dayNames}`;
+    }
+    if (!freeMinutesPHAllowed) {
+      return `Free ${freeMinutesPerVisit} mins doesn't apply on public holidays or the day before`;
+    }
+    return null;
+  }, [activeMembership, freeMinutesPerVisit, startDate, freeMinutesDayAllowed, freeMinutesPHAllowed, freeMinutesDays]);
+
   const lastVisitDateRaw = activeMembership?.lastVisitDate ?? activeMembership?.last_visit_date ?? null;
   const freeMinutesAvailable = useMemo(() => {
     if (!activeMembership || freeMinutesPerVisit <= 0) return 0;
+    if (!freeMinutesDayAllowed || !freeMinutesPHAllowed) return 0;
     if (!lastVisitDateRaw) return freeMinutesPerVisit;
     const lastVisit = new Date(lastVisitDateRaw);
     if (isNaN(lastVisit.getTime())) return freeMinutesPerVisit;
     return isTodaySG(lastVisit) ? 0 : freeMinutesPerVisit;
-  }, [activeMembership, freeMinutesPerVisit, lastVisitDateRaw]);
+  }, [activeMembership, freeMinutesPerVisit, lastVisitDateRaw, freeMinutesDayAllowed, freeMinutesPHAllowed]);
 
   const { freeMinutesCredit, freeMinutesApplied } = useMemo(() => {
     if (freeMinutesAvailable <= 0 || originalPrice <= 0) {
@@ -877,6 +926,10 @@ const Booking = () => {
 
               {discountNotice && (
                 <p className="text-xs text-muted-foreground italic">{discountNotice}</p>
+              )}
+
+              {!discountNotice && freeMinutesUnavailableReason && (
+                <p className="text-xs text-muted-foreground italic">{freeMinutesUnavailableReason}</p>
               )}
 
               {appliedReward?.type === "free_item" && (
