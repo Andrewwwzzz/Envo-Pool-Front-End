@@ -204,7 +204,7 @@ const Booking = () => {
       freeMinutesRemaining -= minsToUse;
     }
     return Math.min(originalPrice, parseFloat(credit.toFixed(2)));
-  }, [appliedReward, rewardFreeHours, pricing?.segments, originalPrice]);
+  }, [appliedReward, rewardFreeHours, pricing, originalPrice]);
 
   const rewardDiscountAmt =
     appliedReward?.type === "free_session"
@@ -327,7 +327,7 @@ const Booking = () => {
     }
     const cappedCredit = Math.min(originalPrice, parseFloat(credit.toFixed(2)));
     return { freeMinutesCredit: cappedCredit, freeMinutesApplied: used };
-  }, [freeMinutesAvailable, originalPrice, pricing?.segments]);
+  }, [freeMinutesAvailable, originalPrice, pricing]);
 
   // Membership % applies AFTER free minutes credit
   const membershipPercentBase = Math.max(0, originalPrice - freeMinutesCredit);
