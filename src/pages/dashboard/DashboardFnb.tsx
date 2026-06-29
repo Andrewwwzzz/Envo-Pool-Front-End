@@ -180,7 +180,11 @@ export default function DashboardFnb() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm text-foreground">{order.productName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {order.paymentMethod === "free_membership" ? "Free — Membership" : `$${order.totalPrice.toFixed(2)}`}
+                      {order.paymentMethod === "free_membership"
+                        ? "Free — Membership"
+                        : order.paymentMethod === "free_reward"
+                        ? "Free — Reward"
+                        : `$${order.totalPrice.toFixed(2)}`}
                       {order.tableName ? ` · ${order.tableName}` : ""}
                     </p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
