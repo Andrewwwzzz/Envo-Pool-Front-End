@@ -797,6 +797,30 @@ export default function MembershipTab() {
         }}
       />
 
+      <ReasonDialog
+        open={!!deletePlanTarget}
+        onOpenChange={(o) => !o && setDeletePlanTarget(null)}
+        title="Delete Plan?"
+        description="Plans with active members cannot be deleted. This will hide the plan from new sign-ups."
+        label="Reason for deletion"
+        placeholder="e.g. discontinued promotion"
+        confirmLabel="Delete"
+        destructive
+        loading={del.isPending}
+        onConfirm={async (reason) => {
+          if (!deletePlanTarget) return;
+          const id = (deletePlanTarget as any).id ?? (deletePlanTarget as any)._id;
+          try {
+            await del.mutateAsync({ id, reason });
+            toast({ title: "Plan deleted" });
+            setDeletePlanTarget(null);
+          } catch (e: any) {
+            toast({ title: "Failed to delete plan", description: e?.message, variant: "destructive" });
+          }
+        }}
+      />
+
+
       <Dialog open={!!detailRecord} onOpenChange={(o) => !o && setDetailRecord(null)}>
         <DialogContent>
           <DialogHeader>
