@@ -8,26 +8,71 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, XCircle, Clock, Plus, Pencil, Package, RotateCcw, AlertTriangle } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import {
+  CheckCircle2, XCircle, Clock, Plus, Pencil, RotateCcw, AlertTriangle,
+  Gift, TrendingUp, Package, History, ChevronDown, ChevronUp, DollarSign,
+  ShoppingBag, BarChart3, ArrowUpCircle, ArrowDownCircle,
+} from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import {
   useAdminFnbOrders, useAdminMenu, useServeOrder, useCancelFnbOrder,
   useCreateProduct, useUpdateProduct, useRestockProduct,
   FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS,
 } from "@/hooks/useFnb";
+import { fmtDateTimeSG, getSGDateStr, nowSG } from "@/lib/sgTime";
+import { useToast } from "@/hooks/use-toast";
 
-function useFnbAnalytics() {
+// ─── Analytics hook (enhanced) ───────────────────────────────────────────────
+function useFnbAnalytics(day?: string) {
   return useQuery({
-    queryKey: ["fnb-analytics"],
+    queryKey: ["fnb-analytics", day],
     queryFn: async () => {
-      const res = await apiFetch("/api/fnb/analytics");
+      const url = day ? `/api/fnb/analytics?day=${day}` : "/api/fnb/analytics";
+      const res = await apiFetch(url);
       if (!res.ok) throw new Error("Failed to load analytics");
       return res.json();
     },
   });
 }
-import { fmtDateTimeSG } from "@/lib/sgTime";
+
+// ─── Stock log hook ───────────────────────────────────────────────────────────
+function useStockLogs(productId: string | null) {
+  return useQuery({
+    queryKey: ["fnb-stock-logs", productId],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/fnb/stock/logs/${productId}`);
+      if (!res.ok) throw new Error("Failed to load logs");
+      return res.json();
+    },
+    enabled: !!productId,
+  });
+}
+
+// ─── Adjust stock hook ────────────────────────────────────────────────────────
+function useAdjustStock() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ id, quantity, description }: { id: string; quantity: number; description?: string }) => {
+      const res = await apiFetch(`/api/fnb/products/${id}/adjust`, {
+        method: "POST",
+        body: JSON.stringify({ quantity, description }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to adjust stock");
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: "Stock adjusted" });
+      qc.invalidateQueries({ queryKey: ["fnb-menu-admin"] });
+      qc.invalidateQueries({ queryKey: ["fnb-stock-logs"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+}
 
 const EMPTY_FORM = {
   name: "",
@@ -41,66 +86,62 @@ const EMPTY_FORM = {
   sortOrder: "0",
 };
 
+const LOG_TYPE_STYLES: Record<string, { label: string; color: string; icon: any }> = {
+  restock:        { label: "Restock",         color: "text-green-400",  icon: ArrowUpCircle },
+  sale:           { label: "Sold",             color: "text-blue-400",   icon: ShoppingBag },
+  free_redemption:{ label: "Free (Membership)",color: "text-amber-400",  icon: Gift },
+  adjustment:     { label: "Adjustment",       color: "text-purple-400", icon: BarChart3 },
+  cancelled_order:{ label: "Cancelled",        color: "text-red-400",    icon: XCircle },
+};
+
 export function FnbTab() {
+  const today = getSGDateStr(nowSG());
+  const [viewDay, setViewDay] = useState(today);
   const [orderFilter, setOrderFilter] = useState("all");
   const [cancelDialog, setCancelDialog] = useState<{ id: string; name: string; price: number } | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelRefund, setCancelRefund] = useState(false);
-  const [productDialog, setProductDialog] = useState<"create" | "edit" | "restock" | null>(null);
+  const [productDialog, setProductDialog] = useState<"create" | "edit" | "restock" | "adjust" | "logs" | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<FnbProduct | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [restockQty, setRestockQty] = useState("1");
+  const [adjustQty, setAdjustQty] = useState("0");
+  const [adjustNote, setAdjustNote] = useState("");
 
   const { data: orders = [], isLoading: ordersLoading } = useAdminFnbOrders(orderFilter);
-  const { data: analytics } = useFnbAnalytics();
+  const { data: analytics } = useFnbAnalytics(viewDay);
   const { data: products = [] } = useAdminMenu();
+  const { data: stockLogs = [] } = useStockLogs(productDialog === "logs" ? selectedProduct?._id ?? null : null);
+
   const serveOrder = useServeOrder();
   const cancelOrder = useCancelFnbOrder();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const restockProduct = useRestockProduct();
+  const adjustStock = useAdjustStock();
 
-  const openCreate = () => {
-    setForm(EMPTY_FORM);
-    setSelectedProduct(null);
-    setProductDialog("create");
-  };
-
+  const openCreate = () => { setForm(EMPTY_FORM); setSelectedProduct(null); setProductDialog("create"); };
   const openEdit = (p: FnbProduct) => {
     setSelectedProduct(p);
     setForm({
-      name: p.name,
-      category: p.category,
-      costPrice: String(p.costPrice),
-      sellingPrice: String(p.sellingPrice),
-      stock: String(p.stock),
-      lowStockThreshold: String(p.lowStockThreshold),
-      isRedeemable: p.isRedeemable,
-      isActive: p.isActive,
-      sortOrder: String(p.sortOrder),
+      name: p.name, category: p.category,
+      costPrice: String(p.costPrice), sellingPrice: String(p.sellingPrice),
+      stock: String(p.stock), lowStockThreshold: String(p.lowStockThreshold),
+      isRedeemable: p.isRedeemable, isActive: p.isActive, sortOrder: String(p.sortOrder),
     });
     setProductDialog("edit");
   };
-
-  const openRestock = (p: FnbProduct) => {
-    setSelectedProduct(p);
-    setRestockQty("1");
-    setProductDialog("restock");
-  };
+  const openRestock = (p: FnbProduct) => { setSelectedProduct(p); setRestockQty("1"); setProductDialog("restock"); };
+  const openAdjust = (p: FnbProduct) => { setSelectedProduct(p); setAdjustQty("0"); setAdjustNote(""); setProductDialog("adjust"); };
+  const openLogs = (p: FnbProduct) => { setSelectedProduct(p); setProductDialog("logs"); };
 
   const handleSaveProduct = () => {
     const payload = {
-      name: form.name,
-      category: form.category,
-      costPrice: Number(form.costPrice),
-      sellingPrice: Number(form.sellingPrice),
-      stock: Number(form.stock),
-      lowStockThreshold: Number(form.lowStockThreshold),
-      isRedeemable: form.isRedeemable,
-      isActive: form.isActive,
-      sortOrder: Number(form.sortOrder),
+      name: form.name, category: form.category,
+      costPrice: Number(form.costPrice), sellingPrice: Number(form.sellingPrice),
+      stock: Number(form.stock), lowStockThreshold: Number(form.lowStockThreshold),
+      isRedeemable: form.isRedeemable, isActive: form.isActive, sortOrder: Number(form.sortOrder),
     };
-
     if (productDialog === "create") {
       createProduct.mutate(payload, { onSuccess: () => setProductDialog(null) });
     } else if (productDialog === "edit" && selectedProduct) {
@@ -110,8 +151,13 @@ export function FnbTab() {
 
   const handleRestock = () => {
     if (!selectedProduct) return;
-    restockProduct.mutate(
-      { id: selectedProduct._id, quantity: Number(restockQty) },
+    restockProduct.mutate({ id: selectedProduct._id, quantity: Number(restockQty) }, { onSuccess: () => setProductDialog(null) });
+  };
+
+  const handleAdjust = () => {
+    if (!selectedProduct) return;
+    adjustStock.mutate(
+      { id: selectedProduct._id, quantity: Number(adjustQty), description: adjustNote || undefined },
       { onSuccess: () => setProductDialog(null) }
     );
   };
@@ -130,50 +176,112 @@ export function FnbTab() {
     return <Badge className="bg-red-500/20 text-red-400"><XCircle className="h-3 w-3 mr-1" />Cancelled</Badge>;
   };
 
+  const paymentBadge = (method: string, price: number) => {
+    if (method === "free_membership") return (
+      <span className="inline-flex items-center gap-1 text-amber-400 text-xs font-medium">
+        <Gift className="h-3 w-3" /> Free — Membership
+      </span>
+    );
+    if (method === "free_reward") return (
+      <span className="inline-flex items-center gap-1 text-purple-400 text-xs font-medium">
+        <Gift className="h-3 w-3" /> Free — Reward
+      </span>
+    );
+    return <span className="text-green-400 text-xs font-medium">${price?.toFixed(2)}</span>;
+  };
+
+  // derived analytics
+  const paidRevenue = analytics?.paidRevenue ?? analytics?.revenue ?? 0;
+  const freeCount = analytics?.freeCount ?? 0;
+  const freeCostValue = analytics?.freeCostValue ?? 0;
+  const paidCount = analytics?.paidCount ?? analytics?.orderCount ?? 0;
+  const totalOrders = analytics?.orderCount ?? paidCount + freeCount;
+
   return (
     <div className="space-y-4">
-      {/* Analytics cards */}
+      {/* ── Day selector ── */}
+      <div className="flex items-center gap-2">
+        <Label className="text-xs text-muted-foreground whitespace-nowrap">Viewing day:</Label>
+        <Input
+          type="date"
+          value={viewDay}
+          onChange={(e) => setViewDay(e.target.value)}
+          className="w-40 h-8 text-xs"
+          max={today}
+        />
+        {viewDay !== today && (
+          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setViewDay(today)}>
+            Back to Today
+          </Button>
+        )}
+      </div>
+
+      {/* ── Analytics cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="border-border/50">
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Today Revenue</p>
-            <p className="text-xl font-bold text-accent mt-1">${(analytics?.revenue || 0).toFixed(2)}</p>
+            <div className="flex items-center gap-1.5 mb-1">
+              <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">Paid Revenue</p>
+            </div>
+            <p className="text-xl font-bold text-accent">${paidRevenue.toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{paidCount} paid orders</p>
           </CardContent>
         </Card>
+
         <Card className="border-border/50">
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Orders Today</p>
-            <p className="text-xl font-bold text-foreground mt-1">{analytics?.orderCount || 0}</p>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Gift className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">Free Given</p>
+            </div>
+            <p className="text-xl font-bold text-amber-400">{freeCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">Cost: ${freeCostValue.toFixed(2)}</p>
           </CardContent>
         </Card>
+
         <Card className="border-border/50">
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Stock Cost Value</p>
-            <p className="text-xl font-bold text-foreground mt-1">${(analytics?.stockCostValue || 0).toFixed(2)}</p>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Package className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">Stock Cost</p>
+            </div>
+            <p className="text-xl font-bold text-foreground">${(analytics?.stockCostValue || 0).toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground mt-1">on hand</p>
           </CardContent>
         </Card>
+
         <Card className="border-border/50">
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Stock Retail Value</p>
-            <p className="text-xl font-bold text-foreground mt-1">${(analytics?.stockRetailValue || 0).toFixed(2)}</p>
+            <div className="flex items-center gap-1.5 mb-1">
+              <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">Stock Retail</p>
+            </div>
+            <p className="text-xl font-bold text-foreground">${(analytics?.stockRetailValue || 0).toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{totalOrders} total orders</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Top items */}
+      {/* ── Top items breakdown ── */}
       {analytics?.topItems?.length > 0 && (
         <Card className="border-border/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Top Items Today</CardTitle>
+            <CardTitle className="text-sm">Top Items — {viewDay === today ? "Today" : viewDay}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
+            <div className="grid grid-cols-4 text-xs text-muted-foreground pb-1 border-b border-border/30">
+              <span>Item</span>
+              <span className="text-right">Sold (paid)</span>
+              <span className="text-right text-amber-400/80">Free</span>
+              <span className="text-right">Revenue</span>
+            </div>
             {analytics.topItems.map((item: any) => (
-              <div key={item._id} className="flex items-center justify-between text-sm">
-                <span className="text-foreground">{item.name}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-muted-foreground">{item.count} orders</span>
-                  <span className="text-accent">${item.revenue.toFixed(2)}</span>
-                </div>
+              <div key={item._id} className="grid grid-cols-4 items-center text-sm">
+                <span className="text-foreground truncate pr-2">{item.name}</span>
+                <span className="text-right text-muted-foreground">{item.paidCount ?? item.count}</span>
+                <span className="text-right text-amber-400">{item.freeCount ?? 0}</span>
+                <span className="text-right text-accent">${item.revenue.toFixed(2)}</span>
               </div>
             ))}
           </CardContent>
@@ -183,7 +291,7 @@ export function FnbTab() {
       <Tabs defaultValue="orders">
         <TabsList>
           <TabsTrigger value="orders">Live Orders</TabsTrigger>
-          <TabsTrigger value="products">Products</TabsTrigger>
+          <TabsTrigger value="products">Products & Stock</TabsTrigger>
         </TabsList>
 
         {/* ── LIVE ORDERS ── */}
@@ -220,14 +328,10 @@ export function FnbTab() {
                         <p className="text-sm text-muted-foreground mt-0.5">
                           {order.userId?.name || "Unknown"} · {order.tableName || "No table"}
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                          {order.paymentMethod === "free_membership"
-                            ? "Free — Membership"
-                            : order.paymentMethod === "free_reward"
-                            ? "Free — Reward Redemption"
-                            : `$${order.totalPrice?.toFixed(2)}`}
-                          {" · "}{fmtDateTimeSG(order.createdAt)}
-                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {paymentBadge(order.paymentMethod, order.totalPrice)}
+                          <span className="text-xs text-muted-foreground">· {fmtDateTimeSG(order.createdAt)}</span>
+                        </div>
                       </div>
                       {order.status === "pending" && (
                         <div className="flex gap-2 flex-shrink-0">
@@ -256,7 +360,7 @@ export function FnbTab() {
           )}
         </TabsContent>
 
-        {/* ── PRODUCTS ── */}
+        {/* ── PRODUCTS & STOCK ── */}
         <TabsContent value="products" className="space-y-4 mt-4">
           <div className="flex justify-between items-center">
             <p className="text-sm text-muted-foreground">{products.length} products</p>
@@ -268,32 +372,49 @@ export function FnbTab() {
           <div className="space-y-2">
             {products.map((p) => {
               const lowStock = p.stock <= p.lowStockThreshold;
+              const margin = p.sellingPrice > 0 ? ((p.sellingPrice - p.costPrice) / p.sellingPrice * 100) : 0;
               return (
-                <Card key={p._id} className="border-border/50">
+                <Card key={p._id} className={`border-border/50 ${lowStock ? "border-red-500/30" : ""}`}>
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-foreground">{p.name}</p>
                           <Badge className={`text-xs ${CATEGORY_COLORS[p.category]}`}>{CATEGORY_LABELS[p.category]}</Badge>
                           {!p.isActive && <Badge variant="outline" className="text-muted-foreground text-xs">Inactive</Badge>}
-                          {p.isRedeemable && <Badge className="bg-green-500/20 text-green-400 text-xs">Redeemable</Badge>}
+                          {p.isRedeemable && <Badge className="bg-amber-500/20 text-amber-400 text-xs"><Gift className="h-2.5 w-2.5 mr-0.5" />Redeemable</Badge>}
                         </div>
-                        <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                          <span>Cost: ${p.costPrice.toFixed(2)}</span>
-                          <span>Price: ${p.sellingPrice.toFixed(2)}</span>
-                          <span className={lowStock ? "text-red-400 font-medium flex items-center gap-1" : ""}>
+
+                        {/* Price + margin row */}
+                        <div className="flex items-center gap-4 mt-1.5 text-xs">
+                          <span className="text-muted-foreground">Cost <span className="text-foreground font-medium">${p.costPrice.toFixed(2)}</span></span>
+                          <span className="text-muted-foreground">Sell <span className="text-accent font-medium">${p.sellingPrice.toFixed(2)}</span></span>
+                          <span className="text-muted-foreground">Margin <span className={`font-medium ${margin >= 40 ? "text-green-400" : margin >= 20 ? "text-yellow-400" : "text-red-400"}`}>{margin.toFixed(0)}%</span></span>
+                        </div>
+
+                        {/* Stock row */}
+                        <div className="flex items-center gap-3 mt-1 text-xs">
+                          <span className={`flex items-center gap-1 font-medium ${lowStock ? "text-red-400" : "text-foreground"}`}>
                             {lowStock && <AlertTriangle className="h-3 w-3" />}
                             Stock: {p.stock}
                           </span>
+                          <span className="text-muted-foreground">Alert at ≤{p.lowStockThreshold}</span>
+                          <span className="text-muted-foreground">On-hand value: <span className="text-foreground">${(p.stock * p.costPrice).toFixed(2)}</span></span>
                         </div>
                       </div>
-                      <div className="flex gap-2 flex-shrink-0">
-                        <Button size="sm" variant="outline" onClick={() => openRestock(p)}>
-                          <RotateCcw className="h-4 w-4" />
+
+                      <div className="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
+                        <Button size="sm" variant="outline" title="Stock history" onClick={() => openLogs(p)}>
+                          <History className="h-3.5 w-3.5" />
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => openEdit(p)}>
-                          <Pencil className="h-4 w-4" />
+                        <Button size="sm" variant="outline" title="Restock" onClick={() => openRestock(p)}>
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button size="sm" variant="outline" title="Adjust stock" onClick={() => openAdjust(p)}>
+                          <BarChart3 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button size="sm" variant="outline" title="Edit" onClick={() => openEdit(p)}>
+                          <Pencil className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
@@ -308,21 +429,21 @@ export function FnbTab() {
         </TabsContent>
       </Tabs>
 
-      {/* Cancel dialog */}
+      {/* ── Cancel dialog ── */}
       <Dialog open={!!cancelDialog} onOpenChange={() => setCancelDialog(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Cancel Order</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
-            <p className="text-sm text-muted-foreground">Cancel order for <span className="text-foreground font-medium">{cancelDialog?.name}</span>? Wallet will be refunded.</p>
+            <p className="text-sm text-muted-foreground">Cancel <span className="text-foreground font-medium">{cancelDialog?.name}</span>? Stock will be restored.</p>
             <div className="space-y-1.5">
               <Label className="text-xs">Reason <span className="text-red-400">*</span></Label>
-              <Input placeholder="e.g. Out of stock (required)" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
+              <Input placeholder="e.g. Out of stock" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
             </div>
             {cancelDialog && cancelDialog.price > 0 && (
               <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
                 <div>
                   <p className="text-sm font-medium">Refund to wallet</p>
-                  <p className="text-xs text-muted-foreground">${cancelDialog.price.toFixed(2)} back to customer wallet</p>
+                  <p className="text-xs text-muted-foreground">${cancelDialog.price.toFixed(2)} back to customer</p>
                 </div>
                 <Switch checked={cancelRefund} onCheckedChange={setCancelRefund} />
               </div>
@@ -337,7 +458,7 @@ export function FnbTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Create/Edit product dialog */}
+      {/* ── Create/Edit product dialog ── */}
       <Dialog open={productDialog === "create" || productDialog === "edit"} onOpenChange={() => setProductDialog(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -370,13 +491,26 @@ export function FnbTab() {
                 <Input type="number" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} />
               </div>
             </div>
+            {/* Live margin preview */}
+            {form.costPrice && form.sellingPrice && Number(form.sellingPrice) > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Gross margin:{" "}
+                <span className="text-accent font-medium">
+                  {(((Number(form.sellingPrice) - Number(form.costPrice)) / Number(form.sellingPrice)) * 100).toFixed(1)}%
+                </span>
+                {" "}· Profit per unit:{" "}
+                <span className="text-accent font-medium">
+                  ${(Number(form.sellingPrice) - Number(form.costPrice)).toFixed(2)}
+                </span>
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Stock</Label>
+                <Label className="text-xs">Opening Stock</Label>
                 <Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Low Stock Alert</Label>
+                <Label className="text-xs">Low Stock Alert At</Label>
                 <Input type="number" value={form.lowStockThreshold} onChange={(e) => setForm({ ...form, lowStockThreshold: e.target.value })} />
               </div>
             </div>
@@ -385,7 +519,10 @@ export function FnbTab() {
               <Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} />
             </div>
             <div className="flex items-center justify-between">
-              <Label className="text-sm">Free drink redeemable</Label>
+              <div>
+                <Label className="text-sm">Free drink redeemable</Label>
+                <p className="text-xs text-muted-foreground">Membership perk eligible</p>
+              </div>
               <Switch checked={form.isRedeemable} onCheckedChange={(v) => setForm({ ...form, isRedeemable: v })} />
             </div>
             <div className="flex items-center justify-between">
@@ -406,12 +543,17 @@ export function FnbTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Restock dialog */}
+      {/* ── Restock dialog ── */}
       <Dialog open={productDialog === "restock"} onOpenChange={() => setProductDialog(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Restock — {selectedProduct?.name}</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
-            <p className="text-sm text-muted-foreground">Current stock: <span className="text-foreground font-medium">{selectedProduct?.stock}</span></p>
+            <div className="rounded-lg bg-muted/30 p-3 text-sm">
+              Current stock: <span className="font-bold text-foreground">{selectedProduct?.stock}</span>
+              {selectedProduct && Number(restockQty) > 0 && (
+                <span className="text-muted-foreground"> → <span className="text-green-400 font-bold">{selectedProduct.stock + Number(restockQty)}</span></span>
+              )}
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Quantity to add</Label>
               <Input type="number" min="1" value={restockQty} onChange={(e) => setRestockQty(e.target.value)} />
@@ -426,6 +568,87 @@ export function FnbTab() {
             >
               {restockProduct.isPending ? "Restocking..." : "Add Stock"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Manual adjust dialog ── */}
+      <Dialog open={productDialog === "adjust"} onOpenChange={() => setProductDialog(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Adjust Stock — {selectedProduct?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="rounded-lg bg-muted/30 p-3 text-sm">
+              Current stock: <span className="font-bold text-foreground">{selectedProduct?.stock}</span>
+              {selectedProduct && adjustQty !== "" && adjustQty !== "0" && (
+                <span className="text-muted-foreground"> → <span className={`font-bold ${Number(adjustQty) < 0 ? "text-red-400" : "text-green-400"}`}>{Math.max(0, selectedProduct.stock + Number(adjustQty))}</span></span>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Quantity (use negative to remove, e.g. -2 for wastage)</Label>
+              <Input
+                type="number"
+                value={adjustQty}
+                onChange={(e) => setAdjustQty(e.target.value)}
+                placeholder="e.g. -2 for wastage, 5 for found items"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Note (optional)</Label>
+              <Input value={adjustNote} onChange={(e) => setAdjustNote(e.target.value)} placeholder="e.g. Damaged, stock count correction..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProductDialog(null)}>Cancel</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              onClick={handleAdjust}
+              disabled={adjustStock.isPending || adjustQty === "" || adjustQty === "0"}
+            >
+              {adjustStock.isPending ? "Saving..." : "Save Adjustment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Stock log dialog ── */}
+      <Dialog open={productDialog === "logs"} onOpenChange={() => setProductDialog(null)}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-4 w-4" /> Stock History — {selectedProduct?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            {stockLogs.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No stock movements recorded.</p>
+            ) : stockLogs.map((log: any) => {
+              const meta = LOG_TYPE_STYLES[log.type] ?? { label: log.type, color: "text-muted-foreground", icon: BarChart3 };
+              const Icon = meta.icon;
+              const isIn = log.quantity > 0;
+              return (
+                <div key={log._id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/20 border border-border/30">
+                  <Icon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${meta.color}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-xs font-medium ${meta.color}`}>{meta.label}</span>
+                      <span className={`text-sm font-bold ${isIn ? "text-green-400" : "text-red-400"}`}>
+                        {isIn ? "+" : ""}{log.quantity}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{log.description}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs text-muted-foreground">
+                        After: <span className="text-foreground font-medium">{log.stockAfter}</span>
+                      </span>
+                      <span className="text-xs text-muted-foreground">{fmtDateTimeSG(log.createdAt)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProductDialog(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
