@@ -113,8 +113,14 @@
 
   html { background-color: hsl(220, 30%, 6%) !important; }
 
+  html {
+    background-color: hsl(220 30% 6%);
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     font-family: 'Inter', system-ui, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
