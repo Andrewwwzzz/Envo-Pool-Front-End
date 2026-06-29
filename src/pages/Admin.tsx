@@ -47,7 +47,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { LogOut, ArrowLeft, DollarSign, Calendar, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download, Copy, XCircle, Eye, EyeOff, AlertTriangle, Key } from "lucide-react";
+import { LogOut, ArrowLeft, DollarSign, Calendar, CalendarDays, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download, Copy, XCircle, Eye, EyeOff, AlertTriangle, Key } from "lucide-react";
 import ReasonDialog from "@/components/admin/ReasonDialog";
 import DeletedBanner, { getDeletedInfo, isDeleted as isRecordDeleted } from "@/components/admin/DeletedBanner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -2521,7 +2521,7 @@ function PricingTab() {
                           {r.start_time} – {r.end_time} · ${r.hourly_rate}/hr · Priority {r.priority}
                           {r.specific_date && ` · ${r.specific_date}`}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">{(r.applies_to_weekdays as string[]).join(", ")}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{((r.applies_to_weekdays as string[]) || []).join(", ")}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         {deleted ? (
