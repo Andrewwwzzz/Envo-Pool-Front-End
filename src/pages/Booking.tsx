@@ -230,7 +230,12 @@ const Booking = () => {
       Number(getPlan(m)?.benefits?.bookingDiscount ?? m?.benefits?.bookingDiscount ?? 0);
     const actives = list.filter((m) => {
       const status = String(m?.status ?? (m?.active ? "active" : "")).toLowerCase();
-      return status === "active";
+      if (status !== "active") return false;
+      // Also check renewalDate hasn't passed — cron runs daily but membership
+      // may have expired mid-day before cron fires
+      const renewalDate = m?.renewalDate ?? m?.renewal_date ?? null;
+      if (renewalDate && new Date(renewalDate) < new Date()) return false;
+      return true;
     });
     if (!actives.length) return null;
     return actives.reduce(
