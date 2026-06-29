@@ -32,6 +32,7 @@ export default function DashboardSettings() {
   const isPhoneVerified = !!profile?.isPhoneVerified;
 
   const [otpSent, setOtpSent] = useState(false);
+  const [waLink, setWaLink] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpVerifyLoading, setOtpVerifyLoading] = useState(false);
@@ -126,7 +127,8 @@ export default function DashboardSettings() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to send OTP");
       setOtpSent(true);
-      toast({ title: "OTP sent to your WhatsApp!" });
+      if (data.waLink) setWaLink(data.waLink);
+      toast({ title: "Open WhatsApp to get your OTP" });
     } catch (err: any) {
       toast({ title: "Failed to send OTP", description: err.message, variant: "destructive" });
     } finally {
@@ -147,6 +149,7 @@ export default function DashboardSettings() {
       toast({ title: "✅ Phone number verified!" });
       setOtpSent(false);
       setOtp("");
+      setWaLink(null);
     } catch (err: any) {
       toast({ title: "Verification failed", description: err.message, variant: "destructive" });
     } finally {
@@ -240,16 +243,26 @@ export default function DashboardSettings() {
                   <p className="text-xs text-muted-foreground">Account must be verified before you can verify your phone number</p>
                 )}
                 {otpSent && (
-                  <div className="flex gap-2 mt-2">
-                    <Input
-                      placeholder="Enter 6-digit OTP from WhatsApp"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      maxLength={6}
-                    />
-                    <Button type="button" onClick={handleVerifyOtp} disabled={otpVerifyLoading || otp.length !== 6} className="shrink-0">
-                      {otpVerifyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
-                    </Button>
+                  <div className="space-y-2 mt-2">
+                    {waLink && (
+                      <a href={waLink} target="_blank" rel="noopener noreferrer" className="block w-full">
+                        <Button type="button" className="w-full bg-green-600 hover:bg-green-700 text-white gap-2">
+                          <MessageSquare className="h-4 w-4" />
+                          Open WhatsApp to get OTP
+                        </Button>
+                      </a>
+                    )}
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter 6-digit OTP from WhatsApp"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                        maxLength={6}
+                      />
+                      <Button type="button" onClick={handleVerifyOtp} disabled={otpVerifyLoading || otp.length !== 6} className="shrink-0">
+                        {otpVerifyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </>

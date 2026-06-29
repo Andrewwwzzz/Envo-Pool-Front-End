@@ -4,17 +4,29 @@ import { toast } from "sonner";
 
 interface BackendUser {
   id: string;
+  _id?: string;
   name: string;
   email: string;
   isVerified: boolean;
   isAdmin?: boolean;
   role?: string;
   walletBalance?: number;
+  totalSpent?: number;
+  rewardPoints?: number;
+  shortId?: string;
+  username?: string;
+  phone?: string;
+  isPhoneVerified?: boolean;
+  showName?: boolean;
+  dateOfBirth?: string;
+  createdAt?: string;
   kyc?: {
     verified?: boolean;
     name?: string;
     dob?: string;
     mobile?: string;
+    source?: string;
+    verifiedAt?: string;
   };
 }
 
