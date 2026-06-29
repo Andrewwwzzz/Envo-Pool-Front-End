@@ -721,7 +721,7 @@ const Booking = () => {
         </Card>
 
         {/* Step 2: Table Selection */}
-        {selectedDate && (
+        {selectedDate && kycVerified && (
           <Card className="card-premium">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg">2. Select a Table</CardTitle>
@@ -778,7 +778,7 @@ const Booking = () => {
         )}
 
         {/* Step 3: Time Slot Selection */}
-        {selectedDate && selectedTable && (
+        {selectedDate && selectedTable && kycVerified && (
           <Card className="card-premium">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg">3. Choose Time</CardTitle>
@@ -802,7 +802,7 @@ const Booking = () => {
         )}
 
         {/* Pricing Breakdown */}
-        {pricing && selectedTable && !durationError && startSlot && endSlot && (
+        {pricing && selectedTable && !durationError && startSlot && endSlot && kycVerified && (
           <Card className="card-premium">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg">Pricing</CardTitle>
@@ -811,8 +811,8 @@ const Booking = () => {
               {pricing.segments.map((seg, i) => (
                 <div key={i} className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {seg.startTime.toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "2-digit", minute: "2-digit" })} –{" "}
-                    {seg.endTime.toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "2-digit", minute: "2-digit" })}
+                    {new Date(seg.startTime).toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "2-digit", minute: "2-digit" })} –{" "}
+                    {new Date(seg.endTime).toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "2-digit", minute: "2-digit" })}
                     <span className="ml-2 text-xs opacity-60">@ ${seg.hourlyRate}/hr</span>
                   </span>
                   <span className="font-medium">${seg.segmentCost.toFixed(2)}</span>
