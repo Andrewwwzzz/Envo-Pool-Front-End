@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Gift, Copy, Trash2, Search, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useMarkRedeemed } from "@/hooks/usePoints";
 import { fmtDateSG } from "@/lib/sgTime";
 import ReasonDialog from "./ReasonDialog";
 import DeletedBanner, { getDeletedInfo, isDeleted } from "./DeletedBanner";
@@ -99,6 +100,7 @@ export default function RewardsTab({
   const { toast } = useToast();
   const [hideDeleted, setHideDeleted] = useState(false);
   const { data: rewards, isLoading } = useAllAdminRewards(hideDeleted ? "default" : "all");
+  const markRedeemed = useMarkRedeemed();
   const { data: customers = [] } = useAdminCustomers("");
   const deleteReward = useDeleteReward();
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
@@ -306,18 +308,32 @@ export default function RewardsTab({
                             : <Badge className="whitespace-nowrap">{usage.label}</Badge>}
                       </td>
                       <td className="py-2 text-right">
-                        {!deleted && active && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                            onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}
-                            disabled={deleteReward.isPending}
-                            title="Delete reward"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
+                        <div className="flex items-center justify-end gap-1">
+                          {r.tangible && !r.redeemed && !deleted && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs text-green-400 border-green-400/30 hover:bg-green-400/10 whitespace-nowrap"
+                              disabled={markRedeemed.isPending}
+                              onClick={(e) => { e.stopPropagation(); markRedeemed.mutate(r.id || r._id); }}
+                              title="Mark as collected by customer"
+                            >
+                              ✓ Collected
+                            </Button>
+                          )}
+                          {!deleted && active && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                              onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}
+                              disabled={deleteReward.isPending}
+                              title="Delete reward"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

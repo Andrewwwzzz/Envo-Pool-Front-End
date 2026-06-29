@@ -72,6 +72,9 @@ export function useAdminTables() {
       return mapped;
     },
     initialData: () => getCached("admin-tables") ?? [],
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const updateStatus = useMutation({

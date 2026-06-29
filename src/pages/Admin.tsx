@@ -2963,7 +2963,12 @@ function VerificationTab() {
 
   const refresh = () => { fetchUnverified(); fetchRejected(); };
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    refresh();
+    // Auto-refresh every 15 seconds so new registrations appear without page reload
+    const interval = setInterval(refresh, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const openVerifyDialog = (u: any) => {
     setVerifyTarget(u);
