@@ -9,6 +9,8 @@ export interface MembershipPlan {
   billingCycle: "monthly" | "annual";
   bookingDiscountPct?: number;
   freeMinutesPerVisit?: number;
+  freeMinutesDays?: number[];
+  freeMinutesExcludePH?: boolean;
   freeDrinkPerVisit?: boolean;
   lockerIncluded?: boolean;
   guestPassesPerMonth?: number;
@@ -256,6 +258,47 @@ export function useUpdateLockerPin() {
       qc.invalidateQueries({ queryKey: ["membership", "subscriptions"] });
       qc.invalidateQueries({ queryKey: ["lockers"] });
     },
+  });
+}
+
+// ── Public Holidays (used to gate day-restricted membership benefits) ──
+
+export interface PublicHoliday {
+  _id: string;
+  date: string; // "YYYY-MM-DD"
+  name: string;
+}
+
+export function usePublicHolidays() {
+  return useQuery<PublicHoliday[]>({
+    queryKey: ["membership", "public-holidays"],
+    queryFn: () => getJson("/api/membership/public-holidays"),
+  });
+}
+
+export function useCreatePublicHoliday() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { date: string; name: string }) => {
+      const r = await apiFetch("/api/membership/public-holidays", { method: "POST", body: JSON.stringify(data) });
+      const text = await r.text();
+      let body: any = null;
+      try { body = text ? JSON.parse(text) : null; } catch { body = { error: text }; }
+      if (!r.ok) throw new Error(body?.error || text || `${r.status}`);
+      return body;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["membership", "public-holidays"] }),
+  });
+}
+
+export function useDeletePublicHoliday() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const r = await apiFetch(`/api/membership/public-holidays/${id}`, { method: "DELETE" });
+      if (!r.ok) throw new Error(await r.text());
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["membership", "public-holidays"] }),
   });
 }
 
