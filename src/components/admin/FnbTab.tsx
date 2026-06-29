@@ -221,7 +221,11 @@ export function FnbTab() {
                           {order.userId?.name || "Unknown"} · {order.tableName || "No table"}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {order.paymentMethod === "free_membership" ? "Free — Membership" : `$${order.totalPrice?.toFixed(2)}`}
+                          {order.paymentMethod === "free_membership"
+                            ? "Free — Membership"
+                            : order.paymentMethod === "free_reward"
+                            ? "Free — Reward Redemption"
+                            : `$${order.totalPrice?.toFixed(2)}`}
                           {" · "}{fmtDateTimeSG(order.createdAt)}
                         </p>
                       </div>
