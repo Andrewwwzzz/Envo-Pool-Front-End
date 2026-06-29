@@ -478,12 +478,13 @@ export function useUpdateBookingStatus() {
   const allowedStatuses = new Set(["confirmed", "cancelled", "completed", "expired"]);
 
   return useMutation({
-    mutationFn: async ({ bookingId, status, reason }: { bookingId: string; status: string; reason?: string }) => {
+    mutationFn: async ({ bookingId, status, reason, refund }: { bookingId: string; status: string; reason?: string; refund?: boolean }) => {
       if (!bookingId) throw new Error("Missing booking ID");
       if (!allowedStatuses.has(status)) throw new Error("Invalid booking status");
       const endpoint = `/api/admin/bookings/${bookingId}/status`;
       const body: Record<string, unknown> = { status };
       if (reason) body.reason = reason;
+      if (refund !== undefined) body.refund = refund;
       const res = await apiFetch(endpoint, {
         method: "POST",
         body: JSON.stringify(body),
