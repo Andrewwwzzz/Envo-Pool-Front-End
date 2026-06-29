@@ -162,10 +162,15 @@ const Booking = () => {
   const startDate = selectedDate && startSlot ? slotToDate(selectedDate, startSlot) : null;
   const endDate = selectedDate && endSlot ? slotToDate(selectedDate, endSlot) : null;
 
+  const publicHolidayDateSet = useMemo(
+    () => new Set((publicHolidays ?? []).map((h: any) => h.date)),
+    [publicHolidays]
+  );
+
   const pricing = useMemo(() => {
     if (!startDate || !endDate || !selectedTable || endDate <= startDate || !pricingRules) return null;
     return calculateBookingPrice(pricingRules, selectedTable, startDate, endDate, publicHolidayDateSet);
-  }, [startDate, endDate, selectedTable, pricingRules]);
+  }, [startDate, endDate, selectedTable, pricingRules, publicHolidayDateSet]);
 
   const originalPrice = pricing?.totalPrice ?? 0;
 
@@ -261,10 +266,7 @@ const Booking = () => {
       activeMembership?.benefits?.freeMinutesExcludePH ??
       false
   );
-  const publicHolidayDateSet = useMemo(
-    () => new Set((publicHolidays ?? []).map((h: any) => h.date)),
-    [publicHolidays]
-  );
+
   // Is the booking's start date (in SGT) a public holiday or the day before one?
   const bookingIsPHOrPHEve = useMemo(() => {
     if (!startDate) return false;
