@@ -24,7 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { apiFetch, BASE_URL } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isBefore } from "date-fns";
-import { todaySG, sgSlotToUTC, sgDayBoundsUTC, isTodaySG, toSG, getSGDateStr } from "@/lib/sgTime";
+import { todaySG, sgSlotToUTC, sgDayBoundsUTC, isTodaySG, toSG, getSGDateStr, isWithinCurrentOperatingDay } from "@/lib/sgTime";
 import WalkinSessionPanel from "@/components/WalkinSessionPanel";
 import { useMyWalkinSession, useStartWalkin } from "@/hooks/useWalkin";
 import { Timer } from "lucide-react";
@@ -296,8 +296,8 @@ const Booking = () => {
   // today's date doesn't qualify (day-of-week or PH/PH-eve restriction).
   const freeMinutesUnavailableReason = useMemo(() => {
     if (!activeMembership || freeMinutesPerVisit <= 0 || !startDate) return null;
-    if (!isTodaySG(startDate)) {
-      return `Free ${freeMinutesPerVisit} mins only applies to same-day bookings`;
+    if (!isWithinCurrentOperatingDay(startDate)) {
+      return `Free ${freeMinutesPerVisit} mins only applies to today's session (10am-4am operating day)`;
     }
     if (!freeMinutesDayAllowed) {
       const dayNames = freeMinutesDays.map((d) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d]).join("/");
@@ -313,13 +313,14 @@ const Booking = () => {
   const freeMinutesAvailable = useMemo(() => {
     if (!activeMembership || freeMinutesPerVisit <= 0) return 0;
     if (!freeMinutesDayAllowed || !freeMinutesPHAllowed) return 0;
-    // Free minutes only apply when the booking START date is today's SGT operating day
-    // (10am SGT to 4am SGT next day). Advance bookings get no free minutes.
-    if (!startDate || !isTodaySG(startDate)) return 0;
+    // Free minutes only apply when the booking START date is within the
+    // CURRENT operating day (10am SGT to 4am SGT next day) — not calendar midnight.
+    // This lets a 11:30pm-12:10am session count as "today".
+    if (!startDate || !isWithinCurrentOperatingDay(startDate)) return 0;
     if (!lastVisitDateRaw) return freeMinutesPerVisit;
     const lastVisit = new Date(lastVisitDateRaw);
     if (isNaN(lastVisit.getTime())) return freeMinutesPerVisit;
-    return isTodaySG(lastVisit) ? 0 : freeMinutesPerVisit;
+    return isWithinCurrentOperatingDay(lastVisit) ? 0 : freeMinutesPerVisit;
   }, [activeMembership, freeMinutesPerVisit, lastVisitDateRaw, freeMinutesDayAllowed, freeMinutesPHAllowed, startDate]);
 
   const { freeMinutesCredit, freeMinutesApplied } = useMemo(() => {
@@ -463,7 +464,15 @@ const Booking = () => {
           });
           return;
         }
-        if (t !== "free_session" && t !== "booking_discount" && t !== "free_item") {
+        if (t === "free_item") {
+          toast({
+            title: "Cannot apply here",
+            description: "This is a free F&B item — redeem it from the F&B page or My Rewards, not at booking checkout.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (t !== "free_session" && t !== "booking_discount") {
           toast({ title: "Cannot apply here", description: "This reward type can't be used at booking.", variant: "destructive" });
           return;
         }
@@ -471,8 +480,7 @@ const Booking = () => {
 
         const title =
           t === "free_session" ? "Free session applied!" :
-          t === "booking_discount" ? `${result.reward.value}% discount applied!` :
-          "Free item reward applied!";
+          `${result.reward.value}% discount applied!`;
         toast({ title, description: result.reward.description });
       } else {
         toast({ title: "Invalid reward", description: result.error || "Code not valid.", variant: "destructive" });

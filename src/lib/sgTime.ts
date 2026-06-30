@@ -59,6 +59,30 @@ export function nowSGMinutes(): number {
 }
 
 /**
+ * Get the bounds of the CURRENT operating day (10am SGT to 4am SGT next day)
+ * as real UTC Date objects. Used for free-minutes / daily-reset logic so that
+ * e.g. an 11:30pm-12:10am session still counts as "today".
+ */
+export function currentOperatingDayBoundsUTC(): { start: Date; end: Date } {
+  const nowUtc = new Date();
+  const nowSGT = new Date(nowUtc.getTime() + 8 * 60 * 60 * 1000);
+  // 10am SGT = 02:00 UTC
+  let opDayStart = new Date(Date.UTC(nowSGT.getUTCFullYear(), nowSGT.getUTCMonth(), nowSGT.getUTCDate(), 2, 0, 0));
+  if (nowUtc < opDayStart) opDayStart = new Date(opDayStart.getTime() - 24 * 60 * 60 * 1000);
+  const opDayEnd = new Date(opDayStart.getTime() + 18 * 60 * 60 * 1000); // +18h = 4am SGT next day
+  return { start: opDayStart, end: opDayEnd };
+}
+
+/**
+ * Check if a given date falls within the CURRENT operating day
+ * (10am SGT today through 4am SGT tomorrow), not calendar midnight.
+ */
+export function isWithinCurrentOperatingDay(date: Date): boolean {
+  const { start, end } = currentOperatingDayBoundsUTC();
+  return date >= start && date < end;
+}
+
+/**
  * Format a date string for Singapore display (DD/MM/YYYY).
  */
 export function fmtDateSG(d: string | Date): string {
