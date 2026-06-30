@@ -107,10 +107,10 @@ export function useAdminTables() {
   });
 
   const stopTimer = useMutation({
-    mutationFn: async ({ tableId, durationSeconds, hourlyRate, startedAt }: { tableId: string; durationSeconds: number; hourlyRate: number; startedAt: string }) => {
+    mutationFn: async ({ tableId, durationSeconds, hourlyRate, discountPercent, startedAt }: { tableId: string; durationSeconds: number; hourlyRate: number; discountPercent?: number; startedAt: string }) => {
       const res = await apiFetch(`/api/admin/tables/${tableId}/stop-timer`, {
         method: "POST",
-        body: JSON.stringify({ durationSeconds, hourlyRate, startedAt }),
+        body: JSON.stringify({ durationSeconds, hourlyRate, discountPercent: discountPercent || 0, startedAt }),
       });
       if (!res.ok) throw new Error("Failed to stop timer");
       return await res.json();
