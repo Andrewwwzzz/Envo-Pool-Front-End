@@ -642,7 +642,6 @@ function TablesTab() {
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
   const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number; grossCost?: number; discountPercent?: number }>>({});
   const [hourlyRate, setHourlyRate] = useState("20");
-  const [discountPercent, setDiscountPercent] = useState("0");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const rate = parseFloat(hourlyRate) || 0;
@@ -669,23 +668,30 @@ function TablesTab() {
     };
   }, [tables]);
 
-  const [tableDiscounts, setTableDiscounts] = useState<Record<string, number>>({});
-
   const openTable = (tableId: string) => {
     setCompletedSessions((prev) => {
       const copy = { ...prev };
       delete copy[tableId];
       return copy;
     });
-    const discount = Math.min(100, Math.max(0, parseFloat(discountPercent) || 0));
-    setTableDiscounts((prev) => ({ ...prev, [tableId]: discount }));
     startTimer.mutate({ tableId, hourlyRate: rate });
   };
 
-  const closeTable = (tableId: string) => {
+  // Close-table confirmation dialog state — discount is entered here, at close time
+  const [closeTarget, setCloseTarget] = useState<string | null>(null);
+  const [closeDiscountInput, setCloseDiscountInput] = useState("0");
+
+  const openCloseDialog = (tableId: string) => {
+    setCloseDiscountInput("0");
+    setCloseTarget(tableId);
+  };
+
+  const confirmCloseTable = () => {
+    if (!closeTarget) return;
+    const tableId = closeTarget;
     const table = (tables || []).find((t) => t.id === tableId);
     const tableRate = table?.hourly_rate ?? rate;
-    const discountPct = tableDiscounts[tableId] ?? 0;
+    const discountPct = Math.min(100, Math.max(0, parseFloat(closeDiscountInput) || 0));
     const seconds = elapsed[tableId] ?? 0;
     const grossCost = Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
     const discountAmount = Math.round(grossCost * (discountPct / 100) * 100) / 100;
@@ -701,13 +707,9 @@ function TablesTab() {
       discountPercent: discountPct,
       startedAt,
     };
-    console.log("[closeTable] calling stopTimer.mutate with:", payload);
+    console.log("[confirmCloseTable] calling stopTimer.mutate with:", payload);
     stopTimer.mutate(payload);
-    setTableDiscounts((prev) => {
-      const copy = { ...prev };
-      delete copy[tableId];
-      return copy;
-    });
+    setCloseTarget(null);
   };
 
   const formatTime = (totalSeconds: number) => {
@@ -717,10 +719,8 @@ function TablesTab() {
     return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const calculateLiveCost = (seconds: number, tableRate: number, discountPct: number = 0) => {
-    const gross = Math.round((seconds / 3600) * tableRate * 100) / 100;
-    const discount = Math.round(gross * (discountPct / 100) * 100) / 100;
-    return Math.max(0, Math.round((gross - discount) * 100) / 100);
+  const calculateLiveCost = (seconds: number, tableRate: number) => {
+    return Math.round((seconds / 3600) * tableRate * 100) / 100;
   };
 
   return (
@@ -730,33 +730,18 @@ function TablesTab() {
           <CardTitle>Hourly Rate Preset</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <Label>Rate ($/hr)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={hourlyRate}
-                onChange={(e) => setHourlyRate(e.target.value)}
-                className="w-[120px]"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Label>Discount (%)</Label>
-              <Input
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                value={discountPercent}
-                onChange={(e) => setDiscountPercent(e.target.value)}
-                className="w-[100px]"
-                placeholder="0"
-              />
-            </div>
+          <div className="flex items-center gap-3">
+            <Label>Rate ($/hr)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={hourlyRate}
+              onChange={(e) => setHourlyRate(e.target.value)}
+              className="w-[120px]"
+            />
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            Applies to all tables opened with this preset. Set per-table discount when closing if needed.
+            Discount (if any) is entered when closing the table.
           </p>
         </CardContent>
       </Card>
@@ -815,17 +800,10 @@ function TablesTab() {
 
                   {/* Live cost */}
                   {isRunning && (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <DollarSign className="h-4 w-4 text-primary" />
-                        <span className="font-medium text-primary">${calculateLiveCost(seconds, tableRate, tableDiscounts[t.id] ?? 0).toFixed(2)}</span>
-                        <span className="text-muted-foreground">@ ${tableRate}/hr</span>
-                      </div>
-                      {(tableDiscounts[t.id] ?? 0) > 0 && (
-                        <p className="text-xs text-emerald-500">
-                          {tableDiscounts[t.id]}% discount applied (gross ${calculateLiveCost(seconds, tableRate, 0).toFixed(2)})
-                        </p>
-                      )}
+                    <div className="flex items-center gap-2 text-sm">
+                      <DollarSign className="h-4 w-4 text-primary" />
+                      <span className="font-medium text-primary">${calculateLiveCost(seconds, tableRate).toFixed(2)}</span>
+                      <span className="text-muted-foreground">@ ${tableRate}/hr</span>
                     </div>
                   )}
 
@@ -847,7 +825,7 @@ function TablesTab() {
                   {/* Action buttons */}
                   <div className="space-y-2">
                     {isRunning ? (
-                      <Button size="sm" variant="destructive" onClick={() => closeTable(t.id)} className="w-full">
+                      <Button size="sm" variant="destructive" onClick={() => openCloseDialog(t.id)} className="w-full">
                         <Square className="mr-2 h-3 w-3" /> Close Table
                       </Button>
                     ) : (
@@ -885,6 +863,52 @@ function TablesTab() {
       </Card>
 
       <OperatingHoursSection />
+
+      {/* Close table — enter discount (if any) before billing */}
+      <Dialog open={!!closeTarget} onOpenChange={(o) => { if (!o) setCloseTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Close Table</DialogTitle>
+            <DialogDescription>
+              {closeTarget && (() => {
+                const t = (tables || []).find((tb) => tb.id === closeTarget);
+                const tableRate = t?.hourly_rate ?? rate;
+                const seconds = elapsed[closeTarget] ?? 0;
+                const gross = Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
+                const discountPct = Math.min(100, Math.max(0, parseFloat(closeDiscountInput) || 0));
+                const discountAmt = Math.round(gross * (discountPct / 100) * 100) / 100;
+                const final = Math.max(0, Math.round((gross - discountAmt) * 100) / 100);
+                return (
+                  <>
+                    Table {t?.table_number} · {formatTime(seconds)} @ ${tableRate}/hr — gross ${gross.toFixed(2)}
+                    {discountPct > 0 && <> · after {discountPct}% off: <strong>${final.toFixed(2)}</strong></>}
+                  </>
+                );
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>Discount (%)</Label>
+            <Input
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              value={closeDiscountInput}
+              onChange={(e) => setCloseDiscountInput(e.target.value)}
+              placeholder="0"
+              autoFocus
+            />
+            <p className="text-xs text-muted-foreground">Leave at 0 for no discount.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCloseTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmCloseTable} disabled={stopTimer.isPending}>
+              {stopTimer.isPending ? "Closing..." : "Confirm & Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
