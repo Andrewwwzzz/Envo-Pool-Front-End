@@ -1180,7 +1180,12 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
   const membershipDiscountPercent = Number(s.membershipDiscountPercent ?? s.membership_discount_percent ?? 0);
   const freeMinutesCredit = Number(s.freeMinutesCredit ?? s.free_minutes_credit ?? 0);
   const freeMinutesApplied = Math.round(Number(s.freeMinutesApplied ?? s.free_minutes_applied ?? 0));
-  const hasDiscountBreakdown = !isActive && (membershipDiscountAmount > 0 || freeMinutesCredit > 0);
+  // Manual admin discount applied at table-close time (walk-in/timer sessions)
+  const manualGrossAmount = Number(s.grossAmount ?? s.gross_amount ?? 0);
+  const manualDiscountPercent = Number(s.discountPercent ?? s.discount_percent ?? 0);
+  const manualDiscountAmount = Number(s.discountAmount ?? s.discount_amount ?? 0);
+  const hasManualDiscount = !isActive && manualDiscountAmount > 0;
+  const hasDiscountBreakdown = !isActive && (membershipDiscountAmount > 0 || freeMinutesCredit > 0 || hasManualDiscount);
   const staff = s.startedBy?.name || s.startedBy?.email || "—";
   const customerName =
     (typeof s.userId === "object"
@@ -1338,7 +1343,7 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                   <>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Subtotal</span>
-                      <span className="tabular-nums">${baseTotal.toFixed(2)}</span>
+                      <span className="tabular-nums">${(hasManualDiscount ? manualGrossAmount : baseTotal).toFixed(2)}</span>
                     </div>
                     {membershipDiscountAmount > 0 && (
                       <div className="flex justify-between">
@@ -1354,6 +1359,14 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                           Free Minutes Credit{freeMinutesApplied > 0 ? ` (${freeMinutesApplied}m)` : ""}
                         </span>
                         <span className="tabular-nums text-emerald-500">-${freeMinutesCredit.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {hasManualDiscount && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Discount Applied{manualDiscountPercent > 0 ? ` (${manualDiscountPercent}%)` : ""}
+                        </span>
+                        <span className="tabular-nums text-emerald-500">-${manualDiscountAmount.toFixed(2)}</span>
                       </div>
                     )}
                   </>
@@ -1376,7 +1389,7 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                   <>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Subtotal</span>
-                      <span className="tabular-nums">${baseTotal.toFixed(2)}</span>
+                      <span className="tabular-nums">${(hasManualDiscount ? manualGrossAmount : baseTotal).toFixed(2)}</span>
                     </div>
                     {membershipDiscountAmount > 0 && (
                       <div className="flex justify-between">
@@ -1392,6 +1405,14 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                           Free Minutes Credit{freeMinutesApplied > 0 ? ` (${freeMinutesApplied}m)` : ""}
                         </span>
                         <span className="tabular-nums text-emerald-500">-${freeMinutesCredit.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {hasManualDiscount && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Discount Applied{manualDiscountPercent > 0 ? ` (${manualDiscountPercent}%)` : ""}
+                        </span>
+                        <span className="tabular-nums text-emerald-500">-${manualDiscountAmount.toFixed(2)}</span>
                       </div>
                     )}
                   </>
@@ -1634,7 +1655,16 @@ function InvoicesTab() {
                           "—"
                         )}
                       </td>
-                      <td className={`py-3 pr-4 font-medium ${isDeleted ? "line-through text-muted-foreground" : ""}`}>${amount.toFixed(2)}</td>
+                      <td className={`py-3 pr-4 font-medium ${isDeleted ? "line-through text-muted-foreground" : ""}`}>
+                        <div className="flex items-center gap-1.5">
+                          <span>${amount.toFixed(2)}</span>
+                          {!s._walkin && Number(s.discountPercent ?? s.discount_percent ?? 0) > 0 && (
+                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30 text-[10px] py-0 px-1.5">
+                              -{s.discountPercent ?? s.discount_percent}%
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-3 pr-4 text-muted-foreground">{staff}</td>
                       <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         {s._walkin ? (
