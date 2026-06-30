@@ -1317,9 +1317,9 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
 
           <Separator className="bg-border/50" />
 
-          {/* Billing Segments */}
+          {/* Payment */}
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Billing Details</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Payment Details</h3>
 
             {segments.length > 0 ? (
               <div className="rounded-md border border-border/50 p-3 space-y-1.5 text-sm">
@@ -1365,10 +1365,11 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                         <span className="tabular-nums">−${manualDiscountAmount.toFixed(2)}</span>
                       </div>
                     )}
+                    <Separator className="bg-border/50 my-1" />
                   </>
                 )}
                 <div className="flex justify-between font-bold text-base">
-                  <span>{isActive ? "Running Total" : "Total Charged"}</span>
+                  <span>{isActive ? "Running Total" : (hasDiscountBreakdown ? "Total Charged" : "Amount Charged")}</span>
                   <span className={isDeleted ? "line-through text-muted-foreground tabular-nums" : "gold-gradient tabular-nums"}>
                     ${amount.toFixed(2)}
                   </span>
@@ -1407,10 +1408,11 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                         <span className="tabular-nums">−${manualDiscountAmount.toFixed(2)}</span>
                       </div>
                     )}
+                    <Separator className="bg-border/50 my-1" />
                   </>
                 )}
                 <div className="flex justify-between font-bold text-base">
-                  <span>{isActive ? "Running Total" : "Total Charged"}</span>
+                  <span>{isActive ? "Running Total" : (hasDiscountBreakdown ? "Total Charged" : "Amount Charged")}</span>
                   <span className={isDeleted ? "line-through text-muted-foreground tabular-nums" : "gold-gradient tabular-nums"}>
                     ${amount.toFixed(2)}
                   </span>
@@ -1421,12 +1423,12 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
             <div className="grid grid-cols-2 gap-3 text-sm pt-1">
               <div>
                 <div className="text-muted-foreground">Method</div>
-                <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
+                <Badge variant="outline" className={walkin ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-muted text-muted-foreground border-border"}>
                   {walkin ? "Wallet" : "Cash"}
                 </Badge>
               </div>
               <div>
-                <div className="text-muted-foreground">Closed at</div>
+                <div className="text-muted-foreground">Paid At</div>
                 <div className="font-medium">{endLabel}</div>
               </div>
             </div>
