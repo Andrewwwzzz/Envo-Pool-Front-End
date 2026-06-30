@@ -152,8 +152,11 @@ export default function TopUpWalletDialog({
           {method === "paynow" && (
             <div className="space-y-3">
               <div className="flex justify-center">
-                <div className="bg-white rounded-2xl p-4 shadow-lg shadow-purple-500/10 ring-1 ring-purple-500/10">
-                  <img src={paynowQr} alt="PayNow QR code" className="w-48 h-auto block" />
+                <div className="relative">
+                  <div className="absolute -inset-0.5 rounded-3xl bg-gradient-to-br from-purple-500 via-fuchsia-500 to-purple-600 opacity-60 blur-sm" />
+                  <div className="relative bg-white rounded-3xl p-5 shadow-xl shadow-purple-500/20">
+                    <img src={paynowQr} alt="PayNow QR code" className="w-44 h-auto block rounded-lg" />
+                  </div>
                 </div>
               </div>
               <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-3 text-xs text-muted-foreground space-y-1">

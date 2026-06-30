@@ -3554,8 +3554,15 @@ function TopUpsTab() {
   const getCustomer = (r: any) => {
     const u = r.user || r.userId || {};
     if (typeof u === "string") return { name: "—", shortId: r.shortId || "—" };
+    // Prefer the Singpass-verified legal name over the self-chosen display
+    // name/nickname — top-up requests are matched against bank transfers,
+    // which are made under the account holder's legal name, so that's
+    // what's actually useful for an admin to see here.
+    const legalName = u.kyc?.verified ? u.kyc?.name : null;
     return {
-      name: u.name || r.customerName || "—",
+      name: legalName || u.name || r.customerName || "—",
+      displayName: u.name || r.customerName || "—",
+      isLegalName: !!legalName,
       shortId: u.shortId || r.shortId || "—",
     };
   };
@@ -3762,7 +3769,7 @@ function TopUpDetailDialog({
   request: any;
   onClose: () => void;
   statusBadge: (s: string) => string;
-  getCustomer: (r: any) => { name: string; shortId: string };
+  getCustomer: (r: any) => { name: string; displayName?: string; isLegalName?: boolean; shortId: string };
   busy: boolean;
   inlineRejectMode: boolean;
   setInlineRejectMode: (v: boolean) => void;
@@ -3801,7 +3808,16 @@ function TopUpDetailDialog({
           <section className="space-y-2">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Customer Details</h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><div className="text-muted-foreground">Full Name</div><div className="font-medium">{c.name}</div></div>
+              <div>
+                <div className="text-muted-foreground">Full Name</div>
+                <div className="font-medium">{c.name}</div>
+                {c.isLegalName && c.displayName && c.displayName !== c.name && (
+                  <div className="text-xs text-muted-foreground mt-0.5">Display name: {c.displayName}</div>
+                )}
+                {!c.isLegalName && (
+                  <div className="text-xs text-amber-400/80 mt-0.5">Not Singpass-verified — this is the customer's chosen nickname, not their legal name</div>
+                )}
+              </div>
               <div><div className="text-muted-foreground">Email</div><div className="font-medium break-all">{email}</div></div>
               <div><div className="text-muted-foreground">Short ID</div><div className="font-mono font-medium">{c.shortId}</div></div>
               <div>
