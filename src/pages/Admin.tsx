@@ -47,7 +47,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { LogOut, ArrowLeft, DollarSign, Calendar, CalendarDays, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download, Copy, XCircle, Eye, EyeOff, AlertTriangle, Key } from "lucide-react";
+import { LogOut, ArrowLeft, DollarSign, Calendar, CalendarDays, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download, Copy, XCircle, Eye, EyeOff, AlertTriangle, Key, RefreshCw, Mail } from "lucide-react";
 import ReasonDialog from "@/components/admin/ReasonDialog";
 import DeletedBanner, { getDeletedInfo, isDeleted as isRecordDeleted } from "@/components/admin/DeletedBanner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -3513,6 +3513,37 @@ function TopUpsTab() {
     }
   };
 
+  const [checkingGmail, setCheckingGmail] = useState(false);
+
+  const checkGmailNow = async () => {
+    setCheckingGmail(true);
+    try {
+      const res = await apiFetch("/api/transactions/topup/admin/check-gmail", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Gmail check failed");
+      toast({ title: "Gmail checked", description: data.message });
+      refresh();
+    } catch (err: any) {
+      toast({ title: "Gmail check failed", description: err?.message, variant: "destructive" });
+    } finally {
+      setCheckingGmail(false);
+    }
+  };
+
+  const confirmMatch = async (id: string) => {
+    setBusyId(id);
+    try {
+      const res = await apiFetch(`/api/transactions/topup/admin/requests/${id}/confirm-match`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      toast({ title: "Match confirmed — wallet credited" });
+      refresh();
+    } catch {
+      toast({ title: "Failed to confirm match", variant: "destructive" });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const statusBadge = (s: string) => {
     const v = String(s || "").toLowerCase();
     if (v === "approved") return "bg-green-500/10 text-green-400 border-green-500/30";
@@ -3531,8 +3562,12 @@ function TopUpsTab() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-3 flex-wrap">
         <CardTitle>Top Up Requests</CardTitle>
+        <Button size="sm" variant="outline" onClick={checkGmailNow} disabled={checkingGmail} className="gap-1.5">
+          <RefreshCw className={`h-3.5 w-3.5 ${checkingGmail ? "animate-spin" : ""}`} />
+          {checkingGmail ? "Checking..." : "Check Gmail Now"}
+        </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         <Tabs value={status} onValueChange={(v) => setStatus(v as any)}>
@@ -3571,6 +3606,7 @@ function TopUpsTab() {
                     ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
                     : "bg-purple-500/10 text-purple-400 border-purple-500/30";
                   const methodLabel = methodIsCash ? "Cash" : "PayNow";
+                  const hasSuggestedMatch = isPending && !!r.bankSenderName && r.matchedVia !== "gmail_auto";
                   return (
                     <tr
                       key={id}
@@ -3578,7 +3614,15 @@ function TopUpsTab() {
                       onClick={() => setDetailId(id)}
                     >
                       <td className="py-2 pr-4">{fmtDateTimeSG(r.createdAt || r.created_at)}</td>
-                      <td className="py-2 pr-4">{c.name}</td>
+                      <td className="py-2 pr-4">
+                        <div>{c.name}</div>
+                        {hasSuggestedMatch && (
+                          <div className="flex items-center gap-1 text-xs text-amber-400 mt-0.5">
+                            <Mail className="h-3 w-3" />
+                            Gmail match: "{r.bankSenderName}"
+                          </div>
+                        )}
+                      </td>
                       <td className="py-2 pr-4 font-mono">{c.shortId}</td>
                       <td className="py-2 pr-4 font-medium">${Number(r.amount || 0).toFixed(2)}</td>
                       <td className="py-2 pr-4">
@@ -3588,10 +3632,26 @@ function TopUpsTab() {
                         <Badge variant="outline" className={statusBadge(r.status)}>
                           {String(r.status || "pending").charAt(0).toUpperCase() + String(r.status || "pending").slice(1)}
                         </Badge>
+                        {r.matchedVia === "gmail_auto" && (
+                          <Badge variant="outline" className="ml-1.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                            <Mail className="h-3 w-3 mr-1" /> Auto
+                          </Badge>
+                        )}
                       </td>
                       <td className="py-2 pr-4" onClick={(e) => e.stopPropagation()}>
                         {isPending ? (
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-wrap">
+                            {hasSuggestedMatch && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                                disabled={busyId === id}
+                                onClick={() => confirmMatch(id)}
+                              >
+                                <Mail className="h-4 w-4 mr-1" /> Confirm Match
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               className="bg-green-600 hover:bg-green-700 text-white"
