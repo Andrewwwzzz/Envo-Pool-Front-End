@@ -801,7 +801,7 @@ function TablesTab() {
                       : hasActiveBooking ? "bg-accent/20 text-accent-foreground border-accent/30" 
                       : "capitalize"
                     }>
-                      {table.status === "in_use" ? "In Use" : table.status === "maintenance" ? "Maintenance" : table.status === "booked" ? "Booked" : "Available"}
+                      {t.status === "in_use" ? "In Use" : t.status === "maintenance" ? "Maintenance" : t.status === "booked" ? "Booked" : "Available"}
                     </Badge>
                   </div>
 
