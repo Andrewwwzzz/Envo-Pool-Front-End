@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import paynowQr from "@/assets/paynow-qr.png";
 
@@ -25,12 +24,6 @@ export default function TopUpWalletDialog({
   const [submitting, setSubmitting] = useState(false);
   const [cashConfirmation, setCashConfirmation] = useState<{ amount: number } | null>(null);
   const [paynowConfirmation, setPaynowConfirmation] = useState<{ amount: number } | null>(null);
-  const [chasing, setChasing] = useState(false);
-  const [lastChaseAt, setLastChaseAt] = useState<Record<string, number>>(() => {
-    try { return JSON.parse(localStorage.getItem("topup-chase-times") || "{}"); }
-    catch { return {}; }
-  });
-  const CHASE_COOLDOWN_MS = 10 * 60 * 1000;
 
   const { data: requests } = useQuery({
     queryKey: ["my-topup-requests"],
@@ -43,51 +36,8 @@ export default function TopUpWalletDialog({
     refetchInterval: 15000,
   });
 
-  const pendingRequest = Array.isArray(requests)
-    ? requests.find((r: any) => String(r.status || "").toLowerCase() === "pending") || null
-    : null;
-  const pendingMethod = String(
-    pendingRequest?.method || pendingRequest?.paymentMethod || pendingRequest?.payment_method || ""
-  ).toLowerCase();
-  const pendingIsPaynow = pendingMethod === "paynow";
-
-  const handleChase = async (reqId: string) => {
-    const last = lastChaseAt[reqId] || 0;
-    const remaining = CHASE_COOLDOWN_MS - (Date.now() - last);
-    if (remaining > 0) {
-      const mins = Math.ceil(remaining / 60000);
-      toast({ title: `Please wait ${mins} min before sending another chaser`, variant: "destructive" });
-      return;
-    }
-    setChasing(true);
-    try {
-      const res = await apiFetch("/api/transactions/topup/chase", {
-        method: "POST",
-        body: JSON.stringify({ requestId: reqId }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.message || data?.error || "Failed to send chaser");
-      }
-      const updated = { ...lastChaseAt, [reqId]: Date.now() };
-      setLastChaseAt(updated);
-      try { localStorage.setItem("topup-chase-times", JSON.stringify(updated)); } catch {}
-      toast({ title: "Chaser sent!", description: "Admins have been notified to review your top up." });
-    } catch (e: any) {
-      toast({ title: e?.message || "Failed to send chaser", variant: "destructive" });
-    } finally {
-      setChasing(false);
-    }
-  };
-
   const resetState = () => { setAmount(""); setMethod(null); setCashConfirmation(null); };
   const handleClose = (v: boolean) => { if (!v) resetState(); onOpenChange(v); };
-
-  const copyRef = async () => {
-    if (!shortId) return;
-    try { await navigator.clipboard.writeText(shortId); toast({ title: "Reference copied" }); }
-    catch { toast({ title: "Copy failed", variant: "destructive" }); }
-  };
 
   const handleSubmit = async () => {
     const amt = Number(amount);
@@ -168,20 +118,7 @@ export default function TopUpWalletDialog({
 
         <div className="space-y-5">
           <div className="space-y-2">
-            <p className="text-sm font-semibold">Step 1 — Your Payment Reference</p>
-            <p className="text-xs text-muted-foreground">Use this as your payment reference</p>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 px-4 py-3 rounded-lg bg-muted text-center">
-                <p className="text-2xl font-bold font-mono tracking-widest">{shortId || "—"}</p>
-              </div>
-              <Button variant="outline" size="icon" onClick={copyRef} disabled={!shortId}>
-                <Copy className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-sm font-semibold">Step 2 — Choose Payment Method</p>
+            <p className="text-sm font-semibold">Step 1 — Choose Payment Method</p>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
@@ -213,21 +150,23 @@ export default function TopUpWalletDialog({
           </div>
 
           {method === "paynow" && (
-            <div className="space-y-2">
-              <p className="text-sm font-semibold">Scan to Pay</p>
-              <div className="px-4 py-3 rounded-lg bg-white flex justify-center">
+            <div className="space-y-3">
+              <div className="flex justify-center">
                 <img src={paynowQr} alt="PayNow QR code" className="w-56 h-auto" />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Use your reference code above so we can identify your payment.
-              </p>
+              <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-3 text-xs text-muted-foreground space-y-1">
+                <p>
+                  Pay using the <span className="text-foreground font-medium">PayNow account name registered to your profile</span> — your wallet will be credited automatically once the payment is detected, usually within <span className="text-foreground font-medium">1 minute</span>.
+                </p>
+                <p>No reference number needed.</p>
+              </div>
             </div>
           )}
 
           {method && (
             <div className="space-y-2">
               <p className="text-sm font-semibold">
-                Step 3 — {method === "cash" ? "Confirm Amount" : "Confirm Your Request"}
+                Step 2 — {method === "cash" ? "Confirm Amount" : "Confirm Your Request"}
               </p>
               <Input
                 type="number"
@@ -245,28 +184,6 @@ export default function TopUpWalletDialog({
                 }`}
               >
                 {method === "cash" ? "Request Cash Top Up" : "I've Made Payment — Submit Request"}
-              </Button>
-            </div>
-          )}
-
-          {pendingRequest && pendingIsPaynow && (
-            <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-              <p className="text-sm font-semibold">Step 4 — Waiting Too Long?</p>
-              <p className="text-xs text-muted-foreground">
-                If your pending top up of{" "}
-                <span className="font-medium text-foreground">
-                  ${Number(pendingRequest.amount || 0).toFixed(2)}
-                </span>{" "}
-                hasn't been approved yet, send a chaser to notify admins.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full border-amber-500/50 hover:bg-amber-500/10"
-                onClick={() => handleChase(pendingRequest._id || pendingRequest.id)}
-                disabled={chasing}
-              >
-                {chasing ? "Sending…" : "Send Chaser to Admin"}
               </Button>
             </div>
           )}
@@ -323,10 +240,10 @@ export default function TopUpWalletDialog({
                 <p>
                   Your PayNow top up of{" "}
                   <span className="font-bold">${paynowConfirmation?.amount.toFixed(2)}</span>{" "}
-                  is pending verification.
+                  is being matched against your payment automatically.
                 </p>
                 <p className="text-muted-foreground">
-                  We'll credit your wallet within 24 hours. If it's taking too long, you can send a chaser to notify our admins.
+                  This usually completes within <span className="text-foreground font-medium">1 minute</span> once your payment is made under your registered name. If it hasn't gone through after <span className="text-foreground font-medium">5 minutes</span>, please contact our admin.
                 </p>
               </div>
               <Button
@@ -335,7 +252,7 @@ export default function TopUpWalletDialog({
                 onClick={() => { setPaynowConfirmation(null); resetState(); }}
               >
                 <a href="https://wa.me/6587627064" target="_blank" rel="noopener noreferrer">
-                  Contact us on WhatsApp
+                  Contact Admin on WhatsApp
                 </a>
               </Button>
             </div>
