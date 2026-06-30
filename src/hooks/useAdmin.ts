@@ -63,7 +63,7 @@ export function useAdminTables() {
         id: t._id || t.id,
         table_number: t.tableNumber ?? t.table_number,
         hardware_id: t.hardwareId ?? t.hardware_id ?? null,
-        hourly_rate: t.basePrice ?? t.hourlyRate ?? t.hourly_rate ?? 0,
+        hourly_rate: t.timerHourlyRate ?? t.hourlyRate ?? t.hourly_rate ?? t.basePrice ?? 0,
         status: t.liveStatus ?? t.status ?? "available",
         timer_started_at: t.timerStartedAt ?? t.timer_started_at ?? null,
         created_at: t.createdAt ?? t.created_at ?? "",
