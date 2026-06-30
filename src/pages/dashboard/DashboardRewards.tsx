@@ -12,6 +12,7 @@ import { useMyRewards, useRedeemCreditReward, Reward } from "@/hooks/useRewards"
 import { usePlaceOrder } from "@/hooks/useFnb";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import {
@@ -75,7 +76,7 @@ export default function DashboardRewards() {
 
   const currentPoints = Math.max(0, Math.floor(Number((profile as any)?.rewardPoints ?? (profile as any)?.reward_points ?? 0)));
   const lifetimePoints = Math.max(0, Math.floor(Number((profile as any)?.lifetimePoints ?? (profile as any)?.lifetime_points ?? currentPoints)));
-  const pointsExpireAt = (profile as any)?.pointsExpireAt ?? (profile as any)?.points_expire_at ?? null;
+  const pointsExpireAt = (profile as any)?.pointsExpiryDate ?? (profile as any)?.pointsExpireAt ?? (profile as any)?.points_expire_at ?? null;
   const expiryDays = pointsExpireAt ? Math.ceil((new Date(pointsExpireAt).getTime() - Date.now()) / 86400000) : null;
   const showExpiryWarning = currentPoints > 0 && expiryDays != null && expiryDays <= 30 && expiryDays >= 0;
 
@@ -88,9 +89,20 @@ export default function DashboardRewards() {
   );
   const nextMilestone = sortedMilestones.find(m => !m.claimed && lifetimePoints < m.milestoneThreshold);
 
-  /** True if reward is a tangible F&B free item (needs delivery, not a code) */
+  /** True if reward is a tangible F&B item that can be ordered for table delivery
+   *  (must be linked to an actual menu item via fnbProductId). */
   const isFnbReward = (r: Reward) =>
-    r.type === "free_item" && ((r as any).tangible === true || (r as any).catalogId?.tangible === true);
+    r.type === "free_item" &&
+    ((r as any).tangible === true || (r as any).catalogId?.tangible === true) &&
+    (r as any).catalogId?.category === "food_drinks" &&
+    !!(r as any).catalogId?.fnbProductId;
+
+  /** True if reward is tangible merchandise — must be collected from staff at
+   *  the counter, since there's no order/delivery flow for physical items. */
+  const isMerchandiseReward = (r: Reward) =>
+    r.type === "free_item" &&
+    ((r as any).tangible === true || (r as any).catalogId?.tangible === true) &&
+    (r as any).catalogId?.category !== "food_drinks";
 
   return (
     <div className="space-y-6">
@@ -107,6 +119,11 @@ export default function DashboardRewards() {
               <p className="text-xs text-muted-foreground">Current Balance</p>
               <p className="text-3xl font-bold text-amber-400 mt-1">{currentPoints.toLocaleString()}</p>
               <p className="text-xs text-muted-foreground mt-1">points</p>
+              {pointsExpireAt && currentPoints > 0 && (
+                <p className={`text-xs mt-2 font-medium ${expiryDays != null && expiryDays <= 30 ? "text-destructive" : "text-muted-foreground"}`}>
+                  Expires {fmtDateSG(pointsExpireAt)}
+                </p>
+              )}
             </div>
             <div className="rounded-lg border border-border bg-card p-4">
               <p className="text-xs text-muted-foreground">Lifetime Earned</p>
@@ -254,6 +271,7 @@ export default function DashboardRewards() {
                 const multiExhausted = isMulti && Number.isFinite(remaining) && remaining <= 0;
                 const isActive = !r.redeemed && !expired && !multiExhausted;
                 const fnb = isFnbReward(r);
+                const merch = isMerchandiseReward(r);
                 const discount = r.type === "booking_discount";
 
                 return (
@@ -300,6 +318,19 @@ export default function DashboardRewards() {
                         <div className="rounded-md bg-muted/20 border border-border px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
                           <ShoppingBag className="h-3.5 w-3.5 shrink-0" />
                           {r.redeemed ? "Order has been placed and fulfilled." : "This reward has expired."}
+                        </div>
+                      )
+                    ) : merch ? (
+                      /* ── Tangible merchandise: no order flow — collect at counter ── */
+                      isActive ? (
+                        <div className="rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2.5 flex items-center gap-2">
+                          <Gift className="h-4 w-4 text-amber-400 shrink-0" />
+                          <p className="text-xs text-amber-300">Head over to the counter and show this to our staff to redeem.</p>
+                        </div>
+                      ) : (
+                        <div className="rounded-md bg-muted/20 border border-border px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+                          <Gift className="h-3.5 w-3.5 shrink-0" />
+                          {r.redeemed ? "Already redeemed at the counter." : "This reward has expired."}
                         </div>
                       )
                     ) : discount ? (
