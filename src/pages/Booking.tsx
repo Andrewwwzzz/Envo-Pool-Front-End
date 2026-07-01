@@ -231,10 +231,15 @@ const Booking = () => {
     const actives = list.filter((m) => {
       const status = String(m?.status ?? (m?.active ? "active" : "")).toLowerCase();
       if (status !== "active") return false;
-      // Also check renewalDate hasn't passed — cron runs daily but membership
-      // may have expired mid-day before cron fires
       const renewalDate = m?.renewalDate ?? m?.renewal_date ?? null;
-      if (renewalDate && new Date(renewalDate) < new Date()) return false;
+      if (!renewalDate) return true; // no expiry set — treat as valid
+      const expiry = new Date(renewalDate);
+      // 1. Block if membership has already expired right now
+      if (expiry < new Date()) return false;
+      // 2. Block if the BOOKING START DATE falls after the membership
+      //    expiry — e.g. membership expires July 29 but user is booking
+      //    a session in September. Discount should not apply.
+      if (startDate && startDate > expiry) return false;
       return true;
     });
     if (!actives.length) return null;
