@@ -668,6 +668,56 @@ export function useUpdateCustomerWallet() {
   });
 }
 
+export type ChargeWalletCategory =
+  | "manual_timer"
+  | "fnb"
+  | "locker"
+  | "merchandise"
+  | "other";
+
+export function useChargeWallet() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      amount,
+      category,
+      description,
+      allowNegative,
+    }: {
+      userId: string;
+      amount: number;
+      category: ChargeWalletCategory;
+      description: string;
+      allowNegative?: boolean;
+    }) => {
+      const res = await apiFetch(`/api/admin/charge-wallet`, {
+        method: "POST",
+        body: JSON.stringify({ userId, amount, category, description, allowNegative: !!allowNegative }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || err.message || "Failed to charge wallet");
+      }
+      return res.json().catch(() => ({}));
+    },
+    onSuccess: () => {
+      toast({ title: "Wallet charged" });
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-customer-wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["walletHistory"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
 export function useDeleteCustomer() {
   const queryClient = useQueryClient();
   const { toast } = useToast();

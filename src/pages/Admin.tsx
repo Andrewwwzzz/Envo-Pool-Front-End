@@ -49,6 +49,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { LogOut, ArrowLeft, DollarSign, Calendar, CalendarDays, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download, Copy, XCircle, Eye, EyeOff, AlertTriangle, Key, RefreshCw, Mail } from "lucide-react";
 import ReasonDialog from "@/components/admin/ReasonDialog";
+import { ChargeWalletDialog } from "@/components/admin/ChargeWalletDialog";
 import DeletedBanner, { getDeletedInfo, isDeleted as isRecordDeleted } from "@/components/admin/DeletedBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAuthHeaders, apiFetch } from "@/lib/api";
@@ -1882,6 +1883,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const [editing, setEditing] = useState(false);
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+  const [chargeOpen, setChargeOpen] = useState(false);
 
   // Reset password state
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
@@ -2108,9 +2110,14 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
               </div>
             </div>
           ) : (
-            <div className="flex gap-6 text-sm pt-2 border-t border-border">
-              <span>Wallet: <strong>${(customer.wallet_balance ?? 0).toFixed(2)}</strong></span>
-              <span>Total Spent: <strong>${(customer.total_spent ?? 0).toFixed(2)}</strong></span>
+            <div className="flex items-center justify-between gap-4 flex-wrap pt-2 border-t border-border text-sm">
+              <div className="flex gap-6">
+                <span>Wallet: <strong>${(customer.wallet_balance ?? 0).toFixed(2)}</strong></span>
+                <span>Total Spent: <strong>${(customer.total_spent ?? 0).toFixed(2)}</strong></span>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setChargeOpen(true)}>
+                <DollarSign className="h-3.5 w-3.5 mr-1" /> Charge Wallet
+              </Button>
             </div>
           )}
         </CardContent>
@@ -2293,6 +2300,15 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
         booking={selectedBooking}
         open={!!selectedBooking}
         onOpenChange={(open) => { if (!open) setSelectedBooking(null); }}
+      />
+
+      <ChargeWalletDialog
+        open={chargeOpen}
+        onOpenChange={setChargeOpen}
+        userId={customer.user_id}
+        customerName={customer.name || customer.email}
+        currentBalance={Number(customer.wallet_balance ?? 0)}
+        defaultCategory="fnb"
       />
     </div>
   );
@@ -3948,6 +3964,7 @@ function ActiveWalkinSessionsSection() {
   const [reasonOpen, setReasonOpen] = useState(false);
   const [reasonValue, setReasonValue] = useState("");
   const [targetId, setTargetId] = useState<string | null>(null);
+  const [chargeTarget, setChargeTarget] = useState<{ userId: string; name: string; balance: number } | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -4002,10 +4019,12 @@ function ActiveWalkinSessionsSection() {
             <tbody>
               {list.map((s: any) => {
                 const id = s._id || s.id;
+                const userObj = typeof s.userId === "object" ? s.userId : null;
+                const userId = userObj?._id || userObj?.id || (typeof s.userId === "string" ? s.userId : "");
                 const customer =
-                  (typeof s.userId === "object"
-                    ? s.userId?.name || s.userId?.username || s.userId?.email
-                    : null) || s.userName || s.customerName || "—";
+                  (userObj ? userObj.name || userObj.username || userObj.email : null)
+                  || s.userName || s.customerName || "—";
+                const balance = Number(userObj?.walletBalance ?? userObj?.wallet_balance ?? s.walletBalance ?? 0);
                 const startMs = new Date(s.startedAt ?? s.startTime).getTime();
                 const elapsedMs = Math.max(0, now - startMs);
                 const h = Math.floor(elapsedMs / 3600000);
@@ -4019,7 +4038,16 @@ function ActiveWalkinSessionsSection() {
                     <td className="py-2 pr-4">{new Date(s.startedAt ?? s.startTime).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}</td>
                     <td className="py-2 pr-4 font-mono">{elapsed}</td>
                     <td className="py-2 pr-4 font-mono">${Number(s.runningCost ?? 0).toFixed(2)}</td>
-                    <td className="py-2 pr-4 text-right">
+                    <td className="py-2 pr-4 text-right space-x-2 whitespace-nowrap">
+                      {userId && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setChargeTarget({ userId, name: String(customer), balance })}
+                        >
+                          <DollarSign className="h-3.5 w-3.5 mr-1" /> Charge
+                        </Button>
+                      )}
                       <Button size="sm" variant="destructive" onClick={() => openForceStop(id)}>
                         Force Stop
                       </Button>
@@ -4054,6 +4082,15 @@ function ActiveWalkinSessionsSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ChargeWalletDialog
+        open={!!chargeTarget}
+        onOpenChange={(v) => { if (!v) setChargeTarget(null); }}
+        userId={chargeTarget?.userId ?? ""}
+        customerName={chargeTarget?.name}
+        currentBalance={chargeTarget?.balance ?? 0}
+        defaultCategory="fnb"
+      />
     </Card>
   );
 }
@@ -4070,6 +4107,7 @@ function WalkinSessionsTab() {
   const [reasonOpen, setReasonOpen] = useState(false);
   const [reasonValue, setReasonValue] = useState("");
   const [targetId, setTargetId] = useState<string | null>(null);
+  const [chargeTarget, setChargeTarget] = useState<{ userId: string; name: string; balance: number } | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -4168,10 +4206,12 @@ function WalkinSessionsTab() {
                 <tbody>
                   {list.map((s: any) => {
                     const id = s._id || s.id;
+                    const userObj = typeof s.userId === "object" ? s.userId : null;
+                    const userId = userObj?._id || userObj?.id || (typeof s.userId === "string" ? s.userId : "");
                     const customer =
-                      (typeof s.userId === "object"
-                        ? s.userId?.name || s.userId?.username || s.userId?.email
-                        : null) || s.userName || s.customerName || "—";
+                      (userObj ? userObj.name || userObj.username || userObj.email : null)
+                      || s.userName || s.customerName || "—";
+                    const balance = Number(userObj?.walletBalance ?? userObj?.wallet_balance ?? s.walletBalance ?? 0);
                     const startMs = new Date(s.startedAt ?? s.startTime).getTime();
                     const elapsedMs = now - startMs;
                     const h = Math.floor(elapsedMs / 3600000);
@@ -4189,7 +4229,16 @@ function WalkinSessionsTab() {
                         <td className="py-2 pr-4 font-mono">
                           ${Number(s.runningCost ?? 0).toFixed(2)}
                         </td>
-                        <td className="py-2 pr-4 text-right">
+                        <td className="py-2 pr-4 text-right space-x-2 whitespace-nowrap">
+                          {userId && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setChargeTarget({ userId, name: String(customer), balance })}
+                            >
+                              <DollarSign className="h-3.5 w-3.5 mr-1" /> Charge
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="destructive"
@@ -4236,6 +4285,15 @@ function WalkinSessionsTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ChargeWalletDialog
+        open={!!chargeTarget}
+        onOpenChange={(v) => { if (!v) setChargeTarget(null); }}
+        userId={chargeTarget?.userId ?? ""}
+        customerName={chargeTarget?.name}
+        currentBalance={chargeTarget?.balance ?? 0}
+        defaultCategory="fnb"
+      />
     </div>
   );
 }
