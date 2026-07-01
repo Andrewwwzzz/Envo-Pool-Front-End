@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { AlertTriangle, Loader2, Plus, Trash2 } from "lucide-react";
 import { useChargeWallet, type ChargeWalletCategory } from "@/hooks/useAdmin";
-import { useAdminFnbProducts } from "@/hooks/useFnb";
+import { useAdminMenu } from "@/hooks/useFnb";
 
 interface ChargeWalletDialogProps {
   open: boolean;
@@ -62,7 +62,7 @@ export function ChargeWalletDialog({
   onCharged,
 }: ChargeWalletDialogProps) {
   const charge = useChargeWallet();
-  const { data: fnbProducts = [] } = useAdminFnbProducts();
+  const { data: fnbProducts = [] } = useAdminMenu();
 
   const [amount, setAmount] = useState<string>("");
   const [category, setCategory] = useState<ChargeWalletCategory>(defaultCategory);
