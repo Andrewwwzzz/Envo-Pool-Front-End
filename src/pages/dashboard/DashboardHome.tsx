@@ -115,27 +115,27 @@ export default function DashboardHome() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <Card className="card-premium cursor-pointer hover:border-accent/30 transition-colors" onClick={() => setTopUpOpen(true)}>
-          <CardContent className="pt-4 pb-4 text-center">
-            <Wallet className="h-5 w-5 mx-auto text-accent mb-1.5" />
-            <p className="text-lg font-bold">${walletBalance.toFixed(2)}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Wallet</p>
-            <p className="text-[10px] text-accent mt-1">Tap to top up</p>
+          <CardContent className="pt-3 pb-3 sm:pt-4 sm:pb-4 px-2 sm:px-6 text-center">
+            <Wallet className="h-4 w-4 sm:h-5 sm:w-5 mx-auto text-accent mb-1 sm:mb-1.5" />
+            <p className="text-sm sm:text-lg font-bold truncate">${walletBalance.toFixed(2)}</p>
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wider">Wallet</p>
+            <p className="text-[9px] sm:text-[10px] text-accent mt-0.5 sm:mt-1">Tap to top up</p>
           </CardContent>
         </Card>
         <Card className="card-premium">
-          <CardContent className="pt-4 pb-4 text-center">
-            <Calendar className="h-5 w-5 mx-auto text-blue-400 mb-1.5" />
-            <p className="text-lg font-bold">{upcoming.length}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Upcoming</p>
+          <CardContent className="pt-3 pb-3 sm:pt-4 sm:pb-4 px-2 sm:px-6 text-center">
+            <Calendar className="h-4 w-4 sm:h-5 sm:w-5 mx-auto text-blue-400 mb-1 sm:mb-1.5" />
+            <p className="text-sm sm:text-lg font-bold">{upcoming.length}</p>
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wider">Upcoming</p>
           </CardContent>
         </Card>
         <Card className="card-premium">
-          <CardContent className="pt-4 pb-4 text-center">
-            <Star className="h-5 w-5 mx-auto text-amber-400 mb-1.5" />
-            <p className="text-lg font-bold">{rewardPoints}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Points</p>
+          <CardContent className="pt-3 pb-3 sm:pt-4 sm:pb-4 px-2 sm:px-6 text-center">
+            <Star className="h-4 w-4 sm:h-5 sm:w-5 mx-auto text-amber-400 mb-1 sm:mb-1.5" />
+            <p className="text-sm sm:text-lg font-bold">{rewardPoints}</p>
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wider">Points</p>
           </CardContent>
         </Card>
       </div>

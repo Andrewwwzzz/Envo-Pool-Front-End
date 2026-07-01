@@ -231,7 +231,7 @@ export default function DashboardSettings() {
               </div>
             ) : (
               <>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 91234567" />
                   {kycVerified && (
                     <Button type="button" variant="outline" onClick={handleSendOtp} disabled={otpLoading} className="shrink-0">
@@ -252,14 +252,14 @@ export default function DashboardSettings() {
                         </Button>
                       </a>
                     )}
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <Input
                         placeholder="Enter 6-digit OTP from WhatsApp"
                         value={otp}
                         onChange={(e) => setOtp(e.target.value)}
                         maxLength={6}
                       />
-                      <Button type="button" onClick={handleVerifyOtp} disabled={otpVerifyLoading || otp.length !== 6} className="shrink-0">
+                      <Button type="button" onClick={handleVerifyOtp} disabled={otpVerifyLoading || otp.length !== 6} className="shrink-0 sm:w-auto w-full">
                         {otpVerifyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
                       </Button>
                     </div>

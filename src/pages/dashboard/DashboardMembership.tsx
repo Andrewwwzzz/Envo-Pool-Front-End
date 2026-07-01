@@ -175,7 +175,7 @@ function MembershipCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <div className="text-xs text-muted-foreground">Price</div>
             <div className="font-medium">${planPrice} / {planCycle}</div>
