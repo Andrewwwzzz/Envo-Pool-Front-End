@@ -10,7 +10,7 @@
  * filenames in Vite builds so they're safe to cache indefinitely).
  */
 
-const CACHE_NAME = "envo-pool-v1";
+const CACHE_NAME = "envo-pool-v2";
 
 // Assets to pre-cache on install (app shell)
 const PRECACHE_URLS = ["/", "/manifest.json", "/version.json"];
