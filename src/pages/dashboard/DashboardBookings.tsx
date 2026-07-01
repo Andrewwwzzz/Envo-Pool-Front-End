@@ -8,62 +8,55 @@ import BookingDetailDialog from "@/components/BookingDetailDialog";
 import WalkinReceiptDialog from "@/components/WalkinReceiptDialog";
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, nowSG } from "@/lib/sgTime";
 import { getTableLabel as resolveTableLabel } from "@/lib/tableLabel";
+import {
+  Calendar, Clock, Zap, CheckCircle2, XCircle,
+  AlertCircle, Timer, ChevronRight, Wallet
+} from "lucide-react";
 
-const statusBadge: Record<string, string> = {
-  confirmed: "bg-primary/10 text-primary border-primary/20",
-  pending: "bg-accent/20 text-accent-foreground border-accent/30",
-  pending_payment: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-  cancelled: "bg-destructive/10 text-destructive border-destructive/20",
-  completed: "bg-muted text-muted-foreground border-border",
-  expired: "bg-muted text-muted-foreground border-border",
-  active: "bg-green-500/20 text-green-400 border-green-500/30",
+// ── Status helpers ────────────────────────────────────────────────────────────
+const STATUS_CONFIG: Record<string, { label: string; icon: any; color: string; bg: string; border: string }> = {
+  confirmed:       { label: "Confirmed",       icon: CheckCircle2,  color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+  pending:         { label: "Pending",          icon: AlertCircle,   color: "text-amber-400",   bg: "bg-amber-500/10",   border: "border-amber-500/20"   },
+  pending_payment: { label: "Pending Payment",  icon: AlertCircle,   color: "text-yellow-400",  bg: "bg-yellow-500/10",  border: "border-yellow-500/20"  },
+  completed:       { label: "Completed",        icon: CheckCircle2,  color: "text-muted-foreground", bg: "bg-muted/50", border: "border-border"          },
+  cancelled:       { label: "Cancelled",        icon: XCircle,       color: "text-destructive",  bg: "bg-destructive/10", border: "border-destructive/20" },
+  expired:         { label: "Expired",          icon: XCircle,       color: "text-muted-foreground", bg: "bg-muted/50", border: "border-border"          },
+  active:          { label: "In Progress",      icon: Zap,           color: "text-green-400",    bg: "bg-green-500/10",   border: "border-green-500/20"   },
+  stopped:         { label: "Completed",        icon: CheckCircle2,  color: "text-muted-foreground", bg: "bg-muted/50", border: "border-border"          },
 };
 
-const paymentBadge = (method?: string | null) => {
-  if (!method) return null;
-  const m = method.toLowerCase();
-  if (m === "wallet") return { label: "Wallet", className: "bg-green-500/10 text-green-400 border-green-500/30" };
-  if (m === "paynow" || m === "stripe") return { label: "PayNow", className: "bg-blue-500/10 text-blue-400 border-blue-500/30" };
-  return null;
-};
-
-const statusLabel = (s: string) => {
-  if (s === "pending_payment") return "Pending Payment";
-  if (s === "expired") return "Expired";
-  if (s === "active") return "In Progress";
-  if (s === "stopped") return "Completed";
-  return s;
-};
+function getStatusCfg(s: string) {
+  return STATUS_CONFIG[s] ?? { label: s, icon: AlertCircle, color: "text-muted-foreground", bg: "bg-muted/50", border: "border-border" };
+}
 
 function fmtDuration(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
   const h = Math.floor(s / 3600);
   const m = Math.ceil((s % 3600) / 60);
-  if (s < 60) return "< 1m";
+  if (s < 60) return "< 1 min";
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-export default function DashboardBookings() {
-  const { user } = useAuth();
-  const { data: bookings } = useMyBookings();
-  const { data: tables } = useTables(null, null);
-  const { data: walkinHistory } = useMyWalkinHistory();
-  const { data: activeWalkin } = useMyWalkinSession();
-  const [selectedBooking, setSelectedBooking] = useState<any>(null);
-  const [selectedWalkin, setSelectedWalkin] = useState<{ session: any; live: boolean } | null>(null);
-  const [, setNowTick] = useState(0);
+function getDaysUntil(dateStr: string): number {
+  const now = new Date();
+  const target = new Date(dateStr);
+  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+}
 
-  // Tick every 30s so running cost / elapsed updates for active walk-in
-  useEffect(() => {
-    if (!activeWalkin) return;
-    const id = setInterval(() => setNowTick((n) => n + 1), 30000);
-    return () => clearInterval(id);
-  }, [activeWalkin]);
-
-  const now = nowSG();
+// ── Booking Card ──────────────────────────────────────────────────────────────
+function BookingCard({ b, tables, onClick }: { b: any; tables: any[]; onClick?: () => void }) {
   const getStartTime = (b: any) => b.startTime || b.start_time;
   const getEndTime = (b: any) => b.endTime || b.end_time;
-  const getTableLabel = (b: any) => {
+  const getPrice = (b: any) => Number(b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? 0);
+  const status = b.status || "confirmed";
+  const cfg = getStatusCfg(status);
+  const StatusIcon = cfg.icon;
+  const start = getStartTime(b);
+  const end = getEndTime(b);
+  const daysUntil = status === "confirmed" ? getDaysUntil(start) : null;
+  const method = (b.paymentMethod ?? b.payment_method ?? "").toLowerCase();
+
+  const tableLabel = (() => {
     const tid = b.tableId;
     if (tid && typeof tid === "object") {
       if (tid.name) return tid.name;
@@ -74,15 +67,150 @@ export default function DashboardBookings() {
     if (typeof tid === "string") {
       if (/^T\d+$/i.test(tid)) return `Table ${tid.replace(/^T/i, "")}`;
       const match = (tables || []).find((t: any) => t.id === tid);
-      if (match) {
-        return match.hardware_id
-          ? `Table ${String(match.hardware_id).replace(/^T/i, "")}`
-          : `Table ${match.table_number ?? "?"}`;
-      }
+      if (match) return match.hardware_id ? `Table ${String(match.hardware_id).replace(/^T/i, "")}` : `Table ${match.table_number ?? "?"}`;
     }
     return "Table ?";
-  };
-  const getPrice = (b: any) => b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? 0;
+  })();
+
+  return (
+    <div
+      className={`rounded-xl border ${cfg.border} bg-card/50 p-4 transition-all ${onClick ? "cursor-pointer hover:bg-muted/30 hover:scale-[1.01] active:scale-[0.99]" : ""}`}
+      onClick={onClick}
+    >
+      <div className="flex items-start justify-between gap-3">
+        {/* Left: table + time */}
+        <div className="flex items-start gap-3 min-w-0">
+          <div className={`mt-0.5 h-9 w-9 rounded-lg ${cfg.bg} border ${cfg.border} flex items-center justify-center shrink-0`}>
+            <Calendar className={`h-4 w-4 ${cfg.color}`} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-semibold text-sm text-foreground">{tableLabel}</p>
+              {daysUntil !== null && daysUntil <= 3 && daysUntil >= 0 && (
+                <span className="text-[10px] font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5">
+                  {daysUntil === 0 ? "Today" : daysUntil === 1 ? "Tomorrow" : `In ${daysUntil} days`}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
+              <Clock className="h-3 w-3 shrink-0" />
+              <span className="text-xs">{fmtDate(start)}</span>
+              <span className="text-xs">·</span>
+              <span className="text-xs font-medium text-foreground">{fmtTime(start)} – {fmtTime(end)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: price + chevron */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="text-right">
+            <p className="font-bold text-sm text-foreground">${getPrice(b).toFixed(2)}</p>
+            {method === "wallet" && (
+              <div className="flex items-center justify-end gap-0.5 mt-0.5">
+                <Wallet className="h-2.5 w-2.5 text-emerald-400" />
+                <span className="text-[10px] text-emerald-400">Wallet</span>
+              </div>
+            )}
+            {(method === "paynow" || method === "stripe") && (
+              <span className="text-[10px] text-blue-400">PayNow</span>
+            )}
+          </div>
+          {onClick && <ChevronRight className="h-4 w-4 text-muted-foreground/50" />}
+        </div>
+      </div>
+
+      {/* Status bar */}
+      <div className={`mt-3 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 ${cfg.bg} border ${cfg.border}`}>
+        <StatusIcon className={`h-3 w-3 ${cfg.color} shrink-0`} />
+        <span className={`text-[11px] font-medium ${cfg.color}`}>{cfg.label}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Walk-in Card ──────────────────────────────────────────────────────────────
+function WalkinCard({ w, tables, live, onClick }: { w: any; tables: any[]; live?: boolean; onClick?: () => void }) {
+  const start = w.startedAt || w.startTime;
+  const end = w.stoppedAt || w.endTime;
+  const status = live ? "active" : (w.status || "stopped");
+  const cfg = getStatusCfg(status);
+  const StatusIcon = cfg.icon;
+  const fallbackLive = live && start ? Math.floor((Date.now() - new Date(start).getTime()) / 1000) : 0;
+  const durationSecs = Number(w.durationSeconds ?? (w.durationMinutes ? w.durationMinutes * 60 : fallbackLive)) || fallbackLive;
+  const amount = live ? Number(w.runningCost ?? 0) : Number(w.amountCharged ?? w.totalCost ?? 0);
+  const label = resolveTableLabel(w.tableId, tables as any) || "Table ?";
+
+  return (
+    <div
+      className={`rounded-xl border ${live ? "border-green-500/40 bg-green-500/5" : `${cfg.border} bg-card/50`} p-4 transition-all ${onClick ? "cursor-pointer hover:bg-muted/30 hover:scale-[1.01] active:scale-[0.99]" : ""}`}
+      onClick={onClick}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className={`mt-0.5 h-9 w-9 rounded-lg ${live ? "bg-green-500/15 border-green-500/30" : `${cfg.bg} ${cfg.border}`} border flex items-center justify-center shrink-0`}>
+            <Timer className={`h-4 w-4 ${live ? "text-green-400" : cfg.color}`} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-semibold text-sm text-foreground">{label}</p>
+              <span className="text-[10px] font-medium text-accent bg-accent/15 border border-accent/25 rounded px-1.5 py-0.5">Walk-in</span>
+              {live && (
+                <span className="text-[10px] font-medium text-green-400 bg-green-500/10 border border-green-500/25 rounded px-1.5 py-0.5 animate-pulse">● Live</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
+              <Clock className="h-3 w-3 shrink-0" />
+              <span className="text-xs">{start ? fmtDate(start) : "—"}</span>
+              <span className="text-xs">·</span>
+              <span className="text-xs font-medium text-foreground">
+                {start ? fmtTime(start) : "—"} – {live ? "now" : (end ? fmtTime(end) : "—")}
+              </span>
+              {durationSecs > 0 && (
+                <span className="text-xs text-muted-foreground/70">· {fmtDuration(durationSecs)}</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="text-right">
+            <p className={`font-bold text-sm ${live ? "text-green-400" : "text-foreground"}`}>${amount.toFixed(2)}</p>
+            <div className="flex items-center justify-end gap-0.5 mt-0.5">
+              <Wallet className="h-2.5 w-2.5 text-emerald-400" />
+              <span className="text-[10px] text-emerald-400">Wallet</span>
+            </div>
+          </div>
+          {onClick && <ChevronRight className="h-4 w-4 text-muted-foreground/50" />}
+        </div>
+      </div>
+
+      <div className={`mt-3 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 ${live ? "bg-green-500/10 border border-green-500/20" : `${cfg.bg} border ${cfg.border}`}`}>
+        <StatusIcon className={`h-3 w-3 ${live ? "text-green-400" : cfg.color} shrink-0`} />
+        <span className={`text-[11px] font-medium ${live ? "text-green-400" : cfg.color}`}>{cfg.label}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+export default function DashboardBookings() {
+  const { user } = useAuth();
+  const { data: bookings } = useMyBookings();
+  const { data: tables } = useTables(null, null);
+  const { data: walkinHistory } = useMyWalkinHistory();
+  const { data: activeWalkin } = useMyWalkinSession();
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [selectedWalkin, setSelectedWalkin] = useState<{ session: any; live: boolean } | null>(null);
+  const [, setNowTick] = useState(0);
+
+  useEffect(() => {
+    if (!activeWalkin) return;
+    const id = setInterval(() => setNowTick((n) => n + 1), 30000);
+    return () => clearInterval(id);
+  }, [activeWalkin]);
+
+  const now = nowSG();
+  const getStartTime = (b: any) => b.startTime || b.start_time;
   const getStatus = (b: any) => b.status;
 
   const currentUserId = (user as any)?._id || user?.id;
@@ -97,10 +225,11 @@ export default function DashboardBookings() {
   });
 
   const upcoming = myBookings
-    .filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled")
+    .filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled" && getStatus(b) !== "expired")
     .sort((a: any, b: any) => new Date(getStartTime(a)).getTime() - new Date(getStartTime(b)).getTime());
+
   const pastBookings = myBookings
-    .filter((b: any) => new Date(getStartTime(b)) < now || getStatus(b) === "cancelled")
+    .filter((b: any) => new Date(getStartTime(b)) < now || getStatus(b) === "cancelled" || getStatus(b) === "expired")
     .map((b: any) => ({ kind: "booking" as const, when: new Date(getStartTime(b)).getTime(), data: b }));
 
   const pastWalkins = (walkinHistory || [])
@@ -112,104 +241,83 @@ export default function DashboardBookings() {
     }));
 
   const past = [...pastBookings, ...pastWalkins].sort((a, b) => b.when - a.when);
-
-  const renderBookingRow = (b: any, clickable: boolean) => (
-    <div
-      key={`b-${b.id || b._id}`}
-      className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-lg border border-border/50 p-3 sm:p-4 transition-colors ${
-        clickable ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30" : ""
-      }`}
-      onClick={() => clickable && setSelectedBooking(b)}
-    >
-      <div className="min-w-0">
-        <p className="font-medium">{getTableLabel(b)}</p>
-        <p className="text-sm text-muted-foreground">
-          {fmtDate(getStartTime(b))} {fmtTime(getStartTime(b))} – {fmtTime(getEndTime(b))}
-        </p>
-      </div>
-      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-        <span className="font-medium">${getPrice(b).toFixed(2)}</span>
-        {(() => {
-          const pb = paymentBadge(b.paymentMethod ?? b.payment_method);
-          return pb ? <Badge variant="outline" className={pb.className}>{pb.label}</Badge> : null;
-        })()}
-        <Badge variant="outline" className={statusBadge[getStatus(b)] ?? ""}>{statusLabel(getStatus(b))}</Badge>
-      </div>
-    </div>
-  );
-
-  const renderWalkinRow = (w: any, opts: { live?: boolean } = {}) => {
-    const start = w.startedAt || w.startTime;
-    const end = w.stoppedAt || w.endTime;
-    const status = opts.live ? "active" : (w.status || "stopped");
-    const fallbackLive = opts.live && start ? Math.floor((Date.now() - new Date(start).getTime()) / 1000) : 0;
-    const durationSecs = Number(
-      w.durationSeconds ?? (w.durationMinutes ? w.durationMinutes * 60 : fallbackLive)
-    ) || fallbackLive;
-    const amount = opts.live
-      ? Number(w.runningCost ?? 0)
-      : Number(w.amountCharged ?? w.totalCost ?? 0);
-    const label = resolveTableLabel(w.tableId, tables as any) || "Table ?";
-
-    return (
-      <div
-        key={`w-${w._id || w.id}`}
-        onClick={() => setSelectedWalkin({ session: w, live: !!opts.live })}
-        className={`cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-lg border p-3 sm:p-4 transition-colors hover:bg-primary/5 hover:border-primary/30 ${
-          opts.live ? "border-green-500/40 bg-green-500/5" : "border-border/50"
-        }`}
-      >
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-medium">{label}</p>
-            <Badge variant="outline" className="bg-accent/20 text-accent-foreground border-accent/30">Walk-in</Badge>
-            {opts.live && (
-              <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/30">Live</Badge>
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {start ? `${fmtDate(start)} ${fmtTime(start)}` : "—"}
-            {" – "}
-            {opts.live ? "now" : (end ? fmtTime(end) : "—")}
-            {durationSecs > 0 && <span className="ml-2">· {fmtDuration(durationSecs)}</span>}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          <span className="font-medium tabular-nums">${amount.toFixed(2)}</span>
-          <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">Wallet</Badge>
-          <Badge variant="outline" className={statusBadge[status] ?? ""}>{statusLabel(status)}</Badge>
-        </div>
-      </div>
-    );
-  };
+  const tableList = (tables as any[]) || [];
 
   return (
     <>
+      {/* Upcoming */}
       <Card className="card-premium">
-        <CardHeader><CardTitle className="text-lg">Upcoming Reservations</CardTitle></CardHeader>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-blue-400" />
+            <CardTitle className="text-base">Upcoming Reservations</CardTitle>
+          </div>
+        </CardHeader>
         <CardContent>
           {upcoming.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No upcoming reservations.</p>
+            <div className="text-center py-6">
+              <Calendar className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-muted-foreground text-sm">No upcoming reservations</p>
+            </div>
           ) : (
             <div className="space-y-3">
-              {upcoming.map((b: any) => renderBookingRow(b, getStatus(b) === "confirmed"))}
+              {upcoming.map((b: any) => (
+                <BookingCard
+                  key={b.id || b._id}
+                  b={b}
+                  tables={tableList}
+                  onClick={getStatus(b) === "confirmed" ? () => setSelectedBooking(b) : undefined}
+                />
+              ))}
             </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Activity History */}
       <Card className="card-premium">
-        <CardHeader><CardTitle className="text-lg">Activity History</CardTitle></CardHeader>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Timer className="h-4 w-4 text-accent" />
+            <CardTitle className="text-base">Activity History</CardTitle>
+          </div>
+        </CardHeader>
         <CardContent>
           {!activeWalkin && past.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No past activity.</p>
+            <div className="text-center py-6">
+              <Timer className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-muted-foreground text-sm">No past activity yet</p>
+            </div>
           ) : (
             <div className="space-y-3">
-              {activeWalkin && renderWalkinRow(activeWalkin, { live: true })}
+              {activeWalkin && (
+                <WalkinCard
+                  w={activeWalkin}
+                  tables={tableList}
+                  live
+                  onClick={() => setSelectedWalkin({ session: activeWalkin, live: true })}
+                />
+              )}
               {past.map((item) =>
-                item.kind === "booking"
-                  ? renderBookingRow(item.data, getStatus(item.data) === "confirmed" || getStatus(item.data) === "completed")
-                  : renderWalkinRow(item.data)
+                item.kind === "booking" ? (
+                  <BookingCard
+                    key={`b-${item.data.id || item.data._id}`}
+                    b={item.data}
+                    tables={tableList}
+                    onClick={
+                      getStatus(item.data) === "confirmed" || getStatus(item.data) === "completed"
+                        ? () => setSelectedBooking(item.data)
+                        : undefined
+                    }
+                  />
+                ) : (
+                  <WalkinCard
+                    key={`w-${item.data._id || item.data.id}`}
+                    w={item.data}
+                    tables={tableList}
+                    onClick={() => setSelectedWalkin({ session: item.data, live: false })}
+                  />
+                )
               )}
             </div>
           )}
@@ -221,7 +329,6 @@ export default function DashboardBookings() {
         open={!!selectedBooking}
         onOpenChange={(open) => !open && setSelectedBooking(null)}
       />
-
       <WalkinReceiptDialog
         session={selectedWalkin?.session ?? null}
         live={selectedWalkin?.live}
