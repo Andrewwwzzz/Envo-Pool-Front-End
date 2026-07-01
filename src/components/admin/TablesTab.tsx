@@ -183,17 +183,40 @@ export default function TablesTab() {
 
               const isMaintenance = !(isRunning || hasUserWalkin) && t.status === "maintenance";
 
+              // Derive the single source-of-truth display state
+              const displayState: "running" | "walkin" | "booked" | "maintenance" | "available" =
+                isRunning      ? "running"
+                : hasUserWalkin ? "walkin"
+                : hasActiveBooking ? "booked"
+                : isMaintenance ? "maintenance"
+                : "available";
+
+              const badgeClass =
+                displayState === "running"     ? "bg-primary/10 text-primary border-primary/20"
+                : displayState === "walkin"    ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                : displayState === "booked"    ? "bg-accent/20 text-accent-foreground border-accent/30"
+                : displayState === "maintenance" ? "bg-destructive/10 text-destructive border-destructive/20"
+                : "bg-muted/30 text-muted-foreground border-border";
+
+              const badgeLabel =
+                displayState === "running"     ? "In Use"
+                : displayState === "walkin"    ? "Walk-in Active"
+                : displayState === "booked"    ? "Booked"
+                : displayState === "maintenance" ? "Maintenance"
+                : "Available";
+
               return (
-                <div key={t.id} className={`rounded-xl border p-4 space-y-3 ${isMaintenance ? "border-destructive/30 bg-destructive/5" : "border-border"}`}>
+                <div key={t.id} className={`rounded-xl border p-4 space-y-3 ${
+                  displayState === "running"     ? "border-primary/30 bg-primary/5"
+                  : displayState === "walkin"    ? "border-amber-500/30 bg-amber-500/5"
+                  : displayState === "booked"    ? "border-accent/30 bg-accent/5"
+                  : displayState === "maintenance" ? "border-destructive/30 bg-destructive/5"
+                  : "border-border"
+                }`}>
                   <div className="flex items-center justify-between">
                     <p className="font-medium">Table {t.table_number}</p>
-                    <Badge variant="outline" className={
-                      isRunning ? "bg-primary/10 text-primary border-primary/20" 
-                      : isMaintenance ? "bg-destructive/10 text-destructive border-destructive/20"
-                      : hasActiveBooking ? "bg-accent/20 text-accent-foreground border-accent/30" 
-                      : "capitalize"
-                    }>
-                      {t.status === "in_use" ? "In Use" : t.status === "maintenance" ? "Maintenance" : t.status === "booked" ? "Booked" : "Available"}
+                    <Badge variant="outline" className={badgeClass}>
+                      {badgeLabel}
                     </Badge>
                   </div>
 
@@ -241,7 +264,7 @@ export default function TablesTab() {
                         <Square className="mr-2 h-3 w-3" /> Close Table
                       </Button>
                     ) : (
-                      <Button size="sm" variant="default" onClick={() => openTable(t.id)} className="w-full" disabled={hasActiveBooking || isMaintenance} title={hasActiveBooking ? "Table has an active booking" : isMaintenance ? "Table is under maintenance" : undefined}>
+                      <Button size="sm" variant="default" onClick={() => openTable(t.id)} className="w-full" disabled={hasActiveBooking || isMaintenance || hasUserWalkin} title={hasActiveBooking ? "Table has an active booking" : hasUserWalkin ? "Table has an active walk-in session" : isMaintenance ? "Table is under maintenance" : undefined}>
                         <Play className="mr-2 h-3 w-3" /> Open Table
                       </Button>
                     )}
