@@ -721,16 +721,22 @@ export function useChargeWallet() {
       category,
       description,
       allowNegative,
+      fnbItems,
+      tableId,
+      tableName,
     }: {
       userId: string;
       amount: number;
       category: ChargeWalletCategory;
       description: string;
       allowNegative?: boolean;
+      fnbItems?: Array<{ productId: string; productName: string; quantity: number; price: number }>;
+      tableId?: string | null;
+      tableName?: string | null;
     }) => {
       const res = await apiFetch(`/api/admin/charge-wallet`, {
         method: "POST",
-        body: JSON.stringify({ userId, amount, category, description, allowNegative: !!allowNegative }),
+        body: JSON.stringify({ userId, amount, category, description, allowNegative: !!allowNegative, fnbItems, tableId, tableName }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -746,6 +752,10 @@ export function useChargeWallet() {
       queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
       queryClient.invalidateQueries({ queryKey: ["walletHistory"] });
+      // Refresh FnB tab so new orders appear immediately
+      queryClient.invalidateQueries({ queryKey: ["fnb-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["fnb-orders-admin"] });
+      queryClient.invalidateQueries({ queryKey: ["transaction-history"] });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });

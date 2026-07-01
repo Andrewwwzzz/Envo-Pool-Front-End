@@ -259,7 +259,7 @@ export default function DashboardTransactions() {
                                 <span className="text-muted-foreground/40 text-[10px]">•</span>
                                 <span
                                   className="inline-flex items-center gap-0.5 text-[10px] font-medium text-violet-400"
-                                  title="This action was performed by staff on your behalf"
+                                  title="Assisted by staff"
                                 >
                                   <ShieldCheck className="h-3 w-3" />
                                   Staff
