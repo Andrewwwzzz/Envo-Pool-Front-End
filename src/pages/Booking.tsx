@@ -257,7 +257,7 @@ const Booking = () => {
       (best, m) => (getPct(m) > getPct(best) ? m : best),
       actives[0]
     );
-  }, [myMembership]);
+  }, [myMembership, startDate]);
 
   const activeMembershipPlan =
     (activeMembership?.planId && typeof activeMembership.planId === "object"
