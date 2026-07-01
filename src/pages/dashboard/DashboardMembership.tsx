@@ -220,7 +220,7 @@ function MembershipCard({
               {freeDrinkPerVisit && (
                 <li className="flex items-start gap-2">
                   <Beer className="h-4 w-4 text-accent mt-0.5" />
-                  <span>Free drink per visit</span>
+                  <span>Free drink daily</span>
                 </li>
               )}
               {lockerIncluded && (
@@ -395,7 +395,7 @@ export default function DashboardMembership() {
                         <li>{p.bookingDiscountPct }% discount on all bookings</li>
                       )}
                       {p.freeDrinkPerVisit && (
-                        <li>Free drink per visit</li>
+                        <li>Free drink daily</li>
                       )}
                       {(p.lockerIncluded ) && (
                         <li>🔒 Locker rental included</li>
