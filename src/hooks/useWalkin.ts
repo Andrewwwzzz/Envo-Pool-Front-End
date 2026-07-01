@@ -146,3 +146,18 @@ export function useMyWalkinHistory(enabled = true) {
   });
 }
 
+export function useMyTimerHistory(enabled = true) {
+  return useQuery<any[]>({
+    queryKey: ["timer-my-history"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/sessions/my/timer-history");
+      if (!res.ok) return [];
+      const data = await res.json().catch(() => []);
+      return Array.isArray(data) ? data : [];
+    },
+    enabled,
+    refetchInterval: 60000,
+    staleTime: 0,
+  });
+}
+

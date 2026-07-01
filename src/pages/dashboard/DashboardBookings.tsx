@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMyBookings, useTables } from "@/hooks/useBooking";
-import { useMyWalkinHistory, useMyWalkinSession } from "@/hooks/useWalkin";
+import { useMyWalkinHistory, useMyWalkinSession, useMyTimerHistory } from "@/hooks/useWalkin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
@@ -211,12 +211,69 @@ function WalkinCard({ w, tables, live, onClick }: { w: any; tables: any[]; live?
   );
 }
 
+// ── Admin Timer Session Card ──────────────────────────────────────────────────
+function TimerSessionCard({ t, tables }: { t: any; tables: any[] }) {
+  const start = t.startedAt;
+  const end = t.endedAt;
+  const cfg = getStatusCfg("stopped");
+  const StatusIcon = cfg.icon;
+  const durationSecs = Number(t.durationSeconds ?? 0);
+  const amount = Number(t.amountCharged ?? 0);
+  const label = t.tableName || resolveTableLabel(t.tableId, tables as any) || "Table ?";
+  const method = (t.paymentMethod || "wallet").toLowerCase();
+
+  return (
+    <div className={`rounded-xl border ${cfg.border} bg-card/50 p-4`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className={`mt-0.5 h-9 w-9 rounded-lg ${cfg.bg} border ${cfg.border} flex items-center justify-center shrink-0`}>
+            <Timer className={`h-4 w-4 ${cfg.color}`} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-semibold text-sm text-foreground">{label}</p>
+              <span className="text-[10px] font-medium text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded px-1.5 py-0.5">Staff Session</span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
+              <Clock className="h-3 w-3 shrink-0" />
+              <span className="text-xs">{start ? fmtDate(start) : "—"}</span>
+              <span className="text-xs">·</span>
+              <span className="text-xs font-medium text-foreground">
+                {start ? fmtTime(start) : "—"} – {end ? fmtTime(end) : "—"}
+              </span>
+              {durationSecs > 0 && (
+                <span className="text-xs text-muted-foreground/70">· {fmtDuration(durationSecs)}</span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="font-bold text-sm text-foreground">${amount.toFixed(2)}</p>
+          {method === "cash" ? (
+            <span className="text-[10px] text-amber-400">Cash</span>
+          ) : (
+            <div className="flex items-center justify-end gap-0.5 mt-0.5">
+              <Wallet className="h-2.5 w-2.5 text-emerald-400" />
+              <span className="text-[10px] text-emerald-400">Wallet</span>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className={`mt-3 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 ${cfg.bg} border ${cfg.border}`}>
+        <StatusIcon className={`h-3 w-3 ${cfg.color} shrink-0`} />
+        <span className={`text-[11px] font-medium ${cfg.color}`}>Completed</span>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function DashboardBookings() {
   const { user } = useAuth();
   const { data: bookings } = useMyBookings();
   const { data: tables } = useTables(null, null);
   const { data: walkinHistory } = useMyWalkinHistory();
+  const { data: timerHistory } = useMyTimerHistory();
   const { data: activeWalkin } = useMyWalkinSession();
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [selectedWalkin, setSelectedWalkin] = useState<{ session: any; live: boolean } | null>(null);
@@ -265,7 +322,14 @@ export default function DashboardBookings() {
       data: w,
     }));
 
-  const past = [...pastBookings, ...pastWalkins].sort((a, b) => b.when - a.when);
+  const pastTimers = (timerHistory || [])
+    .map((t: any) => ({
+      kind: "timer" as const,
+      when: new Date(t.endedAt || t.startedAt || 0).getTime(),
+      data: t,
+    }));
+
+  const past = [...pastBookings, ...pastWalkins, ...pastTimers].sort((a, b) => b.when - a.when);
   const tableList = (tables as any[]) || [];
 
   return (
@@ -337,12 +401,18 @@ export default function DashboardBookings() {
                         : undefined
                     }
                   />
-                ) : (
+                ) : item.kind === "walkin" ? (
                   <WalkinCard
                     key={`w-${item.data._id || item.data.id}`}
                     w={item.data}
                     tables={tableList}
                     onClick={() => setSelectedWalkin({ session: item.data, live: false })}
+                  />
+                ) : (
+                  <TimerSessionCard
+                    key={`t-${item.data._id || item.data.id}`}
+                    t={item.data}
+                    tables={tableList}
                   />
                 )
               )}
