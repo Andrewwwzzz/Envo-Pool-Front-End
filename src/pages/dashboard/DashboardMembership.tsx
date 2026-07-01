@@ -110,6 +110,27 @@ function MembershipCard({
   const freeMinutesPerVisit = Number(benefitsObj.freeMinutesPerVisit ?? plan?.freeMinutesPerVisit ?? 0);
   const freeDrinkPerVisit = Boolean(benefitsObj.freeDrinkPerVisit ?? plan?.freeDrinkPerVisit ?? false);
   const lockerIncluded = Boolean(benefitsObj.lockerIncluded ?? plan?.lockerIncluded ?? false);
+  const freeMinutesDays: number[] = Array.isArray(benefitsObj.freeMinutesDays)
+    ? benefitsObj.freeMinutesDays
+    : Array.isArray(plan?.freeMinutesDays) ? plan.freeMinutesDays : [1, 2, 3, 4]; // default Mon-Thu
+  const freeMinutesExcludePH = Boolean(benefitsObj.freeMinutesExcludePH ?? plan?.freeMinutesExcludePH ?? true);
+
+  // Build a readable day restriction string e.g. "Mon – Thu"
+  const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const freeMinutesDayLabel = (() => {
+    if (!freeMinutesDays.length) return "";
+    const sorted = [...freeMinutesDays].sort((a, b) => a - b);
+    // Check if it's a contiguous range (e.g. Mon-Thu = [1,2,3,4])
+    const isRange = sorted.every((d, i) => i === 0 || d === sorted[i - 1] + 1);
+    if (isRange && sorted.length > 2) {
+      return `${DAY_SHORT[sorted[0]]} – ${DAY_SHORT[sorted[sorted.length - 1]]}`;
+    }
+    return sorted.map(d => DAY_SHORT[d]).join(", ");
+  })();
+  const freeMinutesQualifier = [
+    freeMinutesDayLabel,
+    freeMinutesExcludePH ? "excl. PH & PH eve" : ""
+  ].filter(Boolean).join(", ");
   const hasAnyBenefit =
     bookingDiscount > 0 || freeMinutesPerVisit > 0 || freeDrinkPerVisit || lockerIncluded;
 
@@ -129,8 +150,17 @@ function MembershipCard({
   const lastVisitDate = membership?.lastVisitDate;
   const visitedToday = (() => {
     if (!lastVisitDate) return false;
-    const sgFmt = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" });
-    return sgFmt(new Date(lastVisitDate)) === sgFmt(new Date());
+    // Use operating-day boundary (10am SGT → 4am SGT next day) not calendar
+    // midnight, so a visit at 11:30pm still counts as "visited today" even
+    // after midnight within the same operating session.
+    const nowUtc = new Date();
+    const nowSGT = new Date(nowUtc.getTime() + 8 * 60 * 60 * 1000);
+    // Operating day starts at 10am SGT = 02:00 UTC
+    let opStart = new Date(Date.UTC(nowSGT.getUTCFullYear(), nowSGT.getUTCMonth(), nowSGT.getUTCDate(), 2, 0, 0));
+    if (nowUtc < opStart) opStart = new Date(opStart.getTime() - 24 * 60 * 60 * 1000);
+    const opEnd = new Date(opStart.getTime() + 18 * 60 * 60 * 1000); // +18h = 4am SGT
+    const last = new Date(lastVisitDate);
+    return last >= opStart && last < opEnd;
   })();
 
   return (
@@ -181,6 +211,9 @@ function MembershipCard({
                   <Timer className="h-4 w-4 text-accent mt-0.5" />
                   <span>
                     <span className="font-medium">⏱ {freeMinutesPerVisit} mins free daily (1st booking)</span>
+                    {freeMinutesQualifier && (
+                      <span className="block text-xs text-muted-foreground mt-0.5">{freeMinutesQualifier}</span>
+                    )}
                   </span>
                 </li>
               )}
@@ -205,11 +238,16 @@ function MembershipCard({
         {freeMinutesPerVisit > 0 && isActive && (
           <div className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-3 py-2 text-xs">
             <CircleDot className="h-3.5 w-3.5 text-accent" />
-            {visitedToday ? (
-              <span>Free minutes used today</span>
-            ) : (
-              <span>{freeMinutesPerVisit} mins free on your next visit</span>
-            )}
+            <div>
+              {visitedToday ? (
+                <span>Free {freeMinutesPerVisit} mins already used today ✓</span>
+              ) : (
+                <span>🎁 {freeMinutesPerVisit} free mins available on your next booking today</span>
+              )}
+              {freeMinutesQualifier && (
+                <p className="text-muted-foreground mt-0.5" style={{fontSize: "10px"}}>{freeMinutesQualifier}</p>
+              )}
+            </div>
           </div>
         )}
 
