@@ -2110,9 +2110,14 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
               </div>
             </div>
           ) : (
-            <div className="flex gap-6 text-sm pt-2 border-t border-border">
-              <span>Wallet: <strong>${(customer.wallet_balance ?? 0).toFixed(2)}</strong></span>
-              <span>Total Spent: <strong>${(customer.total_spent ?? 0).toFixed(2)}</strong></span>
+            <div className="flex items-center justify-between gap-4 flex-wrap pt-2 border-t border-border text-sm">
+              <div className="flex gap-6">
+                <span>Wallet: <strong>${(customer.wallet_balance ?? 0).toFixed(2)}</strong></span>
+                <span>Total Spent: <strong>${(customer.total_spent ?? 0).toFixed(2)}</strong></span>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setChargeOpen(true)}>
+                <DollarSign className="h-3.5 w-3.5 mr-1" /> Charge Wallet
+              </Button>
             </div>
           )}
         </CardContent>
