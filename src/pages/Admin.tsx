@@ -3964,6 +3964,7 @@ function ActiveWalkinSessionsSection() {
   const [reasonOpen, setReasonOpen] = useState(false);
   const [reasonValue, setReasonValue] = useState("");
   const [targetId, setTargetId] = useState<string | null>(null);
+  const [chargeTarget, setChargeTarget] = useState<{ userId: string; name: string; balance: number } | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
