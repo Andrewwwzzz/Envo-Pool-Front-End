@@ -77,6 +77,10 @@ self.addEventListener("fetch", (event) => {
   ) {
     return;
   }
+
+  // Network-first for navigation requests (HTML) and version.json
+  // so users always get the freshest app shell and version check.
+  const isNavigation = event.request.mode === "navigate";
   const isVersionCheck = url.pathname === "/version.json";
 
   if (isNavigation || isVersionCheck) {
