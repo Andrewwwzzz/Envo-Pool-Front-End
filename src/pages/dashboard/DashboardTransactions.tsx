@@ -170,7 +170,7 @@ export default function DashboardTransactions() {
           {!list.length ? (
             <p className="text-muted-foreground text-sm">No transactions yet.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {visible.map((t: any) => {
                 const desc = deriveTransactionDescription(
                   { description: t.description, type: t.rawType, paymentMethod: t.rawMethod, amount: t.amtRaw },
@@ -178,24 +178,34 @@ export default function DashboardTransactions() {
                 );
                 const isWalkin = typeof t.description === "string" && /^walk-?in session/i.test(t.description.trim());
                 return (
-                  <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
-                    <div className="flex items-center gap-3">
+                  <div
+                    key={t.id}
+                    className="flex items-center justify-between gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-muted/40 border border-transparent hover:border-border/60"
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
                       {isWalkin ? (
-                        <Badge variant="outline" className="bg-accent/10 text-accent border-accent/30 flex items-center gap-1">
+                        <Badge variant="outline" className="shrink-0 bg-accent/10 text-accent border-accent/30 flex items-center gap-1">
                           <Timer className="h-3 w-3" /> Walk-in
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className={txBadge(t.typeKey)}>{t.typeLabel}</Badge>
+                        <Badge variant="outline" className={`shrink-0 ${txBadge(t.typeKey)}`}>{t.typeLabel}</Badge>
                       )}
-                      <div>
+                      <div className="min-w-0">
                         {(isWalkin ? t.description : desc) && (
-                          <p className="text-sm font-medium text-foreground">{isWalkin ? t.description : desc}</p>
+                          <p className="text-sm font-medium text-foreground truncate">{isWalkin ? t.description : desc}</p>
                         )}
-                        <p className="text-xs text-muted-foreground">{fmtNiceDate(t.date)}</p>
-                        {t.method && <p className="text-xs text-muted-foreground">{t.method}</p>}
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                          <span>{fmtNiceDate(t.date)}</span>
+                          {t.method && (
+                            <>
+                              <span className="opacity-50">·</span>
+                              <span>{t.method}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <span className={t.positive ? "text-primary font-medium" : "text-destructive font-medium"}>
+                    <span className={`shrink-0 font-mono text-sm font-semibold ${t.positive ? "text-primary" : "text-destructive"}`}>
                       {t.amount}
                     </span>
                   </div>

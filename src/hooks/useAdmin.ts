@@ -107,18 +107,53 @@ export function useAdminTables() {
   });
 
   const stopTimer = useMutation({
-    mutationFn: async ({ tableId, durationSeconds, hourlyRate, discountPercent, startedAt }: { tableId: string; durationSeconds: number; hourlyRate: number; discountPercent?: number; startedAt: string }) => {
+    mutationFn: async ({
+      tableId,
+      durationSeconds,
+      hourlyRate,
+      discountPercent,
+      startedAt,
+      customerId,
+      paymentMethod,
+      allowNegative,
+    }: {
+      tableId: string;
+      durationSeconds: number;
+      hourlyRate: number;
+      discountPercent?: number;
+      startedAt: string;
+      customerId?: string | null;
+      paymentMethod?: "cash" | "wallet";
+      allowNegative?: boolean;
+    }) => {
       const res = await apiFetch(`/api/admin/tables/${tableId}/stop-timer`, {
         method: "POST",
-        body: JSON.stringify({ durationSeconds, hourlyRate, discountPercent: discountPercent || 0, startedAt }),
+        body: JSON.stringify({
+          durationSeconds,
+          hourlyRate,
+          discountPercent: discountPercent || 0,
+          startedAt,
+          customerId: customerId || null,
+          paymentMethod: paymentMethod || "cash",
+          allowNegative: !!allowNegative,
+        }),
       });
-      if (!res.ok) throw new Error("Failed to stop timer");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || err.message || "Failed to stop timer");
+      }
       return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
       queryClient.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-customer-wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["walletHistory"] });
     },
   });
 

@@ -50,6 +50,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { LogOut, ArrowLeft, DollarSign, Calendar, CalendarDays, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download, Copy, XCircle, Eye, EyeOff, AlertTriangle, Key, RefreshCw, Mail } from "lucide-react";
 import ReasonDialog from "@/components/admin/ReasonDialog";
 import { ChargeWalletDialog } from "@/components/admin/ChargeWalletDialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import DeletedBanner, { getDeletedInfo, isDeleted as isRecordDeleted } from "@/components/admin/DeletedBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAuthHeaders, apiFetch } from "@/lib/api";
@@ -641,7 +642,7 @@ function TablesTab() {
   const { data: bookings } = useAdminBookings();
   const { data: walkinSessions = [] } = useActiveWalkinSessions();
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
-  const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number; grossCost?: number; discountPercent?: number }>>({});
+  const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number; grossCost?: number; discountPercent?: number; paymentMethod?: "cash" | "wallet"; customerName?: string }>>({});
   const [hourlyRate, setHourlyRate] = useState("20");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -678,17 +679,36 @@ function TablesTab() {
     startTimer.mutate({ tableId, hourlyRate: rate });
   };
 
-  // Close-table confirmation dialog state — discount is entered here, at close time
+  // Close-table confirmation dialog state — discount, payer & payment method are entered here, at close time
   const [closeTarget, setCloseTarget] = useState<string | null>(null);
   const [closeDiscountInput, setCloseDiscountInput] = useState("0");
+  const [closePaymentMethod, setClosePaymentMethod] = useState<"cash" | "wallet">("cash");
+  const [closeCustomerId, setCloseCustomerId] = useState("");
+  const [closeCustomerSearch, setCloseCustomerSearch] = useState("");
+  const [closeCustomerName, setCloseCustomerName] = useState("");
+  const [closeAllowNegative, setCloseAllowNegative] = useState(false);
+  const { data: closeCustomers = [] } = useAdminCustomers(closeCustomerSearch);
+  const { toast: closeToast } = useToast();
 
   const openCloseDialog = (tableId: string) => {
     setCloseDiscountInput("0");
+    setClosePaymentMethod("cash");
+    setCloseCustomerId("");
+    setCloseCustomerSearch("");
+    setCloseCustomerName("");
+    setCloseAllowNegative(false);
     setCloseTarget(tableId);
   };
 
+  const selectedCloseCustomer = closeCustomers.find((c: any) => c.id === closeCustomerId);
+  const closeWalletBalance = selectedCloseCustomer?.wallet_balance ?? 0;
+
   const confirmCloseTable = () => {
     if (!closeTarget) return;
+    if (closePaymentMethod === "wallet" && !closeCustomerId) {
+      closeToast({ title: "Select a customer", description: "A customer must be selected to charge their wallet.", variant: "destructive" });
+      return;
+    }
     const tableId = closeTarget;
     const table = (tables || []).find((t) => t.id === tableId);
     const tableRate = table?.hourly_rate ?? rate;
@@ -697,7 +717,11 @@ function TablesTab() {
     const grossCost = Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
     const discountAmount = Math.round(grossCost * (discountPct / 100) * 100) / 100;
     const cost = Math.max(0, Math.round((grossCost - discountAmount) * 100) / 100);
-    setCompletedSessions((prev) => ({ ...prev, [tableId]: { seconds, cost, grossCost, discountPercent: discountPct } }));
+    if (closePaymentMethod === "wallet" && cost > closeWalletBalance && !closeAllowNegative) {
+      closeToast({ title: "Insufficient wallet balance", description: "Check 'Allow negative balance' to proceed anyway.", variant: "destructive" });
+      return;
+    }
+    setCompletedSessions((prev) => ({ ...prev, [tableId]: { seconds, cost, grossCost, discountPercent: discountPct, paymentMethod: closePaymentMethod, customerName: closeCustomerName } }));
     const startedAt = table?.timer_started_at
       ? new Date(table.timer_started_at).toISOString()
       : new Date(Date.now() - seconds * 1000).toISOString();
@@ -707,9 +731,23 @@ function TablesTab() {
       hourlyRate: Number(tableRate),
       discountPercent: discountPct,
       startedAt,
+      customerId: closeCustomerId || null,
+      paymentMethod: closePaymentMethod,
+      allowNegative: closeAllowNegative,
     };
-    console.log("[confirmCloseTable] calling stopTimer.mutate with:", payload);
-    stopTimer.mutate(payload);
+    stopTimer.mutate(payload, {
+      onSuccess: () => {
+        closeToast({
+          title: "Table closed",
+          description: closePaymentMethod === "wallet"
+            ? `$${cost.toFixed(2)} charged to ${closeCustomerName || "customer"}'s wallet.`
+            : `$${cost.toFixed(2)} recorded as cash payment.`,
+        });
+      },
+      onError: (err: Error) => {
+        closeToast({ title: "Failed to close table", description: err.message, variant: "destructive" });
+      },
+    });
     setCloseTarget(null);
   };
 
@@ -820,6 +858,11 @@ function TablesTab() {
                           {session.discountPercent}% discount applied (gross ${session.grossCost?.toFixed(2)})
                         </p>
                       )}
+                      <p className="text-xs text-muted-foreground">
+                        Paid {session.paymentMethod === "wallet"
+                          ? `via ${session.customerName || "customer"}'s wallet`
+                          : "in cash"}
+                      </p>
                     </div>
                   )}
 
@@ -888,19 +931,105 @@ function TablesTab() {
               })()}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Label>Discount (%)</Label>
-            <Input
-              type="number"
-              step="1"
-              min="0"
-              max="100"
-              value={closeDiscountInput}
-              onChange={(e) => setCloseDiscountInput(e.target.value)}
-              placeholder="0"
-              autoFocus
-            />
-            <p className="text-xs text-muted-foreground">Leave at 0 for no discount.</p>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Discount (%)</Label>
+              <Input
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                value={closeDiscountInput}
+                onChange={(e) => setCloseDiscountInput(e.target.value)}
+                placeholder="0"
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">Leave at 0 for no discount.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Payment Method</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={closePaymentMethod === "cash" ? "default" : "outline"}
+                  className="flex-1"
+                  onClick={() => setClosePaymentMethod("cash")}
+                >
+                  Cash
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={closePaymentMethod === "wallet" ? "default" : "outline"}
+                  className="flex-1"
+                  onClick={() => setClosePaymentMethod("wallet")}
+                >
+                  Customer Wallet
+                </Button>
+              </div>
+            </div>
+
+            {closePaymentMethod === "wallet" && (
+              <div className="space-y-2">
+                <Label>Customer <span className="text-destructive">*</span></Label>
+                {selectedCloseCustomer ? (
+                  <div className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+                    <div>
+                      <p className="font-medium">{closeCustomerName}</p>
+                      <p className="text-xs text-muted-foreground">Balance: ${closeWalletBalance.toFixed(2)}</p>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => { setCloseCustomerId(""); setCloseCustomerName(""); }}>Change</Button>
+                  </div>
+                ) : (
+                  <>
+                    <Input
+                      placeholder="Search name or email"
+                      value={closeCustomerSearch}
+                      onChange={(e) => setCloseCustomerSearch(e.target.value)}
+                    />
+                    <div className="max-h-36 overflow-y-auto rounded-md border border-border">
+                      {closeCustomers.slice(0, 20).map((c: any) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => { setCloseCustomerId(c.id); setCloseCustomerName(c.name || c.legal_name || c.email); }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                        >
+                          <div className="font-medium">{c.name || c.legal_name || "—"}</div>
+                          <div className="text-xs text-muted-foreground">{c.email} · ${Number(c.wallet_balance ?? 0).toFixed(2)}</div>
+                        </button>
+                      ))}
+                      {closeCustomerSearch && closeCustomers.length === 0 && (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">No customers found</div>
+                      )}
+                    </div>
+                  </>
+                )}
+                {selectedCloseCustomer && (() => {
+                  const t = (tables || []).find((tb) => tb.id === closeTarget);
+                  const tableRate = t?.hourly_rate ?? rate;
+                  const seconds = closeTarget ? (elapsed[closeTarget] ?? 0) : 0;
+                  const gross = Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
+                  const discountPct = Math.min(100, Math.max(0, parseFloat(closeDiscountInput) || 0));
+                  const final = Math.max(0, Math.round((gross - gross * (discountPct / 100)) * 100) / 100);
+                  const willGoNegative = final > closeWalletBalance;
+                  return willGoNegative ? (
+                    <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
+                      <div className="space-y-2">
+                        <p className="text-destructive">Charge exceeds this customer's wallet balance.</p>
+                        <label className="flex items-center gap-2 text-xs">
+                          <Checkbox checked={closeAllowNegative} onCheckedChange={(v) => setCloseAllowNegative(v === true)} />
+                          Allow negative balance
+                        </label>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCloseTarget(null)}>Cancel</Button>
