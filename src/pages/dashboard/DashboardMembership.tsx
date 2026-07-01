@@ -201,7 +201,7 @@ function MembershipCard({
                 <li className="flex items-start gap-2">
                   <Percent className="h-4 w-4 text-accent mt-0.5" />
                   <span>
-                    <span className="font-medium">🎱 {bookingDiscount}% off all bookings</span>
+                    <span className="font-medium">{bookingDiscount}% off all bookings</span>
                     <span className="text-muted-foreground"> — auto-applied at checkout</span>
                   </span>
                 </li>
@@ -210,7 +210,7 @@ function MembershipCard({
                 <li className="flex items-start gap-2">
                   <Timer className="h-4 w-4 text-accent mt-0.5" />
                   <span>
-                    <span className="font-medium">⏱ {freeMinutesPerVisit} mins free daily (1st booking)</span>
+                    <span className="font-medium">{freeMinutesPerVisit} mins free daily (1st booking)</span>
                     {freeMinutesQualifier && (
                       <span className="block text-xs text-muted-foreground mt-0.5">{freeMinutesQualifier}</span>
                     )}
@@ -220,7 +220,7 @@ function MembershipCard({
               {freeDrinkPerVisit && (
                 <li className="flex items-start gap-2">
                   <Beer className="h-4 w-4 text-accent mt-0.5" />
-                  <span>🍺 Free drink / snack per visit</span>
+                  <span>Free drink per visit</span>
                 </li>
               )}
               {lockerIncluded && (
@@ -389,13 +389,13 @@ export default function DashboardMembership() {
                   <CardContent className="space-y-3 text-sm">
                     {!(p.freeMinutesPerVisit ) && !(p.bookingDiscountPct ) && !p.lockerIncluded && p.description && <p className="text-muted-foreground whitespace-pre-line text-sm">{p.description}</p>}<ul className="space-y-1 text-muted-foreground list-none">
                       {!!(p.freeMinutesPerVisit ) && (
-                        <li>⏱ Free {p.freeMinutesPerVisit } mins on first booking each day</li>
+                        <li>Free {p.freeMinutesPerVisit } mins on first booking each day</li>
                       )}
                       {!!(p.bookingDiscountPct ) && (
-                        <li>% {p.bookingDiscountPct }% discount on all bookings</li>
+                        <li>{p.bookingDiscountPct }% discount on all bookings</li>
                       )}
                       {p.freeDrinkPerVisit && (
-                        <li>🍺 Free drink / snack per visit</li>
+                        <li>Free drink per visit</li>
                       )}
                       {(p.lockerIncluded ) && (
                         <li>🔒 Locker rental included</li>
