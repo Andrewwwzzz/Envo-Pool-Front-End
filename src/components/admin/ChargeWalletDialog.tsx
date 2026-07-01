@@ -44,6 +44,26 @@ interface FnbItem {
   price: number;
 }
 
+function normalizeTableName(input: string): string {
+  const v = input.trim();
+  if (!v) return v;
+  if (/^[Tt]\d+$/.test(v)) return `Table ${v.replace(/^[Tt]/, "")}`;
+  if (/^\d+$/.test(v)) return `Table ${v}`;
+  return v;
+}
+
+function extractTableNumber(input: string): number | null {
+  const m = input.trim().match(/^(?:[Tt]able\s*)?(\d+)$/i);
+  return m ? parseInt(m[1]) : null;
+}
+
+const MAX_TABLE = 14;
+
+function isValidTable(input: string): boolean {
+  const n = extractTableNumber(input);
+  return n !== null && n >= 1 && n <= MAX_TABLE;
+}
+
 const CATEGORY_LABELS: Partial<Record<ChargeWalletCategory, string>> = {
   fnb: "F&B",
   other: "Other",
@@ -91,7 +111,7 @@ export function ChargeWalletDialog({
   const isFnbCategory = category === "fnb";
 
   const canSubmit = isFnbCategory
-    ? fnbItems.length > 0 && tableName.trim().length > 0 && !charge.isPending
+    ? fnbItems.length > 0 && isValidTable(tableName) && !charge.isPending
     : validAmount &&
       description.trim().length > 0 &&
       (!willGoNegative || allowNegative) &&
@@ -138,7 +158,7 @@ export function ChargeWalletDialog({
           for (let i = 0; i < item.quantity; i++) {
             const res = await apiFetch("/api/fnb/orders/staff", {
               method: "POST",
-              body: JSON.stringify({ userId, productId: item.productId, tableName: tableName.trim() || null }),
+              body: JSON.stringify({ userId, productId: item.productId, tableName: normalizeTableName(tableName) || null }),
             });
             if (!res.ok) {
               const err = await res.json().catch(() => ({}));
@@ -209,10 +229,14 @@ export function ChargeWalletDialog({
               <Label htmlFor="fnb-table">Table Number <span className="text-destructive">*</span></Label>
               <Input
                 id="fnb-table"
-                placeholder="e.g. T1, T3..."
+                placeholder="e.g. 1, T3, Table 5"
                 value={tableName}
                 onChange={(e) => setTableName(e.target.value)}
+                className={tableName.trim() && !isValidTable(tableName) ? "border-red-500/50" : ""}
               />
+              {tableName.trim() && !isValidTable(tableName) && (
+                <p className="text-xs text-red-400">Invalid table — must be between 1 and {MAX_TABLE}</p>
+              )}
             </div>
           )}
 

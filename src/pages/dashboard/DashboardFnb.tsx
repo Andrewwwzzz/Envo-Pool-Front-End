@@ -14,6 +14,26 @@ import { fmtDateTimeSG } from "@/lib/sgTime";
 
 type Category = "all" | "drinks" | "food" | "snacks";
 
+const MAX_TABLE = 14;
+
+function normalizeTableName(input: string): string {
+  const v = input.trim();
+  if (!v) return v;
+  if (/^[Tt]\d+$/.test(v)) return `Table ${v.replace(/^[Tt]/, "")}`;
+  if (/^\d+$/.test(v)) return `Table ${v}`;
+  return v;
+}
+
+function extractTableNumber(input: string): number | null {
+  const m = input.trim().match(/^(?:[Tt]able\s*)?(\d+)$/i);
+  return m ? parseInt(m[1]) : null;
+}
+
+function isValidTable(input: string): boolean {
+  const n = extractTableNumber(input);
+  return n !== null && n >= 1 && n <= MAX_TABLE;
+}
+
 function getCategoryGroup(cat: string): Category {
   if (cat === "soft_drinks" || cat === "beer") return "drinks";
   if (cat === "finger_food") return "food";
@@ -44,8 +64,8 @@ export default function DashboardFnb() {
     placeOrder.mutate(
       {
         productId: confirm.product._id,
-        tableId: tableInput,
-        tableName: tableInput,
+        tableId: normalizeTableName(tableInput),
+        tableName: normalizeTableName(tableInput),
         isFreeRedemption: confirm.isFree,
       },
       { onSettled: () => setConfirm(null) }
@@ -89,13 +109,16 @@ export default function DashboardFnb() {
           Your Table <span className="text-red-400">*</span>
         </label>
         <Input
-          placeholder="e.g. Table 5"
+          placeholder="e.g. 1, T3, Table 5"
           value={tableInput}
           onChange={(e) => setTableInput(e.target.value)}
-          className={`max-w-xs ${!tableInput.trim() ? "border-red-500/50" : ""}`}
+          className={`max-w-xs ${tableInput.trim() && !isValidTable(tableInput) ? "border-red-500/50" : !tableInput.trim() ? "border-red-500/50" : ""}`}
         />
         {!tableInput.trim() && (
           <p className="text-xs text-red-400">Enter your table number to order</p>
+        )}
+        {tableInput.trim() && !isValidTable(tableInput) && (
+          <p className="text-xs text-red-400">Invalid table — must be between 1 and {MAX_TABLE}</p>
         )}
       </div>
 
@@ -139,7 +162,7 @@ export default function DashboardFnb() {
                       <Button
                         size="sm"
                         className="w-full bg-green-600 hover:bg-green-700 text-white text-xs"
-                        disabled={!tableInput.trim()}
+                        disabled={!isValidTable(tableInput)}
                         onClick={() => setConfirm({ product, isFree: true })}
                       >
                         Redeem Free
@@ -149,10 +172,10 @@ export default function DashboardFnb() {
                       size="sm"
                       variant="outline"
                       className="w-full text-xs"
-                      disabled={!canAfford || !tableInput.trim()}
+                      disabled={!canAfford || !isValidTable(tableInput)}
                       onClick={() => setConfirm({ product, isFree: false })}
                     >
-                      {!tableInput.trim() ? "Enter table first" : canAfford ? `Order $${product.sellingPrice.toFixed(2)}` : "Insufficient Balance"}
+                      {!isValidTable(tableInput) ? "Enter valid table" : canAfford ? `Order $${product.sellingPrice.toFixed(2)}` : "Insufficient Balance"}
                     </Button>
                   </div>
                 )}
