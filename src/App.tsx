@@ -24,6 +24,7 @@ import Terms from "./pages/Terms";
 import Kyc from "./pages/Kyc";
 import NotFound from "./pages/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
+import AppUpdateBanner from "./components/AppUpdateBanner";
 
 // Legacy redirects â€” send old URLs to payment-verification (socket-driven)
 const LegacyRedirect = () => {
@@ -46,6 +47,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <AppUpdateBanner />
           <BrowserRouter>
             <ErrorBoundary label="this page">
               <Routes>
