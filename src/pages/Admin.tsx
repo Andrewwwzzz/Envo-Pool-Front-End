@@ -2301,6 +2301,15 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
         open={!!selectedBooking}
         onOpenChange={(open) => { if (!open) setSelectedBooking(null); }}
       />
+
+      <ChargeWalletDialog
+        open={chargeOpen}
+        onOpenChange={setChargeOpen}
+        userId={customer.user_id}
+        customerName={customer.name || customer.email}
+        currentBalance={Number(customer.wallet_balance ?? 0)}
+        defaultCategory="fnb"
+      />
     </div>
   );
 }
