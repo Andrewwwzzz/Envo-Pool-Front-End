@@ -63,7 +63,10 @@ export default function DashboardLayout() {
         </Button>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-4xl p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <main
+        className="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 pt-4 sm:pt-6 space-y-4 sm:space-y-6"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}
+      >
         <Outlet />
       </main>
     </div>

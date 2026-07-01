@@ -83,10 +83,10 @@ export default function DashboardFnb() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
             <ShoppingBag className="h-6 w-6 text-accent" /> F&B
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">Order food & drinks, delivered to your table</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">Order food & drinks, delivered to your table</p>
         </div>
         <Badge className="bg-accent/10 text-accent text-sm px-3 py-1">
           Wallet: ${walletBalance.toFixed(2)}
@@ -112,7 +112,7 @@ export default function DashboardFnb() {
           placeholder="e.g. 1, T3, Table 5"
           value={tableInput}
           onChange={(e) => setTableInput(e.target.value)}
-          className={`max-w-xs ${tableInput.trim() && !isValidTable(tableInput) ? "border-red-500/50" : !tableInput.trim() ? "border-red-500/50" : ""}`}
+          className={`w-full sm:max-w-xs ${tableInput.trim() && !isValidTable(tableInput) ? "border-red-500/50" : !tableInput.trim() ? "border-red-500/50" : ""}`}
         />
         {!tableInput.trim() && (
           <p className="text-xs text-red-400">Enter your table number to order</p>
