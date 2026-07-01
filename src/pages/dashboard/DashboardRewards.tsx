@@ -12,7 +12,6 @@ import { useMyRewards, useRedeemCreditReward, Reward } from "@/hooks/useRewards"
 import { usePlaceOrder } from "@/hooks/useFnb";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import {
