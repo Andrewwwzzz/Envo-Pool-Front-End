@@ -4285,6 +4285,15 @@ function WalkinSessionsTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ChargeWalletDialog
+        open={!!chargeTarget}
+        onOpenChange={(v) => { if (!v) setChargeTarget(null); }}
+        userId={chargeTarget?.userId ?? ""}
+        customerName={chargeTarget?.name}
+        currentBalance={chargeTarget?.balance ?? 0}
+        defaultCategory="fnb"
+      />
     </div>
   );
 }
