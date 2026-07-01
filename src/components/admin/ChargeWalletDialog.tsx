@@ -42,11 +42,8 @@ interface FnbItem {
   price: number;
 }
 
-const CATEGORY_LABELS: Record<ChargeWalletCategory, string> = {
-  manual_timer: "Manual Timer",
+const CATEGORY_LABELS: Partial<Record<ChargeWalletCategory, string>> = {
   fnb: "F&B",
-  locker: "Locker",
-  merchandise: "Merchandise",
   other: "Other",
 };
 
@@ -99,18 +96,19 @@ export function ChargeWalletDialog({
     if (!product) return;
 
     const qty = Math.max(1, parseInt(selectedQuantity) || 1);
+    const unitPrice = Number(product.sellingPrice ?? product.price ?? 0);
     const newItem: FnbItem = {
       productId: product._id,
       productName: product.name,
       quantity: qty,
-      price: product.price,
+      price: unitPrice,
     };
 
-    setFnbItems([...fnbItems, newItem]);
-
-    // Update amount based on FnB items
-    const totalFnbAmount = (fnbItems.length + 1) * qty * product.price;
+    const updatedItems = [...fnbItems, newItem];
+    setFnbItems(updatedItems);
+    const totalFnbAmount = updatedItems.reduce((sum, item) => sum + item.quantity * item.price, 0);
     setAmount(String(totalFnbAmount.toFixed(2)));
+    if (!description.trim()) setDescription(`F&B order`);
 
     setSelectedProductId("");
     setSelectedQuantity("1");
@@ -214,6 +212,13 @@ export function ChargeWalletDialog({
                 </div>
               )}
 
+              {fnbItems.length > 0 && (
+                <div className="flex items-center justify-between rounded-md bg-muted px-3 py-2 text-sm font-semibold">
+                  <span>Total</span>
+                  <span>${Number(amount || 0).toFixed(2)}</span>
+                </div>
+              )}
+
               <div className="space-y-2 border-t border-border/30 pt-3">
                 <div className="grid grid-cols-3 gap-2">
                   <div className="col-span-2">
@@ -224,7 +229,7 @@ export function ChargeWalletDialog({
                       <SelectContent>
                         {fnbProducts.map((product) => (
                           <SelectItem key={product._id} value={product._id}>
-                            {product.name} (${Number(product.price ?? 0).toFixed(2)})
+                            {product.name} (${Number(product.sellingPrice ?? product.price ?? 0).toFixed(2)})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -254,7 +259,7 @@ export function ChargeWalletDialog({
             </div>
           )}
 
-          <div className="space-y-1.5">
+          <div className="space-y-1.5" style={{ display: isFnbCategory ? "none" : undefined }}>
             <Label htmlFor="charge-amount">Amount ($)</Label>
             <Input
               id="charge-amount"
