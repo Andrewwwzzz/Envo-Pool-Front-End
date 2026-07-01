@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
 import WalkinReceiptDialog from "@/components/WalkinReceiptDialog";
+import TimerSessionReceiptDialog from "@/components/TimerSessionReceiptDialog";
 import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, nowSG } from "@/lib/sgTime";
 import { getTableLabel as resolveTableLabel } from "@/lib/tableLabel";
 import {
@@ -212,7 +213,7 @@ function WalkinCard({ w, tables, live, onClick }: { w: any; tables: any[]; live?
 }
 
 // ── Admin Timer Session Card ──────────────────────────────────────────────────
-function TimerSessionCard({ t, tables }: { t: any; tables: any[] }) {
+function TimerSessionCard({ t, tables, onClick }: { t: any; tables: any[]; onClick?: () => void }) {
   const start = t.startedAt;
   const end = t.endedAt;
   const cfg = getStatusCfg("stopped");
@@ -220,10 +221,11 @@ function TimerSessionCard({ t, tables }: { t: any; tables: any[] }) {
   const durationSecs = Number(t.durationSeconds ?? 0);
   const amount = Number(t.amountCharged ?? 0);
   const label = t.tableName || resolveTableLabel(t.tableId, tables as any) || "Table ?";
-  const method = (t.paymentMethod || "wallet").toLowerCase();
-
   return (
-    <div className={`rounded-xl border ${cfg.border} bg-card/50 p-4`}>
+    <div
+      className={`rounded-xl border ${cfg.border} bg-card/50 p-4 transition-all ${onClick ? "cursor-pointer hover:bg-muted/30 hover:scale-[1.01] active:scale-[0.99]" : ""}`}
+      onClick={onClick}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
           <div className={`mt-0.5 h-9 w-9 rounded-lg ${cfg.bg} border ${cfg.border} flex items-center justify-center shrink-0`}>
@@ -249,14 +251,10 @@ function TimerSessionCard({ t, tables }: { t: any; tables: any[] }) {
         </div>
         <div className="text-right shrink-0">
           <p className="font-bold text-sm text-foreground">${amount.toFixed(2)}</p>
-          {method === "cash" ? (
-            <span className="text-[10px] text-amber-400">Cash</span>
-          ) : (
-            <div className="flex items-center justify-end gap-0.5 mt-0.5">
-              <Wallet className="h-2.5 w-2.5 text-emerald-400" />
-              <span className="text-[10px] text-emerald-400">Wallet</span>
-            </div>
-          )}
+          <div className="flex items-center justify-end gap-0.5 mt-0.5">
+            <Wallet className="h-2.5 w-2.5 text-emerald-400" />
+            <span className="text-[10px] text-emerald-400">Wallet</span>
+          </div>
         </div>
       </div>
       <div className={`mt-3 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 ${cfg.bg} border ${cfg.border}`}>
@@ -277,6 +275,7 @@ export default function DashboardBookings() {
   const { data: activeWalkin } = useMyWalkinSession();
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [selectedWalkin, setSelectedWalkin] = useState<{ session: any; live: boolean } | null>(null);
+  const [selectedTimer, setSelectedTimer] = useState<any>(null);
   const [, setNowTick] = useState(0);
 
   useEffect(() => {
@@ -413,6 +412,7 @@ export default function DashboardBookings() {
                     key={`t-${item.data._id || item.data.id}`}
                     t={item.data}
                     tables={tableList}
+                    onClick={() => setSelectedTimer(item.data)}
                   />
                 )
               )}
@@ -431,6 +431,11 @@ export default function DashboardBookings() {
         live={selectedWalkin?.live}
         open={!!selectedWalkin}
         onOpenChange={(open) => !open && setSelectedWalkin(null)}
+      />
+      <TimerSessionReceiptDialog
+        session={selectedTimer}
+        open={!!selectedTimer}
+        onOpenChange={(open) => !open && setSelectedTimer(null)}
       />
     </>
   );

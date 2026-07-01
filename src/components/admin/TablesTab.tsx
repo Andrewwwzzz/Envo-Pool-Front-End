@@ -250,9 +250,7 @@ export default function TablesTab() {
                         </p>
                       )}
                       <p className="text-xs text-muted-foreground">
-                        Paid {session.paymentMethod === "wallet"
-                          ? `via ${session.customerName || "customer"}'s wallet`
-                          : "in cash"}
+                        Paid via {session.customerName || "customer"}'s wallet
                       </p>
                     </div>
                   )}
@@ -331,7 +329,7 @@ function CloseTableDialog({
 }) {
   const { toast } = useToast();
   const [discountInput, setDiscountInput] = useState("0");
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "wallet">("cash");
+  const [paymentMethod] = useState<"cash" | "wallet">("wallet");
   const [customerId, setCustomerId] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -341,7 +339,7 @@ function CloseTableDialog({
   useEffect(() => {
     if (closeTarget) {
       setDiscountInput("0");
-      setPaymentMethod("cash");
+
       setCustomerId("");
       setCustomerSearch("");
       setCustomerName("");
@@ -393,9 +391,7 @@ function CloseTableDialog({
         onSuccess: () => {
           toast({
             title: "Table closed",
-            description: paymentMethod === "wallet"
-              ? `$${finalCost.toFixed(2)} charged to ${customerName || "customer"}'s wallet.`
-              : `$${finalCost.toFixed(2)} recorded as cash payment.`,
+            description: `$${finalCost.toFixed(2)} charged to ${customerName || "customer"}'s wallet.`,
           });
         },
         onError: (err: Error) => {
@@ -436,19 +432,7 @@ function CloseTableDialog({
             <p className="text-xs text-muted-foreground">Leave at 0 for no discount.</p>
           </div>
 
-          <div className="space-y-2">
-            <Label>Payment Method</Label>
-            <div className="flex gap-2">
-              <Button type="button" size="sm" variant={paymentMethod === "cash" ? "default" : "outline"} className="flex-1" onClick={() => setPaymentMethod("cash")}>
-                Cash
-              </Button>
-              <Button type="button" size="sm" variant={paymentMethod === "wallet" ? "default" : "outline"} className="flex-1" onClick={() => setPaymentMethod("wallet")}>
-                Customer Wallet
-              </Button>
-            </div>
-          </div>
-
-          {paymentMethod === "wallet" && (
+          {(
             <div className="space-y-2">
               <Label>Customer <span className="text-destructive">*</span></Label>
               {selectedCustomer ? (
