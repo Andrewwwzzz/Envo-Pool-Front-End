@@ -10,7 +10,7 @@
  * filenames in Vite builds so they're safe to cache indefinitely).
  */
 
-const CACHE_NAME = "envo-pool-v1";
+const CACHE_NAME = "envo-pool-v2";
 
 // Assets to pre-cache on install (app shell)
 const PRECACHE_URLS = ["/", "/manifest.json", "/version.json"];
@@ -65,6 +65,18 @@ self.addEventListener("fetch", (event) => {
 
   // Only handle same-origin requests — let API calls go through normally
   if (url.origin !== self.location.origin) return;
+
+  // Skip Vite dev-server module URLs — caching these breaks HMR and
+  // pins stale React chunks (null dispatcher → useState errors).
+  if (
+    url.pathname.startsWith("/node_modules/") ||
+    url.pathname.startsWith("/@") ||
+    url.pathname.startsWith("/src/") ||
+    url.search.includes("import") ||
+    url.search.includes("v=")
+  ) {
+    return;
+  }
 
   // Network-first for navigation requests (HTML) and version.json
   // so users always get the freshest app shell and version check.
