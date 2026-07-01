@@ -11,7 +11,7 @@ import { deriveTransactionDescription } from "@/lib/transactionLabel";
 import { useMembershipPlans } from "@/hooks/useMembership";
 import { useMyWalkinSession } from "@/hooks/useWalkin";
 import { getTableLabel } from "@/lib/tableLabel";
-import { Timer } from "lucide-react";
+import { Timer, ArrowDownLeft, ArrowUpRight, RefreshCw, CreditCard, Zap } from "lucide-react";
 
 export default function DashboardTransactions() {
   const { user } = useAuth();
@@ -35,7 +35,6 @@ export default function DashboardTransactions() {
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   })();
 
-
   const fmtNiceDate = (s: string) => {
     if (!s) return "";
     try {
@@ -47,11 +46,48 @@ export default function DashboardTransactions() {
     } catch { return s; }
   };
 
-  const txBadge = (key: string) =>
-    key === "payment" ? "bg-destructive/10 text-destructive border-destructive/30"
-    : key === "topup" ? "bg-green-500/10 text-green-400 border-green-500/30"
-    : key === "refund" ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
-    : "bg-muted text-muted-foreground border-border";
+  const getTypeConfig = (typeKey: string, isWalkin: boolean) => {
+    if (isWalkin) return {
+      icon: <Timer className="h-3.5 w-3.5" />,
+      bg: "bg-amber-500/10",
+      iconColor: "text-amber-400",
+      border: "border-amber-500/20",
+      label: "Walk-in",
+      labelColor: "text-amber-400",
+    };
+    if (typeKey === "payment") return {
+      icon: <ArrowUpRight className="h-3.5 w-3.5" />,
+      bg: "bg-red-500/10",
+      iconColor: "text-red-400",
+      border: "border-red-500/20",
+      label: "Payment",
+      labelColor: "text-red-400",
+    };
+    if (typeKey === "topup") return {
+      icon: <ArrowDownLeft className="h-3.5 w-3.5" />,
+      bg: "bg-emerald-500/10",
+      iconColor: "text-emerald-400",
+      border: "border-emerald-500/20",
+      label: "Top Up",
+      labelColor: "text-emerald-400",
+    };
+    if (typeKey === "refund") return {
+      icon: <RefreshCw className="h-3.5 w-3.5" />,
+      bg: "bg-blue-500/10",
+      iconColor: "text-blue-400",
+      border: "border-blue-500/20",
+      label: "Refund",
+      labelColor: "text-blue-400",
+    };
+    return {
+      icon: <CreditCard className="h-3.5 w-3.5" />,
+      bg: "bg-muted",
+      iconColor: "text-muted-foreground",
+      border: "border-border",
+      label: "Other",
+      labelColor: "text-muted-foreground",
+    };
+  };
 
   const { data: transactionHistory } = useQuery({
     queryKey: ["transaction-history", user?.id],
@@ -124,93 +160,111 @@ export default function DashboardTransactions() {
   const list = transactionHistory ?? [];
   const visible = showAll ? list : list.slice(0, 10);
 
+  // Group by date
+  const groupedByDate: Record<string, typeof visible> = {};
+  visible.forEach((t) => {
+    const label = t.date
+      ? new Date(t.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Singapore" })
+      : "Unknown";
+    if (!groupedByDate[label]) groupedByDate[label] = [];
+    groupedByDate[label].push(t);
+  });
+
   return (
     <div className="space-y-4">
       {walkinSession && (
-        <Card className="card-premium border-accent/40">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Timer className="h-4 w-4 text-accent" />
-              Walk-in Session In Progress
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 sm:grid-cols-3 text-sm">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Table</p>
-                <p className="font-medium">{getTableLabel((walkinSession as any).tableId)}</p>
+        <Card className="card-premium border-accent/40 bg-accent/5">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-8 w-8 rounded-full bg-accent/15 flex items-center justify-center">
+                <Zap className="h-4 w-4 text-accent" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Started</p>
-                <p className="font-medium">{fmtNiceDate(String(walkinSession.startedAt ?? walkinSession.startTime ?? ""))}</p>
-                <p className="text-xs text-muted-foreground font-mono mt-0.5">{walkinElapsedLabel}</p>
+                <p className="text-sm font-semibold text-foreground">Walk-in Session Active</p>
+                <p className="text-xs text-muted-foreground">{getTableLabel((walkinSession as any).tableId)}</p>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Running Cost</p>
-                <p className="font-mono text-lg font-bold">${Number(walkinSession.runningCost ?? 0).toFixed(2)}</p>
-              </div>
+              <Badge variant="outline" className="ml-auto bg-accent/10 text-accent border-accent/30 text-xs">Live</Badge>
             </div>
-            <div className="mt-3">
-              <Badge variant="outline" className="bg-accent/10 text-accent border-accent/30">In Progress</Badge>
+            <div className="grid grid-cols-2 gap-3 bg-muted/30 rounded-lg p-3">
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-0.5">Elapsed</p>
+                <p className="font-mono text-base font-bold text-foreground">{walkinElapsedLabel}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-0.5">Running Cost</p>
+                <p className="font-mono text-base font-bold text-accent">${Number(walkinSession.runningCost ?? 0).toFixed(2)}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
       )}
 
       <Card className="card-premium">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Transaction History</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-base font-semibold">Transaction History</CardTitle>
           {list.length > 10 && (
-            <Button variant="ghost" size="sm" onClick={() => setShowAll((v) => !v)}>
+            <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => setShowAll((v) => !v)}>
               {showAll ? "Show Less" : "View All"}
             </Button>
           )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0 pb-2">
           {!list.length ? (
-            <p className="text-muted-foreground text-sm">No transactions yet.</p>
+            <p className="text-muted-foreground text-sm px-4">No transactions yet.</p>
           ) : (
-            <div className="space-y-1.5">
-              {visible.map((t: any) => {
-                const desc = deriveTransactionDescription(
-                  { description: t.description, type: t.rawType, paymentMethod: t.rawMethod, amount: t.amtRaw },
-                  membershipPrices
-                );
-                const isWalkin = typeof t.description === "string" && /^walk-?in session/i.test(t.description.trim());
-                return (
-                  <div
-                    key={t.id}
-                    className="flex items-center justify-between gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-muted/40 border border-transparent hover:border-border/60"
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      {isWalkin ? (
-                        <Badge variant="outline" className="shrink-0 bg-accent/10 text-accent border-accent/30 flex items-center gap-1">
-                          <Timer className="h-3 w-3" /> Walk-in
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className={`shrink-0 ${txBadge(t.typeKey)}`}>{t.typeLabel}</Badge>
-                      )}
-                      <div className="min-w-0">
-                        {(isWalkin ? t.description : desc) && (
-                          <p className="text-sm font-medium text-foreground truncate">{isWalkin ? t.description : desc}</p>
-                        )}
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                          <span>{fmtNiceDate(t.date)}</span>
-                          {t.method && (
-                            <>
-                              <span className="opacity-50">·</span>
-                              <span>{t.method}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <span className={`shrink-0 font-mono text-sm font-semibold ${t.positive ? "text-primary" : "text-destructive"}`}>
-                      {t.amount}
-                    </span>
+            <div>
+              {Object.entries(groupedByDate).map(([dateLabel, txs]) => (
+                <div key={dateLabel}>
+                  {/* Date divider */}
+                  <div className="flex items-center gap-2 px-4 py-2">
+                    <span className="text-[11px] font-medium text-muted-foreground tracking-wide">{dateLabel}</span>
+                    <div className="flex-1 h-px bg-border/50" />
                   </div>
-                );
-              })}
+                  {txs.map((t: any) => {
+                    const desc = deriveTransactionDescription(
+                      { description: t.description, type: t.rawType, paymentMethod: t.rawMethod, amount: t.amtRaw },
+                      membershipPrices
+                    );
+                    const isWalkin = typeof t.description === "string" && /^walk-?in session/i.test(t.description.trim());
+                    const cfg = getTypeConfig(t.typeKey, isWalkin);
+                    const displayLabel = isWalkin ? t.description : (desc || t.typeLabel);
+                    return (
+                      <div
+                        key={t.id}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors"
+                      >
+                        {/* Icon */}
+                        <div className={`h-8 w-8 rounded-full ${cfg.bg} border ${cfg.border} flex items-center justify-center shrink-0 ${cfg.iconColor}`}>
+                          {cfg.icon}
+                        </div>
+
+                        {/* Details */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate leading-tight">{displayLabel}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className={`text-[11px] font-medium ${cfg.labelColor}`}>{cfg.label}</span>
+                            {t.method && (
+                              <>
+                                <span className="text-muted-foreground/40 text-[10px]">•</span>
+                                <span className="text-[11px] text-muted-foreground">{t.method}</span>
+                              </>
+                            )}
+                            <span className="text-muted-foreground/40 text-[10px]">•</span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {new Date(t.date).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Singapore" })}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Amount */}
+                        <span className={`shrink-0 font-mono text-sm font-bold tabular-nums ${t.positive ? "text-emerald-400" : "text-foreground"}`}>
+                          {t.amount}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
