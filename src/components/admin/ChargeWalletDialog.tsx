@@ -71,6 +71,7 @@ export function ChargeWalletDialog({
   const [fnbItems, setFnbItems] = useState<FnbItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [selectedQuantity, setSelectedQuantity] = useState<string>("1");
+  const [tableName, setTableName] = useState<string>("");
 
   useEffect(() => {
     if (open) {
@@ -79,6 +80,7 @@ export function ChargeWalletDialog({
       setDescription(defaultDescription ?? "");
       setAllowNegative(false);
       setFnbItems([]);
+      setTableName("");
     }
   }, [open, defaultAmount, defaultCategory, defaultDescription]);
 
@@ -89,7 +91,7 @@ export function ChargeWalletDialog({
   const isFnbCategory = category === "fnb";
 
   const canSubmit = isFnbCategory
-    ? fnbItems.length > 0 && !charge.isPending
+    ? fnbItems.length > 0 && tableName.trim().length > 0 && !charge.isPending
     : validAmount &&
       description.trim().length > 0 &&
       (!willGoNegative || allowNegative) &&
@@ -136,7 +138,7 @@ export function ChargeWalletDialog({
           for (let i = 0; i < item.quantity; i++) {
             const res = await apiFetch("/api/fnb/orders/staff", {
               method: "POST",
-              body: JSON.stringify({ userId, productId: item.productId }),
+              body: JSON.stringify({ userId, productId: item.productId, tableName: tableName.trim() || null }),
             });
             if (!res.ok) {
               const err = await res.json().catch(() => ({}));
@@ -200,6 +202,19 @@ export function ChargeWalletDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Table number for FnB */}
+          {isFnbCategory && (
+            <div className="space-y-1.5">
+              <Label htmlFor="fnb-table">Table Number <span className="text-destructive">*</span></Label>
+              <Input
+                id="fnb-table"
+                placeholder="e.g. T1, T3..."
+                value={tableName}
+                onChange={(e) => setTableName(e.target.value)}
+              />
+            </div>
+          )}
 
           {/* FNB Items Section */}
           {isFnbCategory && (
