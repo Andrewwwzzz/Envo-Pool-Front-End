@@ -19,8 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2, Plus, Trash2 } from "lucide-react";
 import { useChargeWallet, type ChargeWalletCategory } from "@/hooks/useAdmin";
+import { useAdminFnbProducts } from "@/hooks/useFnb";
 
 interface ChargeWalletDialogProps {
   open: boolean;
@@ -32,6 +33,13 @@ interface ChargeWalletDialogProps {
   defaultAmount?: number;
   defaultDescription?: string;
   onCharged?: () => void;
+}
+
+interface FnbItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  price: number;
 }
 
 const CATEGORY_LABELS: Record<ChargeWalletCategory, string> = {
@@ -54,10 +62,15 @@ export function ChargeWalletDialog({
   onCharged,
 }: ChargeWalletDialogProps) {
   const charge = useChargeWallet();
+  const { data: fnbProducts = [] } = useAdminFnbProducts();
+
   const [amount, setAmount] = useState<string>("");
   const [category, setCategory] = useState<ChargeWalletCategory>(defaultCategory);
   const [description, setDescription] = useState("");
   const [allowNegative, setAllowNegative] = useState(false);
+  const [fnbItems, setFnbItems] = useState<FnbItem[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [selectedQuantity, setSelectedQuantity] = useState<string>("1");
 
   useEffect(() => {
     if (open) {
@@ -65,6 +78,7 @@ export function ChargeWalletDialog({
       setCategory(defaultCategory);
       setDescription(defaultDescription ?? "");
       setAllowNegative(false);
+      setFnbItems([]);
     }
   }, [open, defaultAmount, defaultCategory, defaultDescription]);
 
@@ -78,6 +92,39 @@ export function ChargeWalletDialog({
     (!willGoNegative || allowNegative) &&
     !charge.isPending;
 
+  const addFnbItem = () => {
+    if (!selectedProductId || !selectedQuantity) return;
+
+    const product = fnbProducts.find((p) => p._id === selectedProductId);
+    if (!product) return;
+
+    const qty = Math.max(1, parseInt(selectedQuantity) || 1);
+    const newItem: FnbItem = {
+      productId: product._id,
+      productName: product.name,
+      quantity: qty,
+      price: product.price,
+    };
+
+    setFnbItems([...fnbItems, newItem]);
+
+    // Update amount based on FnB items
+    const totalFnbAmount = (fnbItems.length + 1) * qty * product.price;
+    setAmount(String(totalFnbAmount.toFixed(2)));
+
+    setSelectedProductId("");
+    setSelectedQuantity("1");
+  };
+
+  const removeFnbItem = (index: number) => {
+    const updated = fnbItems.filter((_, i) => i !== index);
+    setFnbItems(updated);
+
+    // Recalculate amount
+    const totalFnbAmount = updated.reduce((sum, item) => sum + item.quantity * item.price, 0);
+    setAmount(totalFnbAmount > 0 ? String(totalFnbAmount.toFixed(2)) : "");
+  };
+
   const submit = async () => {
     if (!canSubmit) return;
     try {
@@ -87,6 +134,7 @@ export function ChargeWalletDialog({
         category,
         description: description.trim(),
         allowNegative,
+        fnbItems: category === "fnb" ? fnbItems : undefined,
       });
       onCharged?.();
       onOpenChange(false);
@@ -95,9 +143,11 @@ export function ChargeWalletDialog({
     }
   };
 
+  const isFnbCategory = category === "fnb";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Charge Wallet</DialogTitle>
           <DialogDescription>
@@ -118,6 +168,93 @@ export function ChargeWalletDialog({
           </div>
 
           <div className="space-y-1.5">
+            <Label>Category</Label>
+            <Select value={category} onValueChange={(v) => setCategory(v as ChargeWalletCategory)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(CATEGORY_LABELS).map(([k, label]) => (
+                  <SelectItem key={k} value={k}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* FNB Items Section */}
+          {isFnbCategory && (
+            <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-3">
+              <p className="text-sm font-medium">F&B Items</p>
+
+              {fnbItems.length > 0 && (
+                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                  {fnbItems.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between rounded bg-background p-2 border border-border/30"
+                    >
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{item.productName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.quantity}x @ ${item.price.toFixed(2)} = ${(item.quantity * item.price).toFixed(2)}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeFnbItem(idx)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-2 border-t border-border/30 pt-3">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+                      <SelectTrigger className="text-sm">
+                        <SelectValue placeholder="Select item" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fnbProducts.map((product) => (
+                          <SelectItem key={product._id} value={product._id}>
+                            {product.name} (${product.price.toFixed(2)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={selectedQuantity}
+                    onChange={(e) => setSelectedQuantity(e.target.value)}
+                    placeholder="Qty"
+                    className="text-sm"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={addFnbItem}
+                  disabled={!selectedProductId}
+                  className="w-full"
+                >
+                  <Plus className="mr-1 h-3 w-3" /> Add Item
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
             <Label htmlFor="charge-amount">Amount ($)</Label>
             <Input
               id="charge-amount"
@@ -127,28 +264,18 @@ export function ChargeWalletDialog({
               placeholder="0.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              autoFocus
+              autoFocus={!isFnbCategory}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label>Category</Label>
-            <Select value={category} onValueChange={(v) => setCategory(v as ChargeWalletCategory)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(CATEGORY_LABELS).map(([k, label]) => (
-                  <SelectItem key={k} value={k}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="charge-desc">Description / reason <span className="text-destructive">*</span></Label>
+            <Label htmlFor="charge-desc">
+              Description / reason <span className="text-destructive">*</span>
+            </Label>
             <Textarea
               id="charge-desc"
               rows={3}
-              placeholder="e.g. 2x Heineken + 1x fries"
+              placeholder={isFnbCategory ? "e.g. Customer order" : "e.g. Manual timer session"}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -168,9 +295,7 @@ export function ChargeWalletDialog({
             <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
               <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
               <div className="space-y-2">
-                <p className="text-destructive">
-                  Charge exceeds the customer's wallet balance.
-                </p>
+                <p className="text-destructive">Charge exceeds the customer's wallet balance.</p>
                 <label className="flex items-center gap-2 text-xs">
                   <Checkbox
                     checked={allowNegative}
