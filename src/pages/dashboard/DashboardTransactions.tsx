@@ -7,28 +7,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { fmtDateTimeSG as fmtDateTime } from "@/lib/sgTime";
+import { deriveTransactionDescription } from "@/lib/transactionLabel";
 import { useMembershipPlans } from "@/hooks/useMembership";
 import { useMyWalkinSession } from "@/hooks/useWalkin";
 import { getTableLabel } from "@/lib/tableLabel";
-import { Timer, ArrowDownLeft, ArrowUpRight, RefreshCw, CreditCard, Zap, ShieldCheck } from "lucide-react";
+import { Timer, ArrowDownLeft, ArrowUpRight, RefreshCw, CreditCard, Zap } from "lucide-react";
 
 export default function DashboardTransactions() {
   const { user } = useAuth();
   const [showAll, setShowAll] = useState(true);
   const { data: plans } = useMembershipPlans();
-  const membershipPrices = (plans || []).map((p: any) => Number(p.price)).filter((n: number) => !isNaN(n));
+  const membershipPrices = (plans || []).map((p: any) => Number(p.price)).filter((n) => !isNaN(n));
   const { data: walkinSession } = useMyWalkinSession();
   const [nowTick, setNowTick] = useState(Date.now());
-
   useEffect(() => {
     if (!walkinSession) return;
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
   }, [walkinSession]);
 
-  const walkinStartMs = walkinSession
-    ? new Date((walkinSession as any).startedAt ?? (walkinSession as any).startTime ?? Date.now()).getTime()
-    : 0;
+  const walkinStartMs = walkinSession ? new Date(walkinSession.startedAt ?? walkinSession.startTime ?? Date.now()).getTime() : 0;
   const walkinElapsedSec = walkinSession ? Math.max(0, Math.floor((nowTick - walkinStartMs) / 1000)) : 0;
   const walkinElapsedLabel = (() => {
     const h = Math.floor(walkinElapsedSec / 3600);
@@ -37,56 +35,57 @@ export default function DashboardTransactions() {
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   })();
 
-  // ── Derive a clean human-readable label ──────────────────────────────────
-  const getLabel = (t: any, absAmt: number): string => {
-    if (t.description && String(t.description).trim()) {
-      // Fix double "Table Table" prefix from admin timer description
-      return String(t.description).replace(/^Table\s+Table\b/i, "Table").trim();
-    }
-    const rawType = String(t.type || "").toLowerCase();
-    const rawMethod = String(t.method || t.paymentMethod || "").toLowerCase();
-    if (rawType === "topup") {
-      if (rawMethod === "paynow" || rawMethod === "stripe") return "Wallet Top Up — PayNow";
-      if (rawMethod === "cash") return "Wallet Top Up — Cash";
-      return "Wallet Top Up";
-    }
-    if (rawType === "refund") return "Refund";
-    // payment OR admin_charge — same display to customer
-    const cat = String(t.category || "").toLowerCase();
-    if (cat === "fnb") return "F&B Order";
-    if (cat === "locker") return "Locker Rental";
-    if (cat === "manual_timer") return "Walk-in Session";
-    if (membershipPrices.some((p: number) => Math.abs(p - absAmt) < 0.005)) return "Membership Purchase";
-    if (rawMethod === "paynow" || rawMethod === "stripe") return "Table Booking (PayNow)";
-    return "Table Booking";
+  const fmtNiceDate = (s: string) => {
+    if (!s) return "";
+    try {
+      return new Date(s).toLocaleString("en-GB", {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "numeric", minute: "2-digit", hour12: true,
+        timeZone: "Asia/Singapore",
+      });
+    } catch { return s; }
   };
 
-  // ── Icon / colour config ─────────────────────────────────────────────────
   const getTypeConfig = (typeKey: string, isWalkin: boolean) => {
     if (isWalkin) return {
       icon: <Timer className="h-3.5 w-3.5" />,
-      bg: "bg-amber-500/10", iconColor: "text-amber-400", border: "border-amber-500/20",
-      label: "Walk-in", labelColor: "text-amber-400",
+      bg: "bg-amber-500/10",
+      iconColor: "text-amber-400",
+      border: "border-amber-500/20",
+      label: "Walk-in",
+      labelColor: "text-amber-400",
     };
     if (typeKey === "payment") return {
       icon: <ArrowUpRight className="h-3.5 w-3.5" />,
-      bg: "bg-red-500/10", iconColor: "text-red-400", border: "border-red-500/20",
-      label: "Payment", labelColor: "text-red-400",
+      bg: "bg-red-500/10",
+      iconColor: "text-red-400",
+      border: "border-red-500/20",
+      label: "Payment",
+      labelColor: "text-red-400",
     };
     if (typeKey === "topup") return {
       icon: <ArrowDownLeft className="h-3.5 w-3.5" />,
-      bg: "bg-emerald-500/10", iconColor: "text-emerald-400", border: "border-emerald-500/20",
-      label: "Top Up", labelColor: "text-emerald-400",
+      bg: "bg-emerald-500/10",
+      iconColor: "text-emerald-400",
+      border: "border-emerald-500/20",
+      label: "Top Up",
+      labelColor: "text-emerald-400",
     };
     if (typeKey === "refund") return {
       icon: <RefreshCw className="h-3.5 w-3.5" />,
-      bg: "bg-blue-500/10", iconColor: "text-blue-400", border: "border-blue-500/20",
-      label: "Refund", labelColor: "text-blue-400",
+      bg: "bg-blue-500/10",
+      iconColor: "text-blue-400",
+      border: "border-blue-500/20",
+      label: "Refund",
+      labelColor: "text-blue-400",
     };
     return {
       icon: <CreditCard className="h-3.5 w-3.5" />,
-      bg: "bg-muted", iconColor: "text-muted-foreground", border: "border-border",
-      label: "Other", labelColor: "text-muted-foreground",
+      bg: "bg-muted",
+      iconColor: "text-muted-foreground",
+      border: "border-border",
+      label: "Other",
+      labelColor: "text-muted-foreground",
     };
   };
 
@@ -97,68 +96,61 @@ export default function DashboardTransactions() {
       const res = await apiFetch("/api/transactions/me");
       if (!res.ok) return [];
       const data = await res.json();
-      const walletTxs = Array.isArray(data) ? data
-        : Array.isArray(data?.transactions) ? data.transactions
-        : Array.isArray(data?.walletTransactions) ? data.walletTransactions
+      const walletTxs = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.transactions)
+        ? data.transactions
+        : Array.isArray(data?.walletTransactions)
+        ? data.walletTransactions
         : [];
 
       const items: Array<any> = [];
       walletTxs.forEach((t: any) => {
         const rawType = String(t.type || t.transactionType || "").toLowerCase();
-
-        // admin_charge is treated identically to payment for the customer view
         let typeKey: "payment" | "topup" | "refund" | "other" = "other";
-        if (
-          rawType === "payment" ||
-          rawType === "booking_payment" ||
-          rawType === "wallet_deduct" ||
-          rawType === "admin_charge"
-        ) {
-          typeKey = "payment";
+        let typeLabel = rawType ? rawType.replace(/_/g, " ") : "Transaction";
+        if (rawType === "booking_payment" || rawType === "wallet_deduct" || rawType === "payment" || rawType === "admin_charge") {
+          typeKey = "payment"; typeLabel = "Payment";
         } else if (rawType === "topup" || rawType === "top_up" || rawType === "deposit") {
-          typeKey = "topup";
+          typeKey = "topup"; typeLabel = "Top Up";
         } else if (rawType === "refund") {
-          typeKey = "refund";
+          typeKey = "refund"; typeLabel = "Refund";
+        } else if (rawType === "adjustment") {
+          typeLabel = "Admin Adjustment";
         }
-
         const amtRaw = typeof t.amount === "number" ? t.amount : Number(t.amount) || 0;
-        const absAmt = Math.abs(amtRaw);
-
-        // Payments are debits (negative), topup/refund are credits (positive)
-        const amt =
-          typeKey === "payment" ? -absAmt
-          : typeKey === "topup" || typeKey === "refund" ? absAmt
+        const amt = typeKey === "payment"
+          ? -Math.abs(amtRaw)
+          : typeKey === "topup" || typeKey === "refund"
+          ? Math.abs(amtRaw)
           : amtRaw;
-
         const rawMethod = String(t.paymentMethod || t.payment_method || t.method || "").toLowerCase();
-        const method =
-          rawMethod === "wallet" ? "Wallet"
-          : rawMethod === "paynow" || rawMethod === "stripe" ? "PayNow"
-          : rawMethod ? rawMethod.charAt(0).toUpperCase() + rawMethod.slice(1)
+        const method = rawMethod === "wallet"
+          ? "Wallet"
+          : rawMethod === "paynow" || rawMethod === "stripe"
+          ? "PayNow"
+          : rawMethod
+          ? rawMethod.charAt(0).toUpperCase() + rawMethod.slice(1)
           : "";
-
         const dateStr = t.createdAt || t.created_at || t.date || "";
-        const displayLabel = getLabel(t, absAmt);
-        const isWalkin = /^walk-?in session/i.test(displayLabel);
-
         items.push({
           id: `w-${t.id || t._id}`,
           date: dateStr,
           typeKey,
+          typeLabel,
           method,
           rawMethod,
           rawType,
           amtRaw,
-          absAmt,
-          displayLabel,
-          isWalkin,
-          amount: `${amt >= 0 ? "+" : "-"}$${absAmt.toFixed(2)}`,
+          category: String(t.category || "").toLowerCase(),
+          description: t.description || "",
+          sublabel: fmtDateTime(dateStr),
+          amount: `${amt >= 0 ? "+" : "-"}$${Math.abs(amt).toFixed(2)}`,
           positive: amt >= 0,
           sortKey: new Date(dateStr).getTime(),
           adminActedFor: !!(t.adminActedFor ?? t.admin_acted_for),
         });
       });
-
       items.sort((a, b) => b.sortKey - a.sortKey);
       setCache("transactions", items);
       return items;
@@ -170,12 +162,11 @@ export default function DashboardTransactions() {
   const list = transactionHistory ?? [];
   const visible = showAll ? list : list.slice(0, 10);
 
+  // Group by date
   const groupedByDate: Record<string, typeof visible> = {};
   visible.forEach((t) => {
     const label = t.date
-      ? new Date(t.date).toLocaleDateString("en-GB", {
-          day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Singapore",
-        })
+      ? new Date(t.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Singapore" })
       : "Unknown";
     if (!groupedByDate[label]) groupedByDate[label] = [];
     groupedByDate[label].push(t);
@@ -183,7 +174,6 @@ export default function DashboardTransactions() {
 
   return (
     <div className="space-y-4">
-      {/* Active walk-in banner */}
       {walkinSession && (
         <Card className="card-premium border-accent/40 bg-accent/5">
           <CardContent className="pt-4 pb-4">
@@ -204,9 +194,7 @@ export default function DashboardTransactions() {
               </div>
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-0.5">Running Cost</p>
-                <p className="font-mono text-base font-bold text-accent">
-                  ${Number((walkinSession as any).runningCost ?? 0).toFixed(2)}
-                </p>
+                <p className="font-mono text-base font-bold text-accent">${Number(walkinSession.runningCost ?? 0).toFixed(2)}</p>
               </div>
             </div>
           </CardContent>
@@ -234,10 +222,35 @@ export default function DashboardTransactions() {
                     <span className="text-[11px] font-medium text-muted-foreground tracking-wide">{dateLabel}</span>
                     <div className="flex-1 h-px bg-border/50" />
                   </div>
-                  {(txs as any[]).map((t: any) => {
-                    const cfg = getTypeConfig(t.typeKey, t.isWalkin);
+                  {txs.map((t: any) => {
+                    // Walk-in = user session by description OR admin manual_timer charge
+                    const isWalkin =
+                      (typeof t.description === "string" && /^walk-?in session/i.test(t.description.trim())) ||
+                      t.category === "manual_timer";
+
+                    // Derive clean label
+                    let displayLabel: string;
+                    if (isWalkin) {
+                      // Normalise both user "Walk-in session — T1" and admin "Table 1 session — 0.03hr @ $20/hr"
+                      // to a consistent "Walk-in session — <table>" format
+                      const tableMatch = t.description.match(/—\s*(T\d+)/i) || t.description.match(/Table\s+(\d+)/i);
+                      const tableRef = tableMatch ? (tableMatch[1].match(/^\d+$/) ? `T${tableMatch[1]}` : tableMatch[1]) : "";
+                      displayLabel = tableRef ? `Walk-in session — ${tableRef}` : "Walk-in session";
+                    } else if (t.category === "fnb") {
+                      displayLabel = t.description || "F&B Order";
+                    } else {
+                      displayLabel = deriveTransactionDescription(
+                        { description: t.description, type: t.rawType, paymentMethod: t.rawMethod, amount: t.amtRaw },
+                        membershipPrices
+                      ) || t.typeLabel;
+                    }
+
+                    const cfg = getTypeConfig(t.typeKey, isWalkin);
                     return (
-                      <div key={t.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors">
+                      <div
+                        key={t.id}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors"
+                      >
                         {/* Icon */}
                         <div className={`h-8 w-8 rounded-full ${cfg.bg} border ${cfg.border} flex items-center justify-center shrink-0 ${cfg.iconColor}`}>
                           {cfg.icon}
@@ -245,7 +258,7 @@ export default function DashboardTransactions() {
 
                         {/* Details */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate leading-tight">{t.displayLabel}</p>
+                          <p className="text-sm font-medium text-foreground truncate leading-tight">{displayLabel}</p>
                           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                             <span className={`text-[11px] font-medium ${cfg.labelColor}`}>{cfg.label}</span>
                             {t.method && (
@@ -256,18 +269,13 @@ export default function DashboardTransactions() {
                             )}
                             <span className="text-muted-foreground/40 text-[10px]">•</span>
                             <span className="text-[11px] text-muted-foreground">
-                              {new Date(t.date).toLocaleTimeString("en-GB", {
-                                hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Singapore",
-                              })}
+                              {new Date(t.date).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Singapore" })}
                             </span>
                             {t.adminActedFor && (
                               <>
                                 <span className="text-muted-foreground/40 text-[10px]">•</span>
-                                <span
-                                  className="inline-flex items-center gap-0.5 text-[10px] font-medium text-violet-400"
-                                  title="Assisted by staff"
-                                >
-                                  <ShieldCheck className="h-3 w-3" />
+                                <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-violet-400" title="Assisted by staff">
+                                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
                                   Staff
                                 </span>
                               </>
