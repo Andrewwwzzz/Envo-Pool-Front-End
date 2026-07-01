@@ -762,6 +762,15 @@ function TablesTab() {
     return Math.round((seconds / 3600) * tableRate * 100) / 100;
   };
 
+  const closeTargetTable = (tables || []).find((tb) => tb.id === closeTarget);
+  const closeTargetRate = closeTargetTable?.hourly_rate ?? rate;
+  const closeTargetSeconds = closeTarget ? (elapsed[closeTarget] ?? 0) : 0;
+  const closeTargetGross = Math.round((closeTargetSeconds / 3600) * Number(closeTargetRate) * 100) / 100;
+  const closeTargetDiscountPct = Math.min(100, Math.max(0, parseFloat(closeDiscountInput) || 0));
+  const closeTargetDiscountAmt = Math.round(closeTargetGross * (closeTargetDiscountPct / 100) * 100) / 100;
+  const closeTargetFinal = Math.max(0, Math.round((closeTargetGross - closeTargetDiscountAmt) * 100) / 100);
+  const closeWillGoNegative = !!selectedCloseCustomer && closeTargetFinal > closeWalletBalance;
+
   return (
     <div className="space-y-4">
       <Card>
@@ -914,21 +923,12 @@ function TablesTab() {
           <DialogHeader>
             <DialogTitle>Close Table</DialogTitle>
             <DialogDescription>
-              {closeTarget && (() => {
-                const t = (tables || []).find((tb) => tb.id === closeTarget);
-                const tableRate = t?.hourly_rate ?? rate;
-                const seconds = elapsed[closeTarget] ?? 0;
-                const gross = Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
-                const discountPct = Math.min(100, Math.max(0, parseFloat(closeDiscountInput) || 0));
-                const discountAmt = Math.round(gross * (discountPct / 100) * 100) / 100;
-                const final = Math.max(0, Math.round((gross - discountAmt) * 100) / 100);
-                return (
-                  <>
-                    Table {t?.table_number} · {formatTime(seconds)} @ ${tableRate}/hr — gross ${gross.toFixed(2)}
-                    {discountPct > 0 && <> · after {discountPct}% off: <strong>${final.toFixed(2)}</strong></>}
-                  </>
-                );
-              })()}
+              {closeTarget && (
+                <>
+                  Table {closeTargetTable?.table_number} · {formatTime(closeTargetSeconds)} @ ${closeTargetRate}/hr — gross ${closeTargetGross.toFixed(2)}
+                  {closeTargetDiscountPct > 0 && <> · after {closeTargetDiscountPct}% off: <strong>${closeTargetFinal.toFixed(2)}</strong></>}
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -1007,27 +1007,18 @@ function TablesTab() {
                     </div>
                   </>
                 )}
-                {selectedCloseCustomer && (() => {
-                  const t = (tables || []).find((tb) => tb.id === closeTarget);
-                  const tableRate = t?.hourly_rate ?? rate;
-                  const seconds = closeTarget ? (elapsed[closeTarget] ?? 0) : 0;
-                  const gross = Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
-                  const discountPct = Math.min(100, Math.max(0, parseFloat(closeDiscountInput) || 0));
-                  const final = Math.max(0, Math.round((gross - gross * (discountPct / 100)) * 100) / 100);
-                  const willGoNegative = final > closeWalletBalance;
-                  return willGoNegative ? (
-                    <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
-                      <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
-                      <div className="space-y-2">
-                        <p className="text-destructive">Charge exceeds this customer's wallet balance.</p>
-                        <label className="flex items-center gap-2 text-xs">
-                          <Checkbox checked={closeAllowNegative} onCheckedChange={(v) => setCloseAllowNegative(v === true)} />
-                          Allow negative balance
-                        </label>
-                      </div>
+                {closeWillGoNegative && (
+                  <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
+                    <div className="space-y-2">
+                      <p className="text-destructive">Charge exceeds this customer's wallet balance.</p>
+                      <label className="flex items-center gap-2 text-xs">
+                        <Checkbox checked={closeAllowNegative} onCheckedChange={(v) => setCloseAllowNegative(v === true)} />
+                        Allow negative balance
+                      </label>
                     </div>
-                  ) : null;
-                })()}
+                  </div>
+                )}
               </div>
             )}
           </div>
