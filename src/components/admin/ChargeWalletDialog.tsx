@@ -198,7 +198,7 @@ export function ChargeWalletDialog({
                       <div className="flex-1">
                         <p className="text-sm font-medium">{item.productName}</p>
                         <p className="text-xs text-muted-foreground">
-                          {item.quantity}x @ ${item.price.toFixed(2)} = ${(item.quantity * item.price).toFixed(2)}
+                          {item.quantity}x @ ${Number(item.price ?? 0).toFixed(2)} = ${(item.quantity * Number(item.price ?? 0)).toFixed(2)}
                         </p>
                       </div>
                       <Button
@@ -224,7 +224,7 @@ export function ChargeWalletDialog({
                       <SelectContent>
                         {fnbProducts.map((product) => (
                           <SelectItem key={product._id} value={product._id}>
-                            {product.name} (${product.price.toFixed(2)})
+                            {product.name} (${Number(product.price ?? 0).toFixed(2)})
                           </SelectItem>
                         ))}
                       </SelectContent>
