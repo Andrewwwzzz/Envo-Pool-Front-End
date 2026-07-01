@@ -103,10 +103,11 @@ function BookingCard({ b, tables, now, onClick }: { b: any; tables: any[]; now: 
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
-              <Clock className="h-3 w-3 shrink-0" />
-              <span className="text-xs">{fmtDate(start)}</span>
-              <span className="text-xs">·</span>
+            <div className="mt-1 space-y-0.5">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <Clock className="h-3 w-3 shrink-0" />
+                <span className="text-xs">{fmtDate(start)}</span>
+              </div>
               <span className="text-xs font-medium text-foreground">{fmtTime(start)} – {fmtTime(end)}</span>
             </div>
           </div>
@@ -175,16 +176,19 @@ function WalkinCard({ w, tables, live, onClick }: { w: any; tables: any[]; live?
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
-              <Clock className="h-3 w-3 shrink-0" />
-              <span className="text-xs">{start ? fmtDate(start) : "—"}</span>
-              <span className="text-xs">·</span>
-              <span className="text-xs font-medium text-foreground">
-                {start ? fmtTime(start) : "—"} – {live ? "now" : (end ? fmtTime(end) : "—")}
-              </span>
-              {durationSecs > 0 && (
-                <span className="text-xs text-muted-foreground/70">· {fmtDuration(durationSecs)}</span>
-              )}
+            <div className="mt-1 space-y-0.5">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <Clock className="h-3 w-3 shrink-0" />
+                <span className="text-xs">{start ? fmtDate(start) : "—"}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium text-foreground">
+                  {start ? fmtTime(start) : "—"} – {live ? "now" : (end ? fmtTime(end) : "—")}
+                </span>
+                {durationSecs > 0 && (
+                  <span className="text-xs text-muted-foreground/70">· {fmtDuration(durationSecs)}</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -236,25 +240,31 @@ function TimerSessionCard({ t, tables, onClick }: { t: any; tables: any[]; onCli
               <p className="font-semibold text-sm text-foreground">{label}</p>
               <span className="text-[10px] font-medium text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded px-1.5 py-0.5">Staff Session</span>
             </div>
-            <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
-              <Clock className="h-3 w-3 shrink-0" />
-              <span className="text-xs">{start ? fmtDate(start) : "—"}</span>
-              <span className="text-xs">·</span>
-              <span className="text-xs font-medium text-foreground">
-                {start ? fmtTime(start) : "—"} – {end ? fmtTime(end) : "—"}
-              </span>
-              {durationSecs > 0 && (
-                <span className="text-xs text-muted-foreground/70">· {fmtDuration(durationSecs)}</span>
-              )}
+            <div className="mt-1 space-y-0.5">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <Clock className="h-3 w-3 shrink-0" />
+                <span className="text-xs">{start ? fmtDate(start) : "—"}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium text-foreground">
+                  {start ? fmtTime(start) : "—"} – {end ? fmtTime(end) : "—"}
+                </span>
+                {durationSecs > 0 && (
+                  <span className="text-xs text-muted-foreground/70">· {fmtDuration(durationSecs)}</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
-        <div className="text-right shrink-0">
-          <p className="font-bold text-sm text-foreground">${amount.toFixed(2)}</p>
-          <div className="flex items-center justify-end gap-0.5 mt-0.5">
-            <Wallet className="h-2.5 w-2.5 text-emerald-400" />
-            <span className="text-[10px] text-emerald-400">Wallet</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="text-right">
+            <p className="font-bold text-sm text-foreground">${amount.toFixed(2)}</p>
+            <div className="flex items-center justify-end gap-0.5 mt-0.5">
+              <Wallet className="h-2.5 w-2.5 text-emerald-400" />
+              <span className="text-[10px] text-emerald-400">Wallet</span>
+            </div>
           </div>
+          {onClick && <ChevronRight className="h-4 w-4 text-muted-foreground/50" />}
         </div>
       </div>
       <div className={`mt-3 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 ${cfg.bg} border ${cfg.border}`}>
