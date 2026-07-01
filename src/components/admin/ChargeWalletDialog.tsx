@@ -22,6 +22,8 @@ import {
 import { AlertTriangle, Loader2, Plus, Trash2 } from "lucide-react";
 import { useChargeWallet, type ChargeWalletCategory } from "@/hooks/useAdmin";
 import { useAdminMenu } from "@/hooks/useFnb";
+import { useToast } from "@/hooks/use-toast";
+import { apiFetch } from "@/lib/api";
 
 interface ChargeWalletDialogProps {
   open: boolean;
@@ -59,6 +61,7 @@ export function ChargeWalletDialog({
   onCharged,
 }: ChargeWalletDialogProps) {
   const charge = useChargeWallet();
+  const { toast } = useToast();
   const { data: fnbProducts = [] } = useAdminMenu();
 
   const [amount, setAmount] = useState<string>("");
@@ -83,11 +86,14 @@ export function ChargeWalletDialog({
   const validAmount = Number.isFinite(amt) && amt > 0;
   const newBalance = useMemo(() => currentBalance - (validAmount ? amt : 0), [currentBalance, amt, validAmount]);
   const willGoNegative = validAmount && newBalance < 0;
-  const canSubmit =
-    validAmount &&
-    description.trim().length > 0 &&
-    (!willGoNegative || allowNegative) &&
-    !charge.isPending;
+  const isFnbCategory = category === "fnb";
+
+  const canSubmit = isFnbCategory
+    ? fnbItems.length > 0 && !charge.isPending
+    : validAmount &&
+      description.trim().length > 0 &&
+      (!willGoNegative || allowNegative) &&
+      !charge.isPending;
 
   const addFnbItem = () => {
     if (!selectedProductId || !selectedQuantity) return;
@@ -108,7 +114,6 @@ export function ChargeWalletDialog({
     setFnbItems(updatedItems);
     const totalFnbAmount = updatedItems.reduce((sum, item) => sum + item.quantity * item.price, 0);
     setAmount(String(totalFnbAmount.toFixed(2)));
-    if (!description.trim()) setDescription(`F&B order`);
 
     setSelectedProductId("");
     setSelectedQuantity("1");
@@ -117,8 +122,6 @@ export function ChargeWalletDialog({
   const removeFnbItem = (index: number) => {
     const updated = fnbItems.filter((_, i) => i !== index);
     setFnbItems(updated);
-
-    // Recalculate amount
     const totalFnbAmount = updated.reduce((sum, item) => sum + item.quantity * item.price, 0);
     setAmount(totalFnbAmount > 0 ? String(totalFnbAmount.toFixed(2)) : "");
   };
@@ -126,22 +129,39 @@ export function ChargeWalletDialog({
   const submit = async () => {
     if (!canSubmit) return;
     try {
-      await charge.mutateAsync({
-        userId,
-        amount: amt,
-        category,
-        description: description.trim(),
-        allowNegative,
-        fnbItems: category === "fnb" ? fnbItems : undefined,
-      });
-      onCharged?.();
-      onOpenChange(false);
+      if (isFnbCategory && fnbItems.length > 0) {
+        // Call /api/fnb/orders/staff once per unit so each item becomes a real FnbOrder
+        // (pending → staff marks served in FnB tab; stock decremented; correct transaction description)
+        for (const item of fnbItems) {
+          for (let i = 0; i < item.quantity; i++) {
+            const res = await apiFetch("/api/fnb/orders/staff", {
+              method: "POST",
+              body: JSON.stringify({ userId, productId: item.productId }),
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              toast({ title: "Order failed", description: err.error || `Failed to order ${item.productName}`, variant: "destructive" });
+              return;
+            }
+          }
+        }
+        onCharged?.();
+        onOpenChange(false);
+      } else {
+        await charge.mutateAsync({
+          userId,
+          amount: amt,
+          category,
+          description: description.trim(),
+          allowNegative,
+        });
+        onCharged?.();
+        onOpenChange(false);
+      }
     } catch {
-      /* toast handled in hook */
+      /* errors surface via toast in hook or handled above */
     }
   };
-
-  const isFnbCategory = category === "fnb";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -273,19 +293,21 @@ export function ChargeWalletDialog({
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="charge-desc">
-              Description / reason <span className="text-destructive">*</span>
-            </Label>
-            <Textarea
-              id="charge-desc"
-              rows={3}
-              placeholder={isFnbCategory ? "e.g. Customer order" : "e.g. Manual timer session"}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">Shown to the customer in their transaction history.</p>
-          </div>
+          {!isFnbCategory && (
+            <div className="space-y-1.5">
+              <Label htmlFor="charge-desc">
+                Description / reason <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="charge-desc"
+                rows={3}
+                placeholder="e.g. Manual timer session"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Shown to the customer in their transaction history.</p>
+            </div>
+          )}
 
           {validAmount && (
             <div className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
@@ -296,7 +318,7 @@ export function ChargeWalletDialog({
             </div>
           )}
 
-          {willGoNegative && (
+          {willGoNegative && !isFnbCategory && (
             <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
               <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
               <div className="space-y-2">
