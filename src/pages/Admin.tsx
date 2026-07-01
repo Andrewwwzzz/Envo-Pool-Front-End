@@ -1883,6 +1883,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const [editing, setEditing] = useState(false);
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+  const [chargeOpen, setChargeOpen] = useState(false);
 
   // Reset password state
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
