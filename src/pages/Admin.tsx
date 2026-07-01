@@ -4206,10 +4206,12 @@ function WalkinSessionsTab() {
                 <tbody>
                   {list.map((s: any) => {
                     const id = s._id || s.id;
+                    const userObj = typeof s.userId === "object" ? s.userId : null;
+                    const userId = userObj?._id || userObj?.id || (typeof s.userId === "string" ? s.userId : "");
                     const customer =
-                      (typeof s.userId === "object"
-                        ? s.userId?.name || s.userId?.username || s.userId?.email
-                        : null) || s.userName || s.customerName || "—";
+                      (userObj ? userObj.name || userObj.username || userObj.email : null)
+                      || s.userName || s.customerName || "—";
+                    const balance = Number(userObj?.walletBalance ?? userObj?.wallet_balance ?? s.walletBalance ?? 0);
                     const startMs = new Date(s.startedAt ?? s.startTime).getTime();
                     const elapsedMs = now - startMs;
                     const h = Math.floor(elapsedMs / 3600000);
@@ -4227,7 +4229,16 @@ function WalkinSessionsTab() {
                         <td className="py-2 pr-4 font-mono">
                           ${Number(s.runningCost ?? 0).toFixed(2)}
                         </td>
-                        <td className="py-2 pr-4 text-right">
+                        <td className="py-2 pr-4 text-right space-x-2 whitespace-nowrap">
+                          {userId && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setChargeTarget({ userId, name: String(customer), balance })}
+                            >
+                              <DollarSign className="h-3.5 w-3.5 mr-1" /> Charge
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="destructive"
