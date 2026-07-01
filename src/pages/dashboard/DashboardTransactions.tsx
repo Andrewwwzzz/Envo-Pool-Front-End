@@ -11,7 +11,7 @@ import { deriveTransactionDescription } from "@/lib/transactionLabel";
 import { useMembershipPlans } from "@/hooks/useMembership";
 import { useMyWalkinSession } from "@/hooks/useWalkin";
 import { getTableLabel } from "@/lib/tableLabel";
-import { Timer, ArrowDownLeft, ArrowUpRight, RefreshCw, CreditCard, Zap } from "lucide-react";
+import { Timer, ArrowDownLeft, ArrowUpRight, RefreshCw, CreditCard, Zap, ShieldCheck } from "lucide-react";
 
 export default function DashboardTransactions() {
   const { user } = useAuth();
@@ -147,6 +147,7 @@ export default function DashboardTransactions() {
           amount: `${amt >= 0 ? "+" : "-"}$${Math.abs(amt).toFixed(2)}`,
           positive: amt >= 0,
           sortKey: new Date(dateStr).getTime(),
+          adminActedFor: !!(t.adminActedFor ?? t.admin_acted_for),
         });
       });
       items.sort((a, b) => b.sortKey - a.sortKey);
@@ -253,6 +254,18 @@ export default function DashboardTransactions() {
                             <span className="text-[11px] text-muted-foreground">
                               {new Date(t.date).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Singapore" })}
                             </span>
+                            {t.adminActedFor && (
+                              <>
+                                <span className="text-muted-foreground/40 text-[10px]">•</span>
+                                <span
+                                  className="inline-flex items-center gap-0.5 text-[10px] font-medium text-violet-400"
+                                  title="This action was performed by staff on your behalf"
+                                >
+                                  <ShieldCheck className="h-3 w-3" />
+                                  Staff
+                                </span>
+                              </>
+                            )}
                           </div>
                         </div>
 
