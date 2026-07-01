@@ -10,19 +10,19 @@ import { fmtDateSG as fmtDate, fmtTimeSG as fmtTime, nowSG } from "@/lib/sgTime"
 import { getTableLabel as resolveTableLabel } from "@/lib/tableLabel";
 import {
   Calendar, Clock, Zap, CheckCircle2, XCircle,
-  AlertCircle, Timer, ChevronRight, Wallet
+  AlertCircle, Timer, ChevronRight, Wallet,
 } from "lucide-react";
 
-// ── Status helpers ────────────────────────────────────────────────────────────
+// ── Status config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; icon: any; color: string; bg: string; border: string }> = {
-  confirmed:       { label: "Confirmed",       icon: CheckCircle2,  color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-  pending:         { label: "Pending",          icon: AlertCircle,   color: "text-amber-400",   bg: "bg-amber-500/10",   border: "border-amber-500/20"   },
-  pending_payment: { label: "Pending Payment",  icon: AlertCircle,   color: "text-yellow-400",  bg: "bg-yellow-500/10",  border: "border-yellow-500/20"  },
-  completed:       { label: "Completed",        icon: CheckCircle2,  color: "text-muted-foreground", bg: "bg-muted/50", border: "border-border"          },
-  cancelled:       { label: "Cancelled",        icon: XCircle,       color: "text-destructive",  bg: "bg-destructive/10", border: "border-destructive/20" },
-  expired:         { label: "Expired",          icon: XCircle,       color: "text-muted-foreground", bg: "bg-muted/50", border: "border-border"          },
-  active:          { label: "In Progress",      icon: Zap,           color: "text-green-400",    bg: "bg-green-500/10",   border: "border-green-500/20"   },
-  stopped:         { label: "Completed",        icon: CheckCircle2,  color: "text-muted-foreground", bg: "bg-muted/50", border: "border-border"          },
+  confirmed:       { label: "Confirmed",      icon: CheckCircle2, color: "text-emerald-400",      bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+  pending:         { label: "Pending",         icon: AlertCircle,  color: "text-amber-400",        bg: "bg-amber-500/10",   border: "border-amber-500/20"   },
+  pending_payment: { label: "Pending Payment", icon: AlertCircle,  color: "text-yellow-400",       bg: "bg-yellow-500/10",  border: "border-yellow-500/20"  },
+  completed:       { label: "Completed",       icon: CheckCircle2, color: "text-muted-foreground", bg: "bg-muted/50",       border: "border-border"          },
+  cancelled:       { label: "Cancelled",       icon: XCircle,      color: "text-destructive",      bg: "bg-destructive/10", border: "border-destructive/20"  },
+  expired:         { label: "Expired",         icon: XCircle,      color: "text-muted-foreground", bg: "bg-muted/50",       border: "border-border"          },
+  active:          { label: "In Progress",     icon: Zap,          color: "text-green-400",        bg: "bg-green-500/10",   border: "border-green-500/20"    },
+  stopped:         { label: "Completed",       icon: CheckCircle2, color: "text-muted-foreground", bg: "bg-muted/50",       border: "border-border"          },
 };
 
 function getStatusCfg(s: string) {
@@ -43,18 +43,26 @@ function getDaysUntil(dateStr: string): number {
   return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+// ── Resolve display status: confirmed bookings in the past → "completed" ──────
+function resolveBookingStatus(b: any, now: Date): string {
+  const rawStatus = b.status || "confirmed";
+  if (rawStatus === "confirmed") {
+    const end = new Date(b.endTime || b.end_time || b.startTime || b.start_time);
+    if (end < now) return "completed";
+  }
+  return rawStatus;
+}
+
 // ── Booking Card ──────────────────────────────────────────────────────────────
-function BookingCard({ b, tables, onClick }: { b: any; tables: any[]; onClick?: () => void }) {
-  const getStartTime = (b: any) => b.startTime || b.start_time;
-  const getEndTime = (b: any) => b.endTime || b.end_time;
-  const getPrice = (b: any) => Number(b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? 0);
-  const status = b.status || "confirmed";
+function BookingCard({ b, tables, now, onClick }: { b: any; tables: any[]; now: Date; onClick?: () => void }) {
+  const start = b.startTime || b.start_time;
+  const end = b.endTime || b.end_time;
+  const price = Number(b.amount ?? b.finalPrice ?? b.final_price ?? b.totalPrice ?? 0);
+  const status = resolveBookingStatus(b, now);
   const cfg = getStatusCfg(status);
   const StatusIcon = cfg.icon;
-  const start = getStartTime(b);
-  const end = getEndTime(b);
-  const daysUntil = status === "confirmed" ? getDaysUntil(start) : null;
   const method = (b.paymentMethod ?? b.payment_method ?? "").toLowerCase();
+  const daysUntil = status === "confirmed" ? getDaysUntil(start) : null;
 
   const tableLabel = (() => {
     const tid = b.tableId;
@@ -74,11 +82,13 @@ function BookingCard({ b, tables, onClick }: { b: any; tables: any[]; onClick?: 
 
   return (
     <div
-      className={`rounded-xl border ${cfg.border} bg-card/50 p-4 transition-all ${onClick ? "cursor-pointer hover:bg-muted/30 hover:scale-[1.01] active:scale-[0.99]" : ""}`}
+      className={`rounded-xl border ${cfg.border} bg-card/50 p-4 transition-all ${
+        onClick ? "cursor-pointer hover:bg-muted/30 hover:scale-[1.01] active:scale-[0.99]" : ""
+      }`}
       onClick={onClick}
     >
       <div className="flex items-start justify-between gap-3">
-        {/* Left: table + time */}
+        {/* Left */}
         <div className="flex items-start gap-3 min-w-0">
           <div className={`mt-0.5 h-9 w-9 rounded-lg ${cfg.bg} border ${cfg.border} flex items-center justify-center shrink-0`}>
             <Calendar className={`h-4 w-4 ${cfg.color}`} />
@@ -101,10 +111,10 @@ function BookingCard({ b, tables, onClick }: { b: any; tables: any[]; onClick?: 
           </div>
         </div>
 
-        {/* Right: price + chevron */}
+        {/* Right */}
         <div className="flex items-center gap-2 shrink-0">
           <div className="text-right">
-            <p className="font-bold text-sm text-foreground">${getPrice(b).toFixed(2)}</p>
+            <p className="font-bold text-sm text-foreground">${price.toFixed(2)}</p>
             {method === "wallet" && (
               <div className="flex items-center justify-end gap-0.5 mt-0.5">
                 <Wallet className="h-2.5 w-2.5 text-emerald-400" />
@@ -119,7 +129,7 @@ function BookingCard({ b, tables, onClick }: { b: any; tables: any[]; onClick?: 
         </div>
       </div>
 
-      {/* Status bar */}
+      {/* Status pill */}
       <div className={`mt-3 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 ${cfg.bg} border ${cfg.border}`}>
         <StatusIcon className={`h-3 w-3 ${cfg.color} shrink-0`} />
         <span className={`text-[11px] font-medium ${cfg.color}`}>{cfg.label}</span>
@@ -142,12 +152,16 @@ function WalkinCard({ w, tables, live, onClick }: { w: any; tables: any[]; live?
 
   return (
     <div
-      className={`rounded-xl border ${live ? "border-green-500/40 bg-green-500/5" : `${cfg.border} bg-card/50`} p-4 transition-all ${onClick ? "cursor-pointer hover:bg-muted/30 hover:scale-[1.01] active:scale-[0.99]" : ""}`}
+      className={`rounded-xl border p-4 transition-all ${
+        live ? "border-green-500/40 bg-green-500/5" : `${cfg.border} bg-card/50`
+      } ${onClick ? "cursor-pointer hover:bg-muted/30 hover:scale-[1.01] active:scale-[0.99]" : ""}`}
       onClick={onClick}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
-          <div className={`mt-0.5 h-9 w-9 rounded-lg ${live ? "bg-green-500/15 border-green-500/30" : `${cfg.bg} ${cfg.border}`} border flex items-center justify-center shrink-0`}>
+          <div className={`mt-0.5 h-9 w-9 rounded-lg border flex items-center justify-center shrink-0 ${
+            live ? "bg-green-500/15 border-green-500/30" : `${cfg.bg} ${cfg.border}`
+          }`}>
             <Timer className={`h-4 w-4 ${live ? "text-green-400" : cfg.color}`} />
           </div>
           <div className="min-w-0">
@@ -155,7 +169,9 @@ function WalkinCard({ w, tables, live, onClick }: { w: any; tables: any[]; live?
               <p className="font-semibold text-sm text-foreground">{label}</p>
               <span className="text-[10px] font-medium text-accent bg-accent/15 border border-accent/25 rounded px-1.5 py-0.5">Walk-in</span>
               {live && (
-                <span className="text-[10px] font-medium text-green-400 bg-green-500/10 border border-green-500/25 rounded px-1.5 py-0.5 animate-pulse">● Live</span>
+                <span className="text-[10px] font-medium text-green-400 bg-green-500/10 border border-green-500/25 rounded px-1.5 py-0.5 animate-pulse">
+                  ● Live
+                </span>
               )}
             </div>
             <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
@@ -184,7 +200,10 @@ function WalkinCard({ w, tables, live, onClick }: { w: any; tables: any[]; live?
         </div>
       </div>
 
-      <div className={`mt-3 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 ${live ? "bg-green-500/10 border border-green-500/20" : `${cfg.bg} border ${cfg.border}`}`}>
+      {/* Status pill */}
+      <div className={`mt-3 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 border ${
+        live ? "bg-green-500/10 border-green-500/20" : `${cfg.bg} ${cfg.border}`
+      }`}>
         <StatusIcon className={`h-3 w-3 ${live ? "text-green-400" : cfg.color} shrink-0`} />
         <span className={`text-[11px] font-medium ${live ? "text-green-400" : cfg.color}`}>{cfg.label}</span>
       </div>
@@ -225,11 +244,17 @@ export default function DashboardBookings() {
   });
 
   const upcoming = myBookings
-    .filter((b: any) => new Date(getStartTime(b)) >= now && getStatus(b) !== "cancelled" && getStatus(b) !== "expired")
+    .filter((b: any) => {
+      const end = new Date(b.endTime || b.end_time || getStartTime(b));
+      return end >= now && getStatus(b) !== "cancelled" && getStatus(b) !== "expired";
+    })
     .sort((a: any, b: any) => new Date(getStartTime(a)).getTime() - new Date(getStartTime(b)).getTime());
 
   const pastBookings = myBookings
-    .filter((b: any) => new Date(getStartTime(b)) < now || getStatus(b) === "cancelled" || getStatus(b) === "expired")
+    .filter((b: any) => {
+      const end = new Date(b.endTime || b.end_time || getStartTime(b));
+      return end < now || getStatus(b) === "cancelled" || getStatus(b) === "expired";
+    })
     .map((b: any) => ({ kind: "booking" as const, when: new Date(getStartTime(b)).getTime(), data: b }));
 
   const pastWalkins = (walkinHistory || [])
@@ -266,6 +291,7 @@ export default function DashboardBookings() {
                   key={b.id || b._id}
                   b={b}
                   tables={tableList}
+                  now={now}
                   onClick={getStatus(b) === "confirmed" ? () => setSelectedBooking(b) : undefined}
                 />
               ))}
@@ -304,6 +330,7 @@ export default function DashboardBookings() {
                     key={`b-${item.data.id || item.data._id}`}
                     b={item.data}
                     tables={tableList}
+                    now={now}
                     onClick={
                       getStatus(item.data) === "confirmed" || getStatus(item.data) === "completed"
                         ? () => setSelectedBooking(item.data)

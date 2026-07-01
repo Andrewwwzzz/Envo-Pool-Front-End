@@ -4,13 +4,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { getCached, setCache } from "@/lib/queryCache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { fmtDateTimeSG as fmtDateTime } from "@/lib/sgTime";
 import { useMembershipPlans } from "@/hooks/useMembership";
 import { useMyWalkinSession } from "@/hooks/useWalkin";
 import { getTableLabel } from "@/lib/tableLabel";
-import { Timer, ArrowDownLeft, ArrowUpRight, RefreshCw, CreditCard, Zap, ShieldCheck, Badge as BadgeIcon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Timer, ArrowDownLeft, ArrowUpRight, RefreshCw, CreditCard, Zap, ShieldCheck } from "lucide-react";
 
 export default function DashboardTransactions() {
   const { user } = useAuth();
@@ -26,7 +26,9 @@ export default function DashboardTransactions() {
     return () => clearInterval(id);
   }, [walkinSession]);
 
-  const walkinStartMs = walkinSession ? new Date((walkinSession as any).startedAt ?? (walkinSession as any).startTime ?? Date.now()).getTime() : 0;
+  const walkinStartMs = walkinSession
+    ? new Date((walkinSession as any).startedAt ?? (walkinSession as any).startTime ?? Date.now()).getTime()
+    : 0;
   const walkinElapsedSec = walkinSession ? Math.max(0, Math.floor((nowTick - walkinStartMs) / 1000)) : 0;
   const walkinElapsedLabel = (() => {
     const h = Math.floor(walkinElapsedSec / 3600);
@@ -35,30 +37,31 @@ export default function DashboardTransactions() {
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   })();
 
-  // Derive a clean human-readable label for a transaction
+  // ── Derive a clean human-readable label ──────────────────────────────────
   const getLabel = (t: any, absAmt: number): string => {
-    // If backend sent a description, use it directly
     if (t.description && String(t.description).trim()) {
-      // Strip accidental double "Table Table" prefix
-      return String(t.description).replace(/^Table Table\b/, "Table").trim();
+      // Fix double "Table Table" prefix from admin timer description
+      return String(t.description).replace(/^Table\s+Table\b/i, "Table").trim();
     }
     const rawType = String(t.type || "").toLowerCase();
     const rawMethod = String(t.method || t.paymentMethod || "").toLowerCase();
-    if (rawType === "topup") return rawMethod === "paynow" ? "Wallet Top Up — PayNow" : rawMethod === "cash" ? "Wallet Top Up — Cash" : "Wallet Top Up";
-    if (rawType === "refund") return "Refund";
-    if (rawType === "payment" || rawType === "admin_charge") {
-      // Membership purchase detection
-      if (membershipPrices.some((p: number) => Math.abs(p - absAmt) < 0.005)) return "Membership Purchase";
-      const cat = String(t.category || "").toLowerCase();
-      if (cat === "fnb") return "F&B Order";
-      if (cat === "locker") return "Locker Rental";
-      if (cat === "manual_timer") return "Walk-in Session";
-      if (rawMethod === "paynow" || rawMethod === "stripe") return "Table Booking (PayNow)";
-      return "Table Booking";
+    if (rawType === "topup") {
+      if (rawMethod === "paynow" || rawMethod === "stripe") return "Wallet Top Up — PayNow";
+      if (rawMethod === "cash") return "Wallet Top Up — Cash";
+      return "Wallet Top Up";
     }
-    return "Transaction";
+    if (rawType === "refund") return "Refund";
+    // payment OR admin_charge — same display to customer
+    const cat = String(t.category || "").toLowerCase();
+    if (cat === "fnb") return "F&B Order";
+    if (cat === "locker") return "Locker Rental";
+    if (cat === "manual_timer") return "Walk-in Session";
+    if (membershipPrices.some((p: number) => Math.abs(p - absAmt) < 0.005)) return "Membership Purchase";
+    if (rawMethod === "paynow" || rawMethod === "stripe") return "Table Booking (PayNow)";
+    return "Table Booking";
   };
 
+  // ── Icon / colour config ─────────────────────────────────────────────────
   const getTypeConfig = (typeKey: string, isWalkin: boolean) => {
     if (isWalkin) return {
       icon: <Timer className="h-3.5 w-3.5" />,
@@ -103,9 +106,14 @@ export default function DashboardTransactions() {
       walletTxs.forEach((t: any) => {
         const rawType = String(t.type || t.transactionType || "").toLowerCase();
 
-        // admin_charge and payment both display as "payment" to the customer
+        // admin_charge is treated identically to payment for the customer view
         let typeKey: "payment" | "topup" | "refund" | "other" = "other";
-        if (rawType === "payment" || rawType === "booking_payment" || rawType === "wallet_deduct" || rawType === "admin_charge") {
+        if (
+          rawType === "payment" ||
+          rawType === "booking_payment" ||
+          rawType === "wallet_deduct" ||
+          rawType === "admin_charge"
+        ) {
           typeKey = "payment";
         } else if (rawType === "topup" || rawType === "top_up" || rawType === "deposit") {
           typeKey = "topup";
@@ -116,15 +124,15 @@ export default function DashboardTransactions() {
         const amtRaw = typeof t.amount === "number" ? t.amount : Number(t.amount) || 0;
         const absAmt = Math.abs(amtRaw);
 
-        // Payments are always negative (debit), topup/refund always positive (credit)
-        const amt = typeKey === "payment"
-          ? -absAmt
-          : typeKey === "topup" || typeKey === "refund"
-          ? absAmt
+        // Payments are debits (negative), topup/refund are credits (positive)
+        const amt =
+          typeKey === "payment" ? -absAmt
+          : typeKey === "topup" || typeKey === "refund" ? absAmt
           : amtRaw;
 
         const rawMethod = String(t.paymentMethod || t.payment_method || t.method || "").toLowerCase();
-        const method = rawMethod === "wallet" ? "Wallet"
+        const method =
+          rawMethod === "wallet" ? "Wallet"
           : rawMethod === "paynow" || rawMethod === "stripe" ? "PayNow"
           : rawMethod ? rawMethod.charAt(0).toUpperCase() + rawMethod.slice(1)
           : "";
@@ -165,7 +173,9 @@ export default function DashboardTransactions() {
   const groupedByDate: Record<string, typeof visible> = {};
   visible.forEach((t) => {
     const label = t.date
-      ? new Date(t.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Singapore" })
+      ? new Date(t.date).toLocaleDateString("en-GB", {
+          day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Singapore",
+        })
       : "Unknown";
     if (!groupedByDate[label]) groupedByDate[label] = [];
     groupedByDate[label].push(t);
@@ -173,6 +183,7 @@ export default function DashboardTransactions() {
 
   return (
     <div className="space-y-4">
+      {/* Active walk-in banner */}
       {walkinSession && (
         <Card className="card-premium border-accent/40 bg-accent/5">
           <CardContent className="pt-4 pb-4">
@@ -193,7 +204,9 @@ export default function DashboardTransactions() {
               </div>
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-0.5">Running Cost</p>
-                <p className="font-mono text-base font-bold text-accent">${Number((walkinSession as any).runningCost ?? 0).toFixed(2)}</p>
+                <p className="font-mono text-base font-bold text-accent">
+                  ${Number((walkinSession as any).runningCost ?? 0).toFixed(2)}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -216,6 +229,7 @@ export default function DashboardTransactions() {
             <div>
               {Object.entries(groupedByDate).map(([dateLabel, txs]) => (
                 <div key={dateLabel}>
+                  {/* Date divider */}
                   <div className="flex items-center gap-2 px-4 py-2">
                     <span className="text-[11px] font-medium text-muted-foreground tracking-wide">{dateLabel}</span>
                     <div className="flex-1 h-px bg-border/50" />
@@ -242,7 +256,9 @@ export default function DashboardTransactions() {
                             )}
                             <span className="text-muted-foreground/40 text-[10px]">•</span>
                             <span className="text-[11px] text-muted-foreground">
-                              {new Date(t.date).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Singapore" })}
+                              {new Date(t.date).toLocaleTimeString("en-GB", {
+                                hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Singapore",
+                              })}
                             </span>
                             {t.adminActedFor && (
                               <>
