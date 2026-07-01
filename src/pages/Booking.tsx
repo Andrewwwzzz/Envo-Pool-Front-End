@@ -231,9 +231,19 @@ const Booking = () => {
     const actives = list.filter((m) => {
       const status = String(m?.status ?? (m?.active ? "active" : "")).toLowerCase();
       if (status !== "active") return false;
-      const renewalDate = m?.renewalDate ?? m?.renewal_date ?? null;
-      if (!renewalDate) return true; // no expiry set — treat as valid
-      const expiry = new Date(renewalDate);
+      const endRaw =
+        m?.endDate ??
+        m?.end_date ??
+        m?.expiresAt ??
+        m?.expires_at ??
+        m?.expiryDate ??
+        m?.expiry_date ??
+        m?.renewalDate ??
+        m?.renewal_date ??
+        null;
+      if (!endRaw) return true; // no expiry set — treat as valid
+      const expiry = new Date(endRaw);
+      if (isNaN(expiry.getTime())) return true;
       // 1. Block if membership has already expired right now
       if (expiry < new Date()) return false;
       // 2. Block if the BOOKING START DATE falls after the membership
