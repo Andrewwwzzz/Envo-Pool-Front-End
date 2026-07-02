@@ -7,10 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { isDeleted as checkDeleted, getDeletedInfo } from "@/components/admin/DeletedBanner";
+import { fmtDateTimeSG } from "@/lib/sgTime";
 
 interface CatalogItem {
   _id: string;
@@ -28,6 +30,9 @@ interface CatalogItem {
   isActive: boolean;
   sortOrder: number;
   fnbProductId: string | null;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: any;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -59,11 +64,12 @@ const EMPTY_FORM = {
   fnbProductId: "",
 };
 
-function useAdminCatalog() {
+function useAdminCatalog(showDeleted: boolean) {
   return useQuery({
-    queryKey: ["reward-catalog-admin"],
+    queryKey: ["reward-catalog-admin", showDeleted],
     queryFn: async () => {
-      const res = await apiFetch("/api/rewards/catalog/admin");
+      const qs = showDeleted ? "?showDeleted=true" : "";
+      const res = await apiFetch(`/api/rewards/catalog/admin${qs}`);
       if (!res.ok) throw new Error("Failed to load catalog");
       const data = await res.json();
       return (Array.isArray(data) ? data : []) as CatalogItem[];
@@ -86,11 +92,13 @@ function useFnbProducts() {
 export function RewardCatalogTab() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data: items = [] } = useAdminCatalog();
+  const [showDeleted, setShowDeleted] = useState(false);
+  const { data: items = [] } = useAdminCatalog(showDeleted);
   const { data: fnbProducts = [] } = useFnbProducts();
   const [dialog, setDialog] = useState<"create" | "edit" | null>(null);
   const [selected, setSelected] = useState<CatalogItem | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const save = useMutation({
     mutationFn: async (payload: any) => {
@@ -131,6 +139,8 @@ export function RewardCatalogTab() {
     onSuccess: () => {
       toast({ title: "Reward deleted" });
       qc.invalidateQueries({ queryKey: ["reward-catalog-admin"] });
+      qc.invalidateQueries({ queryKey: ["reward-catalog"] });
+      setConfirmDeleteId(null);
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
@@ -177,19 +187,34 @@ export function RewardCatalogTab() {
     });
   };
 
+  const activeCount = items.filter(i => !checkDeleted(i)).length;
+  const deletedCount = items.filter(i => checkDeleted(i)).length;
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-muted-foreground">{items.length} catalog items</p>
-        <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-1" /> Create Reward
-        </Button>
+      <div className="flex justify-between items-center flex-wrap gap-2">
+        <p className="text-sm text-muted-foreground">
+          {activeCount} catalog item{activeCount !== 1 ? "s" : ""}
+          {deletedCount > 0 && <span className="text-destructive/70 ml-2">· {deletedCount} deleted</span>}
+        </p>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setShowDeleted(v => !v)}>
+            {showDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+            {showDeleted ? "Hide Deleted" : "Show Deleted"}
+          </Button>
+          <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-1" /> Create Reward
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-2">
-        {items.map((item) => (
-          <Card key={item._id} className={`border-border/50 ${!item.isActive ? "opacity-60" : ""}`}>
-            <CardContent className="p-4">
+        {items.map((item) => {
+          const deleted = checkDeleted(item);
+          const info = deleted ? getDeletedInfo(item) : null;
+          return (
+          <Card key={item._id} className={`border-border/50 ${deleted ? "opacity-60 border-destructive/30" : !item.isActive ? "opacity-60" : ""}`}>
+            <CardContent className="p-4 space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -199,39 +224,62 @@ export function RewardCatalogTab() {
                       {item.type === "milestone" ? "Milestone" : "Points Shop"}
                     </Badge>
                     {item.tangible && <Badge className="text-xs bg-amber-500/20 text-amber-400">Tangible</Badge>}
-                    {!item.isActive && <Badge variant="outline" className="text-xs text-muted-foreground">Inactive</Badge>}
+                    {!item.isActive && !deleted && <Badge variant="outline" className="text-xs text-muted-foreground">Inactive</Badge>}
+                    {deleted && <Badge variant="destructive" className="text-xs">Deleted</Badge>}
                   </div>
                   {item.description && <p className="text-xs text-muted-foreground mt-1">{item.description}</p>}
                   <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
                     {item.type === "milestone" && <span>🏆 {item.milestoneThreshold} lifetime pts</span>}
                     {item.type === "points_exchange" && <span>💰 {item.pointCost} pts</span>}
                     {item.expiryDays && <span>Expires: {item.expiryDays}d</span>}
-                    {item.category === "food_drinks" && (
+                    {item.category === "food_drinks" && !deleted && (
                       item.fnbProductId
                         ? <span className="text-emerald-400">✓ Menu item linked</span>
                         : <span className="text-red-400 font-medium">⚠ No menu item linked — orders will fail</span>
                     )}
                   </div>
+                  {deleted && info?.at && (
+                    <p className="text-xs text-destructive/70 mt-1">Deleted {fmtDateTimeSG(info.at)}{info.by ? ` by ${info.by}` : ""}</p>
+                  )}
                 </div>
-                <div className="flex gap-2 flex-shrink-0">
-                  <Button size="sm" variant="ghost" onClick={() => toggle.mutate({ id: item._id, isActive: item.isActive })}>
-                    {item.isActive ? <ToggleRight className="h-4 w-4 text-green-400" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => openEdit(item)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={() => remove.mutate(item._id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                {!deleted && (
+                  <div className="flex gap-2 flex-shrink-0">
+                    <Button size="sm" variant="ghost" onClick={() => toggle.mutate({ id: item._id, isActive: item.isActive })}>
+                      {item.isActive ? <ToggleRight className="h-4 w-4 text-green-400" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => openEdit(item)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => setConfirmDeleteId(item._id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
         {items.length === 0 && (
           <p className="text-center text-muted-foreground text-sm py-10">No rewards yet. Create your first one.</p>
         )}
       </div>
+
+      {/* Confirm delete dialog */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-background rounded-lg border p-6 max-w-sm w-full space-y-4 shadow-xl">
+            <p className="font-semibold">Delete this reward?</p>
+            <p className="text-sm text-muted-foreground">It will be soft-deleted and hidden from users. You can view it later with "Show Deleted".</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
+              <Button variant="destructive" onClick={() => remove.mutate(confirmDeleteId)} disabled={remove.isPending}>
+                {remove.isPending ? "Deleting…" : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create/Edit dialog */}
       <Dialog open={!!dialog} onOpenChange={() => setDialog(null)}>
