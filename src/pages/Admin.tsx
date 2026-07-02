@@ -31,6 +31,7 @@ import {
   useDeleteMaintenance,
 } from "@/hooks/useAdmin";
 import LogsTab from "@/components/admin/LogsTab";
+import StaffTab from "@/components/admin/StaffTab";
 import MembershipTab from "@/components/admin/MembershipTab";
 import LockersTab from "@/components/admin/LockersTab";
 import { FnbTab } from "@/components/admin/FnbTab";
@@ -74,6 +75,12 @@ const Admin = () => {
   if (!user) return <Navigate to="/auth" replace />;
   if (!user.isAdmin) return <Navigate to="/booking" replace />;
 
+  const isAdmin = user.role === "admin";
+  const isStaff = user.role === "staff";
+  const isMaster = isAdmin && user.isMaster;
+  const perms = new Set<string>(user.staffPermissions ?? []);
+  const can = (key: string) => isAdmin || perms.has(key);
+
   const goToCustomer = (info: { email: string }) => {
     if (!info.email) return;
     setPendingCustomerEmail(info.email);
@@ -85,7 +92,9 @@ const Admin = () => {
       <header className="border-b border-border px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <Link to="/booking"><Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button></Link>
-          <h1 className="text-xl font-semibold text-foreground tracking-tight">Admin Dashboard</h1>
+          <h1 className="text-xl font-semibold text-foreground tracking-tight">
+            {isMaster ? "Master Dashboard" : isStaff ? "Staff Dashboard" : "Admin Dashboard"}
+          </h1>
         </div>
         <Button variant="ghost" size="sm" onClick={signOut}><LogOut className="mr-2 h-4 w-4" /> Sign Out</Button>
       </header>
@@ -94,53 +103,57 @@ const Admin = () => {
         <Tabs value={tab} onValueChange={setTab} className="space-y-6">
           <div className="overflow-x-auto pb-1">
             <TabsList className="inline-flex w-max gap-0.5 min-w-full">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="bookings">Bookings</TabsTrigger>
-              <TabsTrigger value="tables">Tables</TabsTrigger>
-              <TabsTrigger value="invoices">Invoices</TabsTrigger>
-              <TopUpsTabTrigger />
-              <TabsTrigger value="customers">Customers</TabsTrigger>
-              <TabsTrigger value="rewards">Rewards</TabsTrigger>
-              <TabsTrigger value="pricing">Pricing</TabsTrigger>
-              <TabsTrigger value="promos">Promos</TabsTrigger>
-              <TabsTrigger value="membership">Membership</TabsTrigger>
-              <TabsTrigger value="lockers">Lockers</TabsTrigger>
-              <TabsTrigger value="fnb" className="relative">
-                F&B
-                {pendingFnbOrders.length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
-                    {pendingFnbOrders.length > 9 ? "9+" : pendingFnbOrders.length}
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="walkin">Walk-in</TabsTrigger>
-              <VerificationTabTrigger />
-              <TabsTrigger value="logs">Logs</TabsTrigger>
+              {can("overview") && <TabsTrigger value="overview">Overview</TabsTrigger>}
+              {can("bookings") && <TabsTrigger value="bookings">Bookings</TabsTrigger>}
+              {can("tables") && <TabsTrigger value="tables">Tables</TabsTrigger>}
+              {can("invoices") && <TabsTrigger value="invoices">Invoices</TabsTrigger>}
+              {can("topups") && <TopUpsTabTrigger />}
+              {can("customers") && <TabsTrigger value="customers">Customers</TabsTrigger>}
+              {can("rewards") && <TabsTrigger value="rewards">Rewards</TabsTrigger>}
+              {can("pricing") && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
+              {can("promos") && <TabsTrigger value="promos">Promos</TabsTrigger>}
+              {can("membership") && <TabsTrigger value="membership">Membership</TabsTrigger>}
+              {can("lockers") && <TabsTrigger value="lockers">Lockers</TabsTrigger>}
+              {can("fnb") && (
+                <TabsTrigger value="fnb" className="relative">
+                  F&B
+                  {pendingFnbOrders.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                      {pendingFnbOrders.length > 9 ? "9+" : pendingFnbOrders.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+              )}
+              {can("walkin") && <TabsTrigger value="walkin">Walk-in</TabsTrigger>}
+              {can("verification") && <VerificationTabTrigger />}
+              {can("logs") && <TabsTrigger value="logs">Logs</TabsTrigger>}
+              {isMaster && <TabsTrigger value="staff">Staff</TabsTrigger>}
             </TabsList>
           </div>
 
-          <TabsContent value="overview"><OverviewTab /></TabsContent>
-          <TabsContent value="bookings"><BookingsTab /></TabsContent>
-          <TabsContent value="tables"><TablesTab /></TabsContent>
-          <TabsContent value="invoices"><InvoicesTab /></TabsContent>
-          <TabsContent value="topups"><TopUpsTab /></TabsContent>
-          <TabsContent value="customers">
-            <CustomersTab
-              pendingEmail={pendingCustomerEmail}
-              onPendingHandled={() => setPendingCustomerEmail(null)}
-            />
-          </TabsContent>
-          <TabsContent value="rewards"><RewardsTab onCustomerClick={goToCustomer} /></TabsContent>
-          <TabsContent value="pricing"><PricingTab /></TabsContent>
-          <TabsContent value="promos"><PromosTab /></TabsContent>
-          <TabsContent value="membership"><MembershipTab /></TabsContent>
-          <TabsContent value="lockers"><LockersTab /></TabsContent>
-          <TabsContent value="fnb"><FnbTab /></TabsContent>
-
-          <TabsContent value="walkin"><WalkinSessionsTab /></TabsContent>
-          
-          <TabsContent value="verification"><VerificationTab /></TabsContent>
-          <TabsContent value="logs"><LogsTab /></TabsContent>
+          {can("overview") && <TabsContent value="overview"><OverviewTab /></TabsContent>}
+          {can("bookings") && <TabsContent value="bookings"><BookingsTab /></TabsContent>}
+          {can("tables") && <TabsContent value="tables"><TablesTab /></TabsContent>}
+          {can("invoices") && <TabsContent value="invoices"><InvoicesTab /></TabsContent>}
+          {can("topups") && <TabsContent value="topups"><TopUpsTab /></TabsContent>}
+          {can("customers") && (
+            <TabsContent value="customers">
+              <CustomersTab
+                pendingEmail={pendingCustomerEmail}
+                onPendingHandled={() => setPendingCustomerEmail(null)}
+              />
+            </TabsContent>
+          )}
+          {can("rewards") && <TabsContent value="rewards"><RewardsTab onCustomerClick={goToCustomer} /></TabsContent>}
+          {can("pricing") && <TabsContent value="pricing"><PricingTab /></TabsContent>}
+          {can("promos") && <TabsContent value="promos"><PromosTab /></TabsContent>}
+          {can("membership") && <TabsContent value="membership"><MembershipTab /></TabsContent>}
+          {can("lockers") && <TabsContent value="lockers"><LockersTab /></TabsContent>}
+          {can("fnb") && <TabsContent value="fnb"><FnbTab /></TabsContent>}
+          {can("walkin") && <TabsContent value="walkin"><WalkinSessionsTab /></TabsContent>}
+          {can("verification") && <TabsContent value="verification"><VerificationTab /></TabsContent>}
+          {can("logs") && <TabsContent value="logs"><LogsTab /></TabsContent>}
+          {isMaster && <TabsContent value="staff"><StaffTab /></TabsContent>}
         </Tabs>
       </main>
     </div>

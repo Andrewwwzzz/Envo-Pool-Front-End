@@ -846,3 +846,121 @@ export function useUpdateCustomerProfile() {
     },
   });
 }
+
+// ── Staff management (master only) ───────────────────────────
+
+export const ALL_PERMISSIONS = [
+  { key: "overview", label: "Overview" },
+  { key: "bookings", label: "Bookings" },
+  { key: "tables", label: "Tables" },
+  { key: "invoices", label: "Invoices" },
+  { key: "topups", label: "Top Ups" },
+  { key: "customers", label: "Customers" },
+  { key: "rewards", label: "Rewards" },
+  { key: "pricing", label: "Pricing" },
+  { key: "promos", label: "Promos" },
+  { key: "membership", label: "Membership" },
+  { key: "lockers", label: "Lockers" },
+  { key: "fnb", label: "F&B" },
+  { key: "walkin", label: "Walk-in" },
+  { key: "verification", label: "Verification" },
+  { key: "logs", label: "Logs" },
+] as const;
+
+export function useStaffList() {
+  return useQuery({
+    queryKey: ["admin-staff"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/admin/staff");
+      if (!res.ok) throw new Error("Failed to fetch staff");
+      return res.json() as Promise<any[]>;
+    },
+  });
+}
+
+export function useCreateStaff() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { name: string; email: string; password: string; permissions: string[] }) => {
+      const res = await apiFetch("/api/admin/staff", { method: "POST", body: JSON.stringify(data) });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to create staff");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Staff account created" });
+      qc.invalidateQueries({ queryKey: ["admin-staff"] });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+}
+
+export function useUpdateStaffPermissions() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, permissions }: { id: string; permissions: string[] }) => {
+      const res = await apiFetch(`/api/admin/staff/${id}/permissions`, {
+        method: "PATCH", body: JSON.stringify({ permissions }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to update permissions");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Permissions updated" });
+      qc.invalidateQueries({ queryKey: ["admin-staff"] });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+}
+
+export function useRemoveStaff() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiFetch(`/api/admin/staff/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to remove staff");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Staff removed" });
+      qc.invalidateQueries({ queryKey: ["admin-staff"] });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+}
+
+export function useRestoreRecord() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ type, id }: { type: string; id: string }) => {
+      const res = await apiFetch(`/api/admin/restore/${type}/${id}`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to restore");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Record restored" });
+      qc.invalidateQueries({ queryKey: ["admin-customers"] });
+      qc.invalidateQueries({ queryKey: ["admin-bookings"] });
+      qc.invalidateQueries({ queryKey: ["fnb-menu-admin"] });
+      qc.invalidateQueries({ queryKey: ["membership-plans"] });
+      qc.invalidateQueries({ queryKey: ["lockers"] });
+      qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
+    },
+    onError: (err: Error) => toast({ title: "Restore failed", description: err.message, variant: "destructive" }),
+  });
+}

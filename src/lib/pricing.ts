@@ -70,8 +70,13 @@ function findBestRule(
   const timeMin = getSGTimeMinutes(dateTime);
   const dateStr = getSGDateStr(dateTime);
 
-  // Effective weekdays: real day + any PH/PH-eve bonus days
-  const effectiveWeekdays = new Set([weekday, ...extraWeekdaysForDate(dateStr, phDates)]);
+  // Operational day: before 4am SGT belongs to the previous calendar day's session
+  const opDateStr = timeMin < 4 * 60
+    ? getSGDateStr(new Date(dateTime.getTime() - 24 * 60 * 60 * 1000))
+    : dateStr;
+
+  // Effective weekdays: real day + any PH/PH-eve bonus days (based on operational date)
+  const effectiveWeekdays = new Set([weekday, ...extraWeekdaysForDate(opDateStr, phDates)]);
 
   const matching = rules.filter((r) => {
     if (!r.is_active) return false;

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, RotateCcw, XCircle, Loader2, Eye, EyeOff } from "lucide-react";
+import { Plus, RotateCcw, XCircle, Loader2, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useLockerUnits,
@@ -16,6 +16,8 @@ import {
   useAssignLocker,
   useRenewLocker,
   useCancelLocker,
+  useRegeneratePinLocker,
+  useSeedLockerPins,
   type LockerUnit,
 } from "@/hooks/useLockers";
 import { useAdminCustomers } from "@/hooks/useAdmin";
@@ -57,7 +59,7 @@ function AddLockerDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
             <Input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label>PIN (preset — shown to customer after purchase)</Label>
+            <Label>PIN (leave blank to auto-generate)</Label>
             <div className="relative">
               <Input
                 type={showPin ? "text" : "password"}
@@ -158,6 +160,8 @@ export default function LockersTab() {
   const { data: rentals = [] } = useLockerRentals();
   const renew = useRenewLocker();
   const cancel = useCancelLocker();
+  const regenPin = useRegeneratePinLocker();
+  const seedPins = useSeedLockerPins();
   const [addOpen, setAddOpen] = useState(false);
   const [assignFor, setAssignFor] = useState<LockerUnit | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
@@ -167,12 +171,34 @@ export default function LockersTab() {
     catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
   };
 
+  const doRegenPin = async (id: string, num: string | number) => {
+    try {
+      const res = await regenPin.mutateAsync(id);
+      toast({ title: `New PIN for Locker #${num}: ${res.pin}` });
+    }
+    catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
+  };
+
+  const doSeedPins = async () => {
+    try {
+      const res = await seedPins.mutateAsync();
+      toast({ title: res.message ?? "PINs seeded" });
+    }
+    catch (e: any) { toast({ title: "Failed", description: e?.message, variant: "destructive" }); }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
           <CardTitle className="text-base">Locker Units</CardTitle>
-          <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add Locker</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={doSeedPins} disabled={seedPins.isPending}>
+              {seedPins.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+              Seed Missing PINs
+            </Button>
+            <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add Locker</Button>
+          </div>
         </CardHeader>
         <CardContent>
           {lockers.length === 0 ? (
@@ -227,6 +253,9 @@ export default function LockersTab() {
                         <TableCell className="text-right">
                           {isAvailable ? (
                             <div className="flex gap-1 justify-end">
+                              <Button variant="ghost" size="sm" onClick={() => doRegenPin((anyL._id ?? l.id) as string, lockerNum)} title="Regenerate PIN">
+                                <RefreshCw className="h-4 w-4" />
+                              </Button>
                               <Button variant="outline" size="sm" onClick={() => setAssignFor(l)}>Assign</Button>
                             </div>
                           ) : (

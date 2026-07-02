@@ -1,0 +1,310 @@
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Plus, Pencil, Trash2, RotateCcw, Eye, EyeOff } from "lucide-react";
+import {
+  ALL_PERMISSIONS,
+  useStaffList,
+  useCreateStaff,
+  useUpdateStaffPermissions,
+  useRemoveStaff,
+  useRestoreRecord,
+} from "@/hooks/useAdmin";
+
+const RESTORE_TYPES = [
+  { value: "user", label: "User (deleted account)" },
+  { value: "booking", label: "Booking" },
+  { value: "fnb-product", label: "F&B Product" },
+  { value: "membership-plan", label: "Membership Plan" },
+  { value: "locker-unit", label: "Locker Unit" },
+  { value: "locker-rental", label: "Locker Rental" },
+  { value: "timer-session", label: "Timer Session (Invoice)" },
+];
+
+function PermissionCheckboxes({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const toggle = (key: string) => {
+    onChange(selected.includes(key) ? selected.filter((k) => k !== key) : [...selected, key]);
+  };
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      {ALL_PERMISSIONS.map(({ key, label }) => (
+        <label key={key} className="flex items-center gap-2 cursor-pointer select-none text-sm">
+          <Checkbox checked={selected.includes(key)} onCheckedChange={() => toggle(key)} />
+          {label}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function CreateStaffDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const create = useCreateStaff();
+
+  const reset = () => { setName(""); setEmail(""); setPassword(""); setPermissions([]); };
+
+  const submit = async () => {
+    try {
+      await create.mutateAsync({ name, email, password, permissions });
+      reset();
+      onOpenChange(false);
+    } catch {/* toast in hook */}
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Add Staff Account</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Name</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Staff name" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Email</Label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="staff@example.com" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Password</Label>
+            <div className="relative">
+              <Input
+                type={showPass ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Min 8 characters"
+                className="pr-10"
+              />
+              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowPass((v) => !v)}>
+                {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Allowed Sections</Label>
+            <PermissionCheckboxes selected={permissions} onChange={setPermissions} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            onClick={submit}
+            disabled={create.isPending || !name.trim() || !email.trim() || password.length < 8}
+          >
+            {create.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Create
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditPermissionsDialog({
+  staff,
+  open,
+  onOpenChange,
+}: {
+  staff: any;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const [permissions, setPermissions] = useState<string[]>(staff?.staffPermissions ?? []);
+  const update = useUpdateStaffPermissions();
+
+  const submit = async () => {
+    try {
+      await update.mutateAsync({ id: staff._id ?? staff.id, permissions });
+      onOpenChange(false);
+    } catch {/* toast in hook */}
+  };
+
+  // Reset when staff changes
+  if (open && permissions.length === 0 && (staff?.staffPermissions ?? []).length > 0) {
+    setPermissions(staff.staffPermissions);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit Permissions — {staff?.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label>Allowed Sections</Label>
+          <PermissionCheckboxes selected={permissions} onChange={setPermissions} />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={submit} disabled={update.isPending}>
+            {update.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RestoreRecordCard() {
+  const [type, setType] = useState("user");
+  const [id, setId] = useState("");
+  const restore = useRestoreRecord();
+
+  const submit = async () => {
+    if (!id.trim()) return;
+    try {
+      await restore.mutateAsync({ type, id: id.trim() });
+      setId("");
+    } catch {/* toast in hook */}
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <RotateCcw className="h-4 w-4" /> Restore Soft-Deleted Record
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Paste the MongoDB ObjectId of the record you want to restore. Nothing is ever hard-deleted — only the soft-delete flag is cleared.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Select value={type} onValueChange={setType}>
+            <SelectTrigger className="w-full sm:w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {RESTORE_TYPES.map((t) => (
+                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            className="flex-1 font-mono text-sm"
+            placeholder="MongoDB ObjectId (24 hex chars)"
+            value={id}
+            onChange={(e) => setId(e.target.value.trim())}
+          />
+          <Button
+            onClick={submit}
+            disabled={restore.isPending || !/^[a-f\d]{24}$/i.test(id)}
+          >
+            {restore.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Restore"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function StaffTab() {
+  const { data: staffList = [], isLoading } = useStaffList();
+  const removeStaff = useRemoveStaff();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<any | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<any | null>(null);
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <CardTitle className="text-base">Staff Accounts</CardTitle>
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Add Staff
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : staffList.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No staff accounts yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {staffList.map((s: any) => (
+                <div key={s._id ?? s.id} className="rounded-lg border p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div>
+                      <div className="font-medium">{s.name}</div>
+                      <div className="text-xs text-muted-foreground">{s.email}</div>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <Button variant="outline" size="sm" onClick={() => setEditTarget(s)}>
+                        <Pencil className="h-3.5 w-3.5 mr-1" /> Permissions
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setRemoveTarget(s)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {(s.staffPermissions ?? []).length === 0 ? (
+                      <span className="text-xs text-muted-foreground">No sections allowed</span>
+                    ) : (
+                      (s.staffPermissions as string[]).map((p) => (
+                        <Badge key={p} variant="secondary" className="text-xs capitalize">{p}</Badge>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <RestoreRecordCard />
+
+      <CreateStaffDialog open={createOpen} onOpenChange={setCreateOpen} />
+
+      {editTarget && (
+        <EditPermissionsDialog
+          staff={editTarget}
+          open={!!editTarget}
+          onOpenChange={(v) => { if (!v) setEditTarget(null); }}
+        />
+      )}
+
+      <AlertDialog open={!!removeTarget} onOpenChange={(v) => { if (!v) setRemoveTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove staff role?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {removeTarget?.name} ({removeTarget?.email}) will lose staff access and become a regular user. This does not delete their account.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!removeTarget) return;
+                await removeStaff.mutateAsync(removeTarget._id ?? removeTarget.id);
+                setRemoveTarget(null);
+              }}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

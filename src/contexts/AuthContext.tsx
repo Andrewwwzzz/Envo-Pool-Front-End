@@ -9,7 +9,9 @@ interface BackendUser {
   email: string;
   isVerified: boolean;
   isAdmin?: boolean;
+  isMaster?: boolean;
   role?: string;
+  staffPermissions?: string[];
   walletBalance?: number;
   totalSpent?: number;
   rewardPoints?: number;
@@ -66,8 +68,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       const data = await res.json();
       const u = data.user;
-      // Derive isAdmin from role
-      u.isAdmin = u.role === "admin";
+      // Derive isAdmin from role (admin or staff can access admin dashboard)
+      u.isAdmin = u.role === "admin" || u.role === "staff";
       localStorage.setItem("user", JSON.stringify(u));
       return u;
     } catch (err) {
@@ -97,7 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const setAuth = (newToken: string, newUser: BackendUser) => {
-    newUser.isAdmin = newUser.role === "admin";
+    newUser.isAdmin = newUser.role === "admin" || newUser.role === "staff";
     localStorage.setItem("token", newToken);
     localStorage.setItem("user", JSON.stringify(newUser));
     setToken(newToken);

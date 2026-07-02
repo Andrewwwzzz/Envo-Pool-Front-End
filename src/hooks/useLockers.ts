@@ -146,6 +146,30 @@ export function useDeleteLockerRental() {
   });
 }
 
+export function useRegeneratePinLocker() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const r = await apiFetch(`/api/lockers/units/${id}/regenerate-pin`, { method: "POST" });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lockers"] }),
+  });
+}
+
+export function useSeedLockerPins() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const r = await apiFetch("/api/lockers/units/seed-pins", { method: "POST" });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lockers"] }),
+  });
+}
+
 export function useMyLocker() {
   return useQuery<any>({
     queryKey: ["lockers", "my"],
