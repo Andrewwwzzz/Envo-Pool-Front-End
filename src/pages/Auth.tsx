@@ -201,24 +201,24 @@ const Auth = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="dob">Date of Birth</Label>
-                      <Input
+                      <input
                         id="dob"
-                        type="date"
+                        type={dateOfBirth ? "date" : "text"}
                         value={dateOfBirth}
+                        placeholder="Select date of birth"
+                        autoComplete="off"
+                        required
+                        readOnly={!dateOfBirth}
+                        onFocus={(e) => { (e.target as HTMLInputElement).type = "date"; (e.target as HTMLInputElement).readOnly = false; }}
+                        onBlur={(e) => { if (!(e.target as HTMLInputElement).value) (e.target as HTMLInputElement).type = "text"; }}
                         onChange={(e) => {
                           (e.target as HTMLInputElement).setCustomValidity("");
                           setDateOfBirth(e.target.value);
                         }}
                         onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity("You must be at least 16 years old to register an account.")}
-                        required
-                        placeholder="DD/MM/YYYY"
-                        autoComplete="off"
                         max={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 16); return d.toISOString().split("T")[0]; })()}
-                        className={`bg-background/50${!dateOfBirth ? " text-muted-foreground" : ""}`}
+                        className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       />
-                      {!dateOfBirth && (
-                        <p className="text-xs text-muted-foreground">Select your date of birth</p>
-                      )}
                     </div>
                   </>
                 )}
