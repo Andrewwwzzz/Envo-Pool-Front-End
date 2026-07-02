@@ -8,14 +8,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Pencil, Trash2, RotateCcw, Eye, EyeOff } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, RotateCcw } from "lucide-react";
 import {
   ALL_PERMISSIONS,
   useStaffList,
-  useCreateStaff,
+  usePromoteStaff,
   useUpdateStaffPermissions,
   useRemoveStaff,
   useRestoreRecord,
+  useAdminCustomers,
 } from "@/hooks/useAdmin";
 
 const RESTORE_TYPES = [
@@ -50,19 +51,19 @@ function PermissionCheckboxes({
   );
 }
 
-function CreateStaffDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPass, setShowPass] = useState(false);
+function PromoteStaffDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<any | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
-  const create = useCreateStaff();
+  const { data: customers = [] } = useAdminCustomers(search);
+  const promote = usePromoteStaff();
 
-  const reset = () => { setName(""); setEmail(""); setPassword(""); setPermissions([]); };
+  const reset = () => { setSearch(""); setSelected(null); setPermissions([]); };
 
   const submit = async () => {
+    if (!selected) return;
     try {
-      await create.mutateAsync({ name, email, password, permissions });
+      await promote.mutateAsync({ userId: selected._id ?? selected.id, permissions });
       reset();
       onOpenChange(false);
     } catch {/* toast in hook */}
@@ -71,32 +72,40 @@ function CreateStaffDialog({ open, onOpenChange }: { open: boolean; onOpenChange
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
       <DialogContent className="max-w-lg">
-        <DialogHeader><DialogTitle>Add Staff Account</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Assign Staff Role</DialogTitle></DialogHeader>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Staff name" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="staff@example.com" />
-            </div>
-          </div>
           <div className="space-y-1.5">
-            <Label>Password</Label>
-            <div className="relative">
-              <Input
-                type={showPass ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min 8 characters"
-                className="pr-10"
-              />
-              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowPass((v) => !v)}>
-                {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
+            <Label>Search User</Label>
+            <Input
+              placeholder="Name or email..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setSelected(null); }}
+            />
+            {search && !selected && (
+              <div className="max-h-40 overflow-y-auto rounded-md border">
+                {customers.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">No users found</div>
+                ) : customers.slice(0, 15).map((c: any) => (
+                  <button
+                    key={c._id ?? c.id} type="button"
+                    onClick={() => { setSelected(c); setSearch(""); }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                  >
+                    <div className="font-medium">{c.name || "—"}</div>
+                    <div className="text-xs text-muted-foreground">{c.email}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {selected && (
+              <div className="flex items-center justify-between rounded-md border px-3 py-2 bg-muted/40">
+                <div>
+                  <div className="text-sm font-medium">{selected.name}</div>
+                  <div className="text-xs text-muted-foreground">{selected.email}</div>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>Change</Button>
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label>Allowed Sections</Label>
@@ -105,11 +114,8 @@ function CreateStaffDialog({ open, onOpenChange }: { open: boolean; onOpenChange
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button
-            onClick={submit}
-            disabled={create.isPending || !name.trim() || !email.trim() || password.length < 8}
-          >
-            {create.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Create
+          <Button onClick={submit} disabled={promote.isPending || !selected}>
+            {promote.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Assign Role
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -228,7 +234,7 @@ export default function StaffTab() {
         <CardHeader className="flex flex-row items-center justify-between gap-2">
           <CardTitle className="text-base">Staff Accounts</CardTitle>
           <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Add Staff
+            <Plus className="h-4 w-4 mr-1" /> Assign Staff
           </Button>
         </CardHeader>
         <CardContent>
@@ -272,7 +278,7 @@ export default function StaffTab() {
 
       <RestoreRecordCard />
 
-      <CreateStaffDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <PromoteStaffDialog open={createOpen} onOpenChange={setCreateOpen} />
 
       {editTarget && (
         <EditPermissionsDialog

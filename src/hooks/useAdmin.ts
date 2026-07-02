@@ -878,20 +878,20 @@ export function useStaffList() {
   });
 }
 
-export function useCreateStaff() {
+export function usePromoteStaff() {
   const { toast } = useToast();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { name: string; email: string; password: string; permissions: string[] }) => {
+    mutationFn: async (data: { userId: string; permissions: string[] }) => {
       const res = await apiFetch("/api/admin/staff", { method: "POST", body: JSON.stringify(data) });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to create staff");
+        throw new Error(body.error || "Failed to promote user");
       }
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Staff account created" });
+      toast({ title: "User promoted to staff" });
       qc.invalidateQueries({ queryKey: ["admin-staff"] });
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
