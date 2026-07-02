@@ -180,7 +180,7 @@ const Auth = () => {
               {!isLogin && (
                 <button
                   type="button"
-                  onClick={() => setSignupMode("choose")}
+                  onClick={() => { setSignupMode("choose"); setName(""); setEmail(""); setPassword(""); setDateOfBirth(""); }}
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-1"
                 >
                   <ArrowLeft className="h-3 w-3" /> Back to options
@@ -211,9 +211,14 @@ const Auth = () => {
                         }}
                         onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity("You must be at least 16 years old to register an account.")}
                         required
+                        placeholder="DD/MM/YYYY"
+                        autoComplete="off"
                         max={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 16); return d.toISOString().split("T")[0]; })()}
-                        className="bg-background/50"
+                        className={`bg-background/50${!dateOfBirth ? " text-muted-foreground" : ""}`}
                       />
+                      {!dateOfBirth && (
+                        <p className="text-xs text-muted-foreground">Select your date of birth</p>
+                      )}
                     </div>
                   </>
                 )}
@@ -245,6 +250,10 @@ const Auth = () => {
                           const next = !isLogin;
                           setIsLogin(next);
                           setSignupMode("choose");
+                          if (next === false) {
+                            // Switching to signup — clear form
+                            setName(""); setEmail(""); setPassword(""); setDateOfBirth("");
+                          }
                         }}
                       >
                         {isLogin ? "Sign Up" : "Sign In"}
