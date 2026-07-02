@@ -1036,7 +1036,7 @@ const Booking = () => {
               })()}
               <button
                 onClick={() => setPaymentMethod("stripe")}
-                className={`rounded-xl border p-4 text-left transition-all duration-200 ${
+                className={`hidden rounded-xl border p-4 text-left transition-all duration-200 ${
                   paymentMethod === "stripe"
                     ? "border-accent ring-2 ring-accent/20 bg-accent/5"
                     : "border-border hover:border-muted-foreground/30"
