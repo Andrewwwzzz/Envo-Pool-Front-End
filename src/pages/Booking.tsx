@@ -58,7 +58,7 @@ const Booking = () => {
   const [rewardCodeInput, setRewardCodeInput] = useState("");
   const [appliedReward, setAppliedReward] = useState<Reward | null>(null);
   const [validatingReward, setValidatingReward] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"wallet" | "stripe" | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"wallet" | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -1034,22 +1034,6 @@ const Booking = () => {
                   </div>
                 );
               })()}
-              <button
-                onClick={() => setPaymentMethod("stripe")}
-                className={`hidden rounded-xl border p-4 text-left transition-all duration-200 ${
-                  paymentMethod === "stripe"
-                    ? "border-accent ring-2 ring-accent/20 bg-accent/5"
-                    : "border-border hover:border-muted-foreground/30"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <CreditCard className="h-5 w-5 text-accent" />
-                  <div>
-                    <p className="font-medium">Paynow</p>
-                    <p className="text-sm text-muted-foreground">Scan and Pay</p>
-                  </div>
-                </div>
-              </button>
             </CardContent>
           </Card>
         )}
