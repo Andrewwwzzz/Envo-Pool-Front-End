@@ -220,7 +220,12 @@ export function usePointsHistory(userId?: string) {
       if (!res.ok) return [] as PointsLedgerEntry[];
       const data = await res.json().catch(() => ({}));
       // Backend returns { transactions, history (alias), pagination }
-      const list = Array.isArray(data) ? data : (data?.history ?? data?.transactions ?? []);
+      const raw: any[] = Array.isArray(data) ? data : (data?.history ?? data?.transactions ?? []);
+      // Backend stores balance as `balanceAfter`; normalise to `balance`
+      const list = raw.map((entry: any) => ({
+        ...entry,
+        balance: entry.balance ?? entry.balanceAfter ?? 0,
+      }));
       return list as PointsLedgerEntry[];
     },
   });

@@ -111,7 +111,14 @@ export default function DashboardHome() {
       {/* Greeting */}
       <div className="mb-2">
         <h2 className="text-xl font-bold text-foreground">Hi, {displayName} 👋</h2>
-        <p className="text-sm text-muted-foreground">Welcome back to Envo Pool</p>
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          <p className="text-sm text-muted-foreground">Welcome back to Envo Pool</p>
+          {(profile?.shortId ?? (user as any)?.shortId) && (
+            <span className="text-xs font-mono text-muted-foreground/60 bg-muted/40 border border-border/50 rounded px-1.5 py-0.5">
+              ID: {profile?.shortId ?? (user as any)?.shortId}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Stats row */}

@@ -77,7 +77,8 @@ export function useCreateLockerUnit() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: { number: string; monthlyPrice: number; notes?: string }) => {
-      const r = await apiFetch("/api/lockers/units", { method: "POST", body: JSON.stringify(data) });
+      const payload = { lockerNumber: data.number, monthlyPrice: data.monthlyPrice, notes: data.notes };
+      const r = await apiFetch("/api/lockers/units", { method: "POST", body: JSON.stringify(payload) });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
@@ -89,7 +90,13 @@ export function useAssignLocker() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: { lockerId: string; customerId?: string; customerEmail?: string; startDate?: string }) => {
-      const r = await apiFetch("/api/lockers/rentals/assign", { method: "POST", body: JSON.stringify(data) });
+      const payload = {
+        lockerUnitId: data.lockerId,
+        userId: data.customerId,
+        customerEmail: data.customerEmail,
+        startDate: data.startDate,
+      };
+      const r = await apiFetch("/api/lockers/rentals/assign", { method: "POST", body: JSON.stringify(payload) });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },

@@ -506,7 +506,24 @@ export function useAdminPromoCodes(filter: "default" | "all" = "all") {
     },
   });
 
-  return { ...query, create, toggle, remove };
+  const update = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
+      const res = await apiFetch(`/api/admin/promo-codes/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update promo code");
+    },
+    onSuccess: () => {
+      toast({ title: "Promo code updated" });
+      queryClient.invalidateQueries({ queryKey: ["admin-promo-codes"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return { ...query, create, toggle, remove, update };
 }
 
 

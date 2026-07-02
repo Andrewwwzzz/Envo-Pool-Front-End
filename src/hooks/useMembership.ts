@@ -78,6 +78,19 @@ export function useUpdateMembershipPlan() {
   });
 }
 
+export function useToggleMembershipPlanActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, activate }: { id: string; activate: boolean }) => {
+      const action = activate ? "activate" : "deactivate";
+      const r = await apiFetch(`/api/membership/plans/${id}/${action}`, { method: "PATCH" });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["membership", "plans"] }),
+  });
+}
+
 export function useDeleteMembershipPlan() {
   const qc = useQueryClient();
   return useMutation({

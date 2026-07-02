@@ -17,7 +17,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import {
   useAdminFnbOrders, useAdminMenu, useServeOrder, useCancelFnbOrder,
-  useCreateProduct, useUpdateProduct, useRestockProduct,
+  useCreateProduct, useUpdateProduct, useRestockProduct, useDeleteProduct,
   FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS,
 } from "@/hooks/useFnb";
 import { fmtDateTimeSG, getSGDateStr, nowSG } from "@/lib/sgTime";
@@ -118,6 +118,8 @@ export function FnbTab() {
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const restockProduct = useRestockProduct();
+  const deleteProduct = useDeleteProduct();
+  const [deleteProductTarget, setDeleteProductTarget] = useState<FnbProduct | null>(null);
   const adjustStock = useAdjustStock();
 
   const openCreate = () => { setForm(EMPTY_FORM); setSelectedProduct(null); setProductDialog("create"); };
@@ -416,6 +418,9 @@ export function FnbTab() {
                         <Button size="sm" variant="outline" title="Edit" onClick={() => openEdit(p)}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
+                        <Button size="sm" variant="outline" title="Delete" onClick={() => setDeleteProductTarget(p)}>
+                          <XCircle className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -428,6 +433,31 @@ export function FnbTab() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* ── Delete product dialog ── */}
+      <Dialog open={!!deleteProductTarget} onOpenChange={(o) => !o && setDeleteProductTarget(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Delete Product</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground py-2">
+            Delete <span className="font-medium text-foreground">{deleteProductTarget?.name}</span>? It will be hidden from the menu immediately. This cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteProductTarget(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteProduct.isPending}
+              onClick={async () => {
+                if (!deleteProductTarget?._id) return;
+                await deleteProduct.mutateAsync(deleteProductTarget._id);
+                setDeleteProductTarget(null);
+              }}
+            >
+              {deleteProduct.isPending ? <RotateCcw className="h-4 w-4 animate-spin mr-2" /> : null}
+              Delete Product
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Cancel dialog ── */}
       <Dialog open={!!cancelDialog} onOpenChange={() => setCancelDialog(null)}>

@@ -2203,13 +2203,48 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 function PromosTab() {
   const [hideDeleted, setHideDeleted] = useState(false);
-  const { data: promos, create, toggle, remove } = useAdminPromoCodes(hideDeleted ? "default" : "all");
+  const { data: promos, create, toggle, remove, update } = useAdminPromoCodes(hideDeleted ? "default" : "all");
   const [form, setForm] = useState({
     code: "", discount_type: "percentage" as string, discount_value: "", minimum_spend: "",
     max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
   });
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailPromo, setDetailPromo] = useState<any | null>(null);
+  const [editTarget, setEditTarget] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({
+    discount_type: "percentage", discount_value: "", minimum_spend: "",
+    max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
+  });
+
+  const openEdit = (p: any) => {
+    setEditTarget(p);
+    setEditForm({
+      discount_type: p.discount_type ?? "percentage",
+      discount_value: String(p.discount_value ?? ""),
+      minimum_spend: p.minimum_spend != null ? String(p.minimum_spend) : "",
+      max_discount_amount: p.max_discount_amount != null ? String(p.max_discount_amount) : "",
+      usage_limit: p.usage_limit != null ? String(p.usage_limit) : "",
+      per_user_limit: p.per_user_limit != null ? String(p.per_user_limit) : "",
+      expiry_date: p.expiry_date ? new Date(p.expiry_date).toISOString().slice(0, 16) : "",
+    });
+  };
+
+  const handleEdit = async () => {
+    if (!editTarget) return;
+    await update.mutateAsync({
+      id: editTarget.id,
+      data: {
+        discount_type: editForm.discount_type,
+        discount_value: parseFloat(editForm.discount_value),
+        minimum_spend: editForm.minimum_spend ? parseFloat(editForm.minimum_spend) : null,
+        max_discount_amount: editForm.max_discount_amount ? parseFloat(editForm.max_discount_amount) : null,
+        usage_limit: editForm.usage_limit ? parseInt(editForm.usage_limit) : null,
+        per_user_limit: editForm.per_user_limit ? parseInt(editForm.per_user_limit) : null,
+        expiry_date: editForm.expiry_date || null,
+      },
+    });
+    setEditTarget(null);
+  };
 
   const handleCreate = () => {
     create.mutate({
@@ -2342,11 +2377,14 @@ function PromosTab() {
                         </td>
                         <td className="py-3 pr-3" onClick={(e) => e.stopPropagation()}>
                           {!deleted && (
-                            <div className="flex items-center justify-end gap-3">
+                            <div className="flex items-center justify-end gap-2">
                               <Switch
                                 checked={p.is_active}
                                 onCheckedChange={() => toggle.mutate({ id: p.id, is_active: !p.is_active })}
                               />
+                              <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
                               <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(p)}>
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
@@ -2362,6 +2400,57 @@ function PromosTab() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Promo Code — {editTarget?.code}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 sm:grid-cols-2 py-2">
+            <div className="space-y-1.5">
+              <Label>Discount Type</Label>
+              <Select value={editForm.discount_type} onValueChange={(v) => setEditForm({ ...editForm, discount_type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="percentage">Percentage</SelectItem>
+                  <SelectItem value="fixed">Fixed Amount</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Discount Value</Label>
+              <Input type="number" value={editForm.discount_value} onChange={(e) => setEditForm({ ...editForm, discount_value: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Min Spend (opt)</Label>
+              <Input type="number" value={editForm.minimum_spend} onChange={(e) => setEditForm({ ...editForm, minimum_spend: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Max Discount (opt)</Label>
+              <Input type="number" value={editForm.max_discount_amount} onChange={(e) => setEditForm({ ...editForm, max_discount_amount: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Usage Limit (opt)</Label>
+              <Input type="number" value={editForm.usage_limit} onChange={(e) => setEditForm({ ...editForm, usage_limit: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Per User Limit (opt)</Label>
+              <Input type="number" value={editForm.per_user_limit} onChange={(e) => setEditForm({ ...editForm, per_user_limit: e.target.value })} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Expiry Date (opt)</Label>
+              <Input type="datetime-local" value={editForm.expiry_date} onChange={(e) => setEditForm({ ...editForm, expiry_date: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
+            <Button onClick={handleEdit} disabled={!editForm.discount_value || update.isPending}>
+              {update.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ReasonDialog
         open={!!deleteTarget}
@@ -2393,7 +2482,7 @@ function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () 
     queryKey: ["promo-usage", promo?.code],
     enabled: !!promo?.code,
     queryFn: async () => {
-      const res = await apiFetch(`/api/promos/${encodeURIComponent(promo.code)}/usage`);
+      const res = await apiFetch(`/api/promo/${encodeURIComponent(promo.code)}/usage`);
       if (res.status === 404) return { __missing: true };
       if (!res.ok) throw new Error("Failed to fetch usage");
       const raw = await res.json();
@@ -2485,9 +2574,9 @@ function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () 
                   </thead>
                   <tbody>
                     {usage.map((u: any, i: number) => {
-                      const name = u.customerName || u.customer_name || u.user?.name || u.userName || "—";
-                      const email = u.customerEmail || u.customer_email || u.user?.email || u.userEmail || "";
-                      const shortId = u.shortId || u.short_id || u.bookingShortId || u.booking?.shortId || u.bookingId || u.booking_id || "—";
+                      const name = u.customer?.name || u.customerName || u.customer_name || u.user?.name || u.userName || "—";
+                      const email = u.customer?.email || u.customerEmail || u.customer_email || u.user?.email || u.userEmail || "";
+                      const shortId = u.customer?.shortId || u.shortId || u.short_id || u.bookingShortId || u.booking?.shortId || u.bookingId || u.booking_id || "—";
                       const discount = u.discountApplied ?? u.discount_applied ?? u.discount ?? u.discountAmount;
                       const original = u.originalAmount ?? u.original_amount ?? u.originalPrice ?? u.original_price;
                       const final = u.finalAmount ?? u.final_amount ?? u.finalPrice ?? u.final_price;

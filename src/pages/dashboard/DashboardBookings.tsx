@@ -97,9 +97,9 @@ function BookingCard({ b, tables, now, onClick }: { b: any; tables: any[]; now: 
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-semibold text-sm text-foreground">{tableLabel}</p>
-              {daysUntil !== null && daysUntil <= 3 && daysUntil >= 0 && (
+              {daysUntil === 0 && (
                 <span className="text-[10px] font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5">
-                  {daysUntil === 0 ? "Today" : daysUntil === 1 ? "Tomorrow" : `In ${daysUntil} days`}
+                  Today
                 </span>
               )}
             </div>

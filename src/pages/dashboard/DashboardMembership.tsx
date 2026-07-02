@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,9 +15,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Crown, Lock, Percent, Timer, Beer, KeyRound, Loader2, Eye, EyeOff, PiggyBank, CircleDot } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 import {
   useMyMembership,
   useMembershipPlans,
@@ -265,6 +276,21 @@ function MembershipCard({
             </Button>
           </div>
         )}
+
+        {isActive && planPrice > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-md border border-border/40 bg-muted/30 p-3">
+            <div className="space-y-0.5">
+              <div className="text-sm font-medium">Extend membership early</div>
+              <div className="text-xs text-muted-foreground">
+                Extends from current renewal date · ${planPrice}/{planCycle}
+                {!canAffordRenew && " — insufficient balance"}
+              </div>
+            </div>
+            <Button variant="outline" size="sm" disabled={!canAffordRenew} onClick={() => onRenew(membership)}>
+              Extend for ${planPrice}
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -283,6 +309,13 @@ export default function DashboardMembership() {
   const [confirmPlan, setConfirmPlan] = useState<MembershipPlan | null>(null);
   const [renewTarget, setRenewTarget] = useState<any | null>(null);
 
+  // Locker PIN purchase flow
+  const [lockerPinPlan, setLockerPinPlan] = useState<MembershipPlan | null>(null);
+  const [lockerPin, setLockerPin] = useState("");
+  const [lockerPinConfirm, setLockerPinConfirm] = useState("");
+  const [showLockerPin, setShowLockerPin] = useState(false);
+  const [lockerPurchasing, setLockerPurchasing] = useState(false);
+
   const walletBalance = Number(profile?.wallet_balance ?? 0);
 
   const handleConfirmSubscribe = async () => {
@@ -298,6 +331,30 @@ export default function DashboardMembership() {
       setConfirmPlan(null);
     } catch (e: any) {
       toast.error(e?.message || "Failed to subscribe");
+    }
+  };
+
+  const handleLockerPurchase = async () => {
+    if (!lockerPinPlan) return;
+    if (lockerPin.length < 4) { toast.error("PIN must be at least 4 digits"); return; }
+    if (lockerPin !== lockerPinConfirm) { toast.error("PINs do not match"); return; }
+    setLockerPurchasing(true);
+    try {
+      const planId = (lockerPinPlan as any)?.id ?? (lockerPinPlan as any)?._id;
+      const r = await apiFetch("/api/lockers/purchase", {
+        method: "POST",
+        body: JSON.stringify({ pin: lockerPin, planId }),
+      });
+      const body = await r.json();
+      if (!r.ok) throw new Error(body?.error || "Failed to purchase locker");
+      toast.success(`Locker #${body.rental?.lockerNumber ?? ""} assigned! Keep your PIN safe.`);
+      setLockerPinPlan(null);
+      setLockerPin("");
+      setLockerPinConfirm("");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to purchase locker");
+    } finally {
+      setLockerPurchasing(false);
     }
   };
 
@@ -363,6 +420,7 @@ export default function DashboardMembership() {
               const canAfford = walletBalance >= price;
               const planId = String((p as any).id ?? (p as any)._id ?? "");
               const alreadySubscribed = activePlanIds.has(planId);
+              const isLockerPlan = !!(p.lockerIncluded);
               const btn = alreadySubscribed ? (
                 <Badge variant="secondary" className="w-full justify-center py-2">
                   Already subscribed
@@ -371,7 +429,7 @@ export default function DashboardMembership() {
                 <Button
                   className="w-full"
                   disabled={!canAfford || subscribe.isPending}
-                  onClick={() => setConfirmPlan(p)}
+                  onClick={() => isLockerPlan ? setLockerPinPlan(p) : setConfirmPlan(p)}
                 >
                   Subscribe
                 </Button>
@@ -542,6 +600,77 @@ export default function DashboardMembership() {
         </AlertDialogContent>
       </AlertDialog>
 
+
+      {/* Locker purchase PIN dialog */}
+      <Dialog
+        open={!!lockerPinPlan}
+        onOpenChange={(o) => {
+          if (!o) { setLockerPinPlan(null); setLockerPin(""); setLockerPinConfirm(""); }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-accent" />
+              Set Locker PIN
+            </DialogTitle>
+            <DialogDescription>
+              A locker will be randomly assigned to you. Set a PIN (4+ digits) to access it.
+              Cost: <strong>${Number(lockerPinPlan?.price ?? 0).toFixed(2)}</strong> from your wallet
+              (balance: <strong>${walletBalance.toFixed(2)}</strong>).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="locker-pin">PIN</Label>
+              <div className="relative">
+                <Input
+                  id="locker-pin"
+                  type={showLockerPin ? "text" : "password"}
+                  inputMode="numeric"
+                  placeholder="Enter PIN (min 4 digits)"
+                  value={lockerPin}
+                  onChange={(e) => setLockerPin(e.target.value.replace(/\D/g, ""))}
+                  maxLength={8}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  onClick={() => setShowLockerPin((v) => !v)}
+                  tabIndex={-1}
+                >
+                  {showLockerPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="locker-pin-confirm">Confirm PIN</Label>
+              <Input
+                id="locker-pin-confirm"
+                type={showLockerPin ? "text" : "password"}
+                inputMode="numeric"
+                placeholder="Re-enter PIN"
+                value={lockerPinConfirm}
+                onChange={(e) => setLockerPinConfirm(e.target.value.replace(/\D/g, ""))}
+                maxLength={8}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" disabled={lockerPurchasing} onClick={() => { setLockerPinPlan(null); setLockerPin(""); setLockerPinConfirm(""); }}>
+              Cancel
+            </Button>
+            <Button
+              disabled={lockerPurchasing || lockerPin.length < 4 || lockerPin !== lockerPinConfirm}
+              onClick={handleLockerPurchase}
+            >
+              {lockerPurchasing && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Confirm & Assign Locker
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!renewTarget} onOpenChange={(o) => !o && setRenewTarget(null)}>
         <AlertDialogContent>

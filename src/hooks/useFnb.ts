@@ -241,6 +241,27 @@ export function useUpdateProduct() {
   });
 }
 
+export function useDeleteProduct() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiFetch(`/api/fnb/products/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete product");
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: "Product deleted" });
+      qc.invalidateQueries({ queryKey: ["fnb-menu-admin"] });
+      qc.invalidateQueries({ queryKey: ["fnb-menu"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
 export function useRestockProduct() {
   const qc = useQueryClient();
   const { toast } = useToast();

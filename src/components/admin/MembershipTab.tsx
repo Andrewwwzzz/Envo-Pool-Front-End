@@ -16,6 +16,7 @@ import {
   useCreateMembershipPlan,
   useUpdateMembershipPlan,
   useDeleteMembershipPlan,
+  useToggleMembershipPlanActive,
   useAdminSubscriptions,
   useAssignMembership,
   useDeleteMembership,
@@ -603,6 +604,7 @@ export default function MembershipTab() {
   const { data: subs = [] } = useAdminSubscriptions(hideDeleted ? "default" : "all");
   const { data: customers = [] } = useAdminCustomers("");
   const del = useDeleteMembershipPlan();
+  const toggleActive = useToggleMembershipPlanActive();
   const deleteSub = useDeleteMembership();
   const [planDlgOpen, setPlanDlgOpen] = useState(false);
   const [editPlan, setEditPlan] = useState<MembershipPlan | null>(null);
@@ -637,14 +639,27 @@ export default function MembershipTab() {
             <p className="text-sm text-muted-foreground">No plans yet.</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              {plans.map((p) => (
-                <div key={p.id} className="rounded-md border p-3 space-y-2">
+              {plans.map((p) => {
+                const planIsActive = (p as any).isActive !== false;
+                const planId = (p as any).id ?? (p as any)._id;
+                return (
+                <div key={p.id} className={`rounded-md border p-3 space-y-2 ${!planIsActive ? "opacity-60" : ""}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="font-medium">{p.name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{p.name}</span>
+                        {!planIsActive && <Badge variant="outline" className="text-xs text-muted-foreground">Inactive</Badge>}
+                      </div>
                       <div className="text-sm text-muted-foreground">${p.price} / {p.billingCycle}</div>
                     </div>
                     <div className="flex gap-1">
+                      <Button
+                        variant="ghost" size="icon"
+                        title={planIsActive ? "Deactivate (hide from purchase)" : "Activate"}
+                        onClick={() => toggleActive.mutate({ id: planId, activate: !planIsActive })}
+                      >
+                        {planIsActive ? <CalendarOff className="h-4 w-4 text-muted-foreground" /> : <Plus className="h-4 w-4 text-green-500" />}
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => setDeletePlanTarget(p)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
@@ -669,7 +684,7 @@ export default function MembershipTab() {
                     {!!p.guestPassesPerMonth && <Badge variant="secondary">{p.guestPassesPerMonth} guest/mo</Badge>}
                   </div>
                 </div>
-              ))}
+              ); })}
             </div>
           )}
         </CardContent>

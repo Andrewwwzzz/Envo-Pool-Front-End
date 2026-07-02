@@ -109,7 +109,13 @@ export default function DashboardTransactions() {
         const rawType = String(t.type || t.transactionType || "").toLowerCase();
         let typeKey: "payment" | "topup" | "refund" | "other" = "other";
         let typeLabel = rawType ? rawType.replace(/_/g, " ") : "Transaction";
-        if (rawType === "booking_payment" || rawType === "wallet_deduct" || rawType === "payment" || rawType === "admin_charge") {
+        const amtRaw = typeof t.amount === "number" ? t.amount : Number(t.amount) || 0;
+
+        if (rawType === "admin_charge") {
+          // Use the stored sign: negative = deduction, positive = admin credit
+          if (amtRaw < 0) { typeKey = "payment"; typeLabel = "Admin Deduct"; }
+          else              { typeKey = "topup";   typeLabel = "Admin Credit"; }
+        } else if (rawType === "booking_payment" || rawType === "wallet_deduct" || rawType === "payment") {
           typeKey = "payment"; typeLabel = "Payment";
         } else if (rawType === "topup" || rawType === "top_up" || rawType === "deposit") {
           typeKey = "topup"; typeLabel = "Top Up";
@@ -118,8 +124,10 @@ export default function DashboardTransactions() {
         } else if (rawType === "adjustment") {
           typeLabel = "Admin Adjustment";
         }
-        const amtRaw = typeof t.amount === "number" ? t.amount : Number(t.amount) || 0;
-        const amt = typeKey === "payment"
+
+        const amt = rawType === "admin_charge"
+          ? amtRaw  // trust the stored sign
+          : typeKey === "payment"
           ? -Math.abs(amtRaw)
           : typeKey === "topup" || typeKey === "refund"
           ? Math.abs(amtRaw)
@@ -274,9 +282,9 @@ export default function DashboardTransactions() {
                             {t.adminActedFor && (
                               <>
                                 <span className="text-muted-foreground/40 text-[10px]">•</span>
-                                <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-violet-400" title="Assisted by staff">
+                                <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-violet-400" title="Admin initiated">
                                   <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                                  Staff
+                                  Admin
                                 </span>
                               </>
                             )}
