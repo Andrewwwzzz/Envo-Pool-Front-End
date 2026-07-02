@@ -97,7 +97,10 @@ export function useAssignLocker() {
         startDate: data.startDate,
       };
       const r = await apiFetch("/api/lockers/rentals/assign", { method: "POST", body: JSON.stringify(payload) });
-      if (!r.ok) throw new Error(await r.text());
+      if (!r.ok) {
+        const body = await r.json().catch(() => null);
+        throw new Error(body?.error || body?.message || "Failed to assign locker");
+      }
       return r.json();
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lockers"] }),

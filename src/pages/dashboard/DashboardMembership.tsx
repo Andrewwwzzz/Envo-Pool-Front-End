@@ -44,7 +44,7 @@ function LockerCard({ lockerRental }: { lockerRental: any }) {
     lockerRental?.lockerUnitId?.lockerNumber ??
     lockerRental?.lockerUnitId?.number ??
     lockerRental?.lockerNumber;
-  const lockerPin = lockerRental?.pin;
+  const lockerPin = lockerRental?.pin ?? lockerRental?.lockerUnitId?.pin;
   const lockerRenewal = lockerRental?.renewalDate;
 
   return (

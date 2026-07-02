@@ -46,9 +46,9 @@ function extraWeekdaysForDate(dateStr: string, phDates: Set<string>): string[] {
     return ["Fri", "Sat", "Sun"]; // PH itself → full weekend rate
   }
   // Check if tomorrow is a PH (i.e. today is PH eve)
-  const d = new Date(dateStr + "T00:00:00+08:00");
-  d.setDate(d.getDate() + 1);
-  const nextStr = d.toISOString().slice(0, 10);
+  // Use UTC date arithmetic — dateStr is already the SGT calendar date
+  const [y, mo, dy] = dateStr.split("-").map(Number);
+  const nextStr = new Date(Date.UTC(y, mo - 1, dy + 1)).toISOString().slice(0, 10);
   if (phDates.has(nextStr)) {
     return ["Fri", "Sat", "Sun"]; // PH eve → same weekend rate as PH
   }
