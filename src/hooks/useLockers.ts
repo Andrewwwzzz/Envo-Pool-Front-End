@@ -76,8 +76,8 @@ export function useAvailableLockers() {
 export function useCreateLockerUnit() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { number: string; monthlyPrice: number; notes?: string }) => {
-      const payload = { lockerNumber: data.number, monthlyPrice: data.monthlyPrice, notes: data.notes };
+    mutationFn: async (data: { number: string; monthlyPrice: number; pin?: string; notes?: string }) => {
+      const payload = { lockerNumber: data.number, monthlyPrice: data.monthlyPrice, pin: data.pin, notes: data.notes };
       const r = await apiFetch("/api/lockers/units", { method: "POST", body: JSON.stringify(payload) });
       if (!r.ok) throw new Error(await r.text());
       return r.json();

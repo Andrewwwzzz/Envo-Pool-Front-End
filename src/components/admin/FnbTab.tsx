@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CheckCircle2, XCircle, Clock, Plus, Pencil, RotateCcw, AlertTriangle,
   Gift, TrendingUp, Package, History, ChevronDown, ChevronUp, DollarSign,
-  ShoppingBag, BarChart3, ArrowUpCircle, ArrowDownCircle,
+  ShoppingBag, BarChart3, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
@@ -101,6 +101,7 @@ export function FnbTab() {
   const [cancelDialog, setCancelDialog] = useState<{ id: string; name: string; price: number } | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelRefund, setCancelRefund] = useState(false);
+  const [hideDeleted, setHideDeleted] = useState(true);
   const [productDialog, setProductDialog] = useState<"create" | "edit" | "restock" | "adjust" | "logs" | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<FnbProduct | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -110,7 +111,8 @@ export function FnbTab() {
 
   const { data: orders = [], isLoading: ordersLoading } = useAdminFnbOrders(orderFilter);
   const { data: analytics } = useFnbAnalytics(viewDay);
-  const { data: products = [] } = useAdminMenu();
+  const { data: allProducts = [] } = useAdminMenu(!hideDeleted);
+  const products = hideDeleted ? allProducts.filter((p) => !(p as any).isDeleted) : allProducts;
   const { data: stockLogs = [] } = useStockLogs(productDialog === "logs" ? selectedProduct?._id ?? null : null);
 
   const serveOrder = useServeOrder();
@@ -364,27 +366,39 @@ export function FnbTab() {
 
         {/* ── PRODUCTS & STOCK ── */}
         <TabsContent value="products" className="space-y-4 mt-4">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center gap-2 flex-wrap">
             <p className="text-sm text-muted-foreground">{products.length} products</p>
-            <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={openCreate}>
-              <Plus className="h-4 w-4 mr-1" /> Add Product
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant={hideDeleted ? "outline" : "secondary"}
+                onClick={() => setHideDeleted((v) => !v)}
+              >
+                {hideDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+                {hideDeleted ? "Show Deleted" : "Hide Deleted"}
+              </Button>
+              <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={openCreate}>
+                <Plus className="h-4 w-4 mr-1" /> Add Product
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">
             {products.map((p) => {
               const lowStock = p.stock <= p.lowStockThreshold;
               const margin = p.sellingPrice > 0 ? ((p.sellingPrice - p.costPrice) / p.sellingPrice * 100) : 0;
+              const deleted = !!(p as any).isDeleted;
               return (
-                <Card key={p._id} className={`border-border/50 ${lowStock ? "border-red-500/30" : ""}`}>
+                <Card key={p._id} className={`border-border/50 ${deleted ? "opacity-50" : lowStock ? "border-red-500/30" : ""}`}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-foreground">{p.name}</p>
-                          <Badge className={`text-xs ${CATEGORY_COLORS[p.category]}`}>{CATEGORY_LABELS[p.category]}</Badge>
-                          {!p.isActive && <Badge variant="outline" className="text-muted-foreground text-xs">Inactive</Badge>}
-                          {p.isRedeemable && <Badge className="bg-amber-500/20 text-amber-400 text-xs"><Gift className="h-2.5 w-2.5 mr-0.5" />Redeemable</Badge>}
+                          <p className={`font-semibold ${deleted ? "line-through text-muted-foreground" : "text-foreground"}`}>{p.name}</p>
+                          {deleted && <Badge variant="outline" className="text-xs text-destructive border-destructive/40">Deleted</Badge>}
+                          {!deleted && <Badge className={`text-xs ${CATEGORY_COLORS[p.category]}`}>{CATEGORY_LABELS[p.category]}</Badge>}
+                          {!deleted && !p.isActive && <Badge variant="outline" className="text-muted-foreground text-xs">Inactive</Badge>}
+                          {!deleted && p.isRedeemable && <Badge className="bg-amber-500/20 text-amber-400 text-xs"><Gift className="h-2.5 w-2.5 mr-0.5" />Redeemable</Badge>}
                         </div>
 
                         {/* Price + margin row */}
@@ -405,23 +419,25 @@ export function FnbTab() {
                         </div>
                       </div>
 
-                      <div className="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
-                        <Button size="sm" variant="outline" title="Stock history" onClick={() => openLogs(p)}>
-                          <History className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="sm" variant="outline" title="Restock" onClick={() => openRestock(p)}>
-                          <RotateCcw className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="sm" variant="outline" title="Adjust stock" onClick={() => openAdjust(p)}>
-                          <BarChart3 className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="sm" variant="outline" title="Edit" onClick={() => openEdit(p)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="sm" variant="outline" title="Delete" onClick={() => setDeleteProductTarget(p)}>
-                          <XCircle className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </div>
+                      {!deleted && (
+                        <div className="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
+                          <Button size="sm" variant="outline" title="Stock history" onClick={() => openLogs(p)}>
+                            <History className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="outline" title="Restock" onClick={() => openRestock(p)}>
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="outline" title="Adjust stock" onClick={() => openAdjust(p)}>
+                            <BarChart3 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="outline" title="Edit" onClick={() => openEdit(p)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="outline" title="Delete" onClick={() => setDeleteProductTarget(p)}>
+                            <XCircle className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

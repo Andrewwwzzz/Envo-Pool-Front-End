@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, RotateCcw, XCircle, Loader2 } from "lucide-react";
+import { Plus, RotateCcw, XCircle, Loader2, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useLockerUnits,
@@ -27,15 +27,17 @@ function AddLockerDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
   const { toast } = useToast();
   const [number, setNumber] = useState("");
   const [price, setPrice] = useState("0");
+  const [pin, setPin] = useState("");
   const [notes, setNotes] = useState("");
+  const [showPin, setShowPin] = useState(false);
   const create = useCreateLockerUnit();
 
   const submit = async () => {
     if (!number.trim()) { toast({ title: "Locker number required", variant: "destructive" }); return; }
     try {
-      await create.mutateAsync({ number: number.trim(), monthlyPrice: Number(price) || 0, notes: notes || undefined });
+      await create.mutateAsync({ number: number.trim(), monthlyPrice: Number(price) || 0, pin: pin.trim() || undefined, notes: notes || undefined });
       toast({ title: "Locker added" });
-      onOpenChange(false); setNumber(""); setPrice("0"); setNotes("");
+      onOpenChange(false); setNumber(""); setPrice("0"); setPin(""); setNotes("");
     } catch (e: any) {
       toast({ title: "Failed", description: e?.message, variant: "destructive" });
     }
@@ -53,6 +55,23 @@ function AddLockerDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
           <div className="space-y-1.5">
             <Label>Monthly Price (SGD)</Label>
             <Input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>PIN (preset — shown to customer after purchase)</Label>
+            <div className="relative">
+              <Input
+                type={showPin ? "text" : "password"}
+                inputMode="numeric"
+                placeholder="e.g. 1234"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                maxLength={8}
+                className="pr-10"
+              />
+              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowPin(v => !v)} tabIndex={-1}>
+                {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label>Notes</Label>
@@ -83,7 +102,7 @@ function AssignLockerDialog({
   const submit = async () => {
     if (!locker || !customerId) { toast({ title: "Customer required", variant: "destructive" }); return; }
     try {
-      await assign.mutateAsync({ lockerId: locker.id, customerId, startDate: startDate || undefined });
+      await assign.mutateAsync({ lockerId: (locker as any)._id ?? locker.id, customerId, startDate: startDate || undefined });
       toast({ title: "Locker assigned" });
       onOpenChange(false); setCustomerId(""); setStartDate(""); setSearch("");
     } catch (e: any) {
@@ -166,6 +185,7 @@ export default function LockersTab() {
                     <TableHead>Number</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Monthly Price</TableHead>
+                    <TableHead>PIN</TableHead>
                     <TableHead>Renter</TableHead>
                     <TableHead>Renewal</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -194,6 +214,7 @@ export default function LockersTab() {
                           </Badge>
                         </TableCell>
                         <TableCell>${l.monthlyPrice ?? 0}</TableCell>
+                        <TableCell className="font-mono text-sm">{(anyL.pin) ? anyL.pin : <span className="text-muted-foreground text-xs">Not set</span>}</TableCell>
                         <TableCell>
                           {!isAvailable && renterName ? (
                             <>

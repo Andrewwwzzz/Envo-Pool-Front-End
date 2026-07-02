@@ -138,11 +138,12 @@ export function useAdminFnbOrders(status?: string) {
   });
 }
 
-export function useAdminMenu() {
+export function useAdminMenu(includeDeleted = false) {
   return useQuery({
-    queryKey: ["fnb-menu-admin"],
+    queryKey: ["fnb-menu-admin", { includeDeleted }],
     queryFn: async () => {
-      const res = await apiFetch("/api/fnb/products/admin");
+      const qs = includeDeleted ? "?includeDeleted=1" : "";
+      const res = await apiFetch(`/api/fnb/products/admin${qs}`);
       if (!res.ok) throw new Error("Failed to load products");
       const data = await res.json();
       return (Array.isArray(data) ? data : []) as FnbProduct[];

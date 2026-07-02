@@ -599,7 +599,7 @@ function PublicHolidaysCard() {
 
 export default function MembershipTab() {
   const { toast } = useToast();
-  const { data: plans = [] } = useMembershipPlans();
+  const { data: plans = [] } = useMembershipPlans("all");
   const [hideDeleted, setHideDeleted] = useState(false);
   const { data: subs = [] } = useAdminSubscriptions(hideDeleted ? "default" : "all");
   const { data: customers = [] } = useAdminCustomers("");
@@ -630,39 +630,53 @@ export default function MembershipTab() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
           <CardTitle className="text-base">Membership Plans</CardTitle>
-          <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4" /> Create Plan</Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={hidePlanDeleted ? "outline" : "secondary"}
+              onClick={() => setHidePlanDeleted((v) => !v)}
+            >
+              {hidePlanDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+              {hidePlanDeleted ? "Show Deleted" : "Hide Deleted"}
+            </Button>
+            <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4" /> Create Plan</Button>
+          </div>
         </CardHeader>
         <CardContent>
-          {plans.length === 0 ? (
+          {visiblePlans.length === 0 ? (
             <p className="text-sm text-muted-foreground">No plans yet.</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              {plans.map((p) => {
+              {visiblePlans.map((p) => {
                 const planIsActive = (p as any).isActive !== false;
                 const planId = (p as any).id ?? (p as any)._id;
+                const planDeleted = isDeleted(p as any);
                 return (
-                <div key={p.id} className={`rounded-md border p-3 space-y-2 ${!planIsActive ? "opacity-60" : ""}`}>
+                <div key={p.id} className={`rounded-md border p-3 space-y-2 ${planDeleted ? "opacity-50" : !planIsActive ? "opacity-60" : ""}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{p.name}</span>
-                        {!planIsActive && <Badge variant="outline" className="text-xs text-muted-foreground">Inactive</Badge>}
+                        <span className={`font-medium ${planDeleted ? "line-through text-muted-foreground" : ""}`}>{p.name}</span>
+                        {planDeleted && <Badge variant="outline" className="text-xs text-destructive border-destructive/40">Deleted</Badge>}
+                        {!planDeleted && !planIsActive && <Badge variant="outline" className="text-xs text-muted-foreground">Inactive</Badge>}
                       </div>
                       <div className="text-sm text-muted-foreground">${p.price} / {p.billingCycle}</div>
                     </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost" size="icon"
-                        title={planIsActive ? "Deactivate (hide from purchase)" : "Activate"}
-                        onClick={() => toggleActive.mutate({ id: planId, activate: !planIsActive })}
-                      >
-                        {planIsActive ? <CalendarOff className="h-4 w-4 text-muted-foreground" /> : <Plus className="h-4 w-4 text-green-500" />}
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeletePlanTarget(p)}><Trash2 className="h-4 w-4" /></Button>
-                    </div>
+                    {!planDeleted && (
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost" size="icon"
+                          title={planIsActive ? "Deactivate (hide from purchase)" : "Activate"}
+                          onClick={() => toggleActive.mutate({ id: planId, activate: !planIsActive })}
+                        >
+                          {planIsActive ? <CalendarOff className="h-4 w-4 text-muted-foreground" /> : <Plus className="h-4 w-4 text-green-500" />}
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => setDeletePlanTarget(p)}><Trash2 className="h-4 w-4" /></Button>
+                      </div>
+                    )}
                   </div>
                   {p.description && <p className="text-xs text-muted-foreground whitespace-pre-line">{p.description}</p>}
                   <div className="flex flex-wrap gap-1">
