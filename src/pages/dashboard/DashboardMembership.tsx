@@ -25,6 +25,7 @@ import {
   type MembershipPlan,
 } from "@/hooks/useMembership";
 import { useProfile } from "@/hooks/useProfile";
+import { useMyLocker } from "@/hooks/useLockers";
 import { fmtDateSG } from "@/lib/sgTime";
 
 function daysBetween(future?: string) {
@@ -288,6 +289,7 @@ function MembershipCard({
 
 export default function DashboardMembership() {
   const { data } = useMyMembership();
+  const { data: myLocker } = useMyLocker();
   const memberships = data?.memberships ?? [];
   const totalSaved = Number(data?.totalSaved ?? 0);
 
@@ -552,6 +554,10 @@ export default function DashboardMembership() {
       {lockerRentals.map((lr: any, i: number) => (
         <LockerCard key={lr._id ?? lr.id ?? i} lockerRental={lr} />
       ))}
+      {/* Show direct locker assignment (admin-assigned, not via membership plan) */}
+      {myLocker && myLocker.status === "active" && !lockerRentals.some((lr: any) => (lr._id ?? lr.id) === (myLocker._id ?? myLocker.id)) && (
+        <LockerCard lockerRental={myLocker} />
+      )}
 
       {renderPlansGrid()}
 

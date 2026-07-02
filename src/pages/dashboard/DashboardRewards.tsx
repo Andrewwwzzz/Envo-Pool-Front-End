@@ -191,7 +191,7 @@ export default function DashboardRewards() {
                     <div className="min-w-0">
                       <p className="font-medium truncate">{m.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {m.milestoneThreshold.toLocaleString()} lifetime points
+                        {Number(m.milestoneThreshold ?? 0).toLocaleString()} lifetime points
                         {m.claimed && m.claimedAt && ` · claimed ${fmtDateSG(m.claimedAt)}`}
                       </p>
                     </div>
@@ -394,10 +394,10 @@ export default function DashboardRewards() {
                     <tr key={h._id || h.id} className="border-b border-border last:border-0">
                       <td className="py-2 pr-4 whitespace-nowrap text-muted-foreground">{fmtDateSG(h.createdAt)}</td>
                       <td className="py-2 pr-4">{h.description}</td>
-                      <td className={`py-2 pr-4 text-right font-mono ${h.points >= 0 ? "text-emerald-400" : "text-destructive"}`}>
-                        {h.points >= 0 ? "+" : ""}{h.points.toLocaleString()}
+                      <td className={`py-2 pr-4 text-right font-mono ${(h.points ?? 0) >= 0 ? "text-emerald-400" : "text-destructive"}`}>
+                        {(h.points ?? 0) >= 0 ? "+" : ""}{Number(h.points ?? 0).toLocaleString()}
                       </td>
-                      <td className="py-2 pr-4 text-right font-mono">{Number(h.balance).toLocaleString()}</td>
+                      <td className="py-2 pr-4 text-right font-mono">{Number(h.balance ?? 0).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
