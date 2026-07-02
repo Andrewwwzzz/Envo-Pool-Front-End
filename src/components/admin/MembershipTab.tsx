@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pencil, Trash2, Plus, Loader2, KeyRound, Eye, EyeOff, CalendarOff } from "lucide-react";
+import { Pencil, Trash2, Plus, Loader2, KeyRound, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useMembershipPlans,
@@ -22,9 +22,6 @@ import {
   useDeleteMembership,
   useAssignMembershipLocker,
   useUpdateLockerPin,
-  usePublicHolidays,
-  useCreatePublicHoliday,
-  useDeletePublicHoliday,
   type MembershipPlan,
 } from "@/hooks/useMembership";
 import { useAvailableLockers } from "@/hooks/useLockers";
@@ -486,117 +483,6 @@ function LockerCell({ sub }: { sub: any }) {
   );
 }
 
-function PublicHolidaysCard() {
-  const { toast } = useToast();
-  const { data: holidays = [], isLoading } = usePublicHolidays();
-  const create = useCreatePublicHoliday();
-  const del = useDeletePublicHoliday();
-  const [date, setDate] = useState("");
-  const [name, setName] = useState("");
-
-  const sorted = [...holidays].sort((a, b) => a.date.localeCompare(b.date));
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const upcoming = sorted.filter((h) => h.date >= todayStr);
-  const past = sorted.filter((h) => h.date < todayStr);
-
-  const handleAdd = async () => {
-    if (!date || !name.trim()) {
-      toast({ title: "Date and name are required", variant: "destructive" });
-      return;
-    }
-    try {
-      await create.mutateAsync({ date, name: name.trim() });
-      toast({ title: "Public holiday added" });
-      setDate("");
-      setName("");
-    } catch (e: any) {
-      toast({ title: "Failed to add", description: e?.message, variant: "destructive" });
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      await del.mutateAsync(id);
-      toast({ title: "Public holiday removed" });
-    } catch (e: any) {
-      toast({ title: "Failed to remove", description: e?.message, variant: "destructive" });
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <CalendarOff className="h-4 w-4" /> Public Holidays
-        </CardTitle>
-        <p className="text-xs text-muted-foreground">
-          Used to gate membership benefits configured to exclude public holidays and PH eve (e.g. free minutes).
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex gap-2 flex-wrap items-end">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Date</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-40" />
-          </div>
-          <div className="space-y-1.5 flex-1 min-w-[160px]">
-            <Label className="text-xs">Name</Label>
-            <Input placeholder="e.g. National Day" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <Button onClick={handleAdd} disabled={create.isPending}>
-            {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Add
-          </Button>
-        </div>
-
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        ) : sorted.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No public holidays added yet.</p>
-        ) : (
-          <div className="space-y-3">
-            {upcoming.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {upcoming.map((h) => (
-                  <Badge key={h._id} variant="secondary" className="gap-1.5 pr-1">
-                    {h.date} — {h.name}
-                    <button
-                      onClick={() => handleDelete(h._id)}
-                      className="ml-1 rounded hover:bg-destructive/20 p-0.5"
-                      title="Remove"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-            {past.length > 0 && (
-              <details className="text-sm">
-                <summary className="text-xs text-muted-foreground cursor-pointer">Past holidays ({past.length})</summary>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {past.map((h) => (
-                    <Badge key={h._id} variant="outline" className="gap-1.5 pr-1 text-muted-foreground">
-                      {h.date} — {h.name}
-                      <button
-                        onClick={() => handleDelete(h._id)}
-                        className="ml-1 rounded hover:bg-destructive/20 p-0.5"
-                        title="Remove"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              </details>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function MembershipTab() {
   const { toast } = useToast();
   const { data: plans = [] } = useMembershipPlans("all");
@@ -703,8 +589,6 @@ export default function MembershipTab() {
           )}
         </CardContent>
       </Card>
-
-      <PublicHolidaysCard />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">

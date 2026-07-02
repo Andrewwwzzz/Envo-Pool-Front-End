@@ -2160,6 +2160,8 @@ function PricingTab() {
         </CardContent>
       </Card>
 
+      <OperatingHoursSection />
+
       <ReasonDialog
         open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}

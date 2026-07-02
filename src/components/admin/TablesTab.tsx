@@ -11,7 +11,6 @@ import {
   useDeleteMaintenance,
 } from "@/hooks/useAdmin";
 import { useActiveWalkinSessions } from "@/hooks/useWalkin";
-import { OperatingHoursSection } from "@/components/admin/OperatingHoursSection";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -294,8 +293,6 @@ export default function TablesTab() {
           </div>
         </CardContent>
       </Card>
-
-      <OperatingHoursSection />
 
       <CloseTableDialog
         tables={tables || []}
