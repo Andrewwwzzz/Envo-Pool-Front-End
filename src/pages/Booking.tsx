@@ -160,7 +160,7 @@ const Booking = () => {
   const { data: myMembership } = useMyMembership();
   const { data: publicHolidays = [] } = usePublicHolidays();
   const hasPrivateMembership = useMemo(
-    () => (myMembership ?? []).some((m: any) => m.status === "active" && m.planId?.isPrivate === true),
+    () => (myMembership?.memberships ?? []).some((m: any) => m.status === "active" && m.planId?.isPrivate === true),
     [myMembership]
   );
   const isAdmin = user?.isAdmin === true;
