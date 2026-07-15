@@ -251,7 +251,7 @@ function AssignMembershipDialog({ open, onOpenChange }: { open: boolean; onOpenC
   const [userId, setUserId] = useState("");
   const [planId, setPlanId] = useState("");
   const [startDate, setStartDate] = useState("");
-  const { data: plans = [] } = useMembershipPlans();
+  const { data: plans = [] } = useMembershipPlans("all");
   const assign = useAssignMembership();
 
   const submit = async () => {
