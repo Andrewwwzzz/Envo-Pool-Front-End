@@ -10,6 +10,7 @@ import {
   useSaveOperatingHours,
   DAY_NAMES,
   DEFAULT_SCHEDULE,
+  DEFAULT_PH_CLOSE,
   type WeekSchedule,
 } from "@/hooks/useOperatingHours";
 
@@ -18,9 +19,13 @@ export function OperatingHoursSection() {
   const save = useSaveOperatingHours();
   const { toast } = useToast();
   const [schedule, setSchedule] = useState<WeekSchedule>(DEFAULT_SCHEDULE);
+  const [phCloseTime, setPhCloseTime] = useState(DEFAULT_PH_CLOSE);
 
   useEffect(() => {
-    if (data) setSchedule(data);
+    if (data) {
+      setSchedule(data.schedule);
+      setPhCloseTime(data.phCloseTime);
+    }
   }, [data]);
 
   const updateDay = (idx: number, patch: Partial<WeekSchedule[string]>) => {
@@ -32,7 +37,7 @@ export function OperatingHoursSection() {
 
   const handleSave = async () => {
     try {
-      await save.mutateAsync(schedule);
+      await save.mutateAsync({ schedule, phCloseTime });
       toast({ title: "Operating hours saved" });
     } catch (e: any) {
       toast({ title: "Failed to save", description: e?.message, variant: "destructive" });
@@ -44,10 +49,27 @@ export function OperatingHoursSection() {
       <CardHeader>
         <CardTitle className="text-lg">Operating Hours</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Close time can be past midnight (e.g. 04:00 means 4 AM the next day).
+          <strong>Close time</strong> = public licensing cut-off (e.g. 01:00 = 1 AM next day). After this time, only Private Members may book.
         </p>
+
+        {/* PH / PH-eve override */}
+        <div className="flex items-center gap-4 border rounded-lg p-3 bg-muted/30">
+          <div className="flex-1">
+            <p className="text-sm font-medium">Public Holiday & PH-eve close time</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Overrides all weekday close times on PH and the day before a PH</p>
+          </div>
+          <div className="space-y-1 w-32">
+            <Label className="text-xs text-muted-foreground">Close (PH/Eve)</Label>
+            <Input
+              type="time"
+              value={phCloseTime}
+              onChange={(e) => setPhCloseTime(e.target.value)}
+            />
+          </div>
+        </div>
+
         <div className="space-y-2">
           {DAY_NAMES.map((name, idx) => {
             const day = schedule[String(idx)] ?? DEFAULT_SCHEDULE[String(idx)];
@@ -76,7 +98,7 @@ export function OperatingHoursSection() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Close</Label>
+                  <Label className="text-xs text-muted-foreground">Close (Public)</Label>
                   <Input
                     type="time"
                     value={day.closeTime}

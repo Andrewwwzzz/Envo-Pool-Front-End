@@ -15,6 +15,7 @@ export interface MembershipPlan {
   lockerIncluded?: boolean;
   guestPassesPerMonth?: number;
   sortOrder?: number;
+  isPrivate?: boolean;
 }
 
 export interface Subscription {
@@ -271,6 +272,18 @@ export function useUpdateLockerPin() {
       qc.invalidateQueries({ queryKey: ["membership", "subscriptions"] });
       qc.invalidateQueries({ queryKey: ["lockers"] });
     },
+  });
+}
+
+export function useRegenerateMembershipPin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (membershipId: string) => {
+      const r = await apiFetch(`/api/membership/admin/memberships/${membershipId}/regenerate-pin`, { method: "POST" });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json() as Promise<{ pin: string }>;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["membership", "subscriptions"] }),
   });
 }
 

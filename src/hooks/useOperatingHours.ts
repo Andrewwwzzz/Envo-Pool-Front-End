@@ -4,20 +4,27 @@ import { apiFetch } from "@/lib/api";
 export interface DaySchedule {
   open: boolean;
   openTime: string; // "HH:MM"
-  closeTime: string; // "HH:MM" — can be < openTime to mean past midnight
+  closeTime: string; // "HH:MM" — can be < openTime to mean past midnight (public cut-off)
 }
 
 export type WeekSchedule = Record<string, DaySchedule>; // keys "0".."6", 0 = Sunday
 
+export interface OperatingHoursData {
+  schedule: WeekSchedule;
+  phCloseTime: string; // public close time override for PH and PH-eve days (e.g. "02:00")
+}
+
 export const DEFAULT_SCHEDULE: WeekSchedule = {
-  "0": { open: true, openTime: "10:00", closeTime: "04:00" },
-  "1": { open: true, openTime: "10:00", closeTime: "04:00" },
-  "2": { open: true, openTime: "10:00", closeTime: "04:00" },
-  "3": { open: true, openTime: "10:00", closeTime: "04:00" },
-  "4": { open: true, openTime: "10:00", closeTime: "04:00" },
-  "5": { open: true, openTime: "10:00", closeTime: "04:00" },
-  "6": { open: true, openTime: "10:00", closeTime: "04:00" },
+  "0": { open: true, openTime: "10:00", closeTime: "02:00" }, // Sunday
+  "1": { open: true, openTime: "10:00", closeTime: "01:00" },
+  "2": { open: true, openTime: "10:00", closeTime: "01:00" },
+  "3": { open: true, openTime: "10:00", closeTime: "01:00" },
+  "4": { open: true, openTime: "10:00", closeTime: "01:00" },
+  "5": { open: true, openTime: "10:00", closeTime: "01:00" },
+  "6": { open: true, openTime: "10:00", closeTime: "01:00" }, // Saturday
 };
+
+export const DEFAULT_PH_CLOSE = "02:00";
 
 export const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -42,14 +49,17 @@ function normalize(schedule: any): WeekSchedule {
 export function useOperatingHours() {
   return useQuery({
     queryKey: ["operating-hours"],
-    queryFn: async (): Promise<WeekSchedule> => {
+    queryFn: async (): Promise<OperatingHoursData> => {
       try {
         const res = await apiFetch("/api/operating-hours");
-        if (!res.ok) return DEFAULT_SCHEDULE;
+        if (!res.ok) return { schedule: DEFAULT_SCHEDULE, phCloseTime: DEFAULT_PH_CLOSE };
         const json = await res.json();
-        return normalize(json?.schedule ?? json);
+        return {
+          schedule: normalize(json?.schedule ?? json),
+          phCloseTime: typeof json?.phCloseTime === "string" ? json.phCloseTime : DEFAULT_PH_CLOSE,
+        };
       } catch {
-        return DEFAULT_SCHEDULE;
+        return { schedule: DEFAULT_SCHEDULE, phCloseTime: DEFAULT_PH_CLOSE };
       }
     },
     staleTime: 60_000,
@@ -59,10 +69,10 @@ export function useOperatingHours() {
 export function useSaveOperatingHours() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (schedule: WeekSchedule) => {
+    mutationFn: async (data: { schedule: WeekSchedule; phCloseTime: string }) => {
       const res = await apiFetch("/api/operating-hours", {
         method: "PUT",
-        body: JSON.stringify({ schedule }),
+        body: JSON.stringify(data),
       });
       if (!res.ok) {
         const err = await res.text().catch(() => "");
@@ -76,13 +86,19 @@ export function useSaveOperatingHours() {
   });
 }
 
-// Returns true if the given slot (HH:MM, 30-min) on the selectedDate (local day-of-week)
-// falls within the configured operating hours, accounting for past-midnight close times.
+// Returns true if slot is within public hours, "private-only" if it's in the after-hours window,
+// or false if the venue is closed that day entirely.
+// phDates: Set of "YYYY-MM-DD" SGT date strings for public holidays.
+// phCloseTime: override close time for PH/PH-eve days.
+// hasPrivate: if true, "private-only" slots are treated as available (returns true).
 export function isSlotWithinHours(
   schedule: WeekSchedule | undefined,
   date: Date,
   slot: string,
-): boolean {
+  phDates?: Set<string>,
+  phCloseTime?: string,
+  hasPrivate?: boolean,
+): boolean | "private-only" {
   if (!schedule) return true;
   const [sh, sm] = slot.split(":").map(Number);
   const slotMin = sh * 60 + sm;
@@ -92,15 +108,36 @@ export function isSlotWithinHours(
   const prevDow = (dow + 6) % 7;
   const prev = schedule[String(prevDow)];
 
+  if (!today?.open && !prev?.open) return false;
+
   const toMin = (t: string) => {
     const [h, m] = t.split(":").map(Number);
     return h * 60 + m;
   };
 
+  // Compute the SGT date string for this date (for PH check)
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const dateStr = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+
+  // Check if this calendar date or the NEXT is a PH (PH-eve)
+  let isPHOrEve = false;
+  if (phDates && phDates.size > 0) {
+    const nextDate = new Date(date.getTime() + 24 * 60 * 60 * 1000);
+    const nextStr = `${nextDate.getFullYear()}-${pad(nextDate.getMonth() + 1)}-${pad(nextDate.getDate())}`;
+    isPHOrEve = phDates.has(dateStr) || phDates.has(nextStr);
+  }
+
+  // Effective close time for today's session
+  const getEffectiveClose = (daySchedule: DaySchedule) => {
+    if (isPHOrEve && phCloseTime) return phCloseTime;
+    return daySchedule.closeTime;
+  };
+
   // Same-day window
   if (today?.open) {
     const openMin = toMin(today.openTime);
-    const closeMin = toMin(today.closeTime);
+    const effectiveClose = getEffectiveClose(today);
+    const closeMin = toMin(effectiveClose);
     const sameDayEnd = closeMin > openMin ? closeMin : 24 * 60;
     if (slotMin >= openMin && slotMin < sameDayEnd) return true;
   }
@@ -108,8 +145,26 @@ export function isSlotWithinHours(
   // Spill-over from previous day's past-midnight close
   if (prev?.open) {
     const pOpen = toMin(prev.openTime);
-    const pClose = toMin(prev.closeTime);
-    if (pClose <= pOpen && slotMin < pClose) return true;
+
+    // Effective close for prev day (check if YESTERDAY was PH/PH-eve)
+    const prevDate = new Date(date.getTime() - 24 * 60 * 60 * 1000);
+    const prevDateStr = `${prevDate.getFullYear()}-${pad(prevDate.getMonth() + 1)}-${pad(prevDate.getDate())}`;
+    let prevIsPH = false;
+    if (phDates && phDates.size > 0) {
+      prevIsPH = phDates.has(prevDateStr) || phDates.has(dateStr);
+    }
+    const prevEffectiveClose = (prevIsPH && phCloseTime) ? phCloseTime : prev.closeTime;
+    const pClose = toMin(prevEffectiveClose);
+
+    if (pClose <= pOpen) {
+      // This slot is in the overnight spill from yesterday
+      if (slotMin < pClose) return true;
+      // Slot is after close but before open (the private-only window)
+      if (slotMin >= pClose && slotMin < toMin(today?.openTime || "10:00")) {
+        if (hasPrivate) return true;
+        return "private-only";
+      }
+    }
   }
 
   return false;

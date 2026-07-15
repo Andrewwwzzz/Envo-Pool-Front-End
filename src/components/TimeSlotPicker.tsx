@@ -6,7 +6,7 @@ import { isTodaySG, nowSGMinutes, sgSlotToUTC } from "@/lib/sgTime";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { isSlotWithinHours, type WeekSchedule } from "@/hooks/useOperatingHours";
 
-type SlotState = "available" | "booked" | "pending" | "past" | "maintenance" | "closed";
+type SlotState = "available" | "booked" | "pending" | "past" | "maintenance" | "closed" | "private-only";
 
 interface TimeSlot {
   time: string;
@@ -40,6 +40,9 @@ interface TimeSlotPickerProps {
   bookedSlots: BookedSlot[];
   maintenanceWindows?: MaintenanceWindow[];
   operatingHours?: WeekSchedule;
+  phDates?: Set<string>;
+  phCloseTime?: string;
+  hasPrivateMembership?: boolean;
   startSlot: string | null;
   endSlot: string | null;
   onSelectStart: (slot: string) => void;
@@ -106,6 +109,9 @@ export function TimeSlotPicker({
   bookedSlots,
   maintenanceWindows = [],
   operatingHours,
+  phDates,
+  phCloseTime,
+  hasPrivateMembership = false,
   startSlot,
   endSlot,
   onSelectStart,
@@ -130,8 +136,14 @@ export function TimeSlotPicker({
       }
 
       // Outside configured operating hours
-      if (operatingHours && !isSlotWithinHours(operatingHours, date, slot.time)) {
-        return { ...slot, available: false, state: "closed" as const, userName: null, expiresAt: null, maintenanceReason: null };
+      if (operatingHours) {
+        const hoursResult = isSlotWithinHours(operatingHours, date, slot.time, phDates, phCloseTime, hasPrivateMembership);
+        if (hoursResult === false) {
+          return { ...slot, available: false, state: "closed" as const, userName: null, expiresAt: null, maintenanceReason: null };
+        }
+        if (hoursResult === "private-only") {
+          return { ...slot, available: false, state: "private-only" as const, userName: null, expiresAt: null, maintenanceReason: null };
+        }
       }
 
       const slotStartStr = `${Math.floor(slotMin / 60).toString().padStart(2, "0")}:${(slotMin % 60).toString().padStart(2, "0")}`;
@@ -281,6 +293,7 @@ export function TimeSlotPicker({
                 "rounded-lg border px-1 py-2 text-xs font-medium transition-all duration-150 flex flex-col items-center gap-0.5 w-full",
                 slot.state === "past" && "opacity-30 cursor-not-allowed bg-muted border-border text-muted-foreground line-through",
                 slot.state === "closed" && "opacity-40 cursor-not-allowed bg-muted border-border text-muted-foreground",
+                slot.state === "private-only" && "opacity-50 cursor-not-allowed bg-purple-500/5 border-purple-500/30 text-purple-400",
                 slot.state === "booked" && "cursor-not-allowed border-destructive/40 bg-destructive/10 text-destructive",
                 slot.state === "pending" && "cursor-not-allowed border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
                 slot.state === "maintenance" && "cursor-not-allowed border-destructive/40 bg-destructive/10 text-destructive",
@@ -296,9 +309,11 @@ export function TimeSlotPicker({
             </button>
           );
 
-          if (slot.state === "maintenance" || slot.state === "pending" || slot.state === "booked" || slot.state === "closed") {
+          if (slot.state === "maintenance" || slot.state === "pending" || slot.state === "booked" || slot.state === "closed" || slot.state === "private-only") {
             const tooltipText =
-              slot.state === "closed"
+              slot.state === "private-only"
+                ? "Private Members Only — after-hours access requires a Private Membership"
+                : slot.state === "closed"
                 ? "Outside operating hours"
                 : slot.state === "maintenance"
                 ? (slot.maintenanceReason || "No reason provided")
@@ -345,6 +360,9 @@ export function TimeSlotPicker({
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded border border-amber-500/40 bg-amber-500/10" /> Pending Payment
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded border border-purple-500/30 bg-purple-500/5" /> Private Only
         </span>
       </div>
     </div>

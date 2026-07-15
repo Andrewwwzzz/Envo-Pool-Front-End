@@ -93,6 +93,22 @@ function LockerCard({ lockerRental }: { lockerRental: any }) {
   );
 }
 
+function VenuePinDisplay({ pin }: { pin: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="flex items-center gap-3 rounded-md border border-purple-500/30 bg-purple-500/5 px-3 py-2.5">
+      <Lock className="h-4 w-4 text-purple-400 flex-shrink-0" />
+      <div className="flex-1">
+        <div className="text-xs font-medium text-purple-400">Venue Access PIN</div>
+        <div className="font-mono text-sm mt-0.5">{show ? pin : "••••••"}</div>
+      </div>
+      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShow(v => !v)}>
+        {show ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+      </Button>
+    </div>
+  );
+}
+
 function MembershipCard({
   membership,
   walletBalance,
@@ -191,6 +207,11 @@ function MembershipCard({
             </div>
           </div>
         </div>
+
+        {/* Venue access PIN — shown only for private memberships */}
+        {plan?.isPrivate && membership?.venuePin && (
+          <VenuePinDisplay pin={membership.venuePin} />
+        )}
 
         <div className={`space-y-2 ${isExpired ? "opacity-60" : ""}`}>
           <div className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-2">

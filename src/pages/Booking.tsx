@@ -46,7 +46,9 @@ const Booking = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { data: operatingHours } = useOperatingHours();
+  const { data: operatingHoursData } = useOperatingHours();
+  const operatingHours = operatingHoursData?.schedule;
+  const phCloseTime = operatingHoursData?.phCloseTime;
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
@@ -157,6 +159,10 @@ const Booking = () => {
   const { data: profile } = useProfile();
   const { data: myMembership } = useMyMembership();
   const { data: publicHolidays = [] } = usePublicHolidays();
+  const hasPrivateMembership = useMemo(
+    () => (myMembership ?? []).some((m: any) => m.status === "active" && m.planId?.isPrivate === true),
+    [myMembership]
+  );
   const isAdmin = user?.isAdmin === true;
   const validatePromo = useValidatePromo();
 
@@ -826,6 +832,9 @@ const Booking = () => {
                 bookedSlots={tableBookings || []}
                 maintenanceWindows={tableMaintenance || []}
                 operatingHours={operatingHours}
+                phDates={publicHolidayDateSet}
+                phCloseTime={phCloseTime}
+                hasPrivateMembership={hasPrivateMembership}
                 startSlot={startSlot}
                 endSlot={endSlot}
                 onSelectStart={setStartSlot}

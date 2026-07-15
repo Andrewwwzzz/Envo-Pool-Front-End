@@ -22,6 +22,7 @@ import {
   useDeleteMembership,
   useAssignMembershipLocker,
   useUpdateLockerPin,
+  useRegenerateMembershipPin,
   type MembershipPlan,
 } from "@/hooks/useMembership";
 import { useAvailableLockers } from "@/hooks/useLockers";
@@ -43,6 +44,7 @@ type PlanForm = {
   freeDrinkPerVisit: boolean;
   lockerIncluded: boolean;
   sortOrder: string;
+  isPrivate: boolean;
 };
 
 // Index = day of week (0=Sun..6=Sat), matches backend toSGT().dayOfWeek convention
@@ -60,6 +62,7 @@ const emptyForm: PlanForm = {
   freeDrinkPerVisit: false,
   lockerIncluded: false,
   sortOrder: "0",
+  isPrivate: false,
 };
 
 function toPayload(f: PlanForm): any {
@@ -69,6 +72,7 @@ function toPayload(f: PlanForm): any {
     price: Number(f.price) || 0,
     billingCycle: f.billingCycle,
     sortOrder: Number(f.sortOrder) || 0,
+    isPrivate: Boolean(f.isPrivate),
     benefits: {
       bookingDiscount: Number(f.bookingDiscountPct) || 0,
       freeMinutesPerVisit: Number(f.freeMinutesPerVisit) || 0,
@@ -94,6 +98,7 @@ function fromPlan(p: MembershipPlan): PlanForm {
     freeDrinkPerVisit: !!(b.freeDrinkPerVisit ?? p.freeDrinkPerVisit),
     lockerIncluded: !!(b.lockerIncluded ?? p.lockerIncluded),
     sortOrder: String(p.sortOrder ?? 0),
+    isPrivate: !!((p as any).isPrivate),
   };
 }
 
@@ -219,6 +224,13 @@ function PlanFormDialog({
               <Switch checked={form.lockerIncluded} onCheckedChange={(v) => setForm({ ...form, lockerIncluded: v })} />
             </div>
           </div>
+          <div className="flex items-center justify-between rounded-md border border-purple-500/30 bg-purple-500/5 p-3">
+            <div>
+              <Label className="text-xs font-medium text-purple-400">Private / Invite-Only Plan</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">Hidden from users — admin assigns only. Grants after-hours venue access with a PIN.</p>
+            </div>
+            <Switch checked={form.isPrivate} onCheckedChange={(v) => setForm({ ...form, isPrivate: v })} />
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -330,6 +342,38 @@ function AssignMembershipDialog({ open, onOpenChange }: { open: boolean; onOpenC
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function VenuePinCell({ sub }: { sub: any }) {
+  const { toast } = useToast();
+  const [show, setShow] = useState(false);
+  const regen = useRegenerateMembershipPin();
+  const plan = typeof sub.planId === "object" ? sub.planId : null;
+  if (!plan?.isPrivate) return null;
+
+  const pin: string | null = sub.venuePin ?? null;
+  const membershipId = sub._id ?? sub.id;
+
+  const doRegen = async () => {
+    try {
+      const res = await regen.mutateAsync(membershipId);
+      toast({ title: `New venue PIN: ${res.pin}` });
+    } catch (e: any) {
+      toast({ title: "Failed", description: e?.message, variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="font-mono text-xs">{show ? (pin ?? "—") : "••••••"}</span>
+      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShow(v => !v)} title={show ? "Hide PIN" : "Show PIN"}>
+        {show ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+      </Button>
+      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={doRegen} disabled={regen.isPending} title="Regenerate PIN">
+        <KeyRound className="h-3 w-3" />
+      </Button>
+    </div>
   );
 }
 
@@ -547,6 +591,7 @@ export default function MembershipTab() {
                         <span className={`font-medium ${planDeleted ? "line-through text-muted-foreground" : ""}`}>{p.name}</span>
                         {planDeleted && <Badge variant="outline" className="text-xs text-destructive border-destructive/40">Deleted</Badge>}
                         {!planDeleted && !planIsActive && <Badge variant="outline" className="text-xs text-muted-foreground">Inactive</Badge>}
+                        {!planDeleted && (p as any).isPrivate && <Badge className="text-xs bg-purple-500/20 text-purple-400 border border-purple-500/30">Private</Badge>}
                       </div>
                       <div className="text-sm text-muted-foreground">${p.price} / {p.billingCycle}</div>
                     </div>
@@ -621,6 +666,7 @@ export default function MembershipTab() {
                     <TableHead>Renewal</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Locker</TableHead>
+                    <TableHead>Venue PIN</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -656,6 +702,7 @@ export default function MembershipTab() {
                           )}
                         </TableCell>
                         <TableCell>{!deleted ? <LockerCell sub={s} /> : "—"}</TableCell>
+                        <TableCell>{!deleted ? <VenuePinCell sub={s} /> : "—"}</TableCell>
                         <TableCell className="text-right">
                           {!deleted && (
                             <Button
