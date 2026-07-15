@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch, BASE_URL } from "@/lib/api";
-import { Download, FileText, Plus, Trash2, TrendingDown, Paperclip, Eye, X, RotateCcw } from "lucide-react";
+import { Download, FileText, Plus, Trash2, TrendingDown, Paperclip, Eye, X, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const EXPENSE_CATEGORIES: Record<string, string> = {
@@ -146,7 +146,14 @@ export function AccountingTab() {
   const [csvLoading, setCsvLoading] = useState(false);
 
   const [showDeleted, setShowDeleted] = useState(false);
-  const [receiptModal, setReceiptModal] = useState<{ url: string; name: string; isImage: boolean } | null>(null);
+  const [receiptModal, setReceiptModal] = useState<{
+    expenseId: string;
+    receipts: { _id: string; originalName: string }[];
+    index: number;
+    url: string;
+    isImage: boolean;
+    loading: boolean;
+  } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -171,16 +178,23 @@ export function AccountingTab() {
     setUploadingId(null);
   };
 
-  const openReceipt = (expenseId: string, receiptId: string, originalName: string) => {
+  const loadReceiptAt = (expenseId: string, receipts: { _id: string; originalName: string }[], index: number) => {
+    const rc = receipts[index];
     const token = localStorage.getItem("token");
-    const url = `${BASE_URL}/api/accounting/expenses/${expenseId}/receipt/${receiptId}`;
+    const url = `${BASE_URL}/api/accounting/expenses/${expenseId}/receipt/${rc._id}`;
+    setReceiptModal(prev => prev ? { ...prev, loading: true, index } : { expenseId, receipts, index, url: "", isImage: false, loading: true });
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.blob())
       .then(blob => {
+        if (receiptModal?.url) URL.revokeObjectURL(receiptModal.url);
         const objUrl = URL.createObjectURL(blob);
-        const isImage = blob.type.startsWith("image/");
-        setReceiptModal({ url: objUrl, name: originalName, isImage });
+        setReceiptModal({ expenseId, receipts, index, url: objUrl, isImage: blob.type.startsWith("image/"), loading: false });
       });
+  };
+
+  const openReceipts = (expenseId: string, receipts: { _id: string; originalName: string }[]) => {
+    if (!receipts.length) return;
+    loadReceiptAt(expenseId, receipts, 0);
   };
 
   const totalExpenses = useMemo(() => expenses.reduce((s: number, e: any) => s + e.amount, 0), [expenses]);
@@ -384,19 +398,19 @@ export function AccountingTab() {
                           ) : (
                             <>
                               <td className="py-2 pr-3">
-                                <div className="flex flex-wrap items-center gap-1">
-                                  {(e.receipts ?? []).map((rc: any) => (
-                                    <div key={rc._id} className="flex items-center gap-0.5">
-                                      <Button size="icon" variant="ghost" className="h-6 w-6 text-accent" title={rc.originalName} onClick={() => openReceipt(e._id, rc._id, rc.originalName)}>
-                                        <Eye className="h-3 w-3" />
-                                      </Button>
-                                      <Button size="icon" variant="ghost" className="h-6 w-6" title={`Remove ${rc.originalName}`} onClick={() => deleteReceipt.mutate({ expenseId: e._id, receiptId: rc._id })} disabled={deleteReceipt.isPending}>
-                                        <X className="h-3 w-3 text-muted-foreground" />
-                                      </Button>
-                                    </div>
-                                  ))}
-                                  <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground" title="Attach receipt" onClick={() => handleReceiptClick(e._id)} disabled={uploadReceipt.isPending && uploadingId === e._id}>
-                                    <Paperclip className="h-3 w-3" />
+                                <div className="flex items-center gap-1">
+                                  {(e.receipts ?? []).length > 0 && (
+                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-accent relative" title="View receipts" onClick={() => openReceipts(e._id, e.receipts)}>
+                                      <Eye className="h-3.5 w-3.5" />
+                                      {e.receipts.length > 1 && (
+                                        <span className="absolute -top-1 -right-1 text-[9px] bg-accent text-accent-foreground rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold leading-none">
+                                          {e.receipts.length}
+                                        </span>
+                                      )}
+                                    </Button>
+                                  )}
+                                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" title="Attach receipt" onClick={() => handleReceiptClick(e._id)} disabled={uploadReceipt.isPending && uploadingId === e._id}>
+                                    <Paperclip className="h-3.5 w-3.5" />
                                   </Button>
                                 </div>
                               </td>
@@ -463,17 +477,63 @@ export function AccountingTab() {
         </CardContent>
       </Card>
 
-      {/* ── Receipt preview modal ── */}
+      {/* ── Receipt viewer modal ── */}
       <Dialog open={!!receiptModal} onOpenChange={open => { if (!open) { URL.revokeObjectURL(receiptModal?.url ?? ""); setReceiptModal(null); } }}>
         <DialogContent className="max-w-3xl w-full p-0 overflow-hidden">
-          <DialogHeader className="px-4 pt-4 pb-2">
-            <DialogTitle className="text-sm font-medium truncate">{receiptModal?.name}</DialogTitle>
+          <DialogHeader className="px-4 pt-3 pb-2 flex flex-row items-center justify-between gap-2">
+            <DialogTitle className="text-sm font-medium truncate flex-1">
+              {receiptModal && receiptModal.receipts[receiptModal.index]?.originalName}
+              {receiptModal && receiptModal.receipts.length > 1 && (
+                <span className="ml-2 text-muted-foreground font-normal">{receiptModal.index + 1} / {receiptModal.receipts.length}</span>
+              )}
+            </DialogTitle>
+            <Button
+              size="sm" variant="ghost" className="text-destructive hover:text-destructive h-7 px-2 text-xs shrink-0"
+              onClick={() => {
+                if (!receiptModal) return;
+                const rc = receiptModal.receipts[receiptModal.index];
+                deleteReceipt.mutate({ expenseId: receiptModal.expenseId, receiptId: rc._id }, {
+                  onSuccess: () => {
+                    const remaining = receiptModal.receipts.filter(r => r._id !== rc._id);
+                    if (!remaining.length) { URL.revokeObjectURL(receiptModal.url); setReceiptModal(null); return; }
+                    const nextIndex = Math.min(receiptModal.index, remaining.length - 1);
+                    loadReceiptAt(receiptModal.expenseId, remaining, nextIndex);
+                  }
+                });
+              }}
+              disabled={deleteReceipt.isPending}
+            >
+              <X className="h-3.5 w-3.5 mr-1" /> Remove
+            </Button>
           </DialogHeader>
-          <div className="w-full max-h-[75vh] overflow-auto bg-black flex items-center justify-center">
-            {receiptModal?.isImage ? (
-              <img src={receiptModal.url} alt={receiptModal.name} className="max-w-full max-h-[75vh] object-contain" />
+
+          <div className="relative w-full bg-black flex items-center justify-center" style={{ minHeight: "60vh", maxHeight: "72vh" }}>
+            {receiptModal?.loading ? (
+              <p className="text-white text-sm">Loading…</p>
+            ) : receiptModal?.isImage ? (
+              <img src={receiptModal.url} alt="" className="max-w-full max-h-[72vh] object-contain" />
             ) : (
-              <iframe src={receiptModal?.url} title={receiptModal?.name} className="w-full h-[75vh] border-0" />
+              <iframe src={receiptModal?.url} title="" className="w-full border-0" style={{ height: "72vh" }} />
+            )}
+
+            {/* Prev / Next arrows */}
+            {receiptModal && receiptModal.receipts.length > 1 && (
+              <>
+                <button
+                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 text-white rounded-full p-1.5 disabled:opacity-30 transition"
+                  onClick={() => loadReceiptAt(receiptModal.expenseId, receiptModal.receipts, receiptModal.index - 1)}
+                  disabled={receiptModal.index === 0}
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 text-white rounded-full p-1.5 disabled:opacity-30 transition"
+                  onClick={() => loadReceiptAt(receiptModal.expenseId, receiptModal.receipts, receiptModal.index + 1)}
+                  disabled={receiptModal.index === receiptModal.receipts.length - 1}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </>
             )}
           </div>
         </DialogContent>
