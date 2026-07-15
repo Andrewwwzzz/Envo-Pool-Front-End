@@ -1356,6 +1356,7 @@ function CustomersTab({
 
 function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => void }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const updateWallet = useUpdateCustomerWallet();
   const updateProfile = useUpdateCustomerProfile();
   const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id);
@@ -1365,6 +1366,9 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const { data: tablesList } = useAdminTables();
 
   const verifyInfo = (() => {
+    if (customer.kyc_source === "singpass") {
+      return { name: "Singpass", isSingpass: true, at: customer.verified_at };
+    }
     const lookupName = (id: string) => {
       if (!id || !Array.isArray(allCustomers)) return null;
       const u = allCustomers.find((u: any) => u.user_id === id || u.id === id);
@@ -1372,7 +1376,6 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
     };
     if (customer.verified_by) {
       const raw = String(customer.verified_by);
-      // If it looks like an ID (no spaces, hex-ish), try to resolve to legal name
       const looksLikeId = /^[a-f0-9]{16,}$/i.test(raw) || /^[0-9a-f-]{20,}$/i.test(raw);
       const resolved = looksLikeId ? lookupName(raw) : null;
       return { name: resolved || raw, at: customer.verified_at };
@@ -1390,6 +1393,37 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [chargeOpen, setChargeOpen] = useState(false);
+
+  // Re-verify (set legal name) state
+  const [reVerifyOpen, setReVerifyOpen] = useState(false);
+  const [reVerifyName, setReVerifyName] = useState("");
+  const [reVerifyDob, setReVerifyDob] = useState("");
+  const [reVerifying, setReVerifying] = useState(false);
+
+  const handleReVerify = async () => {
+    if (!reVerifyName.trim() || !reVerifyDob) {
+      toast({ title: "Missing fields", description: "Legal name and date of birth are required", variant: "destructive" });
+      return;
+    }
+    try {
+      setReVerifying(true);
+      const res = await apiFetch("/api/admin/verify-user", {
+        method: "POST",
+        body: JSON.stringify({ userId: customer.user_id, legalName: reVerifyName.trim(), dateOfBirth: reVerifyDob }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || data.message || "Failed");
+      }
+      toast({ title: "Legal name updated" });
+      setReVerifyOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setReVerifying(false);
+    }
+  };
 
   // Reset password state
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
@@ -1565,13 +1599,51 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
             <div>
               <p className="text-muted-foreground">Verified By</p>
               <p className="font-medium">
-                {verifyInfo?.name || (customer.isVerified ? "—" : "Not verified")}
+                {verifyInfo ? (
+                  verifyInfo.isSingpass ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Badge className="bg-blue-600 text-white text-xs px-2 py-0">Singpass</Badge>
+                    </span>
+                  ) : verifyInfo.name
+                ) : (customer.isVerified ? "—" : "Not verified")}
                 {verifyInfo?.at && (
                   <span className="block text-xs text-muted-foreground">{fmtDateTimeSG(verifyInfo.at)}</span>
                 )}
               </p>
             </div>
+            <div>
+              <p className="text-muted-foreground">Legal Name</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-medium">{customer.legal_name || <span className="text-muted-foreground">—</span>}</p>
+                <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => { setReVerifyName(customer.legal_name || ""); setReVerifyDob(customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : ""); setReVerifyOpen(true); }}>
+                  Edit
+                </Button>
+              </div>
+            </div>
           </div>
+
+          {/* Re-verify / Set Legal Name dialog */}
+          <Dialog open={reVerifyOpen} onOpenChange={setReVerifyOpen}>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Set Legal Name</DialogTitle></DialogHeader>
+              <div className="space-y-3 pt-2">
+                <div className="space-y-1">
+                  <Label>Full Legal Name</Label>
+                  <Input value={reVerifyName} onChange={e => setReVerifyName(e.target.value)} placeholder="e.g. TAN AH KOW" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Date of Birth</Label>
+                  <Input type="date" value={reVerifyDob} onChange={e => setReVerifyDob(e.target.value)} />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button onClick={handleReVerify} disabled={reVerifying || !reVerifyName.trim() || !reVerifyDob}>
+                    {reVerifying ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null} Save
+                  </Button>
+                  <Button variant="ghost" onClick={() => setReVerifyOpen(false)}>Cancel</Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {editing ? (
             <div className="pt-3 border-t border-border space-y-4">
@@ -2625,6 +2697,7 @@ function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () 
 
 
 function VerificationTab() {
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<"pending" | "rejected">("pending");
   const [users, setUsers] = useState<any[]>(() => {
     try {
@@ -2713,6 +2786,7 @@ function VerificationTab() {
       }
       toast({ title: "User verified successfully" });
       setVerifyTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
       await fetchUnverified();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });

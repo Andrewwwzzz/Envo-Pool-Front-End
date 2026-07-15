@@ -630,8 +630,10 @@ export function useAdminCustomers(searchTerm: string) {
       const mapped = users.map((c: any) => ({
         id: c._id || c.id,
         user_id: c._id || c.id || c.user_id,
+        shortId: c.shortId ?? null,
         name: c.name || "",
         legal_name: c.legalName ?? c.legal_name ?? c.kyc?.name ?? "",
+        kyc_source: c.kyc?.source ?? null,
         email: c.email || "",
         phone: c.phone || null,
         date_of_birth: c.dateOfBirth ?? c.date_of_birth ?? null,
@@ -648,6 +650,8 @@ export function useAdminCustomers(searchTerm: string) {
       return mapped;
     },
     initialData: () => getCached("admin-customers") ?? [],
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 }
 
