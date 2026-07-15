@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { apiFetch } from "@/lib/api";
-import { Download, FileText, Plus, Trash2, TrendingDown } from "lucide-react";
+import { apiFetch, BASE_URL } from "@/lib/api";
+import { Download, FileText, Plus, Trash2, TrendingDown, Paperclip, Eye, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const EXPENSE_CATEGORIES: Record<string, string> = {
@@ -77,6 +77,46 @@ function useDeleteExpense() {
   });
 }
 
+function useUploadReceipt() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ id, file }: { id: string; file: File }) => {
+      const body = new FormData();
+      body.append("receipt", file);
+      const token = localStorage.getItem("token");
+      const r = await fetch(`${BASE_URL}/api/accounting/expenses/${id}/receipt`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body,
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Receipt uploaded" });
+      qc.invalidateQueries({ queryKey: ["accounting-expenses"] });
+    },
+    onError: (e: any) => toast({ title: "Upload failed", description: e?.message, variant: "destructive" }),
+  });
+}
+
+function useDeleteReceipt() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const r = await apiFetch(`/api/accounting/expenses/${id}/receipt`, { method: "DELETE" });
+      if (!r.ok) throw new Error(await r.text());
+    },
+    onSuccess: () => {
+      toast({ title: "Receipt removed" });
+      qc.invalidateQueries({ queryKey: ["accounting-expenses"] });
+    },
+    onError: (e: any) => toast({ title: "Failed", description: e?.message, variant: "destructive" }),
+  });
+}
+
 const EMPTY_FORM = { date: "", category: "", description: "", amount: "" };
 
 export function AccountingTab() {
@@ -88,9 +128,40 @@ export function AccountingTab() {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [csvLoading, setCsvLoading] = useState(false);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+
   const { data: expenses = [], isLoading } = useExpenses(from, to);
   const addExpense = useAddExpense();
   const deleteExpense = useDeleteExpense();
+  const uploadReceipt = useUploadReceipt();
+  const deleteReceipt = useDeleteReceipt();
+
+  const handleReceiptClick = (id: string) => {
+    setUploadingId(id);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !uploadingId) return;
+    await uploadReceipt.mutateAsync({ id: uploadingId, file });
+    e.target.value = "";
+    setUploadingId(null);
+  };
+
+  const openReceipt = (id: string) => {
+    const token = localStorage.getItem("token");
+    const url = `${BASE_URL}/api/accounting/expenses/${id}/receipt`;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.blob())
+      .then(blob => {
+        const objUrl = URL.createObjectURL(blob);
+        w.location.href = objUrl;
+      });
+  };
 
   const totalExpenses = useMemo(() => expenses.reduce((s: number, e: any) => s + e.amount, 0), [expenses]);
   const byCategory = useMemo(() => {
@@ -244,6 +315,9 @@ export function AccountingTab() {
                 ))}
               </div>
 
+              {/* hidden file input — shared across all rows */}
+              <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" className="hidden" onChange={handleFileChange} />
+
               {/* Line items */}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -253,23 +327,43 @@ export function AccountingTab() {
                       <th className="text-left py-2 pr-3 text-muted-foreground font-medium">Category</th>
                       <th className="text-left py-2 pr-3 text-muted-foreground font-medium">Description</th>
                       <th className="text-right py-2 pr-3 text-muted-foreground font-medium">Amount</th>
+                      <th className="text-center py-2 pr-3 text-muted-foreground font-medium">Receipt</th>
                       <th className="py-2 w-8"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
-                    {expenses.map((e: any) => (
-                      <tr key={e._id} className="hover:bg-muted/20 transition-colors">
-                        <td className="py-2 pr-3 text-xs text-muted-foreground">{e.date?.slice(0, 10)}</td>
-                        <td className="py-2 pr-3 text-xs">{EXPENSE_CATEGORIES[e.category] || e.category}</td>
-                        <td className="py-2 pr-3 text-xs text-muted-foreground">{e.description || "—"}</td>
-                        <td className="py-2 pr-3 text-right text-red-400 font-medium">${e.amount.toFixed(2)}</td>
-                        <td className="py-2">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deleteExpense.mutate(e._id)} disabled={deleteExpense.isPending}>
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                    {expenses.map((e: any) => {
+                      const hasReceipt = !!e.receipt?.originalName;
+                      return (
+                        <tr key={e._id} className="hover:bg-muted/20 transition-colors">
+                          <td className="py-2 pr-3 text-xs text-muted-foreground">{e.date?.slice(0, 10)}</td>
+                          <td className="py-2 pr-3 text-xs">{EXPENSE_CATEGORIES[e.category] || e.category}</td>
+                          <td className="py-2 pr-3 text-xs text-muted-foreground">{e.description || "—"}</td>
+                          <td className="py-2 pr-3 text-right text-red-400 font-medium">${e.amount.toFixed(2)}</td>
+                          <td className="py-2 pr-3 text-center">
+                            {hasReceipt ? (
+                              <div className="flex items-center justify-center gap-1">
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-accent" title={e.receipt.originalName} onClick={() => openReceipt(e._id)}>
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" title="Remove receipt" onClick={() => deleteReceipt.mutate(e._id)} disabled={deleteReceipt.isPending}>
+                                  <X className="h-3.5 w-3.5 text-muted-foreground" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" title="Attach receipt" onClick={() => handleReceiptClick(e._id)} disabled={uploadReceipt.isPending && uploadingId === e._id}>
+                                <Paperclip className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </td>
+                          <td className="py-2">
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deleteExpense.mutate(e._id)} disabled={deleteExpense.isPending}>
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
