@@ -22,6 +22,8 @@ import {
 } from "@/hooks/useFnb";
 import { fmtDateTimeSG, getSGDateStr, nowSG } from "@/lib/sgTime";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRestoreRecord } from "@/hooks/useAdmin";
 
 // ─── Analytics hook (enhanced) ───────────────────────────────────────────────
 function useFnbAnalytics(day?: string) {
@@ -95,6 +97,9 @@ const LOG_TYPE_STYLES: Record<string, { label: string; color: string; icon: any 
 };
 
 export function FnbTab() {
+  const { user } = useAuth();
+  const isMaster = (user as any)?.isMaster === true;
+  const restore = useRestoreRecord();
   const today = getSGDateStr(nowSG());
   const [viewDay, setViewDay] = useState(today);
   const [orderFilter, setOrderFilter] = useState("all");
@@ -419,6 +424,11 @@ export function FnbTab() {
                         </div>
                       </div>
 
+                      {deleted && isMaster && (
+                        <Button size="sm" variant="outline" className="border-green-500/50 text-green-400 hover:bg-green-500/10 flex-shrink-0" onClick={() => restore.mutate({ type: "fnb-product", id: p._id })} disabled={restore.isPending}>
+                          <RotateCcw className="h-3.5 w-3.5 mr-1" /> Restore
+                        </Button>
+                      )}
                       {!deleted && (
                         <div className="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
                           <Button size="sm" variant="outline" title="Stock history" onClick={() => openLogs(p)}>

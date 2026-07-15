@@ -5,12 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, ToggleLeft, ToggleRight, Zap, Trash2, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, ToggleLeft, ToggleRight, Zap, Trash2, Eye, EyeOff, RotateCcw } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { fmtDateSG, fmtDateTimeSG } from "@/lib/sgTime";
 import { isDeleted as checkDeleted } from "@/components/admin/DeletedBanner";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRestoreRecord } from "@/hooks/useAdmin";
 
 interface MultiplierEvent {
   _id: string;
@@ -48,6 +50,9 @@ function useAdminMultipliers(showDeleted: boolean) {
 export function MultiplierEventsTab() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isMaster = (user as any)?.isMaster === true;
+  const restore = useRestoreRecord();
   const [showDeleted, setShowDeleted] = useState(false);
   const { data: events = [] } = useAdminMultipliers(showDeleted);
   const [dialog, setDialog] = useState<"create" | "edit" | null>(null);
@@ -168,6 +173,11 @@ export function MultiplierEventsTab() {
                       <p className="text-xs text-destructive/70 mt-1">Deleted {fmtDateTimeSG(event.deletedAt)}</p>
                     )}
                   </div>
+                  {deleted && isMaster && (
+                    <Button size="sm" variant="outline" className="border-green-500/50 text-green-400 hover:bg-green-500/10 flex-shrink-0" onClick={() => restore.mutate({ type: "multiplier-event", id: event._id })} disabled={restore.isPending}>
+                      <RotateCcw className="h-4 w-4 mr-1" /> Restore
+                    </Button>
+                  )}
                   {!deleted && (
                     <div className="flex gap-2 flex-shrink-0">
                       <Button size="sm" variant="ghost" onClick={() => toggle.mutate(event._id)}>

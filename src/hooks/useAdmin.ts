@@ -957,9 +957,13 @@ export function useRestoreRecord() {
       qc.invalidateQueries({ queryKey: ["admin-customers"] });
       qc.invalidateQueries({ queryKey: ["admin-bookings"] });
       qc.invalidateQueries({ queryKey: ["fnb-menu-admin"] });
-      qc.invalidateQueries({ queryKey: ["membership-plans"] });
+      qc.invalidateQueries({ queryKey: ["membership", "plans"] });
+      qc.invalidateQueries({ queryKey: ["membership", "subscriptions"] });
       qc.invalidateQueries({ queryKey: ["lockers"] });
       qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
+      qc.invalidateQueries({ queryKey: ["multipliers-admin"] });
+      qc.invalidateQueries({ queryKey: ["reward-catalog-admin"] });
+      qc.invalidateQueries({ queryKey: ["admin-promos"] });
     },
     onError: (err: Error) => toast({ title: "Restore failed", description: err.message, variant: "destructive" }),
   });

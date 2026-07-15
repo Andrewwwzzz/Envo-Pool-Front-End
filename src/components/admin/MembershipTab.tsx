@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pencil, Trash2, Plus, Loader2, KeyRound, Eye, EyeOff, CalendarOff } from "lucide-react";
+import { Pencil, Trash2, Plus, Loader2, KeyRound, Eye, EyeOff, CalendarOff, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useMembershipPlans,
@@ -27,7 +27,8 @@ import {
 } from "@/hooks/useMembership";
 import { useAvailableLockers } from "@/hooks/useLockers";
 
-import { useAdminCustomers } from "@/hooks/useAdmin";
+import { useAdminCustomers, useRestoreRecord } from "@/hooks/useAdmin";
+import { useAuth } from "@/contexts/AuthContext";
 import { fmtDateSG } from "@/lib/sgTime";
 import ReasonDialog from "./ReasonDialog";
 import DeletedBanner, { getDeletedInfo, isDeleted } from "./DeletedBanner";
@@ -529,6 +530,9 @@ function LockerCell({ sub }: { sub: any }) {
 
 export default function MembershipTab() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isMaster = (user as any)?.isMaster === true;
+  const restore = useRestoreRecord();
   const { data: plans = [] } = useMembershipPlans("all");
   const [hideDeleted, setHideDeleted] = useState(false);
   const { data: subs = [] } = useAdminSubscriptions(hideDeleted ? "default" : "all");
@@ -595,6 +599,11 @@ export default function MembershipTab() {
                       </div>
                       <div className="text-sm text-muted-foreground">${p.price} / {p.billingCycle}</div>
                     </div>
+                    {planDeleted && isMaster && (
+                      <Button size="sm" variant="outline" className="border-green-500/50 text-green-400 hover:bg-green-500/10" onClick={() => restore.mutate({ type: "membership-plan", id: planId })} disabled={restore.isPending}>
+                        <RotateCcw className="h-4 w-4 mr-1" /> Restore
+                      </Button>
+                    )}
                     {!planDeleted && (
                       <div className="flex gap-1">
                         <Button

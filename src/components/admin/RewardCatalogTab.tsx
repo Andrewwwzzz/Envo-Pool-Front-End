@@ -7,12 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff, RotateCcw } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { isDeleted as checkDeleted, getDeletedInfo } from "@/components/admin/DeletedBanner";
 import { fmtDateTimeSG } from "@/lib/sgTime";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRestoreRecord } from "@/hooks/useAdmin";
 
 interface CatalogItem {
   _id: string;
@@ -92,6 +94,9 @@ function useFnbProducts() {
 export function RewardCatalogTab() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isMaster = (user as any)?.isMaster === true;
+  const restore = useRestoreRecord();
   const [showDeleted, setShowDeleted] = useState(false);
   const { data: items = [] } = useAdminCatalog(showDeleted);
   const { data: fnbProducts = [] } = useFnbProducts();
@@ -242,6 +247,11 @@ export function RewardCatalogTab() {
                     <p className="text-xs text-destructive/70 mt-1">Deleted {fmtDateTimeSG(info.at)}{info.by ? ` by ${info.by}` : ""}</p>
                   )}
                 </div>
+                {deleted && isMaster && (
+                  <Button size="sm" variant="outline" className="border-green-500/50 text-green-400 hover:bg-green-500/10 flex-shrink-0" onClick={() => restore.mutate({ type: "reward-catalog", id: item._id })} disabled={restore.isPending}>
+                    <RotateCcw className="h-4 w-4 mr-1" /> Restore
+                  </Button>
+                )}
                 {!deleted && (
                   <div className="flex gap-2 flex-shrink-0">
                     <Button size="sm" variant="ghost" onClick={() => toggle.mutate({ id: item._id, isActive: item.isActive })}>
