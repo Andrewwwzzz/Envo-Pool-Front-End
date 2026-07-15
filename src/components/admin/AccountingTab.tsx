@@ -25,6 +25,14 @@ const EXPENSE_CATEGORIES: Record<string, string> = {
   other:             "Other",
 };
 
+const INCOME_CATEGORIES: Record<string, string> = {
+  bank_interest: "Bank Interest",
+  grant:         "Grants / Subsidies",
+  other_income:  "Other Income",
+};
+
+const ALL_CATEGORIES: Record<string, string> = { ...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES };
+
 function thisMonthRange() {
   const now = new Date();
   const y = now.getFullYear();
@@ -197,10 +205,11 @@ export function AccountingTab() {
     loadReceiptAt(expenseId, receipts, 0);
   };
 
-  const totalExpenses = useMemo(() => expenses.reduce((s: number, e: any) => s + e.amount, 0), [expenses]);
+  const totalExpenses   = useMemo(() => expenses.filter((e: any) => e.type !== "income").reduce((s: number, e: any) => s + e.amount, 0), [expenses]);
+  const totalOtherIncome = useMemo(() => expenses.filter((e: any) => e.type === "income").reduce((s: number, e: any) => s + e.amount, 0), [expenses]);
   const byCategory = useMemo(() => {
     const map: Record<string, number> = {};
-    expenses.forEach((e: any) => { map[e.category] = (map[e.category] || 0) + e.amount; });
+    expenses.filter((e: any) => e.type !== "income").forEach((e: any) => { map[e.category] = (map[e.category] || 0) + e.amount; });
     return map;
   }, [expenses]);
 
@@ -280,11 +289,11 @@ export function AccountingTab() {
         </CardContent>
       </Card>
 
-      {/* ── Add expense ── */}
+      {/* ── Add expense / income ── */}
       <Card className="card-premium">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <TrendingDown className="h-4 w-4 text-red-400" /> Add Expense
+            <TrendingDown className="h-4 w-4 text-red-400" /> Add Entry
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -298,7 +307,12 @@ export function AccountingTab() {
               <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="" disabled className="font-semibold text-muted-foreground">— Expenses —</SelectItem>
                   {Object.entries(EXPENSE_CATEGORIES).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  ))}
+                  <SelectItem value="" disabled className="font-semibold text-muted-foreground">— Other Income —</SelectItem>
+                  {Object.entries(INCOME_CATEGORIES).map(([k, v]) => (
                     <SelectItem key={k} value={k}>{v}</SelectItem>
                   ))}
                 </SelectContent>
@@ -313,9 +327,12 @@ export function AccountingTab() {
               <Input placeholder="e.g. March rent" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
           </div>
+          {form.category && INCOME_CATEGORIES[form.category] && (
+            <p className="text-xs text-green-500">This will be recorded as Other Income and added to your P&L.</p>
+          )}
           <Button onClick={handleAdd} disabled={addExpense.isPending} className="gap-2">
             <Plus className="h-4 w-4" />
-            {addExpense.isPending ? "Adding…" : "Add Expense"}
+            {addExpense.isPending ? "Adding…" : `Add ${form.category && INCOME_CATEGORIES[form.category] ? "Income" : "Expense"}`}
           </Button>
         </CardContent>
       </Card>
@@ -328,7 +345,12 @@ export function AccountingTab() {
             <div className="flex items-center gap-2">
               {!showDeleted && totalExpenses > 0 && (
                 <Badge variant="destructive" className="text-sm font-semibold">
-                  Total: ${totalExpenses.toFixed(2)}
+                  Exp: ${totalExpenses.toFixed(2)}
+                </Badge>
+              )}
+              {!showDeleted && totalOtherIncome > 0 && (
+                <Badge className="text-sm font-semibold bg-green-600 text-white">
+                  Inc: +${totalOtherIncome.toFixed(2)}
                 </Badge>
               )}
               <Button
@@ -381,9 +403,11 @@ export function AccountingTab() {
                       return (
                         <tr key={e._id} className={`hover:bg-muted/20 transition-colors ${showDeleted ? "opacity-60" : ""}`}>
                           <td className="py-2 pr-3 text-xs text-muted-foreground">{e.date?.slice(0, 10)}</td>
-                          <td className="py-2 pr-3 text-xs">{EXPENSE_CATEGORIES[e.category] || e.category}</td>
+                          <td className="py-2 pr-3 text-xs">{ALL_CATEGORIES[e.category] || e.category}</td>
                           <td className="py-2 pr-3 text-xs text-muted-foreground">{e.description || "—"}</td>
-                          <td className="py-2 pr-3 text-right text-red-400 font-medium">${e.amount.toFixed(2)}</td>
+                          <td className={`py-2 pr-3 text-right font-medium text-xs ${e.type === "income" ? "text-green-400" : "text-red-400"}`}>
+                            {e.type === "income" ? "+" : "−"}${e.amount.toFixed(2)}
+                          </td>
                           {showDeleted ? (
                             <>
                               <td className="py-2 pr-3 text-xs text-muted-foreground">
