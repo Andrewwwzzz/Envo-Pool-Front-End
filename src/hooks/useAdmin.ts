@@ -631,7 +631,7 @@ export function useAdminCustomers(searchTerm: string) {
         id: c._id || c.id,
         user_id: c._id || c.id || c.user_id,
         name: c.name || "",
-        legal_name: c.legalName ?? c.legal_name ?? "",
+        legal_name: c.legalName ?? c.legal_name ?? c.kyc?.name ?? "",
         email: c.email || "",
         phone: c.phone || null,
         date_of_birth: c.dateOfBirth ?? c.date_of_birth ?? null,
