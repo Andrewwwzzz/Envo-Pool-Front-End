@@ -312,7 +312,7 @@ export function TimeSlotPicker({
           if (slot.state === "maintenance" || slot.state === "pending" || slot.state === "booked" || slot.state === "closed" || slot.state === "private-only") {
             const tooltipText =
               slot.state === "private-only"
-                ? "Private Members Only — after-hours access requires a Private Membership"
+                ? "VIP Members Only — contact admin to join"
                 : slot.state === "closed"
                 ? "Outside operating hours"
                 : slot.state === "maintenance"
@@ -362,7 +362,7 @@ export function TimeSlotPicker({
           <span className="w-3 h-3 rounded border border-amber-500/40 bg-amber-500/10" /> Pending Payment
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded border border-purple-500/30 bg-purple-500/5" /> Private Only
+          <span className="w-3 h-3 rounded border border-purple-500/30 bg-purple-500/5" /> VIP Members Only
         </span>
       </div>
     </div>
