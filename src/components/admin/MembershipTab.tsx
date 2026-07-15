@@ -350,8 +350,6 @@ function VenuePinCell({ sub }: { sub: any }) {
   const { toast } = useToast();
   const [show, setShow] = useState(false);
   const regen = useRegenerateMembershipPin();
-  const plan = typeof sub.planId === "object" ? sub.planId : null;
-  if (!plan?.isPrivate) return null;
 
   const pin: string | null = sub.venuePin ?? null;
   const membershipId = sub._id ?? sub.id;
@@ -365,9 +363,17 @@ function VenuePinCell({ sub }: { sub: any }) {
     }
   };
 
+  if (!pin) {
+    return (
+      <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={doRegen} disabled={regen.isPending} title="Generate PIN">
+        <KeyRound className="h-3 w-3 mr-1" /> Generate
+      </Button>
+    );
+  }
+
   return (
     <div className="flex items-center gap-1.5">
-      <span className="font-mono text-xs">{show ? (pin ?? "—") : "••••••"}</span>
+      <span className="font-mono text-xs">{show ? pin : "••••••"}</span>
       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShow(v => !v)} title={show ? "Hide PIN" : "Show PIN"}>
         {show ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
       </Button>
