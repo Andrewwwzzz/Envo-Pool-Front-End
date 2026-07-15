@@ -32,6 +32,7 @@ import {
 } from "@/hooks/useAdmin";
 import LogsTab from "@/components/admin/LogsTab";
 import StaffTab from "@/components/admin/StaffTab";
+import { AccountingTab } from "@/components/admin/AccountingTab";
 import MembershipTab from "@/components/admin/MembershipTab";
 import LockersTab from "@/components/admin/LockersTab";
 import { FnbTab } from "@/components/admin/FnbTab";
@@ -128,6 +129,7 @@ const Admin = () => {
               {can("verification") && <VerificationTabTrigger />}
               {can("logs") && <TabsTrigger value="logs">Logs</TabsTrigger>}
               {isMaster && <TabsTrigger value="staff">Staff</TabsTrigger>}
+              {isMaster && <TabsTrigger value="accounting">Accounting</TabsTrigger>}
             </TabsList>
           </div>
 
@@ -154,6 +156,7 @@ const Admin = () => {
           {can("verification") && <TabsContent value="verification"><VerificationTab /></TabsContent>}
           {can("logs") && <TabsContent value="logs"><LogsTab /></TabsContent>}
           {isMaster && <TabsContent value="staff"><StaffTab /></TabsContent>}
+          {isMaster && <TabsContent value="accounting"><AccountingTab /></TabsContent>}
         </Tabs>
       </main>
     </div>
