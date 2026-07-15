@@ -319,7 +319,7 @@ function AssignMembershipDialog({ open, onOpenChange }: { open: boolean; onOpenC
             <Select value={planId} onValueChange={setPlanId}>
               <SelectTrigger><SelectValue placeholder="Select plan" /></SelectTrigger>
               <SelectContent>
-                {plans.map((p) => {
+                {plans.filter((p) => !(p as any).deleted).map((p) => {
                   const pid = (p as any)._id ?? p.id;
                   return (
                     <SelectItem key={pid} value={pid}>{p.name} — ${p.price}/{p.billingCycle}</SelectItem>
