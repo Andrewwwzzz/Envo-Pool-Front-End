@@ -106,8 +106,8 @@ function useDeleteReceipt() {
   const qc = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const r = await apiFetch(`/api/accounting/expenses/${id}/receipt`, { method: "DELETE" });
+    mutationFn: async ({ expenseId, receiptId }: { expenseId: string; receiptId: string }) => {
+      const r = await apiFetch(`/api/accounting/expenses/${expenseId}/receipt/${receiptId}`, { method: "DELETE" });
       if (!r.ok) throw new Error(await r.text());
     },
     onSuccess: () => {
@@ -171,9 +171,9 @@ export function AccountingTab() {
     setUploadingId(null);
   };
 
-  const openReceipt = (id: string, originalName: string) => {
+  const openReceipt = (expenseId: string, receiptId: string, originalName: string) => {
     const token = localStorage.getItem("token");
-    const url = `${BASE_URL}/api/accounting/expenses/${id}/receipt`;
+    const url = `${BASE_URL}/api/accounting/expenses/${expenseId}/receipt/${receiptId}`;
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.blob())
       .then(blob => {
@@ -364,7 +364,6 @@ export function AccountingTab() {
                   </thead>
                   <tbody className="divide-y divide-border/50">
                     {expenses.map((e: any) => {
-                      const hasReceipt = !!e.receipt?.originalName;
                       return (
                         <tr key={e._id} className={`hover:bg-muted/20 transition-colors ${showDeleted ? "opacity-60" : ""}`}>
                           <td className="py-2 pr-3 text-xs text-muted-foreground">{e.date?.slice(0, 10)}</td>
@@ -384,21 +383,22 @@ export function AccountingTab() {
                             </>
                           ) : (
                             <>
-                              <td className="py-2 pr-3 text-center">
-                                {hasReceipt ? (
-                                  <div className="flex items-center justify-center gap-1">
-                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-accent" title={e.receipt.originalName} onClick={() => openReceipt(e._id, e.receipt.originalName)}>
-                                      <Eye className="h-3.5 w-3.5" />
-                                    </Button>
-                                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Remove receipt" onClick={() => deleteReceipt.mutate(e._id)} disabled={deleteReceipt.isPending}>
-                                      <X className="h-3.5 w-3.5 text-muted-foreground" />
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" title="Attach receipt" onClick={() => handleReceiptClick(e._id)} disabled={uploadReceipt.isPending && uploadingId === e._id}>
-                                    <Paperclip className="h-3.5 w-3.5" />
+                              <td className="py-2 pr-3">
+                                <div className="flex flex-wrap items-center gap-1">
+                                  {(e.receipts ?? []).map((rc: any) => (
+                                    <div key={rc._id} className="flex items-center gap-0.5">
+                                      <Button size="icon" variant="ghost" className="h-6 w-6 text-accent" title={rc.originalName} onClick={() => openReceipt(e._id, rc._id, rc.originalName)}>
+                                        <Eye className="h-3 w-3" />
+                                      </Button>
+                                      <Button size="icon" variant="ghost" className="h-6 w-6" title={`Remove ${rc.originalName}`} onClick={() => deleteReceipt.mutate({ expenseId: e._id, receiptId: rc._id })} disabled={deleteReceipt.isPending}>
+                                        <X className="h-3 w-3 text-muted-foreground" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                  <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground" title="Attach receipt" onClick={() => handleReceiptClick(e._id)} disabled={uploadReceipt.isPending && uploadingId === e._id}>
+                                    <Paperclip className="h-3 w-3" />
                                   </Button>
-                                )}
+                                </div>
                               </td>
                               <td className="py-2">
                                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deleteExpense.mutate(e._id)} disabled={deleteExpense.isPending}>
