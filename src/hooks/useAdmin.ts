@@ -646,6 +646,7 @@ export function useAdminCustomers(searchTerm: string) {
         verified_by: c.verifiedBy?.name ?? c.verifiedBy?.email ?? c.verifiedBy ?? c.verified_by ?? null,
         verified_at: c.verifiedAt ?? c.verified_at ?? null,
       }));
+      mapped.sort((a, b) => a.name.localeCompare(b.name));
       setCache("admin-customers", mapped);
       return mapped;
     },

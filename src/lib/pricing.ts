@@ -66,7 +66,6 @@ function findBestRule(
   tableId: string,
   phDates: Set<string> = new Set()
 ): PricingRule | null {
-  const weekday = getSGWeekday(dateTime);
   const timeMin = getSGTimeMinutes(dateTime);
   const dateStr = getSGDateStr(dateTime);
 
@@ -75,7 +74,11 @@ function findBestRule(
     ? getSGDateStr(new Date(dateTime.getTime() - 24 * 60 * 60 * 1000))
     : dateStr;
 
-  // Effective weekdays: real day + any PH/PH-eve bonus days (based on operational date)
+  // Use OPERATIONAL day's weekday — e.g. 1am Monday is still Sunday's session
+  const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"] as const;
+  const weekday = WEEKDAYS[new Date(opDateStr + "T00:00:00Z").getUTCDay()];
+
+  // Effective weekdays: operational day + any PH/PH-eve bonus days
   const effectiveWeekdays = new Set([weekday, ...extraWeekdaysForDate(opDateStr, phDates)]);
 
   const matching = rules.filter((r) => {
