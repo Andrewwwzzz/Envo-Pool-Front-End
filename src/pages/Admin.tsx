@@ -1914,7 +1914,7 @@ function CampaignsTab() {
   };
 
   const handleCreate = () => {
-    if (!form.title.trim() || !form.body.trim()) return;
+    if (!form.title.trim() && !form.body.trim() && !imageFile) return;
     create.mutate({
       title: form.title, body: form.body,
       imageFile: imageFile ?? null,
@@ -1959,7 +1959,7 @@ function CampaignsTab() {
             </div>
           </div>
           <div className="flex justify-end pt-1">
-            <Button onClick={handleCreate} disabled={!form.title.trim() || !form.body.trim() || create.isPending} className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button onClick={handleCreate} disabled={(!form.title.trim() && !form.body.trim() && !imageFile) || create.isPending} className="bg-accent text-accent-foreground hover:bg-accent/90">
               Create Campaign
             </Button>
           </div>
