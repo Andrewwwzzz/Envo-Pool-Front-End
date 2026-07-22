@@ -60,15 +60,17 @@ export function usePublicHolidaySet(): Set<string> {
 
 /**
  * Admin hooks for managing public holidays.
+ * Pass includeDeleted=true to fetch soft-deleted entries as well (show-deleted toggle).
  */
-export function useAdminPublicHolidays() {
+export function useAdminPublicHolidays(includeDeleted = false) {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const holidays = useQuery<PublicHoliday[]>({
-    queryKey: ["public-holidays"],
+  const holidays = useQuery<(PublicHoliday & { isDeleted?: boolean; deletedAt?: string })[]>({
+    queryKey: ["public-holidays", includeDeleted],
     queryFn: async () => {
-      const res = await apiFetch("/api/admin/public-holidays");
+      const url = includeDeleted ? "/api/admin/public-holidays?includeDeleted=true" : "/api/admin/public-holidays";
+      const res = await apiFetch(url);
       if (!res.ok) throw new Error("Failed to fetch public holidays");
       return res.json();
     },
@@ -86,7 +88,7 @@ export function useAdminPublicHolidays() {
     },
     onSuccess: () => {
       toast({ title: "Public holiday added" });
-      qc.invalidateQueries({ queryKey: ["public-holidays"] });
+      qc.invalidateQueries({ queryKey: ["public-holidays"], exact: false });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -102,7 +104,7 @@ export function useAdminPublicHolidays() {
     },
     onSuccess: () => {
       toast({ title: "Public holiday removed" });
-      qc.invalidateQueries({ queryKey: ["public-holidays"] });
+      qc.invalidateQueries({ queryKey: ["public-holidays"], exact: false });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });

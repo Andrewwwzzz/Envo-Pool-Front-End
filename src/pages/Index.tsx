@@ -33,10 +33,26 @@ const Index = () => {
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold tracking-tight gold-gradient">Envo Pool</h1>
           <div className="flex items-center gap-3">
-            <Link to="/auth">
-              <Button variant="outline" size="sm" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground">Sign In</Button>
-            </Link>
-            <Button onClick={handleBookNow} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">Book Now</Button>
+            {user ? (
+              <>
+                {user.isAdmin && (
+                  <Link to="/admin">
+                    <Button variant="outline" size="sm" className="border-accent/40 text-accent hover:bg-accent/10">Admin</Button>
+                  </Link>
+                )}
+                <Link to="/dashboard">
+                  <Button variant="outline" size="sm" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground">Dashboard</Button>
+                </Link>
+                <Button onClick={handleBookNow} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">Book Now</Button>
+              </>
+            ) : (
+              <>
+                <Link to="/auth">
+                  <Button variant="outline" size="sm" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground">Sign In</Button>
+                </Link>
+                <Button onClick={handleBookNow} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">Book Now</Button>
+              </>
+            )}
           </div>
         </div>
       </nav>
@@ -225,9 +241,12 @@ const Index = () => {
                 <p className="text-xs text-accent uppercase tracking-widest mb-2">Opening Hours</p>
                 <div className="flex justify-between text-sm border-b border-border/30 pb-2">
                   <span className="text-muted-foreground">Monday – Sunday</span>
-                  <span className="text-foreground font-medium">10:00 AM – 4:00 AM</span>
+                  <span className="text-foreground font-medium">10:00 AM – 1:00 AM</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">Last entry 3:00 AM</p>
+                <div className="flex justify-between text-sm pt-2">
+                  <span className="text-muted-foreground">Private Members</span>
+                  <span className="text-accent font-medium">24/7 Access</span>
+                </div>
               </div>
               <a href="https://maps.google.com/?q=511+Guillemard+Road+Singapore" target="_blank" rel="noopener noreferrer">
                 <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90">

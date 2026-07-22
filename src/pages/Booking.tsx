@@ -691,7 +691,7 @@ const Booking = () => {
 
       <header className="relative z-10 border-b border-border/50 bg-card/80 backdrop-blur-md px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold tracking-tight gold-gradient">Envo Pool</h1>
+          <Link to="/"><h1 className="text-xl font-bold tracking-tight gold-gradient">Envo Pool</h1></Link>
           <span className="text-muted-foreground text-sm hidden sm:inline">|</span>
           <span className="text-sm text-muted-foreground hidden sm:inline">Reserve a Table</span>
         </div>

@@ -1895,11 +1895,12 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
 function PricingTab() {
   const [hideDeleted, setHideDeleted] = useState(false);
   const { data: rules, create, remove, toggle, update } = useAdminPricingRules(hideDeleted ? "default" : "all");
+  const [showDeletedPH, setShowDeletedPH] = useState(false);
   const {
     data: holidays = [],
     create: createHoliday,
     remove: removeHoliday,
-  } = useAdminPublicHolidays();
+  } = useAdminPublicHolidays(showDeletedPH);
 
   const [form, setForm] = useState({
     name: "", start_time: "09:00", end_time: "23:00", hourly_rate: "16.25",
@@ -1975,10 +1976,16 @@ function PricingTab() {
       {/* ── Public Holidays ── */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-amber-400" />
-            Public Holidays
-          </CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-amber-400" />
+              Public Holidays
+            </CardTitle>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Switch checked={showDeletedPH} onCheckedChange={setShowDeletedPH} />
+              <span>Show deleted</span>
+            </div>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
             Dates listed here (and their eves) will automatically use Fri–Sun pricing regardless of the calendar day.
           </p>
@@ -2012,30 +2019,33 @@ function PricingTab() {
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Upcoming</p>
               {upcomingHolidays.map((h: any) => {
-                // Compute eve date
-                const d = new Date(h.date + "T00:00:00+08:00");
-                d.setDate(d.getDate() - 1);
-                const eveStr = d.toISOString().slice(0, 10);
+                // Compute eve date using UTC arithmetic (avoid local-timezone off-by-one)
+                const [hy, hmo, hdy] = h.date.split("-").map(Number);
+                const eveStr = new Date(Date.UTC(hy, hmo - 1, hdy - 1)).toISOString().slice(0, 10);
+                const isDeleted = h.isDeleted === true;
                 return (
-                  <div key={h._id || h.date} className="flex items-center justify-between rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+                  <div key={h._id || h.date} className={`flex items-center justify-between rounded-lg border px-3 py-2 ${isDeleted ? "border-destructive/20 bg-destructive/5 opacity-60" : "border-amber-500/20 bg-amber-500/5"}`}>
                     <div className="flex items-center gap-3">
                       <div>
-                        <p className="text-sm font-medium text-foreground">{h.name}</p>
+                        <p className={`text-sm font-medium ${isDeleted ? "line-through text-muted-foreground" : "text-foreground"}`}>{h.name}</p>
                         <p className="text-xs text-muted-foreground">
                           {h.date} <span className="text-amber-400/70">· Eve: {eveStr}</span>
-                          <span className="ml-2 text-amber-400">↑ Fri–Sun pricing</span>
+                          {!isDeleted && <span className="ml-2 text-amber-400">↑ Fri–Sun pricing</span>}
+                          {isDeleted && <span className="ml-2 text-destructive/70">deleted</span>}
                         </p>
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => removeHoliday.mutate(h._id || h.id)}
-                      disabled={removeHoliday.isPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {!isDeleted && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => removeHoliday.mutate(h._id || h.id)}
+                        disabled={removeHoliday.isPending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 );
               })}
@@ -2049,20 +2059,25 @@ function PricingTab() {
                 <span>{pastHolidays.length} past holiday{pastHolidays.length !== 1 ? "s" : ""}</span>
               </summary>
               <div className="mt-2 space-y-1">
-                {pastHolidays.map((h: any) => (
-                  <div key={h._id || h.date} className="flex items-center justify-between rounded-lg border border-border/30 px-3 py-1.5 opacity-50">
-                    <p className="text-xs text-muted-foreground">{h.date} — {h.name}</p>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                      onClick={() => removeHoliday.mutate(h._id || h.id)}
-                      disabled={removeHoliday.isPending}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
+                {pastHolidays.map((h: any) => {
+                  const isDeleted = h.isDeleted === true;
+                  return (
+                    <div key={h._id || h.date} className={`flex items-center justify-between rounded-lg border px-3 py-1.5 ${isDeleted ? "border-destructive/20 opacity-40" : "border-border/30 opacity-50"}`}>
+                      <p className={`text-xs text-muted-foreground ${isDeleted ? "line-through" : ""}`}>{h.date} — {h.name}{isDeleted ? " (deleted)" : ""}</p>
+                      {!isDeleted && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeHoliday.mutate(h._id || h.id)}
+                          disabled={removeHoliday.isPending}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </details>
           )}
