@@ -1895,36 +1895,87 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   );
 }
 
+function CampaignImagePicker({ preview, onChange }: { preview: string | null; onChange: (file: File | null, preview: string | null) => void }) {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => onChange(file, ev.target?.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      onChange(null, null);
+    }
+  };
+  return (
+    <div className="space-y-1.5">
+      <Label>Image (optional)</Label>
+      <input type="file" accept="image/*" onChange={handleChange} className="block w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-accent/10 file:text-accent hover:file:bg-accent/20 cursor-pointer" />
+      {preview && <img src={preview} alt="preview" className="mt-2 max-h-36 rounded-lg object-contain border border-border/40" />}
+    </div>
+  );
+}
+
+function CampaignFormFields({ form, setForm, imagePreview, onImageChange }: {
+  form: { title: string; body: string; buttonLabel: string; buttonUrl: string };
+  setForm: (f: any) => void;
+  imagePreview: string | null;
+  onImageChange: (file: File | null, preview: string | null) => void;
+}) {
+  return (
+    <>
+      <div className="space-y-1.5">
+        <Label>Title</Label>
+        <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Grand Opening Sale" />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Message</Label>
+        <Textarea rows={3} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} placeholder="Tell your members what's happening…" />
+      </div>
+      <CampaignImagePicker preview={imagePreview} onChange={onImageChange} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Button Label (optional)</Label>
+          <Input value={form.buttonLabel} onChange={(e) => setForm({ ...form, buttonLabel: e.target.value })} placeholder="e.g. Learn More" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Button URL (optional)</Label>
+          <Input value={form.buttonUrl} onChange={(e) => setForm({ ...form, buttonUrl: e.target.value })} placeholder="https://…" />
+        </div>
+      </div>
+    </>
+  );
+}
+
 function CampaignsTab() {
-  const { data: campaigns = [], create, toggle, remove } = useAdminCampaigns();
+  const [showArchived, setShowArchived] = useState(false);
+  const { data: campaigns = [], create, update, toggle, restore, remove } = useAdminCampaigns(showArchived);
+
   const [form, setForm] = useState({ title: "", body: "", buttonLabel: "", buttonUrl: "" });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    setImageFile(file);
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => setImagePreview(ev.target?.result as string);
-      reader.readAsDataURL(file);
-    } else {
-      setImagePreview(null);
-    }
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", body: "", buttonLabel: "", buttonUrl: "" });
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+
+  const startEdit = (c: any) => {
+    setEditingId(c._id);
+    setEditForm({ title: c.title ?? "", body: c.body ?? "", buttonLabel: c.buttonLabel ?? "", buttonUrl: c.buttonUrl ?? "" });
+    setEditImageFile(null);
+    setEditImagePreview(c.imageData || c.imageUrl || null);
   };
 
   const handleCreate = () => {
     if (!form.title.trim() && !form.body.trim() && !imageFile) return;
-    create.mutate({
-      title: form.title, body: form.body,
-      imageFile: imageFile ?? null,
-      buttonLabel: form.buttonLabel || null, buttonUrl: form.buttonUrl || null,
-    }, {
-      onSuccess: () => {
-        setForm({ title: "", body: "", buttonLabel: "", buttonUrl: "" });
-        setImageFile(null);
-        setImagePreview(null);
-      },
+    create.mutate({ title: form.title, body: form.body, imageFile, buttonLabel: form.buttonLabel || null, buttonUrl: form.buttonUrl || null }, {
+      onSuccess: () => { setForm({ title: "", body: "", buttonLabel: "", buttonUrl: "" }); setImageFile(null); setImagePreview(null); },
+    });
+  };
+
+  const handleUpdate = (id: string) => {
+    update.mutate({ id, data: { title: editForm.title, body: editForm.body, imageFile: editImageFile, buttonLabel: editForm.buttonLabel || null, buttonUrl: editForm.buttonUrl || null } }, {
+      onSuccess: () => setEditingId(null),
     });
   };
 
@@ -1933,31 +1984,8 @@ function CampaignsTab() {
       <Card>
         <CardHeader><CardTitle>New Campaign</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <div className="space-y-1.5">
-            <Label>Title</Label>
-            <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Grand Opening Sale" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Message</Label>
-            <Textarea rows={4} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} placeholder="Tell your members what's happening…" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Image (optional)</Label>
-            <input type="file" accept="image/*" onChange={handleImageChange} className="block w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-accent/10 file:text-accent hover:file:bg-accent/20 cursor-pointer" />
-            {imagePreview && (
-              <img src={imagePreview} alt="preview" className="mt-2 max-h-36 rounded-lg object-contain border border-border/40" />
-            )}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Button Label (optional)</Label>
-              <Input value={form.buttonLabel} onChange={(e) => setForm({ ...form, buttonLabel: e.target.value })} placeholder="e.g. Learn More" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Button URL (optional)</Label>
-              <Input value={form.buttonUrl} onChange={(e) => setForm({ ...form, buttonUrl: e.target.value })} placeholder="https://…" />
-            </div>
-          </div>
+          <CampaignFormFields form={form} setForm={setForm} imagePreview={imagePreview}
+            onImageChange={(f, p) => { setImageFile(f); setImagePreview(p); }} />
           <div className="flex justify-end pt-1">
             <Button onClick={handleCreate} disabled={(!form.title.trim() && !form.body.trim() && !imageFile) || create.isPending} className="bg-accent text-accent-foreground hover:bg-accent/90">
               Create Campaign
@@ -1967,24 +1995,55 @@ function CampaignsTab() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>All Campaigns</CardTitle></CardHeader>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>All Campaigns</CardTitle>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Show archived</span>
+              <Switch checked={showArchived} onCheckedChange={setShowArchived} />
+            </div>
+          </div>
+        </CardHeader>
         <CardContent className="space-y-3">
           {campaigns.length === 0 && <p className="text-sm text-muted-foreground">No campaigns yet.</p>}
           {campaigns.map((c: any) => (
-            <div key={c._id} className={`rounded-lg border p-3 space-y-1 ${c.isActive ? "border-accent/30 bg-accent/5" : "border-border/40 opacity-60"}`}>
+            <div key={c._id} className={`rounded-lg border p-3 space-y-2 ${c.isDeleted ? "border-border/30 opacity-50" : c.isActive ? "border-accent/30 bg-accent/5" : "border-border/40"}`}>
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="font-medium text-sm">{c.title}</p>
-                  <p className="text-xs text-muted-foreground whitespace-pre-wrap mt-0.5 line-clamp-2">{c.body}</p>
+                <div className="min-w-0">
+                  {c.title && <p className={`font-medium text-sm ${c.isDeleted ? "line-through" : ""}`}>{c.title}</p>}
+                  {c.body && <p className="text-xs text-muted-foreground whitespace-pre-wrap mt-0.5 line-clamp-2">{c.body}</p>}
+                  {(c.imageData || c.imageUrl) && !c.title && !c.body && (
+                    <p className="text-xs text-muted-foreground italic">Image only</p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <Switch checked={c.isActive} onCheckedChange={() => toggle.mutate(c._id)} />
-                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => remove.mutate(c._id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {c.isDeleted ? (
+                    <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => restore.mutate(c._id)}>Restore</Button>
+                  ) : (
+                    <>
+                      <Switch checked={c.isActive} onCheckedChange={() => toggle.mutate(c._id)} />
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-accent" onClick={() => editingId === c._id ? setEditingId(null) : startEdit(c)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => remove.mutate(c._id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">{c.isActive ? "Active — shows on next login" : "Inactive"}</p>
+              {!c.isDeleted && <p className="text-xs text-muted-foreground">{c.isActive ? "Active — shows on next login" : "Inactive"}</p>}
+
+              {editingId === c._id && (
+                <div className="border-t border-border/40 pt-3 mt-2 space-y-3">
+                  <CampaignFormFields form={editForm} setForm={setEditForm} imagePreview={editImagePreview}
+                    onImageChange={(f, p) => { setEditImageFile(f); setEditImagePreview(p); }} />
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
+                    <Button size="sm" onClick={() => handleUpdate(c._id)} disabled={update.isPending} className="bg-accent text-accent-foreground hover:bg-accent/90">Save</Button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </CardContent>

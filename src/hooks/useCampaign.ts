@@ -11,6 +11,7 @@ export interface Campaign {
   buttonLabel?: string | null;
   buttonUrl?: string | null;
   isActive: boolean;
+  isDeleted?: boolean;
   startsAt?: string | null;
   endsAt?: string | null;
   createdAt: string;
@@ -28,14 +29,15 @@ export function useActiveCampaign() {
   });
 }
 
-export function useAdminCampaigns() {
+export function useAdminCampaigns(includeDeleted = false) {
   const qc = useQueryClient();
   const { toast } = useToast();
 
   const campaigns = useQuery<Campaign[]>({
-    queryKey: ["campaigns", "admin"],
+    queryKey: ["campaigns", "admin", includeDeleted],
     queryFn: async () => {
-      const res = await apiFetch("/api/admin/campaigns");
+      const url = includeDeleted ? "/api/admin/campaigns?includeDeleted=true" : "/api/admin/campaigns";
+      const res = await apiFetch(url);
       if (!res.ok) throw new Error("Failed to fetch campaigns");
       return res.json();
     },
@@ -56,7 +58,29 @@ export function useAdminCampaigns() {
     },
     onSuccess: () => {
       toast({ title: "Campaign created" });
-      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      qc.invalidateQueries({ queryKey: ["campaigns"], exact: false });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const update = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Campaign> & { imageFile?: File | null } }) => {
+      const fd = new FormData();
+      if (data.title !== undefined) fd.append("title", data.title);
+      if (data.body !== undefined) fd.append("body", data.body);
+      if (data.imageFile) fd.append("image", data.imageFile);
+      if (data.buttonLabel !== undefined) fd.append("buttonLabel", data.buttonLabel ?? "");
+      if (data.buttonUrl !== undefined) fd.append("buttonUrl", data.buttonUrl ?? "");
+      const res = await apiFetch(`/api/admin/campaigns/${id}`, { method: "PATCH", body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to update campaign");
+      return json;
+    },
+    onSuccess: () => {
+      toast({ title: "Campaign updated" });
+      qc.invalidateQueries({ queryKey: ["campaigns"], exact: false });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -71,7 +95,23 @@ export function useAdminCampaigns() {
       return json;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      qc.invalidateQueries({ queryKey: ["campaigns"], exact: false });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const restore = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiFetch(`/api/admin/campaigns/${id}/restore`, { method: "PATCH" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to restore campaign");
+      return json;
+    },
+    onSuccess: () => {
+      toast({ title: "Campaign restored" });
+      qc.invalidateQueries({ queryKey: ["campaigns"], exact: false });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -82,17 +122,17 @@ export function useAdminCampaigns() {
     mutationFn: async (id: string) => {
       const res = await apiFetch(`/api/admin/campaigns/${id}`, { method: "DELETE" });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to delete campaign");
+      if (!res.ok) throw new Error(json.error || "Failed to archive campaign");
       return json;
     },
     onSuccess: () => {
-      toast({ title: "Campaign deleted" });
-      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      toast({ title: "Campaign archived" });
+      qc.invalidateQueries({ queryKey: ["campaigns"], exact: false });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
 
-  return { ...campaigns, create, toggle, remove };
+  return { ...campaigns, create, update, toggle, restore, remove };
 }
