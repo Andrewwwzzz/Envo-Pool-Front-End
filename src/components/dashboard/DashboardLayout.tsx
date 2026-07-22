@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, LogOut } from "lucide-react";
+import { CampaignPopup } from "@/components/CampaignPopup";
 
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard/bookings": "My Bookings",
@@ -62,6 +63,8 @@ export default function DashboardLayout() {
           <LogOut className="h-4 w-4" />
         </Button>
       </header>
+
+      <CampaignPopup />
 
       <main
         className="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 pt-4 sm:pt-6 space-y-4 sm:space-y-6"

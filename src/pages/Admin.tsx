@@ -38,6 +38,7 @@ import LockersTab from "@/components/admin/LockersTab";
 import { FnbTab } from "@/components/admin/FnbTab";
 import { useAdminFnbOrders } from "@/hooks/useFnb";
 import { useAdminPublicHolidays } from "@/hooks/usePricing";
+import { useAdminCampaigns } from "@/hooks/useCampaign";
 import { OperatingHoursSection } from "@/components/admin/OperatingHoursSection";
 import { useAdminTransactions, useAdminActivityLogs } from "@/hooks/useAdminLogs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -113,6 +114,7 @@ const Admin = () => {
               {can("rewards") && <TabsTrigger value="rewards">Rewards</TabsTrigger>}
               {can("pricing") && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
               {can("promos") && <TabsTrigger value="promos">Promos</TabsTrigger>}
+              {isAdmin && <TabsTrigger value="campaigns">Campaigns</TabsTrigger>}
               {can("membership") && <TabsTrigger value="membership">Membership</TabsTrigger>}
               {can("lockers") && <TabsTrigger value="lockers">Lockers</TabsTrigger>}
               {can("fnb") && (
@@ -149,6 +151,7 @@ const Admin = () => {
           {can("rewards") && <TabsContent value="rewards"><RewardsTab onCustomerClick={goToCustomer} /></TabsContent>}
           {can("pricing") && <TabsContent value="pricing"><PricingTab /></TabsContent>}
           {can("promos") && <TabsContent value="promos"><PromosTab /></TabsContent>}
+          {isAdmin && <TabsContent value="campaigns"><CampaignsTab /></TabsContent>}
           {can("membership") && <TabsContent value="membership"><MembershipTab /></TabsContent>}
           {can("lockers") && <TabsContent value="lockers"><LockersTab /></TabsContent>}
           {can("fnb") && <TabsContent value="fnb"><FnbTab /></TabsContent>}
@@ -1888,6 +1891,80 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
         currentBalance={Number(customer.wallet_balance ?? 0)}
         defaultCategory="fnb"
       />
+    </div>
+  );
+}
+
+function CampaignsTab() {
+  const { data: campaigns = [], create, toggle, remove } = useAdminCampaigns();
+  const [form, setForm] = useState({ title: "", body: "", imageUrl: "", buttonLabel: "", buttonUrl: "" });
+
+  const handleCreate = () => {
+    if (!form.title.trim() || !form.body.trim()) return;
+    create.mutate({
+      title: form.title, body: form.body,
+      imageUrl: form.imageUrl || null, buttonLabel: form.buttonLabel || null, buttonUrl: form.buttonUrl || null,
+    }, { onSuccess: () => setForm({ title: "", body: "", imageUrl: "", buttonLabel: "", buttonUrl: "" }) });
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader><CardTitle>New Campaign</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Title</Label>
+            <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Grand Opening Sale" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Message</Label>
+            <Textarea rows={4} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} placeholder="Tell your members what's happening…" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Image URL (optional)</Label>
+              <Input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://…" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Button Label (optional)</Label>
+              <Input value={form.buttonLabel} onChange={(e) => setForm({ ...form, buttonLabel: e.target.value })} placeholder="e.g. Learn More" />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Button URL (optional)</Label>
+              <Input value={form.buttonUrl} onChange={(e) => setForm({ ...form, buttonUrl: e.target.value })} placeholder="https://…" />
+            </div>
+          </div>
+          <div className="flex justify-end pt-1">
+            <Button onClick={handleCreate} disabled={!form.title.trim() || !form.body.trim() || create.isPending} className="bg-accent text-accent-foreground hover:bg-accent/90">
+              Create Campaign
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>All Campaigns</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {campaigns.length === 0 && <p className="text-sm text-muted-foreground">No campaigns yet.</p>}
+          {campaigns.map((c: any) => (
+            <div key={c._id} className={`rounded-lg border p-3 space-y-1 ${c.isActive ? "border-accent/30 bg-accent/5" : "border-border/40 opacity-60"}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-medium text-sm">{c.title}</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap mt-0.5 line-clamp-2">{c.body}</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Switch checked={c.isActive} onCheckedChange={() => toggle.mutate(c._id)} />
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => remove.mutate(c._id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">{c.isActive ? "Active — shows on next login" : "Inactive"}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }

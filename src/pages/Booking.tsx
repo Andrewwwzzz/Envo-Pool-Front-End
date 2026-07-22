@@ -26,6 +26,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isBefore } from "date-fns";
 import { todaySG, sgSlotToUTC, sgDayBoundsUTC, isTodaySG, toSG, getSGDateStr, isWithinCurrentOperatingDay } from "@/lib/sgTime";
 import WalkinSessionPanel from "@/components/WalkinSessionPanel";
+import { CampaignPopup } from "@/components/CampaignPopup";
 import { useMyWalkinSession, useStartWalkin } from "@/hooks/useWalkin";
 import { Timer } from "lucide-react";
 
@@ -711,6 +712,7 @@ const Booking = () => {
       </header>
 
       <main className="relative z-10 mx-auto max-w-4xl p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <CampaignPopup />
         <WalkinSessionPanel />
         {!kycVerified && (
           <Card className="card-premium border-yellow-500/30 bg-yellow-500/5">
