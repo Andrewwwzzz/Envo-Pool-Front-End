@@ -317,6 +317,24 @@ export function useCreatePublicHoliday() {
   });
 }
 
+export interface MembershipHours {
+  membershipId: string;
+  planName: string;
+  hoursThisMonth: number;
+  requiredHours: number;
+  renewalDate: string;
+  cycleStart: string;
+}
+
+export function useMyMembershipHours() {
+  return useQuery<MembershipHours[]>({
+    queryKey: ["membership", "my-hours"],
+    queryFn: () => getJson("/api/membership/my-hours"),
+    refetchInterval: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+}
+
 export function useDeletePublicHoliday() {
   const qc = useQueryClient();
   return useMutation({

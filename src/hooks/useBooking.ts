@@ -148,7 +148,7 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
 
 export async function loadBookingsFromBackend() {
   const [bookingsRes, transactionsRes] = await Promise.all([
-    apiFetch("/api/bookings"),
+    apiFetch("/api/bookings/my"),
     apiFetch("/api/transactions").catch(() => null),
   ]);
 

@@ -102,37 +102,17 @@ const Booking = () => {
       const filtered: any[] = Array.isArray(data) ? data : (data?.bookings || []);
 
 
-      // Resolve display name based on each booker's privacy preference
-      const uniqueUserIds = Array.from(new Set(filtered.map((b: any) => {
-        return typeof b.userId === "object" ? b.userId?._id : b.userId;
-      }).filter(Boolean)));
-
-      const visibilityMap: Record<string, boolean> = {};
-      await Promise.all(uniqueUserIds.map(async (uid: string) => {
-        try {
-          const r = await apiFetch(`/api/bookings/name-visibility?userId=${uid}`);
-          if (r.ok) {
-            const d = await r.json();
-            visibilityMap[uid] = d?.showName !== false;
-          } else {
-            visibilityMap[uid] = false;
-          }
-        } catch {
-          visibilityMap[uid] = false;
-        }
-      }));
-
       return filtered.map((b: any) => {
-        const uid = typeof b.userId === "object" ? b.userId?._id : b.userId;
-        const rawName = typeof b.userId === "object" ? (b.userId?.username || b.userId?.name || b.userId?.email) : null;
-        const showName = uid ? visibilityMap[uid] : false;
+        const userObj = typeof b.userId === "object" ? b.userId : null;
+        const legalName = userObj?.kyc?.name ?? null;
+        const showName = userObj?.showName === true;
         return {
           start_time: b.startTime,
           end_time: b.endTime,
-          status: b.status === "confirmed" ? "confirmed" : "pending", // pending_payment and other non-cancelled states render as "Pending Payment"
+          status: b.status === "confirmed" ? "confirmed" : "pending",
           created_at: b.createdAt || new Date().toISOString(),
           expires_at: b.expiresAt || null,
-          user_name: showName ? (rawName || b.userName || null) : null,
+          user_name: (showName && legalName) ? legalName : null,
         };
       });
     },

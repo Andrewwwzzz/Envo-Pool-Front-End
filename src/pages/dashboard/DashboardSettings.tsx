@@ -24,7 +24,7 @@ export default function DashboardSettings() {
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [phone, setPhone] = useState("");
   const [dob, setDob] = useState("");
-  const [showName, setShowName] = useState(true);
+  const [showName, setShowName] = useState(false);
   const [nameToggleLoading, setNameToggleLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -302,7 +302,7 @@ export default function DashboardSettings() {
           <div className="flex items-center justify-between">
             <div>
               <Label htmlFor="name-toggle" className="font-medium cursor-pointer">Show name on bookings</Label>
-              <p className="text-xs text-muted-foreground mt-0.5">Others can see your username (or display name if no username set) on booked slots</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Others can see your legal name on booked slots (off by default)</p>
             </div>
             <Switch id="name-toggle" checked={showName} onCheckedChange={handleToggleNameVisibility} disabled={nameToggleLoading} />
           </div>

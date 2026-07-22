@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Crown, Lock, Percent, Timer, Beer, KeyRound, Loader2, Eye, EyeOff, PiggyBank, CircleDot } from "lucide-react";
+import { Crown, Lock, Percent, Timer, Beer, KeyRound, Loader2, Eye, EyeOff, PiggyBank, CircleDot, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import {
@@ -22,7 +22,9 @@ import {
   useMembershipPlans,
   useSubscribeMembership,
   useRenewMembership,
+  useMyMembershipHours,
   type MembershipPlan,
+  type MembershipHours,
 } from "@/hooks/useMembership";
 import { useProfile } from "@/hooks/useProfile";
 import { useMyLocker } from "@/hooks/useLockers";
@@ -113,10 +115,12 @@ function MembershipCard({
   membership,
   walletBalance,
   onRenew,
+  hoursEntry,
 }: {
   membership: any;
   walletBalance: number;
   onRenew: (m: any) => void;
+  hoursEntry?: MembershipHours;
 }) {
   const status: string = String(membership?.status ?? (membership?.active ? "active" : "")).toLowerCase();
   const plan =
@@ -212,6 +216,33 @@ function MembershipCard({
         {plan?.isPrivate && membership?.venuePin && (
           <VenuePinDisplay pin={membership.venuePin} />
         )}
+
+        {/* Monthly hours progress — only for active memberships */}
+        {isActive && hoursEntry && (() => {
+          const hrs = hoursEntry.hoursThisMonth;
+          const req = hoursEntry.requiredHours;
+          const pct = Math.min(100, (hrs / req) * 100);
+          const met = hrs >= req;
+          return (
+            <div className="rounded-md border border-border/50 bg-muted/30 px-3 py-3 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 font-medium">
+                  <Zap className={`h-3.5 w-3.5 ${met ? "text-green-400" : "text-accent"}`} />
+                  <span>Hours this month</span>
+                </div>
+                <span className={`font-mono font-semibold ${met ? "text-green-400" : ""}`}>
+                  {hrs.toFixed(1)} / {req} hrs
+                </span>
+              </div>
+              <Progress value={pct} className={met ? "[&>div]:bg-green-500" : ""} />
+              <p className="text-xs text-muted-foreground">
+                {met
+                  ? "✓ You'll renew FREE next month!"
+                  : `Play ${(req - hrs).toFixed(1)} more hrs for a free renewal`}
+              </p>
+            </div>
+          );
+        })()}
 
         <div className={`space-y-2 ${isExpired ? "opacity-60" : ""}`}>
           <div className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-2">
@@ -311,6 +342,7 @@ function MembershipCard({
 export default function DashboardMembership() {
   const { data } = useMyMembership();
   const { data: myLocker } = useMyLocker();
+  const { data: hoursData = [] } = useMyMembershipHours();
   const memberships = data?.memberships ?? [];
   const totalSaved = Number(data?.totalSaved ?? 0);
 
@@ -526,14 +558,19 @@ export default function DashboardMembership() {
 
       {activeMemberships.length > 0 && (
         <div className="space-y-4">
-          {activeMemberships.map((m: any) => (
-            <MembershipCard
-              key={getMembershipId(m) ?? Math.random()}
-              membership={m}
-              walletBalance={walletBalance}
-              onRenew={setRenewTarget}
-            />
-          ))}
+          {activeMemberships.map((m: any) => {
+            const mid = String(getMembershipId(m) ?? "");
+            const hoursEntry = hoursData.find(h => String(h.membershipId) === mid);
+            return (
+              <MembershipCard
+                key={mid || Math.random()}
+                membership={m}
+                walletBalance={walletBalance}
+                onRenew={setRenewTarget}
+                hoursEntry={hoursEntry}
+              />
+            );
+          })}
         </div>
       )}
 
