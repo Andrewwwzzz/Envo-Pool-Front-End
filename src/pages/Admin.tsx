@@ -1947,8 +1947,8 @@ function CampaignFormFields({ form, setForm, imagePreview, onImageChange }: {
 }
 
 function CampaignsTab() {
-  const [showArchived, setShowArchived] = useState(false);
-  const { data: campaigns = [], create, update, toggle, restore, remove } = useAdminCampaigns(showArchived);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const { data: campaigns = [], create, update, toggle, restore, remove } = useAdminCampaigns(showDeleted);
 
   const [form, setForm] = useState({ title: "", body: "", buttonLabel: "", buttonUrl: "" });
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -1999,8 +1999,8 @@ function CampaignsTab() {
           <div className="flex items-center justify-between">
             <CardTitle>All Campaigns</CardTitle>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Show archived</span>
-              <Switch checked={showArchived} onCheckedChange={setShowArchived} />
+              <span>Show deleted</span>
+              <Switch checked={showDeleted} onCheckedChange={setShowDeleted} />
             </div>
           </div>
         </CardHeader>

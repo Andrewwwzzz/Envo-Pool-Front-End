@@ -126,7 +126,7 @@ export function useAdminCampaigns(includeDeleted = false) {
       return json;
     },
     onSuccess: () => {
-      toast({ title: "Campaign archived" });
+      toast({ title: "Campaign deleted" });
       qc.invalidateQueries({ queryKey: ["campaigns"], exact: false });
     },
     onError: (err: Error) => {
