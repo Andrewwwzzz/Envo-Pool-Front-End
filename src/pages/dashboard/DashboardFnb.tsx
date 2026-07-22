@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,9 +8,28 @@ import { ShoppingBag, Clock, CheckCircle2, XCircle, Gift } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import {
   useMenu, useMyFnbOrders, useRedemptionCheck, usePlaceOrder,
+  useFnbStatus,
   FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS,
 } from "@/hooks/useFnb";
 import { fmtDateTimeSG } from "@/lib/sgTime";
+
+function useCountdown(resumeAt: string | null | undefined) {
+  const [label, setLabel] = useState("");
+  useEffect(() => {
+    if (!resumeAt) { setLabel(""); return; }
+    const tick = () => {
+      const diff = new Date(resumeAt).getTime() - Date.now();
+      if (diff <= 0) { setLabel(""); return; }
+      const m = Math.floor(diff / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setLabel(`${m}:${String(s).padStart(2, "0")}`);
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [resumeAt]);
+  return label;
+}
 
 type Category = "all" | "drinks" | "food" | "snacks";
 
@@ -46,7 +65,9 @@ export default function DashboardFnb() {
   const { data: menu = [] } = useMenu();
   const { data: orders = [] } = useMyFnbOrders();
   const { data: redemption } = useRedemptionCheck();
+  const { data: fnbStatus } = useFnbStatus();
   const placeOrder = usePlaceOrder();
+  const countdown = useCountdown(fnbStatus?.resumeAt);
 
   const [activeTab, setActiveTab] = useState<Category>("all");
   const [tableInput, setTableInput] = useState("");
@@ -77,6 +98,29 @@ export default function DashboardFnb() {
     if (status === "served") return <Badge className="bg-green-500/20 text-green-400">Served ✓</Badge>;
     return <Badge className="bg-red-500/20 text-red-400">Cancelled</Badge>;
   };
+
+  // Closed notice — show full-screen overlay when F&B is paused
+  if (fnbStatus?.isOpen === false) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-4">
+        <div className="text-center space-y-3">
+          <div className="text-5xl">🚽</div>
+          <h2 className="text-xl font-bold">F&B Temporarily Unavailable</h2>
+          <p className="text-muted-foreground text-sm max-w-xs">
+            {fnbStatus.notice || "We'll be back shortly!"}
+          </p>
+          {countdown && (
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/30">
+              <Clock className="h-4 w-4 text-orange-400" />
+              <span className="text-orange-400 font-mono font-semibold">{countdown}</span>
+              <span className="text-xs text-muted-foreground">until reopening</span>
+            </div>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">Check back soon or order from a staff member.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-10">

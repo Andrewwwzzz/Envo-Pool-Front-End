@@ -285,3 +285,47 @@ export function useRestockProduct() {
     },
   });
 }
+
+// ─── F&B Status (pause / resume) ─────────────────────────────────────────────
+
+export interface FnbStatus {
+  isOpen: boolean;
+  notice: string;
+  resumeAt: string | null;
+}
+
+export function useFnbStatus() {
+  return useQuery<FnbStatus>({
+    queryKey: ["fnb-status"],
+    queryFn: async () => {
+      const r = await apiFetch("/api/fnb/status");
+      if (!r.ok) throw new Error("Failed");
+      return r.json();
+    },
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function useSetFnbStatus() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (data: { isOpen: boolean; notice?: string; resumeInMinutes?: number }) => {
+      const r = await apiFetch("/api/fnb/admin/status", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json() as Promise<FnbStatus>;
+    },
+    onSuccess: (_, vars) => {
+      toast({ title: vars.isOpen ? "F&B reopened" : "F&B paused" });
+      qc.invalidateQueries({ queryKey: ["fnb-status"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+}
+

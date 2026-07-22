@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import { apiFetch } from "@/lib/api";
 import {
   useAdminFnbOrders, useAdminMenu, useServeOrder, useCancelFnbOrder,
   useCreateProduct, useUpdateProduct, useRestockProduct, useDeleteProduct,
+  useFnbStatus, useSetFnbStatus,
   FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS,
 } from "@/hooks/useFnb";
 import { fmtDateTimeSG, getSGDateStr, nowSG } from "@/lib/sgTime";
@@ -96,6 +97,23 @@ const LOG_TYPE_STYLES: Record<string, { label: string; color: string; icon: any 
   cancelled_order:{ label: "Cancelled",        color: "text-red-400",    icon: XCircle },
 };
 
+function FnbCountdown({ resumeAt }: { resumeAt: string }) {
+  const [remaining, setRemaining] = useState("");
+  useEffect(() => {
+    const tick = () => {
+      const diff = new Date(resumeAt).getTime() - Date.now();
+      if (diff <= 0) { setRemaining(""); return; }
+      const m = Math.floor(diff / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setRemaining(` · reopens in ${m}:${String(s).padStart(2, "0")}`);
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [resumeAt]);
+  return <span className="text-orange-400 font-mono">{remaining}</span>;
+}
+
 export function FnbTab() {
   const { user } = useAuth();
   const isMaster = (user as any)?.isMaster === true;
@@ -113,6 +131,13 @@ export function FnbTab() {
   const [restockQty, setRestockQty] = useState("1");
   const [adjustQty, setAdjustQty] = useState("0");
   const [adjustNote, setAdjustNote] = useState("");
+
+  // F&B status
+  const { data: fnbStatus } = useFnbStatus();
+  const setFnbStatus = useSetFnbStatus();
+  const [pauseOpen, setPauseOpen] = useState(false);
+  const [pauseNotice, setPauseNotice] = useState("Back in a moment — toilet break!");
+  const [pauseMins, setPauseMins] = useState<number | "">(15);
 
   const { data: orders = [], isLoading: ordersLoading } = useAdminFnbOrders(orderFilter);
   const { data: analytics } = useFnbAnalytics(viewDay);
@@ -208,6 +233,87 @@ export function FnbTab() {
 
   return (
     <div className="space-y-4">
+
+      {/* ── F&B Status banner + controls ── */}
+      <Card className={fnbStatus?.isOpen === false ? "border-orange-500/60 bg-orange-950/20" : "border-green-600/40 bg-green-950/10"}>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className={`h-3 w-3 rounded-full ${fnbStatus?.isOpen === false ? "bg-orange-400 animate-pulse" : "bg-green-400"}`} />
+              <div>
+                <p className="font-semibold text-sm">
+                  F&B Counter — {fnbStatus?.isOpen === false ? "Paused" : "Open"}
+                </p>
+                {fnbStatus?.isOpen === false && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {fnbStatus.notice || "Temporarily unavailable"}
+                    {fnbStatus.resumeAt && (
+                      <FnbCountdown resumeAt={fnbStatus.resumeAt} />
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {fnbStatus?.isOpen === false ? (
+                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => setFnbStatus.mutate({ isOpen: true })} disabled={setFnbStatus.isPending}>
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Reopen F&B
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" className="border-orange-500 text-orange-400 hover:bg-orange-950/30" onClick={() => { setPauseNotice("Back in a moment — toilet break!"); setPauseMins(15); setPauseOpen(true); }}>
+                  <Clock className="h-3.5 w-3.5 mr-1" /> Pause F&B
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Pause dialog */}
+      <Dialog open={pauseOpen} onOpenChange={setPauseOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Pause F&B Counter</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <Label>Notice shown to customers</Label>
+              <Input value={pauseNotice} onChange={e => setPauseNotice(e.target.value)} placeholder="e.g. Back in 15 mins — toilet break!" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Auto-resume after</Label>
+              <div className="flex gap-2 flex-wrap">
+                {[5, 10, 15, 30].map(m => (
+                  <Button key={m} size="sm" variant={pauseMins === m ? "default" : "outline"} className="h-7 text-xs" onClick={() => setPauseMins(m)}>
+                    {m} min
+                  </Button>
+                ))}
+                <Button size="sm" variant={pauseMins === "" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setPauseMins("")}>
+                  Manual
+                </Button>
+              </div>
+              {pauseMins !== "" && (
+                <p className="text-xs text-muted-foreground">Counter reopens automatically after {pauseMins} minutes.</p>
+              )}
+              {pauseMins === "" && (
+                <p className="text-xs text-muted-foreground">You will need to reopen manually.</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="gap-2 mt-2">
+            <Button variant="ghost" onClick={() => setPauseOpen(false)}>Cancel</Button>
+            <Button
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+              disabled={setFnbStatus.isPending}
+              onClick={() => {
+                setFnbStatus.mutate({ isOpen: false, notice: pauseNotice, resumeInMinutes: pauseMins === "" ? 0 : Number(pauseMins) });
+                setPauseOpen(false);
+              }}
+            >
+              <Clock className="h-3.5 w-3.5 mr-1" /> Pause Now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Day selector ── */}
       <div className="flex items-center gap-2">
         <Label className="text-xs text-muted-foreground whitespace-nowrap">Viewing day:</Label>
