@@ -217,8 +217,8 @@ function MembershipCard({
           <VenuePinDisplay pin={membership.venuePin} />
         )}
 
-        {/* Monthly hours progress — only for active memberships */}
-        {isActive && hoursEntry && (() => {
+        {/* Monthly hours progress — only for non-private active memberships */}
+        {isActive && hoursEntry && !plan?.isPrivate && (() => {
           const hrs = hoursEntry.hoursThisMonth;
           const req = hoursEntry.requiredHours;
           const pct = Math.min(100, (hrs / req) * 100);
