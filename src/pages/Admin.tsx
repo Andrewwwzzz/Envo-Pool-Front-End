@@ -1902,7 +1902,7 @@ function PricingTab() {
   } = useAdminPublicHolidays();
 
   const [form, setForm] = useState({
-    name: "", start_time: "09:00", end_time: "23:00", hourly_rate: "20",
+    name: "", start_time: "09:00", end_time: "23:00", hourly_rate: "16.25",
     priority: "0", weekdays: [...WEEKDAYS] as string[], specific_date: "", table_id: "",
   });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -1954,7 +1954,7 @@ function PricingTab() {
       priority: parseInt(form.priority),
       is_active: true,
     });
-    setForm({ name: "", start_time: "09:00", end_time: "23:00", hourly_rate: "20", priority: "0", weekdays: [...WEEKDAYS], specific_date: "", table_id: "" });
+    setForm({ name: "", start_time: "09:00", end_time: "23:00", hourly_rate: "16.25", priority: "0", weekdays: [...WEEKDAYS], specific_date: "", table_id: "" });
   };
 
   const handleAddHoliday = () => {

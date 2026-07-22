@@ -131,7 +131,7 @@ export interface PricingSegment {
   segmentCost: number;
 }
 
-const DEFAULT_HOURLY_RATE = 20; // fallback if no rules match
+const DEFAULT_HOURLY_RATE = 16.25; // fallback if no rules match
 
 /**
  * Calculate booking price with multi-period support.
