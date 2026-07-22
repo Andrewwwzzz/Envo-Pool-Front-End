@@ -27,9 +27,9 @@ export function CampaignPopup() {
           <DialogTitle className="gold-gradient text-xl">{campaign.title}</DialogTitle>
         </DialogHeader>
 
-        {campaign.imageUrl && (
+        {(campaign.imageData || campaign.imageUrl) && (
           <img
-            src={campaign.imageUrl}
+            src={(campaign.imageData || campaign.imageUrl) as string}
             alt=""
             className="w-full rounded-lg object-cover max-h-52"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}

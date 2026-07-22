@@ -12,13 +12,15 @@ export function getAuthHeaders(): Record<string, string> {
 }
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      ...getAuthHeaders(),
-      ...(options.headers || {}),
-    },
-  });
+  const token = localStorage.getItem("token");
+  // Don't set Content-Type for FormData — browser sets it with the correct multipart boundary
+  const isFormData = options.body instanceof FormData;
+  const headers: Record<string, string> = {
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers as Record<string, string> || {}),
+  };
+  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
   return res;
 }
 

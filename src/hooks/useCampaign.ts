@@ -7,6 +7,7 @@ export interface Campaign {
   title: string;
   body: string;
   imageUrl?: string | null;
+  imageData?: string | null;
   buttonLabel?: string | null;
   buttonUrl?: string | null;
   isActive: boolean;
@@ -41,11 +42,14 @@ export function useAdminCampaigns() {
   });
 
   const create = useMutation({
-    mutationFn: async (data: Omit<Campaign, "_id" | "isActive" | "createdAt">) => {
-      const res = await apiFetch("/api/admin/campaigns", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+    mutationFn: async (data: Omit<Campaign, "_id" | "isActive" | "createdAt"> & { imageFile?: File | null }) => {
+      const fd = new FormData();
+      fd.append("title", data.title);
+      fd.append("body", data.body);
+      if (data.imageFile) fd.append("image", data.imageFile);
+      if (data.buttonLabel) fd.append("buttonLabel", data.buttonLabel);
+      if (data.buttonUrl) fd.append("buttonUrl", data.buttonUrl);
+      const res = await apiFetch("/api/admin/campaigns", { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to create campaign");
       return json;

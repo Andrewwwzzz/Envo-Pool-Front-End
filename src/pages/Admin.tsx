@@ -1897,14 +1897,35 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
 
 function CampaignsTab() {
   const { data: campaigns = [], create, toggle, remove } = useAdminCampaigns();
-  const [form, setForm] = useState({ title: "", body: "", imageUrl: "", buttonLabel: "", buttonUrl: "" });
+  const [form, setForm] = useState({ title: "", body: "", buttonLabel: "", buttonUrl: "" });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setImageFile(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setImagePreview(null);
+    }
+  };
 
   const handleCreate = () => {
     if (!form.title.trim() || !form.body.trim()) return;
     create.mutate({
       title: form.title, body: form.body,
-      imageUrl: form.imageUrl || null, buttonLabel: form.buttonLabel || null, buttonUrl: form.buttonUrl || null,
-    }, { onSuccess: () => setForm({ title: "", body: "", imageUrl: "", buttonLabel: "", buttonUrl: "" }) });
+      imageFile: imageFile ?? null,
+      buttonLabel: form.buttonLabel || null, buttonUrl: form.buttonUrl || null,
+    }, {
+      onSuccess: () => {
+        setForm({ title: "", body: "", buttonLabel: "", buttonUrl: "" });
+        setImageFile(null);
+        setImagePreview(null);
+      },
+    });
   };
 
   return (
@@ -1920,16 +1941,19 @@ function CampaignsTab() {
             <Label>Message</Label>
             <Textarea rows={4} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} placeholder="Tell your members what's happening…" />
           </div>
+          <div className="space-y-1.5">
+            <Label>Image (optional)</Label>
+            <input type="file" accept="image/*" onChange={handleImageChange} className="block w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-accent/10 file:text-accent hover:file:bg-accent/20 cursor-pointer" />
+            {imagePreview && (
+              <img src={imagePreview} alt="preview" className="mt-2 max-h-36 rounded-lg object-contain border border-border/40" />
+            )}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Image URL (optional)</Label>
-              <Input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://…" />
-            </div>
             <div className="space-y-1.5">
               <Label>Button Label (optional)</Label>
               <Input value={form.buttonLabel} onChange={(e) => setForm({ ...form, buttonLabel: e.target.value })} placeholder="e.g. Learn More" />
             </div>
-            <div className="space-y-1.5 sm:col-span-2">
+            <div className="space-y-1.5">
               <Label>Button URL (optional)</Label>
               <Input value={form.buttonUrl} onChange={(e) => setForm({ ...form, buttonUrl: e.target.value })} placeholder="https://…" />
             </div>
