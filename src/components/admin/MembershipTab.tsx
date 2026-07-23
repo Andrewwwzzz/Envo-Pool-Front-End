@@ -46,6 +46,7 @@ type PlanForm = {
   lockerIncluded: boolean;
   sortOrder: string;
   isPrivate: boolean;
+  minHoursForFreeRenewal: string;
 };
 
 // Index = day of week (0=Sun..6=Sat), matches backend toSGT().dayOfWeek convention
@@ -64,6 +65,7 @@ const emptyForm: PlanForm = {
   lockerIncluded: false,
   sortOrder: "0",
   isPrivate: false,
+  minHoursForFreeRenewal: "15",
 };
 
 function toPayload(f: PlanForm): any {
@@ -74,6 +76,7 @@ function toPayload(f: PlanForm): any {
     billingCycle: f.billingCycle,
     sortOrder: Number(f.sortOrder) || 0,
     isPrivate: Boolean(f.isPrivate),
+    minHoursForFreeRenewal: Number(f.minHoursForFreeRenewal) || 0,
     benefits: {
       bookingDiscount: Number(f.bookingDiscountPct) || 0,
       freeMinutesPerVisit: Number(f.freeMinutesPerVisit) || 0,
@@ -100,6 +103,7 @@ function fromPlan(p: MembershipPlan): PlanForm {
     lockerIncluded: !!(b.lockerIncluded ?? p.lockerIncluded),
     sortOrder: String(p.sortOrder ?? 0),
     isPrivate: !!((p as any).isPrivate),
+    minHoursForFreeRenewal: String((p as any).minHoursForFreeRenewal ?? 15),
   };
 }
 
@@ -224,6 +228,11 @@ function PlanFormDialog({
               <Label className="text-xs">Locker Included</Label>
               <Switch checked={form.lockerIncluded} onCheckedChange={(v) => setForm({ ...form, lockerIncluded: v })} />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Min Hours for Free Renewal</Label>
+            <Input type="number" min="0" step="0.5" value={form.minHoursForFreeRenewal} onChange={(e) => setForm({ ...form, minHoursForFreeRenewal: e.target.value })} />
+            <p className="text-xs text-muted-foreground">Hours member must play per cycle to earn a free renewal. Set 0 to disable free renewal for this plan.</p>
           </div>
           <div className="flex items-center justify-between rounded-md border border-purple-500/30 bg-purple-500/5 p-3">
             <div>
