@@ -203,14 +203,10 @@ const Auth = () => {
                       <Label htmlFor="dob">Date of Birth</Label>
                       <input
                         id="dob"
-                        type={dateOfBirth ? "date" : "text"}
+                        type="date"
                         value={dateOfBirth}
-                        placeholder="Select date of birth"
-                        autoComplete="off"
+                        autoComplete="bday"
                         required
-                        readOnly={!dateOfBirth}
-                        onFocus={(e) => { (e.target as HTMLInputElement).type = "date"; (e.target as HTMLInputElement).readOnly = false; }}
-                        onBlur={(e) => { if (!(e.target as HTMLInputElement).value) (e.target as HTMLInputElement).type = "text"; }}
                         onChange={(e) => {
                           (e.target as HTMLInputElement).setCustomValidity("");
                           setDateOfBirth(e.target.value);
