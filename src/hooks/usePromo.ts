@@ -13,6 +13,8 @@ export interface PromoValidation {
     max_discount_amount: number | null;
     minimum_spend: number | null;
     applies_to_table_id: string | null;
+    valid_time_start: string | null;
+    valid_time_end: string | null;
   };
 }
 
@@ -25,11 +27,13 @@ export function useValidatePromo() {
       originalPrice,
       tableId,
       bookingStartTime,
+      bookingEndTime,
     }: {
       code: string;
       originalPrice: number;
       tableId: string;
       bookingStartTime?: string | null;
+      bookingEndTime?: string | null;
     }): Promise<PromoValidation> => {
       if (!user) return { valid: false, error: "Not authenticated" };
 
@@ -40,6 +44,7 @@ export function useValidatePromo() {
           originalPrice,
           tableId,
           bookingStartTime: bookingStartTime ?? undefined,
+          bookingEndTime: bookingEndTime ?? undefined,
         }),
       });
 

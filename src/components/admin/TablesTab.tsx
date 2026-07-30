@@ -9,6 +9,7 @@ import {
   useTableMaintenance,
   useScheduleMaintenance,
   useDeleteMaintenance,
+  useBulkScheduleMaintenance,
 } from "@/hooks/useAdmin";
 import { useActiveWalkinSessions } from "@/hooks/useWalkin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,9 +68,16 @@ function DeviceControlPanel({ hardwareId }: { hardwareId: string | null }) {
 
 export default function TablesTab() {
   const { data: tables, startTimer, stopTimer, setMaintenance, setBulkMaintenance } = useAdminTables();
+  const bulkSchedule = useBulkScheduleMaintenance();
   const { data: bookings } = useAdminBookings();
   const { data: walkinSessions = [] } = useActiveWalkinSessions();
   const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
+  const [bulkScheduleOpen, setBulkScheduleOpen] = useState(false);
+  const [bulkSchedDate, setBulkSchedDate] = useState("");
+  const [bulkSchedStart, setBulkSchedStart] = useState("");
+  const [bulkSchedEnd, setBulkSchedEnd] = useState("");
+  const [bulkSchedReason, setBulkSchedReason] = useState("");
+  const { toast } = useToast();
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
   const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number; grossCost?: number; discountPercent?: number; paymentMethod?: "cash" | "wallet"; customerName?: string }>>({});
   const [hourlyRate, setHourlyRate] = useState("20");
@@ -174,7 +182,7 @@ export default function TablesTab() {
                 </CardTitle>
               </div>
               {selectedTables.size > 0 && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Button
                     size="sm"
                     variant="destructive"
@@ -199,6 +207,14 @@ export default function TablesTab() {
                     disabled={setBulkMaintenance.isPending}
                   >
                     <Check className="mr-2 h-3 w-3" /> Set Available
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setBulkScheduleOpen(true)}
+                    disabled={setBulkMaintenance.isPending}
+                  >
+                    <Timer className="mr-2 h-3 w-3" /> Schedule Maintenance
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => setSelectedTables(new Set())} disabled={setBulkMaintenance.isPending}>
                     <X className="h-3 w-3" />
@@ -365,6 +381,65 @@ export default function TablesTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Bulk Schedule Maintenance dialog */}
+      <Dialog open={bulkScheduleOpen} onOpenChange={(o) => { setBulkScheduleOpen(o); if (!o) { setBulkSchedDate(""); setBulkSchedStart(""); setBulkSchedEnd(""); setBulkSchedReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule Maintenance — {selectedTables.size} table{selectedTables.size > 1 ? "s" : ""}</DialogTitle>
+            <DialogDescription>Set a maintenance window for all selected tables.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="bulk-maint-date">Date</Label>
+              <Input id="bulk-maint-date" type="date" value={bulkSchedDate} min={getSGDateStr(new Date())} onChange={(e) => setBulkSchedDate(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="bulk-maint-start">Start Time</Label>
+                <Input id="bulk-maint-start" type="time" value={bulkSchedStart} onChange={(e) => setBulkSchedStart(e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="bulk-maint-end">End Time</Label>
+                <Input id="bulk-maint-end" type="time" value={bulkSchedEnd} onChange={(e) => setBulkSchedEnd(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="bulk-maint-reason">Reason</Label>
+              <Input id="bulk-maint-reason" placeholder="e.g. Scheduled closure" value={bulkSchedReason} onChange={(e) => setBulkSchedReason(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkScheduleOpen(false)} disabled={bulkSchedule.isPending}>Cancel</Button>
+            <Button
+              disabled={bulkSchedule.isPending || !bulkSchedDate || !bulkSchedStart || !bulkSchedEnd || !bulkSchedReason.trim()}
+              onClick={async () => {
+                const [y, m, d] = bulkSchedDate.split("-").map(Number);
+                const sgDate = new Date(y, (m || 1) - 1, d || 1);
+                const startUTC = sgSlotToUTC(sgDate, bulkSchedStart);
+                const endUTC   = sgSlotToUTC(sgDate, bulkSchedEnd);
+                if (endUTC.getTime() <= startUTC.getTime()) {
+                  toast({ title: "Invalid time range", description: "End time must be after start time.", variant: "destructive" });
+                  return;
+                }
+                try {
+                  await bulkSchedule.mutateAsync({
+                    tableIds: [...selectedTables],
+                    startTime: startUTC.toISOString(),
+                    endTime:   endUTC.toISOString(),
+                    reason:    bulkSchedReason.trim(),
+                  });
+                  setBulkScheduleOpen(false);
+                  setSelectedTables(new Set());
+                } catch {}
+              }}
+            >
+              {bulkSchedule.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <CloseTableDialog
         tables={tables || []}

@@ -282,6 +282,34 @@ export function useDeleteMaintenance() {
 }
 
 
+export function useBulkScheduleMaintenance() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ tableIds, startTime, endTime, reason }: { tableIds: string[]; startTime: string; endTime: string; reason: string }) => {
+      await Promise.all(
+        tableIds.map(async (tableId) => {
+          const res = await apiFetch("/api/admin/maintenance", {
+            method: "POST",
+            body: JSON.stringify({ tableId, startTime, endTime, reason }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `Failed to schedule table ${tableId}`);
+          }
+        })
+      );
+    },
+    onSuccess: (_data, vars) => {
+      toast({ title: `Maintenance scheduled for ${vars.tableIds.length} table${vars.tableIds.length > 1 ? "s" : ""}` });
+      queryClient.invalidateQueries({ queryKey: ["table-maintenance"] });
+    },
+    onError: (e: any) => {
+      toast({ title: "Failed to schedule", description: e.message, variant: "destructive" });
+    },
+  });
+}
+
 export function useAdminTimerSessions(showDeleted = false) {
   const key = showDeleted ? "admin-timer-sessions-deleted" : "admin-timer-sessions";
   return useQuery({

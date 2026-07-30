@@ -18,16 +18,12 @@ const Kyc = () => {
   const status = searchParams.get("status");
   const error = searchParams.get("error");
   const verifiedName = searchParams.get("name") || "";
+  const kycToken = searchParams.get("kycToken") || "";
 
-  const [name, setName] = useState(verifiedName);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    setName(verifiedName);
-  }, [verifiedName]);
 
   useEffect(() => {
     if (status === "success" || error) {
@@ -60,17 +56,7 @@ const Kyc = () => {
     try {
       const res = await apiFetch("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-          phone,
-          kycVerified: true,
-          kycData: {
-            name: searchParams.get("name"),
-            dob: searchParams.get("dob"),
-          },
-        }),
+        body: JSON.stringify({ email, password, phone, kycToken }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -139,11 +125,15 @@ const Kyc = () => {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name (Display Name)</Label>
-                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="bg-background/50" />
-                    <p className="text-xs text-muted-foreground">This is your nickname shown on bookings — not your legal name</p>
-                  </div>
+                  {verifiedName && (
+                    <div className="space-y-2">
+                      <Label>Display Name</Label>
+                      <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-foreground">
+                        {verifiedName}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Set from your Singpass legal name — cannot be changed after verification.</p>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="bg-background/50" />

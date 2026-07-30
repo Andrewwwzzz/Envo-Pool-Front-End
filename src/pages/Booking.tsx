@@ -180,16 +180,29 @@ const Booking = () => {
   // ---- Discount candidates ----
   // Compare promo, reward, and membership; only the single highest applies (no stacking).
 
-  // Promo (percentage or fixed)
+  // Promo (percentage or fixed) — if the promo has a time window, discount only the overlapping portion
   const promoDiscountAmt = useMemo(() => {
     if (!appliedPromo || !originalPrice) return 0;
-    return calculateDiscount(
-      originalPrice,
-      appliedPromo.discount_type,
-      appliedPromo.discount_value,
-      appliedPromo.max_discount_amount
-    );
-  }, [appliedPromo, originalPrice]);
+    const timeStart = appliedPromo.valid_time_start;
+    const timeEnd   = appliedPromo.valid_time_end;
+    if (timeStart && timeEnd && pricing?.segments?.length && startDate && endDate) {
+      const dateStrSGT = startDate.toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" });
+      const windowStart = new Date(`${dateStrSGT}T${timeStart}:00+08:00`);
+      const windowEnd   = new Date(`${dateStrSGT}T${timeEnd}:00+08:00`);
+      const overlapStart = new Date(Math.max(startDate.getTime(), windowStart.getTime()));
+      const overlapEnd   = new Date(Math.min(endDate.getTime(),   windowEnd.getTime()));
+      if (overlapEnd <= overlapStart) return 0;
+      const overlapCost = (pricing.segments as any[])
+        .filter(seg => new Date(seg.endTime) > overlapStart && new Date(seg.startTime) < overlapEnd)
+        .reduce((sum, seg) => {
+          const sStart = Math.max(new Date(seg.startTime).getTime(), overlapStart.getTime());
+          const sEnd   = Math.min(new Date(seg.endTime).getTime(),   overlapEnd.getTime());
+          return sum + ((sEnd - sStart) / (1000 * 60 * 60)) * seg.hourlyRate;
+        }, 0);
+      return calculateDiscount(overlapCost, appliedPromo.discount_type, appliedPromo.discount_value, appliedPromo.max_discount_amount);
+    }
+    return calculateDiscount(originalPrice, appliedPromo.discount_type, appliedPromo.discount_value, appliedPromo.max_discount_amount);
+  }, [appliedPromo, originalPrice, pricing?.segments, startDate, endDate]);
   const promoPct = originalPrice > 0 ? (promoDiscountAmt / originalPrice) * 100 : 0;
 
   // Reward (free_session => hour credit; booking_discount => %; free_item => no $ impact)
@@ -454,6 +467,7 @@ const Booking = () => {
       originalPrice,
       tableId: selectedTable,
       bookingStartTime: startDate?.toISOString() ?? null,
+      bookingEndTime: endDate?.toISOString() ?? null,
     });
     if (result.valid && result.promo) {
       appliedPromoPriceRef.current = originalPrice;
