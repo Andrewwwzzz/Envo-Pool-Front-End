@@ -15,13 +15,13 @@ export interface OperatingHoursData {
 }
 
 export const DEFAULT_SCHEDULE: WeekSchedule = {
-  "0": { open: true, openTime: "10:00", closeTime: "02:00" }, // Sunday
+  "0": { open: true, openTime: "10:00", closeTime: "01:00" }, // Sunday
   "1": { open: true, openTime: "10:00", closeTime: "01:00" },
   "2": { open: true, openTime: "10:00", closeTime: "01:00" },
   "3": { open: true, openTime: "10:00", closeTime: "01:00" },
   "4": { open: true, openTime: "10:00", closeTime: "01:00" },
-  "5": { open: true, openTime: "10:00", closeTime: "01:00" },
-  "6": { open: true, openTime: "10:00", closeTime: "01:00" }, // Saturday
+  "5": { open: true, openTime: "10:00", closeTime: "02:00" }, // Friday
+  "6": { open: true, openTime: "10:00", closeTime: "02:00" }, // Saturday
 };
 
 export const DEFAULT_PH_CLOSE = "02:00";
