@@ -25,6 +25,8 @@ export default function TopUpWalletDialog({
   const [cashConfirmation, setCashConfirmation] = useState<{ amount: number } | null>(null);
   const [paynowConfirmation, setPaynowConfirmation] = useState<{ amount: number } | null>(null);
 
+  const [cancelling, setCancelling] = useState<string | null>(null);
+
   const { data: requests } = useQuery({
     queryKey: ["my-topup-requests"],
     queryFn: async () => {
@@ -35,6 +37,21 @@ export default function TopUpWalletDialog({
     },
     refetchInterval: 15000,
   });
+
+  const handleCancel = async (id: string) => {
+    setCancelling(id);
+    try {
+      const res = await apiFetch(`/api/transactions/topup/request/${id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Failed to cancel");
+      toast({ title: "Request cancelled" });
+      qc.invalidateQueries({ queryKey: ["my-topup-requests"] });
+    } catch (e: any) {
+      toast({ title: e?.message || "Failed to cancel", variant: "destructive" });
+    } finally {
+      setCancelling(null);
+    }
+  };
 
   const resetState = () => { setAmount(""); setMethod(null); setCashConfirmation(null); };
   const handleClose = (v: boolean) => { if (!v) resetState(); onOpenChange(v); };
@@ -65,6 +82,7 @@ export default function TopUpWalletDialog({
     const v = String(s || "").toLowerCase();
     if (v === "approved") return "bg-green-500/10 text-green-400 border-green-500/30";
     if (v === "rejected") return "bg-destructive/10 text-destructive border-destructive/30";
+    if (v === "cancelled") return "bg-muted text-muted-foreground border-border";
     return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
   };
   const statusText = (s: string) => {
@@ -209,7 +227,7 @@ export default function TopUpWalletDialog({
                         <p className="text-xs text-destructive mt-1">Reason: {r.rejectionReason}</p>
                       )}
                     </div>
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex flex-col items-end gap-1.5">
                       <Badge variant="outline" className={statusClass(r.status)}>
                         {statusText(r.status)}
                       </Badge>
@@ -217,6 +235,15 @@ export default function TopUpWalletDialog({
                         <Badge variant="outline" className={methodBadgeClass(r.method)}>
                           {methodLabel(r.method)}
                         </Badge>
+                      )}
+                      {String(r.status || "").toLowerCase() === "pending" && (
+                        <button
+                          onClick={() => handleCancel(r._id || r.id)}
+                          disabled={cancelling === (r._id || r.id)}
+                          className="text-xs text-destructive hover:underline disabled:opacity-50"
+                        >
+                          {cancelling === (r._id || r.id) ? "Cancelling…" : "Cancel"}
+                        </button>
                       )}
                     </div>
                   </div>
