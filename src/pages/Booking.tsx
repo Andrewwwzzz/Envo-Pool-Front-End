@@ -757,13 +757,14 @@ const Booking = () => {
                 <p className="text-muted-foreground">No tables available.</p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {tables.map((table) => {
+                  {[...(tables ?? [])].sort((a, b) => a.table_number - b.table_number).map((table) => {
                     const bookable = isTableBookable(table);
                     const canStartWalkin =
                       kycVerified &&
                       !activeWalkin &&
                       table.status === "Available" &&
                       !!table.hardware_id;
+                    const isChinese = [10, 11, 13, 14].includes(table.table_number);
                     return (
                       <div key={table.id} className="flex flex-col gap-2">
                         <button
@@ -776,6 +777,9 @@ const Booking = () => {
                           } ${!bookable ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
                         >
                           <p className="font-semibold text-foreground">Table {table.table_number}</p>
+                          <p className={`text-xs mt-0.5 ${isChinese ? "text-blue-400" : "text-amber-400"}`}>
+                            {isChinese ? "Chinese Pool" : "American Pool"}
+                          </p>
                           {!bookable && (
                             <Badge variant="outline" className={`mt-2 text-xs ${statusColor[table.status]}`}>
                               {table.status}
