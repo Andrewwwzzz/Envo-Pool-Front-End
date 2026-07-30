@@ -436,6 +436,7 @@ const Booking = () => {
       code: promoCode,
       originalPrice,
       tableId: selectedTable,
+      bookingStartTime: startDate?.toISOString() ?? null,
     });
     if (result.valid && result.promo) {
       setAppliedPromo(result.promo);

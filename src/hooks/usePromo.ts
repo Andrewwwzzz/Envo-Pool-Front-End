@@ -24,10 +24,12 @@ export function useValidatePromo() {
       code,
       originalPrice,
       tableId,
+      bookingStartTime,
     }: {
       code: string;
       originalPrice: number;
       tableId: string;
+      bookingStartTime?: string | null;
     }): Promise<PromoValidation> => {
       if (!user) return { valid: false, error: "Not authenticated" };
 
@@ -37,6 +39,7 @@ export function useValidatePromo() {
           code,
           originalPrice,
           tableId,
+          bookingStartTime: bookingStartTime ?? undefined,
         }),
       });
 

@@ -444,6 +444,9 @@ export function useAdminPromoCodes(filter: "default" | "all" = "all") {
         deletedAt: p.deletedAt || p.deleted_at,
         deletedBy: p.deletedBy || p.deleted_by,
         deleteReason: p.deleteReason || p.deletionReason || p.deleted_reason,
+        valid_days: Array.isArray(p.valid_days) ? p.valid_days : [],
+        valid_time_start: p.valid_time_start ?? null,
+        valid_time_end: p.valid_time_end ?? null,
       }));
       setCache(cacheKey, data);
       return data;
@@ -463,6 +466,9 @@ export function useAdminPromoCodes(filter: "default" | "all" = "all") {
       applies_to_table_id?: string | null;
       expiry_date?: string | null;
       is_active: boolean;
+      valid_days?: number[];
+      valid_time_start?: string | null;
+      valid_time_end?: string | null;
     }) => {
       const res = await apiFetch("/api/admin/promo-codes", {
         method: "POST",

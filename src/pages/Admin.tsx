@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import TablesTab from "@/components/admin/TablesTab";
 import { useToast } from "@/hooks/use-toast";
 import AdminBookingDetailDialog from "@/components/admin/AdminBookingDetailDialog";
@@ -1229,6 +1229,11 @@ function InvoicesTab() {
   );
 }
 
+type SortCol = "name" | "shortId" | "email" | "status" | "role" | "wallet" | "totalSpent" | "joined";
+type SortDir = "asc" | "desc";
+type StatusFilter = "all" | "verified" | "unverified";
+type RoleFilter = "all" | "admin" | "staff" | "user";
+
 function CustomersTab({
   pendingEmail,
   onPendingHandled,
@@ -1240,6 +1245,10 @@ function CustomersTab({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const { data: customers, isLoading } = useAdminCustomers(debouncedSearch);
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  const [sortCol, setSortCol] = useState<SortCol>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 400);
@@ -1267,6 +1276,45 @@ function CustomersTab({
     }
   }, [pendingEmail, customers, onPendingHandled]);
 
+  const handleHeaderClick = (col: SortCol) => {
+    if (col === "status") {
+      setStatusFilter(prev => prev === "all" ? "verified" : prev === "verified" ? "unverified" : "all");
+      return;
+    }
+    if (col === "role") {
+      setRoleFilter(prev => prev === "all" ? "admin" : prev === "admin" ? "staff" : prev === "staff" ? "user" : "all");
+      return;
+    }
+    if (sortCol === col) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+  };
+
+  const displayCustomers = useMemo(() => {
+    let arr = [...(customers || [])];
+    if (statusFilter === "verified") arr = arr.filter(c => c.isVerified);
+    if (statusFilter === "unverified") arr = arr.filter(c => !c.isVerified);
+    if (roleFilter !== "all") arr = arr.filter(c => c.role === roleFilter);
+    arr.sort((a, b) => {
+      let va: any, vb: any;
+      if (sortCol === "name") { va = (a.legal_name || a.name || "").toLowerCase(); vb = (b.legal_name || b.name || "").toLowerCase(); }
+      else if (sortCol === "shortId") { va = a.shortId || ""; vb = b.shortId || ""; }
+      else if (sortCol === "email") { va = (a.email || "").toLowerCase(); vb = (b.email || "").toLowerCase(); }
+      else if (sortCol === "status") { va = a.isVerified ? 0 : 1; vb = b.isVerified ? 0 : 1; }
+      else if (sortCol === "role") { va = a.role || ""; vb = b.role || ""; }
+      else if (sortCol === "wallet") { va = a.wallet_balance ?? 0; vb = b.wallet_balance ?? 0; }
+      else if (sortCol === "totalSpent") { va = a.total_spent ?? 0; vb = b.total_spent ?? 0; }
+      else if (sortCol === "joined") { va = new Date(a.created_at || 0).getTime(); vb = new Date(b.created_at || 0).getTime(); }
+      else { return 0; }
+      const cmp = typeof va === "number" ? va - vb : String(va).localeCompare(String(vb));
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return arr;
+  }, [customers, sortCol, sortDir, statusFilter, roleFilter]);
+
   if (selectedCustomer) {
     return <CustomerDetail customer={selectedCustomer} onBack={() => setSelectedCustomer(null)} />;
   }
@@ -1292,23 +1340,72 @@ function CustomersTab({
 
         
 
-        {customers && customers.length === 0 && (
+        {(statusFilter !== "all" || roleFilter !== "all") && (
+          <div className="flex flex-wrap gap-2 text-xs">
+            {statusFilter !== "all" && (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-muted border border-border">
+                Status: <strong>{statusFilter === "verified" ? "Verified" : "Unverified"}</strong>
+                <button className="ml-1 hover:text-destructive" onClick={() => setStatusFilter("all")}>✕</button>
+              </span>
+            )}
+            {roleFilter !== "all" && (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-muted border border-border capitalize">
+                Role: <strong>{roleFilter}</strong>
+                <button className="ml-1 hover:text-destructive" onClick={() => setRoleFilter("all")}>✕</button>
+              </span>
+            )}
+            <span className="text-muted-foreground py-1">{displayCustomers.length} result{displayCustomers.length !== 1 ? "s" : ""}</span>
+          </div>
+        )}
+
+        {displayCustomers.length === 0 && !isLoading && (
           <p className="text-muted-foreground text-sm">No customers found.</p>
         )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-border text-left">
-              <th className="pb-2 pr-4">Name</th>
-              <th className="pb-2 pr-4">Short ID</th>
-              <th className="pb-2 pr-4">Email</th>
-              <th className="pb-2 pr-4">Status</th>
-              <th className="pb-2 pr-4">Role</th>
-              <th className="pb-2 pr-4">Wallet</th>
-              
-              <th className="pb-2 pr-4">Total Spent</th>
-              <th className="pb-2">Joined</th>
-            </tr></thead>
+            <thead>
+              <tr className="border-b border-border text-left">
+                {([
+                  { key: "name",       label: "Name" },
+                  { key: "shortId",    label: "Short ID" },
+                  { key: "email",      label: "Email" },
+                  { key: "status",     label: "Status" },
+                  { key: "role",       label: "Role" },
+                  { key: "wallet",     label: "Wallet" },
+                  { key: "totalSpent", label: "Total Spent" },
+                  { key: "joined",     label: "Joined" },
+                ] as { key: SortCol; label: string }[]).map(({ key, label }) => {
+                  const isFilter = key === "status" || key === "role";
+                  const isActive = isFilter
+                    ? (key === "status" ? statusFilter !== "all" : roleFilter !== "all")
+                    : sortCol === key;
+                  const filterLabel = key === "status" && statusFilter !== "all"
+                    ? (statusFilter === "verified" ? "✓ Verified" : "✗ Unverified")
+                    : key === "role" && roleFilter !== "all"
+                    ? roleFilter.charAt(0).toUpperCase() + roleFilter.slice(1)
+                    : null;
+                  return (
+                    <th
+                      key={key}
+                      onClick={() => handleHeaderClick(key)}
+                      className={`pb-2 pr-4 cursor-pointer select-none whitespace-nowrap group ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {filterLabel || label}
+                        {isFilter ? (
+                          <span className={`text-xs ${isActive ? "text-primary" : "opacity-40 group-hover:opacity-70"}`}>▼</span>
+                        ) : (
+                          <span className={`text-xs transition-opacity ${sortCol === key ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`}>
+                            {sortCol === key ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
+                          </span>
+                        )}
+                      </span>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
             <tbody>
               {isLoading && (!customers || customers.length === 0) ? (
                 Array.from({ length: 5 }).map((_, i) => (
@@ -1318,7 +1415,7 @@ function CustomersTab({
                     ))}
                   </tr>
                 ))
-              ) : (customers || []).map((c: any) => (
+              ) : displayCustomers.map((c: any) => (
                 <tr
                   key={c.id}
                   className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors"
@@ -2470,6 +2567,7 @@ function PromosTab() {
   const [form, setForm] = useState({
     code: "", discount_type: "percentage" as string, discount_value: "", minimum_spend: "",
     max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
+    valid_days: [] as number[], valid_time_start: "", valid_time_end: "",
   });
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailPromo, setDetailPromo] = useState<any | null>(null);
@@ -2477,6 +2575,7 @@ function PromosTab() {
   const [editForm, setEditForm] = useState({
     discount_type: "percentage", discount_value: "", minimum_spend: "",
     max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
+    valid_days: [] as number[], valid_time_start: "", valid_time_end: "",
   });
 
   const openEdit = (p: any) => {
@@ -2489,6 +2588,9 @@ function PromosTab() {
       usage_limit: p.usage_limit != null ? String(p.usage_limit) : "",
       per_user_limit: p.per_user_limit != null ? String(p.per_user_limit) : "",
       expiry_date: p.expiry_date ? new Date(p.expiry_date).toISOString().slice(0, 16) : "",
+      valid_days: Array.isArray(p.valid_days) ? p.valid_days : [],
+      valid_time_start: p.valid_time_start ?? "",
+      valid_time_end: p.valid_time_end ?? "",
     });
   };
 
@@ -2504,6 +2606,9 @@ function PromosTab() {
         usage_limit: editForm.usage_limit ? parseInt(editForm.usage_limit) : null,
         per_user_limit: editForm.per_user_limit ? parseInt(editForm.per_user_limit) : null,
         expiry_date: editForm.expiry_date || null,
+        valid_days: editForm.valid_days,
+        valid_time_start: editForm.valid_time_start || null,
+        valid_time_end: editForm.valid_time_end || null,
       },
     });
     setEditTarget(null);
@@ -2520,8 +2625,11 @@ function PromosTab() {
       per_user_limit: form.per_user_limit ? parseInt(form.per_user_limit) : null,
       expiry_date: form.expiry_date || null,
       is_active: true,
+      valid_days: form.valid_days,
+      valid_time_start: form.valid_time_start || null,
+      valid_time_end: form.valid_time_end || null,
     });
-    setForm({ code: "", discount_type: "percentage", discount_value: "", minimum_spend: "", max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "" });
+    setForm({ code: "", discount_type: "percentage", discount_value: "", minimum_spend: "", max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "", valid_days: [], valid_time_start: "", valid_time_end: "" });
   };
 
   return (
@@ -2569,6 +2677,44 @@ function PromosTab() {
               <Input type="datetime-local" value={form.expiry_date} onChange={(e) => setForm({ ...form, expiry_date: e.target.value })} />
             </div>
           </div>
+
+          <div className="space-y-3 border-t border-border/50 pt-4">
+            <div className="space-y-2">
+              <Label>Valid Days <span className="text-muted-foreground font-normal">(leave empty = all days)</span></Label>
+              <div className="flex flex-wrap gap-2">
+                {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((day, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      const next = form.valid_days.includes(i)
+                        ? form.valid_days.filter(d => d !== i)
+                        : [...form.valid_days, i];
+                      setForm({ ...form, valid_days: next });
+                    }}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                      form.valid_days.includes(i)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border hover:border-primary/50 hover:bg-muted/50"
+                    }`}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Time From <span className="text-muted-foreground font-normal">(SGT, opt)</span></Label>
+                <Input type="time" value={form.valid_time_start} onChange={(e) => setForm({ ...form, valid_time_start: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Time Until <span className="text-muted-foreground font-normal">(SGT, opt)</span></Label>
+                <Input type="time" value={form.valid_time_end} onChange={(e) => setForm({ ...form, valid_time_end: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
           <Button onClick={handleCreate} disabled={!form.code || !form.discount_value || create.isPending}>Create Promo</Button>
         </CardContent>
       </Card>
@@ -2705,6 +2851,44 @@ function PromosTab() {
               <Input type="datetime-local" value={editForm.expiry_date} onChange={(e) => setEditForm({ ...editForm, expiry_date: e.target.value })} />
             </div>
           </div>
+
+          <div className="space-y-3 border-t border-border/50 pt-3">
+            <div className="space-y-2">
+              <Label>Valid Days <span className="text-muted-foreground font-normal">(empty = all days)</span></Label>
+              <div className="flex flex-wrap gap-2">
+                {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((day, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      const next = editForm.valid_days.includes(i)
+                        ? editForm.valid_days.filter(d => d !== i)
+                        : [...editForm.valid_days, i];
+                      setEditForm({ ...editForm, valid_days: next });
+                    }}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                      editForm.valid_days.includes(i)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border hover:border-primary/50 hover:bg-muted/50"
+                    }`}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Time From <span className="text-muted-foreground font-normal">(SGT)</span></Label>
+                <Input type="time" value={editForm.valid_time_start} onChange={(e) => setEditForm({ ...editForm, valid_time_start: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Time Until <span className="text-muted-foreground font-normal">(SGT)</span></Label>
+                <Input type="time" value={editForm.valid_time_end} onChange={(e) => setEditForm({ ...editForm, valid_time_end: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
             <Button onClick={handleEdit} disabled={!editForm.discount_value || update.isPending}>
