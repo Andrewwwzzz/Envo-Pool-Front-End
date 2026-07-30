@@ -2566,7 +2566,7 @@ function PromosTab() {
   const { data: promos, create, toggle, remove, update } = useAdminPromoCodes(hideDeleted ? "default" : "all");
   const [form, setForm] = useState({
     code: "", discount_type: "percentage" as string, discount_value: "", minimum_spend: "",
-    max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
+    minimum_hours: "", max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
     valid_days: [] as number[], valid_time_start: "", valid_time_end: "",
   });
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
@@ -2574,7 +2574,7 @@ function PromosTab() {
   const [editTarget, setEditTarget] = useState<any | null>(null);
   const [editForm, setEditForm] = useState({
     discount_type: "percentage", discount_value: "", minimum_spend: "",
-    max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
+    minimum_hours: "", max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
     valid_days: [] as number[], valid_time_start: "", valid_time_end: "",
   });
 
@@ -2584,6 +2584,7 @@ function PromosTab() {
       discount_type: p.discount_type ?? "percentage",
       discount_value: String(p.discount_value ?? ""),
       minimum_spend: p.minimum_spend != null ? String(p.minimum_spend) : "",
+      minimum_hours: p.minimum_hours != null ? String(p.minimum_hours) : "",
       max_discount_amount: p.max_discount_amount != null ? String(p.max_discount_amount) : "",
       usage_limit: p.usage_limit != null ? String(p.usage_limit) : "",
       per_user_limit: p.per_user_limit != null ? String(p.per_user_limit) : "",
@@ -2602,6 +2603,7 @@ function PromosTab() {
         discount_type: editForm.discount_type,
         discount_value: parseFloat(editForm.discount_value),
         minimum_spend: editForm.minimum_spend ? parseFloat(editForm.minimum_spend) : null,
+        minimum_hours: editForm.minimum_hours ? parseFloat(editForm.minimum_hours) : null,
         max_discount_amount: editForm.max_discount_amount ? parseFloat(editForm.max_discount_amount) : null,
         usage_limit: editForm.usage_limit ? parseInt(editForm.usage_limit) : null,
         per_user_limit: editForm.per_user_limit ? parseInt(editForm.per_user_limit) : null,
@@ -2620,6 +2622,7 @@ function PromosTab() {
       discount_type: form.discount_type,
       discount_value: parseFloat(form.discount_value),
       minimum_spend: form.minimum_spend ? parseFloat(form.minimum_spend) : null,
+      minimum_hours: form.minimum_hours ? parseFloat(form.minimum_hours) : null,
       max_discount_amount: form.max_discount_amount ? parseFloat(form.max_discount_amount) : null,
       usage_limit: form.usage_limit ? parseInt(form.usage_limit) : null,
       per_user_limit: form.per_user_limit ? parseInt(form.per_user_limit) : null,
@@ -2629,7 +2632,7 @@ function PromosTab() {
       valid_time_start: form.valid_time_start || null,
       valid_time_end: form.valid_time_end || null,
     });
-    setForm({ code: "", discount_type: "percentage", discount_value: "", minimum_spend: "", max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "", valid_days: [], valid_time_start: "", valid_time_end: "" });
+    setForm({ code: "", discount_type: "percentage", discount_value: "", minimum_spend: "", minimum_hours: "", max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "", valid_days: [], valid_time_start: "", valid_time_end: "" });
   };
 
   return (
@@ -2659,6 +2662,10 @@ function PromosTab() {
             <div className="space-y-2">
               <Label>Min Spend (opt)</Label>
               <Input type="number" value={form.minimum_spend} onChange={(e) => setForm({ ...form, minimum_spend: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Min Hours (opt)</Label>
+              <Input type="number" value={form.minimum_hours} onChange={(e) => setForm({ ...form, minimum_hours: e.target.value })} placeholder="e.g. 4" />
             </div>
             <div className="space-y-2">
               <Label>Max Discount (opt)</Label>
@@ -2835,6 +2842,10 @@ function PromosTab() {
               <Input type="number" value={editForm.minimum_spend} onChange={(e) => setEditForm({ ...editForm, minimum_spend: e.target.value })} />
             </div>
             <div className="space-y-1.5">
+              <Label>Min Hours (opt)</Label>
+              <Input type="number" value={editForm.minimum_hours} onChange={(e) => setEditForm({ ...editForm, minimum_hours: e.target.value })} placeholder="e.g. 4" />
+            </div>
+            <div className="space-y-1.5">
               <Label>Max Discount (opt)</Label>
               <Input type="number" value={editForm.max_discount_amount} onChange={(e) => setEditForm({ ...editForm, max_discount_amount: e.target.value })} />
             </div>
@@ -2977,6 +2988,7 @@ function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () 
             <div><div className="text-muted-foreground">Type</div><div>{isPct ? "Percentage" : "Fixed"}</div></div>
             <div><div className="text-muted-foreground">Value</div><div>{valueLabel}</div></div>
             <div><div className="text-muted-foreground">Min Spend</div><div>{minSpend}</div></div>
+            <div><div className="text-muted-foreground">Min Hours</div><div>{promo.minimum_hours ?? "—"}</div></div>
             <div><div className="text-muted-foreground">Max Discount</div><div>{maxDisc}</div></div>
             <div><div className="text-muted-foreground">Per User Limit</div><div>{perUser}</div></div>
             <div><div className="text-muted-foreground">Expiry</div><div>{expiryLabel}</div></div>

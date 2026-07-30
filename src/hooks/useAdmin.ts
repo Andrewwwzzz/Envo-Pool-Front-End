@@ -496,6 +496,7 @@ export function useAdminPromoCodes(filter: "default" | "all" = "all") {
         valid_days: Array.isArray(p.valid_days) ? p.valid_days : [],
         valid_time_start: p.valid_time_start ?? null,
         valid_time_end: p.valid_time_end ?? null,
+        minimum_hours: p.minimum_hours ?? null,
       }));
       setCache(cacheKey, data);
       return data;
@@ -518,6 +519,7 @@ export function useAdminPromoCodes(filter: "default" | "all" = "all") {
       valid_days?: number[];
       valid_time_start?: string | null;
       valid_time_end?: string | null;
+      minimum_hours?: number | null;
     }) => {
       const res = await apiFetch("/api/admin/promo-codes", {
         method: "POST",

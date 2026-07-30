@@ -15,6 +15,7 @@ export interface PromoValidation {
     applies_to_table_id: string | null;
     valid_time_start: string | null;
     valid_time_end: string | null;
+    minimum_hours: number | null;
   };
 }
 
