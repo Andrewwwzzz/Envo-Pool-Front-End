@@ -119,6 +119,18 @@ export function useAdminSubscriptions(filter: "default" | "deleted" | "all" = "d
   });
 }
 
+export function useAdminMembershipHours() {
+  return useQuery<{ membershipId: string; hoursThisMonth: number; requiredHours: number; cycleStart: string; renewalDate: string }[]>({
+    queryKey: ["membership", "admin-hours"],
+    queryFn: async () => {
+      const j = await getJson("/api/membership/admin/all-hours");
+      return Array.isArray(j) ? j : [];
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
 export function useAssignMembership() {
   const qc = useQueryClient();
   return useMutation({

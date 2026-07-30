@@ -18,6 +18,7 @@ import {
   useDeleteMembershipPlan,
   useToggleMembershipPlanActive,
   useAdminSubscriptions,
+  useAdminMembershipHours,
   useAssignMembership,
   useDeleteMembership,
   useAssignMembershipLocker,
@@ -564,6 +565,13 @@ export default function MembershipTab() {
   const [detailPlan, setDetailPlan] = useState<MembershipPlan | null>(null);
   const [hidePlanDeleted, setHidePlanDeleted] = useState(false);
 
+  const { data: hoursData = [] } = useAdminMembershipHours();
+  const hoursMap = useMemo(() => {
+    const m: Record<string, { hoursThisMonth: number; requiredHours: number }> = {};
+    for (const h of hoursData) m[h.membershipId] = h;
+    return m;
+  }, [hoursData]);
+
   const visibleSubs = subs || [];
   const visiblePlans = hidePlanDeleted ? plans.filter((p: any) => !isDeleted(p)) : plans;
 
@@ -688,6 +696,7 @@ export default function MembershipTab() {
                     <TableHead>Price</TableHead>
                     <TableHead>Start</TableHead>
                     <TableHead>Renewal</TableHead>
+                    <TableHead>Hours (this cycle)</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Locker</TableHead>
                     <TableHead>Venue PIN</TableHead>
@@ -718,6 +727,30 @@ export default function MembershipTab() {
                         <TableCell className={deleted ? "line-through" : ""}>${price}</TableCell>
                         <TableCell>{s.startDate ? fmtDateSG(s.startDate) : "—"}</TableCell>
                         <TableCell>{s.renewalDate ? fmtDateSG(s.renewalDate) : "—"}</TableCell>
+                        <TableCell>
+                          {(() => {
+                            if (deleted) return <span className="text-muted-foreground">—</span>;
+                            const h = hoursMap[rowId];
+                            if (!h) return <span className="text-muted-foreground text-xs">—</span>;
+                            const pct = h.requiredHours > 0 ? Math.min(100, (h.hoursThisMonth / h.requiredHours) * 100) : 100;
+                            const met = h.requiredHours === 0 || h.hoursThisMonth >= h.requiredHours;
+                            return (
+                              <div className="space-y-0.5 min-w-[90px]">
+                                <div className={`text-xs font-medium ${met ? "text-green-400" : ""}`}>
+                                  {h.hoursThisMonth.toFixed(1)}{h.requiredHours > 0 ? ` / ${h.requiredHours}h` : "h"}
+                                </div>
+                                {h.requiredHours > 0 && (
+                                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${met ? "bg-green-500" : "bg-amber-500"}`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </TableCell>
                         <TableCell>
                           {deleted ? (
                             <Badge variant="outline" className="bg-muted">Deleted</Badge>
