@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useTables, TableStatus, validateDuration } from "@/hooks/useBooking";
@@ -58,6 +58,7 @@ const Booking = () => {
 
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<PromoValidation["promo"] | null>(null);
+  const appliedPromoPriceRef = useRef<number>(0);
   const [rewardCodeInput, setRewardCodeInput] = useState("");
   const [appliedReward, setAppliedReward] = useState<Reward | null>(null);
   const [validatingReward, setValidatingReward] = useState(false);
@@ -161,6 +162,13 @@ const Booking = () => {
   }, [startDate, endDate, selectedTable, pricingRules, publicHolidayDateSet]);
 
   const originalPrice = pricing?.totalPrice ?? 0;
+
+  // Clear applied promo whenever the booking price changes (e.g. user shortens the session)
+  useEffect(() => {
+    if (appliedPromo && originalPrice !== appliedPromoPriceRef.current) {
+      setAppliedPromo(null);
+    }
+  }, [originalPrice]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- Discount candidates ----
   // Compare promo, reward, and membership; only the single highest applies (no stacking).
@@ -439,6 +447,7 @@ const Booking = () => {
       bookingStartTime: startDate?.toISOString() ?? null,
     });
     if (result.valid && result.promo) {
+      appliedPromoPriceRef.current = originalPrice;
       setAppliedPromo(result.promo);
       toast({ title: "Promo applied!", description: `Code ${result.promo.code} applied successfully.` });
     } else {
