@@ -66,9 +66,10 @@ function DeviceControlPanel({ hardwareId }: { hardwareId: string | null }) {
 }
 
 export default function TablesTab() {
-  const { data: tables, startTimer, stopTimer, setMaintenance } = useAdminTables();
+  const { data: tables, startTimer, stopTimer, setMaintenance, setBulkMaintenance } = useAdminTables();
   const { data: bookings } = useAdminBookings();
   const { data: walkinSessions = [] } = useActiveWalkinSessions();
+  const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
   const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number; grossCost?: number; discountPercent?: number; paymentMethod?: "cash" | "wallet"; customerName?: string }>>({});
   const [hourlyRate, setHourlyRate] = useState("20");
@@ -152,6 +153,63 @@ export default function TablesTab() {
         </CardContent>
       </Card>
 
+      {/* Bulk maintenance action bar */}
+      {(tables || []).length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  checked={selectedTables.size === (tables || []).filter(t => !t.timer_started_at).length && selectedTables.size > 0}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedTables(new Set((tables || []).filter(t => !t.timer_started_at).map(t => t.id)));
+                    } else {
+                      setSelectedTables(new Set());
+                    }
+                  }}
+                />
+                <CardTitle className="text-sm font-medium">
+                  {selectedTables.size > 0 ? `${selectedTables.size} table${selectedTables.size > 1 ? "s" : ""} selected` : "Select tables for bulk action"}
+                </CardTitle>
+              </div>
+              {selectedTables.size > 0 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      setBulkMaintenance.mutate({ tableIds: [...selectedTables], maintenance: true }, {
+                        onSuccess: () => setSelectedTables(new Set()),
+                      });
+                    }}
+                    disabled={setBulkMaintenance.isPending}
+                  >
+                    {setBulkMaintenance.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Wrench className="mr-2 h-3 w-3" />}
+                    Set Maintenance
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setBulkMaintenance.mutate({ tableIds: [...selectedTables], maintenance: false }, {
+                        onSuccess: () => setSelectedTables(new Set()),
+                      });
+                    }}
+                    disabled={setBulkMaintenance.isPending}
+                  >
+                    <Check className="mr-2 h-3 w-3" /> Set Available
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedTables(new Set())} disabled={setBulkMaintenance.isPending}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardHeader>
+        </Card>
+      )}
+
       <Card>
         <CardHeader><CardTitle>Manage Tables</CardTitle></CardHeader>
         <CardContent>
@@ -213,7 +271,21 @@ export default function TablesTab() {
                   : "border-border"
                 }`}>
                   <div className="flex items-center justify-between">
-                    <p className="font-medium">Table {t.table_number}</p>
+                    <div className="flex items-center gap-2">
+                      {!isRunning && (
+                        <Checkbox
+                          checked={selectedTables.has(t.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedTables((prev) => {
+                              const next = new Set(prev);
+                              checked ? next.add(t.id) : next.delete(t.id);
+                              return next;
+                            });
+                          }}
+                        />
+                      )}
+                      <p className="font-medium">Table {t.table_number}</p>
+                    </div>
                     <Badge variant="outline" className={badgeClass}>
                       {badgeLabel}
                     </Badge>

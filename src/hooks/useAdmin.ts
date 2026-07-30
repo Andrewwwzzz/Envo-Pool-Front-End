@@ -172,7 +172,28 @@ export function useAdminTables() {
     },
   });
 
-  return { ...tablesQuery, updateStatus, startTimer, stopTimer, setMaintenance };
+  const setBulkMaintenance = useMutation({
+    mutationFn: async ({ tableIds, maintenance }: { tableIds: string[]; maintenance: boolean }) => {
+      const status = maintenance ? "maintenance" : "available";
+      await Promise.all(
+        tableIds.map(async (tableId) => {
+          const res = await apiFetch(`/api/admin/tables/${tableId}/status`, {
+            method: "POST",
+            body: JSON.stringify({ status }),
+          });
+          if (!res.ok) throw new Error(`Failed to update table ${tableId}`);
+        })
+      );
+    },
+    onSuccess: (_data, variables) => {
+      const label = variables.maintenance ? "maintenance" : "available";
+      toast({ title: `${variables.tableIds.length} table${variables.tableIds.length > 1 ? "s" : ""} set to ${label}` });
+      queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
+      queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+    },
+  });
+
+  return { ...tablesQuery, updateStatus, startTimer, stopTimer, setMaintenance, setBulkMaintenance };
 }
 
 export function useTableMaintenance(tableId: string | null | undefined, filter: "default" | "all" = "all") {

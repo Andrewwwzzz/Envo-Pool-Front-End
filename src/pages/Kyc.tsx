@@ -110,12 +110,18 @@ const Kyc = () => {
                 <div className="mx-auto h-14 w-14 rounded-full bg-destructive/10 flex items-center justify-center">
                   <XCircle className="h-8 w-8 text-destructive" />
                 </div>
-                <CardTitle className="text-2xl">Verification failed</CardTitle>
-                <CardDescription>Please try again.</CardDescription>
+                <CardTitle className="text-2xl">
+                  {error === "account_exists" ? "Account already exists" : "Verification failed"}
+                </CardTitle>
+                <CardDescription>
+                  {error === "account_exists"
+                    ? "An account is already registered with this Singpass identity. Please sign in instead."
+                    : "Please try again."}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <Button onClick={() => navigate("/auth")} className="w-full h-11 text-sm font-semibold tracking-wide uppercase">
-                  Back to Sign Up
+                  {error === "account_exists" ? "Sign In" : "Back to Sign Up"}
                 </Button>
               </CardContent>
             </>

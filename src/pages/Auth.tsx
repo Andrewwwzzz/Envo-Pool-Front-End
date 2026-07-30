@@ -17,7 +17,6 @@ const Auth = () => {
   const [signupMode, setSignupMode] = useState<SignupMode>("choose");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
@@ -76,7 +75,7 @@ const Auth = () => {
         }
         const res = await apiFetch("/api/auth/register", {
           method: "POST",
-          body: JSON.stringify({ name, username: name, email, password, phone, dateOfBirth }),
+          body: JSON.stringify({ email, password, phone, dateOfBirth }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -180,7 +179,7 @@ const Auth = () => {
               {!isLogin && (
                 <button
                   type="button"
-                  onClick={() => { setSignupMode("choose"); setName(""); setEmail(""); setPassword(""); setDateOfBirth(""); }}
+                  onClick={() => { setSignupMode("choose"); setEmail(""); setPassword(""); setDateOfBirth(""); }}
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-1"
                 >
                   <ArrowLeft className="h-3 w-3" /> Back to options
@@ -195,10 +194,6 @@ const Auth = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {!isLogin && (
                   <>
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Username</Label>
-                      <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="bg-background/50" />
-                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="dob">Date of Birth</Label>
                       <input
@@ -248,7 +243,7 @@ const Auth = () => {
                           setSignupMode("choose");
                           if (next === false) {
                             // Switching to signup — clear form
-                            setName(""); setEmail(""); setPassword(""); setDateOfBirth("");
+                            setEmail(""); setPassword(""); setDateOfBirth("");
                           }
                         }}
                       >
