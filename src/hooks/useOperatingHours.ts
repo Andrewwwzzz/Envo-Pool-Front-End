@@ -103,7 +103,9 @@ export function isSlotWithinHours(
   const [sh, sm] = slot.split(":").map(Number);
   const slotMin = sh * 60 + sm;
 
-  const dow = date.getDay(); // 0 = Sunday
+  // M3: use SGT for day-of-week and date strings — device local time may differ from SGT
+  const sgtDate = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Singapore" }));
+  const dow = sgtDate.getDay(); // 0 = Sunday
   const today = schedule[String(dow)];
   const prevDow = (dow + 6) % 7;
   const prev = schedule[String(prevDow)];
@@ -115,15 +117,14 @@ export function isSlotWithinHours(
     return h * 60 + m;
   };
 
-  // Compute the SGT date string for this date (for PH check)
   const pad = (n: number) => String(n).padStart(2, "0");
-  const dateStr = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const dateStr = `${sgtDate.getFullYear()}-${pad(sgtDate.getMonth() + 1)}-${pad(sgtDate.getDate())}`;
 
   // Check if this calendar date or the NEXT is a PH (PH-eve)
   let isPHOrEve = false;
   if (phDates && phDates.size > 0) {
-    const nextDate = new Date(date.getTime() + 24 * 60 * 60 * 1000);
-    const nextStr = `${nextDate.getFullYear()}-${pad(nextDate.getMonth() + 1)}-${pad(nextDate.getDate())}`;
+    const nextSGT = new Date(sgtDate.getTime() + 24 * 60 * 60 * 1000);
+    const nextStr = `${nextSGT.getFullYear()}-${pad(nextSGT.getMonth() + 1)}-${pad(nextSGT.getDate())}`;
     isPHOrEve = phDates.has(dateStr) || phDates.has(nextStr);
   }
 

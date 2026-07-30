@@ -94,7 +94,7 @@ function findBestRule(
 
     // Check specific date or weekday
     if (r.specific_date) {
-      if (r.specific_date !== dateStr) return false;
+      if (r.specific_date !== opDateStr) return false;
     } else {
       // Match if any of the effective weekdays is in the rule's weekday list
       const ruleWeekdays = new Set(r.applies_to_weekdays);

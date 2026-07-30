@@ -199,7 +199,14 @@ export function TimeSlotPicker({
   }, [date, bookedSlots, maintenanceWindows, operatingHours, isToday, nowMinutes, expiredKey]);
 
   const startMinutes = startSlot ? slotToMinutes(startSlot) : null;
-  const endMinutes = endSlot ? slotToMinutes(endSlot) : null;
+  // If end slot is before 4 AM and start is at/after 10 AM, the end is on the next
+  // calendar day — add 1440 minutes so range comparisons stay consistent.
+  const rawEndMinutes = endSlot ? slotToMinutes(endSlot) : null;
+  const endMinutes =
+    rawEndMinutes !== null && startMinutes !== null &&
+    rawEndMinutes < 4 * 60 && startMinutes >= 10 * 60
+      ? rawEndMinutes + 1440
+      : rawEndMinutes;
 
   const handleSlotClick = (slot: TimeSlot) => {
     if (!slot.available) return;
@@ -210,8 +217,16 @@ export function TimeSlotPicker({
       return;
     }
 
-    const clickedMin = slotToMinutes(slot.time);
-    if (clickedMin <= slotToMinutes(startSlot)) {
+    const startMin = slotToMinutes(startSlot);
+    const rawClickedMin = slotToMinutes(slot.time);
+    // Overnight: early-morning slots (before 4 AM) are "next day" relative to
+    // a start at 10 AM or later — give them +1440 minutes for comparison.
+    const effectiveClickedMin =
+      rawClickedMin < 4 * 60 && startMin >= 10 * 60
+        ? rawClickedMin + 1440
+        : rawClickedMin;
+
+    if (effectiveClickedMin <= startMin) {
       onSelectStart(slot.time);
       onSelectEnd("");
       return;
@@ -219,7 +234,8 @@ export function TimeSlotPicker({
 
     const allAvailable = slotAvailability.every((s) => {
       const sMin = slotToMinutes(s.time);
-      if (sMin >= slotToMinutes(startSlot) && sMin < clickedMin) {
+      const effectiveSMin = sMin < 4 * 60 && startMin >= 10 * 60 ? sMin + 1440 : sMin;
+      if (effectiveSMin >= startMin && effectiveSMin < effectiveClickedMin) {
         return s.available;
       }
       return true;
@@ -231,21 +247,26 @@ export function TimeSlotPicker({
       return;
     }
 
-    const endTime = `${Math.floor((clickedMin + 30) / 60).toString().padStart(2, "0")}:${((clickedMin + 30) % 60).toString().padStart(2, "0")}`;
+    // Compute end-time string; wrap at midnight (e.g. 23:30 → end is "00:00")
+    const rawEndMin = rawClickedMin + 30;
+    const endHour = Math.floor(rawEndMin / 60) % 24;
+    const endTime = `${endHour.toString().padStart(2, "0")}:${(rawEndMin % 60).toString().padStart(2, "0")}`;
     onSelectEnd(endTime);
   };
 
   const isInRange = (slotTime: string) => {
     if (startMinutes === null || endMinutes === null) return false;
     const min = slotToMinutes(slotTime);
-    return min >= startMinutes && min < endMinutes;
+    const effective = min < 4 * 60 && startMinutes >= 10 * 60 ? min + 1440 : min;
+    return effective >= startMinutes && effective < endMinutes;
   };
 
   const isStart = (slotTime: string) => startSlot === slotTime;
 
   const duration = startSlot && endSlot
     ? (() => {
-        const mins = slotToMinutes(endSlot) - slotToMinutes(startSlot);
+        let mins = slotToMinutes(endSlot) - slotToMinutes(startSlot);
+        if (mins <= 0) mins += 1440; // overnight crossing
         const h = Math.floor(mins / 60);
         const m = mins % 60;
         return h > 0 && m > 0 ? `${h}h ${m}m` : h > 0 ? `${h}h` : `${m}m`;

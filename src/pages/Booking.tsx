@@ -138,7 +138,7 @@ const Booking = () => {
   });
 
   const { data: pricingRules } = usePricingRules();
-  const { data: profile } = useProfile();
+  const { data: profile, refetch: refetchProfile } = useProfile();
   const { data: myMembership } = useMyMembership();
   const { data: publicHolidays = [] } = usePublicHolidays();
   const hasPrivateMembership = useMemo(
@@ -149,7 +149,14 @@ const Booking = () => {
   const validatePromo = useValidatePromo();
 
   const startDate = selectedDate && startSlot ? slotToDate(selectedDate, startSlot) : null;
-  const endDate = selectedDate && endSlot ? slotToDate(selectedDate, endSlot) : null;
+  const endDate = (() => {
+    if (!selectedDate || !endSlot) return null;
+    const end = slotToDate(selectedDate, endSlot);
+    // If the computed end is not after start, the session crosses midnight —
+    // shift the end forward by 24 hours to place it on the next calendar day.
+    if (startDate && end <= startDate) return new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    return end;
+  })();
 
   const publicHolidayDateSet = useMemo(
     () => new Set((publicHolidays ?? []).map((h: any) => h.date)),
@@ -429,6 +436,7 @@ const Booking = () => {
     setStartSlot(null);
     setEndSlot(null);
     setAppliedPromo(null);
+    setAppliedReward(null);
   };
 
   const handleTableSelect = (tableId: string) => {
@@ -436,6 +444,7 @@ const Booking = () => {
     setStartSlot(null);
     setEndSlot(null);
     setAppliedPromo(null);
+    setAppliedReward(null);
   };
 
   const handleApplyPromo = async () => {
@@ -518,7 +527,8 @@ const Booking = () => {
     (paymentMethod || isFreeReward) &&
     !durationError;
 
-  const handleBookClick = () => {
+  const handleBookClick = async () => {
+    await refetchProfile(); // M12: ensure wallet balance is current before payment dialog
     setAgreedToTerms(false);
     setShowConfirm(true);
   };
