@@ -20,8 +20,6 @@ export default function DashboardSettings() {
   const queryClient = useQueryClient();
 
   const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
-  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [phone, setPhone] = useState("");
   const [dob, setDob] = useState("");
   const [showName, setShowName] = useState(false);
@@ -56,7 +54,6 @@ export default function DashboardSettings() {
   useEffect(() => {
     if (profile) {
       setName(kycName ?? "");
-      setUsername(profile.username ?? profile.name ?? "");
       setPhone(profile.phone ?? "");
       setDob(kycVerified && kycDob ? kycDob : profile.date_of_birth ?? "");
     }
@@ -75,23 +72,11 @@ export default function DashboardSettings() {
 
   useEffect(() => {
     if (!profile) return;
-    const currentUsername = profile.username ?? profile.name ?? "";
     const changed =
-      username !== currentUsername ||
       phone !== (profile.phone ?? "") ||
       dob !== (profile.date_of_birth ?? "");
-    setHasChanges(changed && !usernameError);
-  }, [username, phone, dob, profile, usernameError]);
-
-  const handleUsernameChange = (val: string) => {
-    if (val.length > 20) return;
-    setUsername(val);
-    if (val && !/^[A-Za-z0-9_. ]*$/.test(val)) {
-      setUsernameError("Only letters, numbers, spaces, underscores and dots allowed");
-    } else {
-      setUsernameError(null);
-    }
-  };
+    setHasChanges(changed);
+  }, [phone, dob, profile]);
 
   const handleToggleNameVisibility = async (checked: boolean) => {
     setShowName(checked);
@@ -158,12 +143,9 @@ export default function DashboardSettings() {
   };
 
   const handleSaveProfile = async () => {
-    if (usernameError) return;
     try {
-      const updates: { username?: string; phone?: string; date_of_birth?: string } = {};
-      const trimmedUsername = username.trim();
+      const updates: { phone?: string; date_of_birth?: string } = {};
       const trimmedPhone = phone.trim();
-      if (trimmedUsername !== (profile?.username ?? profile?.name ?? "")) updates.username = trimmedUsername;
       if (trimmedPhone !== (profile?.phone ?? "")) updates.phone = trimmedPhone;
       if (dob && dob !== (profile?.date_of_birth ?? "")) updates.date_of_birth = dob;
       if (Object.keys(updates).length === 0) { toast({ title: "No changes to save" }); return; }
@@ -207,19 +189,6 @@ export default function DashboardSettings() {
             <p className="text-xs text-muted-foreground">
               {kycVerified ? "Verified · Cannot be changed" : "Your legal name is set by staff during verification or via Singpass"}
             </p>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="username">Username</Label>
-              <span className="text-xs text-muted-foreground">{username.length}/20</span>
-            </div>
-            <Input id="username" value={username} onChange={(e) => handleUsernameChange(e.target.value)} placeholder="Optional" maxLength={20} />
-            {usernameError ? (
-              <p className="text-xs text-destructive">{usernameError}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground">Your username is shown on bookings instead of your real name</p>
-            )}
           </div>
 
           <div className="space-y-2">
