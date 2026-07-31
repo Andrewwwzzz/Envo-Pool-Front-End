@@ -11,6 +11,7 @@ export interface FnbProduct {
   stock: number;
   lowStockThreshold: number;
   isRedeemable: boolean;
+  isAlcohol: boolean;
   isActive: boolean;
   sortOrder: number;
 }

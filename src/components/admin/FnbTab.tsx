@@ -85,6 +85,7 @@ const EMPTY_FORM = {
   stock: "",
   lowStockThreshold: "5",
   isRedeemable: false,
+  isAlcohol: false,
   isActive: true,
   sortOrder: "0",
 };
@@ -161,7 +162,7 @@ export function FnbTab() {
       name: p.name, category: p.category,
       costPrice: String(p.costPrice), sellingPrice: String(p.sellingPrice),
       stock: String(p.stock), lowStockThreshold: String(p.lowStockThreshold),
-      isRedeemable: p.isRedeemable, isActive: p.isActive, sortOrder: String(p.sortOrder),
+      isRedeemable: p.isRedeemable, isAlcohol: p.isAlcohol, isActive: p.isActive, sortOrder: String(p.sortOrder),
     });
     setProductDialog("edit");
   };
@@ -174,7 +175,7 @@ export function FnbTab() {
       name: form.name, category: form.category,
       costPrice: Number(form.costPrice), sellingPrice: Number(form.sellingPrice),
       stock: Number(form.stock), lowStockThreshold: Number(form.lowStockThreshold),
-      isRedeemable: form.isRedeemable, isActive: form.isActive, sortOrder: Number(form.sortOrder),
+      isRedeemable: form.isRedeemable, isAlcohol: form.isAlcohol, isActive: form.isActive, sortOrder: Number(form.sortOrder),
     };
     if (productDialog === "create") {
       createProduct.mutate(payload, { onSuccess: () => setProductDialog(null) });
@@ -510,6 +511,7 @@ export function FnbTab() {
                           {!deleted && <Badge className={`text-xs ${CATEGORY_COLORS[p.category]}`}>{CATEGORY_LABELS[p.category]}</Badge>}
                           {!deleted && !p.isActive && <Badge variant="outline" className="text-muted-foreground text-xs">Inactive</Badge>}
                           {!deleted && p.isRedeemable && <Badge className="bg-amber-500/20 text-amber-400 text-xs"><Gift className="h-2.5 w-2.5 mr-0.5" />Redeemable</Badge>}
+                          {!deleted && p.isAlcohol && <Badge className="bg-red-500/20 text-red-400 text-xs">18+ Alcohol</Badge>}
                         </div>
 
                         {/* Price + margin row */}
@@ -686,6 +688,13 @@ export function FnbTab() {
                 <p className="text-xs text-muted-foreground">Membership perk eligible</p>
               </div>
               <Switch checked={form.isRedeemable} onCheckedChange={(v) => setForm({ ...form, isRedeemable: v })} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm">Age-restricted (alcohol)</Label>
+                <p className="text-xs text-muted-foreground">Requires buyer to be 18+</p>
+              </div>
+              <Switch checked={form.isAlcohol} onCheckedChange={(v) => setForm({ ...form, isAlcohol: v })} />
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-sm">Active (show on menu)</Label>
