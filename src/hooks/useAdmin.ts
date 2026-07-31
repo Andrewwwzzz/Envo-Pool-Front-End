@@ -926,6 +926,32 @@ export function useUpdateCustomerProfile() {
   });
 }
 
+export function useUpdateCustomerEmail() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ userId, email, reason }: { userId: string; email: string; reason: string }) => {
+      const res = await apiFetch(`/api/users/${userId}/email`, {
+        method: "PATCH",
+        body: JSON.stringify({ email, reason }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to update email");
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Email updated" });
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
 // ── Staff management (master only) ───────────────────────────
 
 export const ALL_PERMISSIONS = [

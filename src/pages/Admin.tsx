@@ -22,6 +22,7 @@ import {
   useAdminCustomers,
   useUpdateCustomerWallet,
   useUpdateCustomerProfile,
+  useUpdateCustomerEmail,
   useDeleteCustomer,
   useCustomerBookings,
   useCustomerWalletHistory,
@@ -1621,6 +1622,10 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const queryClient = useQueryClient();
   const updateWallet = useUpdateCustomerWallet();
   const updateProfile = useUpdateCustomerProfile();
+  const updateEmail = useUpdateCustomerEmail();
+  const [changeEmailOpen, setChangeEmailOpen] = useState(false);
+  const [newEmailInput, setNewEmailInput] = useState("");
+  const [emailReason, setEmailReason] = useState("");
   const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id);
   const { data: walletHistory } = useCustomerWalletHistory(customer.user_id);
   const { data: activityLogs } = useAdminActivityLogs();
@@ -1704,7 +1709,6 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
     return `${d.padStart(2, "0")} ${months[mi]} ${y}`;
   };
   const [editName, setEditName] = useState(customer.name ?? "");
-  const [editEmail, setEditEmail] = useState(customer.email ?? "");
   const [editPhone, setEditPhone] = useState(customer.phone ?? "");
   const [editDob, setEditDob] = useState(
     customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : ""
@@ -1712,7 +1716,6 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
 
   const openEditDetails = () => {
     setEditName(customer.name ?? "");
-    setEditEmail(customer.email ?? "");
     setEditPhone(customer.phone ?? "");
     setEditDob(customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : "");
     setEditDetailsOpen(true);
@@ -1720,18 +1723,15 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
 
   const saveDetails = async () => {
     const origName = (customer.name ?? "").trim();
-    const origEmail = (customer.email ?? "").trim();
     const origPhone = (customer.phone ?? "").trim();
     const origDob = customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : "";
 
     const newName = editName.trim();
-    const newEmail = editEmail.trim();
     const newPhone = editPhone.trim();
     const newDob = editDob || "";
 
     const payload: Parameters<typeof updateProfile.mutateAsync>[0] = { userId: customer.user_id };
     if (newName !== origName) payload.name = newName;
-    if (newEmail !== origEmail) payload.email = newEmail;
     if (newPhone !== origPhone) payload.phone = newPhone;
     if (newDob !== origDob) payload.dateOfBirth = newDob;
 
@@ -1841,6 +1841,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
               {!editing && (
                 <>
                   <Button size="sm" variant="outline" onClick={openEditDetails}><Pencil className="mr-1 h-3 w-3" /> Edit Details</Button>
+                  <Button size="sm" variant="outline" onClick={() => { setNewEmailInput(customer.email ?? ""); setEmailReason(""); setChangeEmailOpen(true); }}><Pencil className="mr-1 h-3 w-3" /> Change Email</Button>
                   <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet</Button>
                   <Button size="sm" variant="outline" onClick={() => { setNewPassword(""); setConfirmPassword(""); setResetPasswordOpen(true); }}><Key className="mr-1 h-3 w-3" /> Reset Password</Button>
                 </>
@@ -2061,10 +2062,6 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
               <Input id="cust-name" value={editName} onChange={(e) => setEditName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cust-email">Email</Label>
-              <Input id="cust-email" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="cust-phone">Phone</Label>
               <Input id="cust-phone" type="tel" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="e.g. 91234567" />
             </div>
@@ -2079,6 +2076,55 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
             <Button onClick={saveDetails} disabled={updateProfile.isPending}>
               {updateProfile.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Email Dialog */}
+      <Dialog open={changeEmailOpen} onOpenChange={(o) => { if (!o) setChangeEmailOpen(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Email</DialogTitle>
+            <DialogDescription>
+              Current email: <span className="font-medium">{customer.email}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-email">New Email</Label>
+              <Input
+                id="new-email"
+                type="email"
+                value={newEmailInput}
+                onChange={(e) => setNewEmailInput(e.target.value)}
+                placeholder="new@email.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email-reason">Reason (required)</Label>
+              <Textarea
+                id="email-reason"
+                value={emailReason}
+                onChange={(e) => setEmailReason(e.target.value)}
+                placeholder="e.g. user requested email change, typo correction..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChangeEmailOpen(false)} disabled={updateEmail.isPending}>Cancel</Button>
+            <Button
+              disabled={!newEmailInput.trim() || !emailReason.trim() || updateEmail.isPending}
+              onClick={async () => {
+                try {
+                  await updateEmail.mutateAsync({ userId: customer.user_id, email: newEmailInput.trim(), reason: emailReason.trim() });
+                  setChangeEmailOpen(false);
+                } catch {/* toast handled in hook */}
+              }}
+            >
+              {updateEmail.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              Update Email
             </Button>
           </DialogFooter>
         </DialogContent>
