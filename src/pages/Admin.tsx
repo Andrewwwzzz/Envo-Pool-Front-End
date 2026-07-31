@@ -978,6 +978,8 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
 
 
 function InvoicesTab() {
+  const { user: authUser } = useAuth();
+  const isMaster = authUser?.isMaster ?? false;
   const [showDeleted, setShowDeleted] = useState(false);
   const { data, isLoading } = useAdminTimerSessions(showDeleted);
   const timerSessions: any[] = Array.isArray(data) ? data : (data?.sessions || data?.timerSessions || []);
@@ -1015,6 +1017,9 @@ function InvoicesTab() {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
   const [selectedSession, setSelectedSession] = useState<any | null>(null);
+  const restore = useRestoreRecord();
+  const hardDelete = useHardDelete();
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
 
   const handleDelete = async (id: string, reason: string) => {
     setDeletingId(id);
@@ -1168,7 +1173,27 @@ function InvoicesTab() {
                         {s._walkin ? (
                           <span className="text-xs text-muted-foreground">—</span>
                         ) : isDeleted ? (
-                          <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Deleted</Badge>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              disabled={restore.isPending}
+                              onClick={() => restore.mutate({ type: "timer-session", id: s._id || s.id })}
+                            >
+                              <RotateCcw className="h-3 w-3 mr-1" /> Restore
+                            </Button>
+                            {isMaster && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs border-destructive/50 text-destructive hover:bg-destructive/10"
+                                onClick={() => setHardDeleteTarget({ type: "timer-session", id: s._id || s.id })}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
                         ) : (
                           <Button
                             variant="ghost"
@@ -1228,6 +1253,26 @@ function InvoicesTab() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {hardDeleteTarget && (
+      <PinDialog
+        open={!!hardDeleteTarget}
+        onOpenChange={(o) => !o && setHardDeleteTarget(null)}
+        loading={hardDelete.isPending}
+        onConfirm={(pin) =>
+          hardDelete.mutate(
+            { type: hardDeleteTarget.type, id: hardDeleteTarget.id, pin },
+            {
+              onSuccess: () => {
+                setHardDeleteTarget(null);
+                qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
+                qc.invalidateQueries({ queryKey: ["admin-timer-sessions", true] });
+              }
+            }
+          )
+        }
+      />
+    )}
     </>
   );
 }
@@ -2679,6 +2724,9 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 
 function PromosTab() {
+  const { user: authUser } = useAuth();
+  const isMaster = authUser?.isMaster ?? false;
+  const qc = useQueryClient();
   const [hideDeleted, setHideDeleted] = useState(false);
   const { data: promos, create, toggle, remove, update } = useAdminPromoCodes(hideDeleted ? "default" : "all");
   const [form, setForm] = useState({
@@ -2689,6 +2737,9 @@ function PromosTab() {
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailPromo, setDetailPromo] = useState<any | null>(null);
   const [editTarget, setEditTarget] = useState<any | null>(null);
+  const restore = useRestoreRecord();
+  const hardDelete = useHardDelete();
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
   const [editForm, setEditForm] = useState({
     discount_type: "percentage", discount_value: "", minimum_spend: "",
     minimum_hours: "", max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
@@ -2909,7 +2960,29 @@ function PromosTab() {
                           )}
                         </td>
                         <td className="py-3 pr-3" onClick={(e) => e.stopPropagation()}>
-                          {!deleted && (
+                          {deleted ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                disabled={restore.isPending}
+                                onClick={() => restore.mutate({ type: "promo", id: p.id })}
+                              >
+                                <RotateCcw className="h-3 w-3 mr-1" /> Restore
+                              </Button>
+                              {isMaster && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs border-destructive/50 text-destructive hover:bg-destructive/10"
+                                  onClick={() => setHardDeleteTarget({ type: "promo", id: p.id })}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          ) : (
                             <div className="flex items-center justify-end gap-2">
                               <Switch
                                 checked={p.is_active}
@@ -3045,6 +3118,25 @@ function PromosTab() {
           } catch {}
         }}
       />
+
+      {hardDeleteTarget && (
+        <PinDialog
+          open={!!hardDeleteTarget}
+          onOpenChange={(o) => !o && setHardDeleteTarget(null)}
+          loading={hardDelete.isPending}
+          onConfirm={(pin) =>
+            hardDelete.mutate(
+              { type: hardDeleteTarget.type, id: hardDeleteTarget.id, pin },
+              {
+                onSuccess: () => {
+                  setHardDeleteTarget(null);
+                  qc.invalidateQueries({ queryKey: ["admin-promo-codes"] });
+                }
+              }
+            )
+          }
+        />
+      )}
 
       <PromoDetailDialog promo={detailPromo} onClose={() => setDetailPromo(null)} />
     </div>
