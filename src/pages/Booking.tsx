@@ -205,15 +205,16 @@ const Booking = () => {
   }, [appliedPromo, originalPrice, pricing?.segments, startDate, endDate]);
   const promoPct = originalPrice > 0 ? (promoDiscountAmt / originalPrice) * 100 : 0;
 
-  // Reward (free_session => hour credit; booking_discount => %; free_item => no $ impact)
+  // Reward (free_session: value = number of 30-min sessions; booking_discount: value = % off)
   const rewardHourlyRate = pricing?.segments?.[0]?.hourlyRate ?? 0;
-  const rewardFreeHours = appliedReward?.type === "free_session" ? (appliedReward.value ?? 0) : 0;
+  // value=1 → 30 free minutes, value=2 → 60 free minutes, etc.
+  const rewardFreeMinutes = appliedReward?.type === "free_session" ? (appliedReward.value ?? 0) * 30 : 0;
   const rewardDiscountPercent = appliedReward?.type === "booking_discount" ? (appliedReward.value ?? 0) : 0;
   // For free_session: consume segments in order until free minutes run out,
   // pricing each consumed minute at that segment's hourly rate.
   const freeSessionCredit = useMemo(() => {
     if (appliedReward?.type !== "free_session") return 0;
-    let freeMinutesRemaining = rewardFreeHours * 60;
+    let freeMinutesRemaining = rewardFreeMinutes;
     let credit = 0;
     const segs = pricing?.segments ?? [];
     for (const seg of segs) {
@@ -225,7 +226,7 @@ const Booking = () => {
       freeMinutesRemaining -= minsToUse;
     }
     return Math.min(originalPrice, parseFloat(credit.toFixed(2)));
-  }, [appliedReward, rewardFreeHours, pricing, originalPrice]);
+  }, [appliedReward, rewardFreeMinutes, pricing, originalPrice]);
 
   const rewardDiscountAmt =
     appliedReward?.type === "free_session"
@@ -938,7 +939,7 @@ const Booking = () => {
                       <Tag className="h-4 w-4 text-accent" />
                       <span className="text-sm font-medium text-accent">{appliedReward.code}</span>
                       <span className="text-sm text-muted-foreground">
-                        {appliedReward.type === "free_session" && `${rewardFreeHours}hr free applied`}
+                        {appliedReward.type === "free_session" && `${rewardFreeMinutes} min free applied`}
                         {appliedReward.type === "booking_discount" && `${rewardDiscountPercent}% off applied`}
                         {appliedReward.type === "free_item" && `Free item — collect at counter`}
                       </span>
@@ -978,7 +979,7 @@ const Booking = () => {
                 <div className="flex justify-between text-sm text-accent">
                   <span>
                     {appliedReward?.type === "free_session"
-                      ? `Free session reward (${rewardFreeHours}hr)`
+                      ? `Free session reward (${rewardFreeMinutes} min)`
                       : `Reward discount (${rewardDiscountPercent}% off)`}
                   </span>
                   <span>-${rewardDiscount.toFixed(2)}</span>
