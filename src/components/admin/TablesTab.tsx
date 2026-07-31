@@ -230,7 +230,7 @@ export default function TablesTab() {
         <CardHeader><CardTitle>Manage Tables</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {(tables || []).map((t) => {
+            {(tables || []).slice().sort((a, b) => a.table_number - b.table_number).map((t) => {
               const isRunning = !!t.timer_started_at;
               const seconds = elapsed[t.id] ?? 0;
               const session = completedSessions[t.id];
