@@ -99,11 +99,17 @@ export function useAdminTables() {
         method: "POST",
         body: JSON.stringify({ hourlyRate }),
       });
-      if (!res.ok) throw new Error("Failed to start timer");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || err.message || "Failed to start timer");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Cannot open table", description: err.message, variant: "destructive" });
     },
   });
 
