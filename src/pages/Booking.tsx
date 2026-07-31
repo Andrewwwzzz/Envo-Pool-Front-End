@@ -797,7 +797,7 @@ const Booking = () => {
                       !activeWalkin &&
                       table.status === "Available" &&
                       !!table.hardware_id;
-                    const isChinese = [10, 11, 13, 14].includes(table.table_number);
+                    const isChinese = [7, 8, 11, 12].includes(table.table_number);
                     return (
                       <div key={table.id} className="flex flex-col gap-2">
                         <button
