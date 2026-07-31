@@ -23,7 +23,27 @@ import ReasonDialog from "@/components/admin/ReasonDialog";
 import DeletedBanner, { getDeletedInfo, isDeleted as isRecordDeleted } from "@/components/admin/DeletedBanner";
 import { Timer, Play, Square, Wrench, DollarSign, Wifi, WifiOff, Power, PowerOff, RotateCcw, Loader2, AlertTriangle, X, Check, Eye, EyeOff } from "lucide-react";
 
-function DeviceControlPanel({ hardwareId }: { hardwareId: string | null }) {
+function ChipStatus({ lastSeen }: { lastSeen: string | null }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!lastSeen) {
+    return <span className="flex items-center gap-1 text-xs text-muted-foreground"><span className="h-2 w-2 rounded-full bg-muted-foreground inline-block" />No chip</span>;
+  }
+  const age = (Date.now() - new Date(lastSeen).getTime()) / 1000;
+  if (age <= 10) {
+    return <span className="flex items-center gap-1 text-xs text-green-400"><span className="h-2 w-2 rounded-full bg-green-400 inline-block" />Online</span>;
+  }
+  if (age <= 30) {
+    return <span className="flex items-center gap-1 text-xs text-yellow-400"><span className="h-2 w-2 rounded-full bg-yellow-400 inline-block" />Delayed</span>;
+  }
+  return <span className="flex items-center gap-1 text-xs text-red-400"><span className="h-2 w-2 rounded-full bg-red-400 inline-block" />Offline</span>;
+}
+
+function DeviceControlPanel({ hardwareId, lastSeen }: { hardwareId: string | null; lastSeen: string | null }) {
   const { state, loading, error } = useDeviceState(hardwareId);
   const { controlDevice, clearOverride, pending } = useDeviceControl(hardwareId);
 
@@ -49,8 +69,9 @@ function DeviceControlPanel({ hardwareId }: { hardwareId: string | null }) {
             {state ?? "Unknown"}
           </Badge>
         </div>
-        {error && <span className="text-xs text-destructive">{error}</span>}
+        <ChipStatus lastSeen={lastSeen} />
       </div>
+      {error && <span className="text-xs text-destructive">{error}</span>}
       <div className="flex gap-2">
         <Button size="sm" variant="outline" className="flex-1" onClick={() => controlDevice("ON")} disabled={pending}>
           {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Power className="mr-1 h-3 w-3" />} ON
@@ -374,7 +395,7 @@ export default function TablesTab() {
                   {!isRunning && <TableMaintenanceList tableId={t.id} />}
 
                   {/* Device Control */}
-                  <DeviceControlPanel hardwareId={t.hardware_id} />
+                  <DeviceControlPanel hardwareId={t.hardware_id} lastSeen={t.last_seen} />
                 </div>
               );
             })}

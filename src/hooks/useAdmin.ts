@@ -66,6 +66,7 @@ export function useAdminTables() {
         hourly_rate: t.timerHourlyRate ?? t.hourlyRate ?? t.hourly_rate ?? t.basePrice ?? 0,
         status: t.liveStatus ?? t.status ?? "available",
         timer_started_at: t.timerStartedAt ?? t.timer_started_at ?? null,
+        last_seen: t.lastSeen ?? t.last_seen ?? null,
         created_at: t.createdAt ?? t.created_at ?? "",
       }));
       setCache("admin-tables", mapped);
