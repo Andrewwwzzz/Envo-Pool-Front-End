@@ -1,4 +1,4 @@
-const BASE_URL = "https://api.envopoolsg.com";
+const BASE_URL = import.meta.env.VITE_API_URL || "https://api.envopoolsg.com";
 
 export function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem("token");
