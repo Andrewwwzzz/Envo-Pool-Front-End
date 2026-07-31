@@ -5,12 +5,13 @@ type DeviceState = "ON" | "OFF" | null;
 
 interface DeviceStatus {
   state: DeviceState;
+  lastSeen: string | null;
   loading: boolean;
   error: string | null;
 }
 
 export function useDeviceState(hardwareId: string | null | undefined, pollInterval = 3000) {
-  const [status, setStatus] = useState<DeviceStatus>({ state: null, loading: false, error: null });
+  const [status, setStatus] = useState<DeviceStatus>({ state: null, lastSeen: null, loading: false, error: null });
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -21,10 +22,10 @@ export function useDeviceState(hardwareId: string | null | undefined, pollInterv
   const fetchState = useCallback(async () => {
     if (!hardwareId) return;
     try {
-      const res = await apiFetch(`/api/device/${hardwareId}`);
+      const res = await apiFetch(`/api/device/admin-status/${hardwareId}`);
       const data = await res.json();
       if (mountedRef.current) {
-        setStatus({ state: (data?.state ?? null) as DeviceState, loading: false, error: null });
+        setStatus({ state: (data?.state ?? null) as DeviceState, lastSeen: data?.lastSeen ?? null, loading: false, error: null });
       }
     } catch (err: any) {
       if (mountedRef.current) {
@@ -35,7 +36,7 @@ export function useDeviceState(hardwareId: string | null | undefined, pollInterv
 
   useEffect(() => {
     if (!hardwareId) {
-      setStatus({ state: null, loading: false, error: null });
+      setStatus({ state: null, lastSeen: null, loading: false, error: null });
       return;
     }
     setStatus((prev) => ({ ...prev, loading: true }));
