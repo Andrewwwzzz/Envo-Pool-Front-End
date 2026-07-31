@@ -467,7 +467,9 @@ export default function DashboardMembership() {
     return null;
   };
   const activePlanIds = new Set(
-    activeMemberships.map(getPlanIdStr).filter(Boolean) as string[]
+    activeMemberships
+      .filter((m: any) => !m.cancelAtRenewal)
+      .map(getPlanIdStr).filter(Boolean) as string[]
   );
 
   const lockerRentals = activeMemberships

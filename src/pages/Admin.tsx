@@ -1399,6 +1399,7 @@ function CustomersTab({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
+              autoComplete="off"
             />
           </div>
           <Button
