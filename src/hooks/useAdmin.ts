@@ -898,14 +898,14 @@ export function useUpdateCustomerProfile() {
       phone?: string;
       dateOfBirth?: string;
     }) => {
-      const payload: Record<string, string> = { userId };
+      const payload: Record<string, string> = {};
       if (name !== undefined) payload.name = name;
       if (email !== undefined) payload.email = email;
       if (phone !== undefined) payload.phone = phone;
       if (dateOfBirth !== undefined) payload.dateOfBirth = dateOfBirth;
 
-      const res = await apiFetch(`/api/auth/update-profile`, {
-        method: "POST",
+      const res = await apiFetch(`/api/users/${userId}/profile`, {
+        method: "PATCH",
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
