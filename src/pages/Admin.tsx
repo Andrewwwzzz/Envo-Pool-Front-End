@@ -29,7 +29,10 @@ import {
   useTableMaintenance,
   useScheduleMaintenance,
   useDeleteMaintenance,
+  useRestoreRecord,
+  useHardDelete,
 } from "@/hooks/useAdmin";
+import { PinDialog } from "@/components/admin/PinDialog";
 import LogsTab from "@/components/admin/LogsTab";
 import StaffTab from "@/components/admin/StaffTab";
 import { AccountingTab } from "@/components/admin/AccountingTab";
@@ -1241,14 +1244,28 @@ function CustomersTab({
   pendingEmail?: string | null;
   onPendingHandled?: () => void;
 } = {}) {
+  const { user: authUser } = useAuth();
+  const isMaster = authUser?.isMaster ?? false;
+
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const { data: customers, isLoading } = useAdminCustomers(debouncedSearch);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const { data: customers, isLoading } = useAdminCustomers(debouncedSearch, showDeleted);
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   const [sortCol, setSortCol] = useState<SortCol>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+
+  // Soft delete
+  const deleteCustomer = useDeleteCustomer();
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
+
+  // Restore + hard delete
+  const restore = useRestoreRecord();
+  const hardDelete = useHardDelete();
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 400);
@@ -1328,17 +1345,28 @@ function CustomersTab({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, email or Short ID..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
-          />
+        <div className="flex gap-2 items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, email or Short ID..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button
+            variant={showDeleted ? "destructive" : "outline"}
+            size="sm"
+            className="whitespace-nowrap"
+            onClick={() => setShowDeleted(v => !v)}
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            {showDeleted ? "Hide Deleted" : "Show Deleted"}
+          </Button>
         </div>
 
-        
+
 
         {(statusFilter !== "all" || roleFilter !== "all") && (
           <div className="flex flex-wrap gap-2 text-xs">
@@ -1375,8 +1403,7 @@ function CustomersTab({
                   { key: "wallet",     label: "Wallet" },
                   { key: "totalSpent", label: "Total Spent" },
                   { key: "joined",     label: "Joined" },
-                ] as { key: SortCol; label: string }[]).map(({ key, label }) => {
-                  const isFilter = key === "status" || key === "role";
+                ] as { key: SortCol; label: string }[]).map(({ key, label }) => {                  const isFilter = key === "status" || key === "role";
                   const isActive = isFilter
                     ? (key === "status" ? statusFilter !== "all" : roleFilter !== "all")
                     : sortCol === key;
@@ -1404,13 +1431,14 @@ function CustomersTab({
                     </th>
                   );
                 })}
+                <th className="pb-2 text-muted-foreground whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (!customers || customers.length === 0) ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={`csk-${i}`} className="border-b border-border last:border-0">
-                    {Array.from({ length: 8 }).map((__, j) => (
+                    {Array.from({ length: 9 }).map((__, j) => (
                       <td key={j} className="py-3 pr-4"><Skeleton className="h-4 w-20" /></td>
                     ))}
                   </tr>
@@ -1418,10 +1446,15 @@ function CustomersTab({
               ) : displayCustomers.map((c: any) => (
                 <tr
                   key={c.id}
-                  className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => setSelectedCustomer(c)}
+                  className={`border-b border-border last:border-0 transition-colors ${c.isDeleted ? "opacity-50" : "cursor-pointer hover:bg-muted/50"}`}
+                  onClick={() => !c.isDeleted && setSelectedCustomer(c)}
                 >
-                  <td className="py-3 pr-4 font-medium">{c.legal_name || c.name || "—"}</td>
+                  <td className="py-3 pr-4 font-medium">
+                    <div className="flex items-center gap-1.5">
+                      {c.legal_name || c.name || "—"}
+                      {c.isDeleted && <Badge variant="destructive" className="text-xs">Deleted</Badge>}
+                    </div>
+                  </td>
                   <td className="py-3 pr-4">
                     {c.shortId ? (
                       <code className="px-2 py-0.5 rounded bg-muted font-mono text-xs">{c.shortId}</code>
@@ -1441,15 +1474,99 @@ function CustomersTab({
                     </Badge>
                   </td>
                   <td className="py-3 pr-4">${(c.wallet_balance ?? 0).toFixed(2)}</td>
-                  
                   <td className="py-3 pr-4">${(c.total_spent ?? 0).toFixed(2)}</td>
-                  <td className="py-3 text-muted-foreground">{c.created_at ? fmtDateSG(c.created_at) : "—"}</td>
+                  <td className="py-3 pr-4 text-muted-foreground">{c.created_at ? fmtDateSG(c.created_at) : "—"}</td>
+                  <td className="py-3" onClick={(e) => e.stopPropagation()}>
+                    {c.isDeleted ? (
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={restore.isPending}
+                          onClick={() => restore.mutate({ type: "user", id: c.id })}
+                        >
+                          <RotateCcw className="h-3 w-3 mr-1" /> Restore
+                        </Button>
+                        {isMaster && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs border-destructive/50 text-destructive hover:bg-destructive/10"
+                            onClick={() => setHardDeleteTarget({ type: "user", id: c.id })}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => { setDeleteTarget(c); setDeleteReason(""); }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </CardContent>
+
+      {/* Soft-delete reason dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete customer account?</DialogTitle>
+            <DialogDescription>
+              This soft-deletes {deleteTarget?.name || deleteTarget?.email}. Their data is retained but the account is disabled. A master admin can restore or permanently delete it later.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>Reason (required)</Label>
+            <Textarea
+              placeholder="e.g. duplicate account, user request, abuse..."
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={!deleteReason.trim() || deleteCustomer.isPending}
+              onClick={async () => {
+                if (!deleteTarget || !deleteReason.trim()) return;
+                await deleteCustomer.mutateAsync({ userId: deleteTarget.id, reason: deleteReason.trim() });
+                setDeleteTarget(null);
+              }}
+            >
+              {deleteCustomer.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Delete Account
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hard-delete PIN dialog (master only) */}
+      {hardDeleteTarget && (
+        <PinDialog
+          open={!!hardDeleteTarget}
+          onOpenChange={(o) => !o && setHardDeleteTarget(null)}
+          loading={hardDelete.isPending}
+          onConfirm={(pin) =>
+            hardDelete.mutate(
+              { type: hardDeleteTarget.type, id: hardDeleteTarget.id, pin },
+              { onSuccess: () => setHardDeleteTarget(null) }
+            )
+          }
+        />
+      )}
     </Card>
   );
 }

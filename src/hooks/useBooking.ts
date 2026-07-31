@@ -77,10 +77,11 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
       if (!startTime || !endTime) {
         const result = (tables || []).map((t: any) => {
           const hardwareId = t.hardwareId ?? t.hardware_id ?? null;
+          const liveStatus = t.liveStatus ?? t.status ?? "available";
           let status: TableStatus;
-          if (t.status === "maintenance" || t.isActive === false) {
+          if (liveStatus === "maintenance" || t.isActive === false) {
             status = "Maintenance";
-          } else if (t.timerStartedAt || t.timer_started_at || hasActiveWalkin(hardwareId)) {
+          } else if (liveStatus === "in_use" || t.timerStartedAt || t.timer_started_at || hasActiveWalkin(hardwareId)) {
             status = "In Use";
           } else {
             status = "Available";
@@ -113,7 +114,8 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
         const tableId = t._id || t.id;
         const hardwareId = t.hardwareId ?? t.hardware_id ?? null;
 
-        if (t.status === "maintenance" || t.isActive === false) {
+        const liveStatus = t.liveStatus ?? t.status ?? "available";
+        if (liveStatus === "maintenance" || t.isActive === false) {
           return { id: tableId, table_number: t.tableNumber ?? t.table_number, hardware_id: hardwareId, status: "Maintenance" as TableStatus };
         }
         if (t.timerStartedAt || t.timer_started_at || hasActiveWalkin(hardwareId)) {

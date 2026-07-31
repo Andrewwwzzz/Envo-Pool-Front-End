@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Crown, Lock, Percent, Timer, Beer, KeyRound, Loader2, Eye, EyeOff, PiggyBank, CircleDot, Zap } from "lucide-react";
+import { Crown, Lock, Percent, Timer, Beer, KeyRound, Loader2, Eye, EyeOff, PiggyBank, CircleDot, Zap, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import {
@@ -22,6 +22,7 @@ import {
   useMembershipPlans,
   useSubscribeMembership,
   useRenewMembership,
+  useCancelMyMembership,
   useMyMembershipHours,
   type MembershipPlan,
   type MembershipHours,
@@ -115,11 +116,13 @@ function MembershipCard({
   membership,
   walletBalance,
   onRenew,
+  onCancel,
   hoursEntry,
 }: {
   membership: any;
   walletBalance: number;
   onRenew: (m: any) => void;
+  onCancel: (m: any) => void;
   hoursEntry?: MembershipHours;
 }) {
   const status: string = String(membership?.status ?? (membership?.active ? "active" : "")).toLowerCase();
@@ -320,7 +323,19 @@ function MembershipCard({
           </div>
         )}
 
-        {isActive && planPrice > 0 && (
+        {isActive && membership?.cancelAtRenewal && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+            <XCircle className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <div className="font-medium text-amber-400">Cancellation pending</div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                Your membership remains active until {endDate ? fmtDateSG(endDate) : "the end of your billing period"} and will not auto-renew.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isActive && !membership?.cancelAtRenewal && planPrice > 0 && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-md border border-border/40 bg-muted/30 p-3">
             <div className="space-y-0.5">
               <div className="text-sm font-medium">Extend membership early</div>
@@ -329,9 +344,19 @@ function MembershipCard({
                 {!canAffordRenew && " — insufficient balance"}
               </div>
             </div>
-            <Button variant="outline" size="sm" disabled={!canAffordRenew} onClick={() => onRenew(membership)}>
-              Extend for ${planPrice}
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={!canAffordRenew} onClick={() => onRenew(membership)}>
+                Extend for ${planPrice}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => onCancel(membership)}
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>
@@ -350,9 +375,11 @@ export default function DashboardMembership() {
   const { data: profile } = useProfile();
   const subscribe = useSubscribeMembership();
   const renewMine = useRenewMembership();
+  const cancelMine = useCancelMyMembership();
 
   const [confirmPlan, setConfirmPlan] = useState<MembershipPlan | null>(null);
   const [renewTarget, setRenewTarget] = useState<any | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<any | null>(null);
 
   // Locker purchase flow
   const [lockerPinPlan, setLockerPinPlan] = useState<MembershipPlan | null>(null);
@@ -404,6 +431,17 @@ export default function DashboardMembership() {
       setRenewTarget(null);
     } catch (e: any) {
       toast.error(e?.message || "Failed to renew membership");
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!cancelTarget) return;
+    try {
+      await cancelMine.mutateAsync(getMembershipId(cancelTarget));
+      toast.success("Cancellation confirmed. Your membership remains active until the end of this billing period.");
+      setCancelTarget(null);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to cancel membership");
     }
   };
 
@@ -567,6 +605,7 @@ export default function DashboardMembership() {
                 membership={m}
                 walletBalance={walletBalance}
                 onRenew={setRenewTarget}
+                onCancel={setCancelTarget}
                 hoursEntry={hoursEntry}
               />
             );
@@ -672,6 +711,36 @@ export default function DashboardMembership() {
             >
               {lockerPurchasing && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Confirm Purchase
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!cancelTarget} onOpenChange={(o) => !o && setCancelTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel membership?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your{" "}
+              <span className="font-medium">
+                {(getPlanObj(cancelTarget) || cancelTarget)?.name || "membership"}
+              </span>{" "}
+              will remain active until{" "}
+              <span className="font-medium">
+                {cancelTarget?.renewalDate ? fmtDateSG(cancelTarget.renewalDate) : "the end of your billing period"}
+              </span>
+              . After that it will expire and <strong>will not auto-renew</strong>. You can re-subscribe at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelMine.isPending}>Keep membership</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => { e.preventDefault(); handleCancel(); }}
+              disabled={cancelMine.isPending}
+            >
+              {cancelMine.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Yes, cancel
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

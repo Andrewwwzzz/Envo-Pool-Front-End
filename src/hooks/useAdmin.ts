@@ -682,12 +682,15 @@ export function useVerifyUser() {
   });
 }
 
-export function useAdminCustomers(searchTerm: string) {
+export function useAdminCustomers(searchTerm: string, includeDeleted = false) {
   return useQuery({
-    queryKey: ["admin-customers", searchTerm],
+    queryKey: ["admin-customers", searchTerm, includeDeleted],
     queryFn: async () => {
-      const params = searchTerm.trim() ? `?search=${encodeURIComponent(searchTerm)}` : "";
-      const res = await apiFetch(`/api/users${params}`);
+      const params = new URLSearchParams();
+      if (searchTerm.trim()) params.set("search", searchTerm);
+      if (includeDeleted) params.set("includeDeleted", "true");
+      const qs = params.toString() ? `?${params}` : "";
+      const res = await apiFetch(`/api/users${qs}`);
       if (!res.ok) throw new Error("Failed to fetch users");
       const data = await res.json();
       const users = Array.isArray(data) ? data : data.users || [];
@@ -709,12 +712,15 @@ export function useAdminCustomers(searchTerm: string) {
         created_at: c.createdAt ?? c.created_at ?? "",
         verified_by: c.verifiedBy?.name ?? c.verifiedBy?.email ?? c.verifiedBy ?? c.verified_by ?? null,
         verified_at: c.verifiedAt ?? c.verified_at ?? null,
+        isDeleted: c.isDeleted ?? false,
+        deletedAt: c.deletedAt ?? null,
+        deleteReason: c.deleteReason ?? null,
       }));
       mapped.sort((a, b) => a.name.localeCompare(b.name));
-      setCache("admin-customers", mapped);
+      if (!includeDeleted) setCache("admin-customers", mapped);
       return mapped;
     },
-    initialData: () => getCached("admin-customers") ?? [],
+    initialData: () => includeDeleted ? undefined : (getCached("admin-customers") ?? []),
     refetchOnWindowFocus: true,
     staleTime: 0,
   });
@@ -854,9 +860,13 @@ export function useDeleteCustomer() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (userId: string) => {
-      const res = await apiFetch(`/api/users/${userId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete customer");
+    mutationFn: async ({ userId, reason }: { userId: string; reason: string }) => {
+      const res = await apiFetch(`/api/users/${userId}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Failed to delete customer");
     },
     onSuccess: () => {
       toast({ title: "Customer deleted" });
