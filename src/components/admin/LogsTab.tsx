@@ -59,6 +59,10 @@ const ACTION_LABELS: Record<string, string> = {
   delete_maintenance: "Remove Maintenance",
   start_timer_session: "Start Timer Session",
   end_timer_session: "End Timer Session",
+  table_timer_started: "Table Opened (Admin)",
+  table_timer_stopped: "Table Closed (Admin)",
+  device_manual_override: "Light Manual Override",
+  device_override_cleared: "Light Override Cleared",
 };
 
 const DETAIL_LABELS: Record<string, string> = {
@@ -71,6 +75,9 @@ const DETAIL_LABELS: Record<string, string> = {
   startTime: "Start Time",
   endTime: "End Time",
   tableId: "Table",
+  tableName: "Table Name",
+  hardwareId: "Hardware ID",
+  state: "Light State",
   amount: "Amount",
   paymentMethod: "Payment Method",
   bookingId: "Booking ID",
