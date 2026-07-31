@@ -14,7 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { isDeleted as checkDeleted, getDeletedInfo } from "@/components/admin/DeletedBanner";
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRestoreRecord } from "@/hooks/useAdmin";
+import { useRestoreRecord, useHardDelete } from "@/hooks/useAdmin";
+import { PinDialog } from "@/components/admin/PinDialog";
 
 interface CatalogItem {
   _id: string;
@@ -97,6 +98,8 @@ export function RewardCatalogTab() {
   const { user } = useAuth();
   const isMaster = (user as any)?.isMaster === true;
   const restore = useRestoreRecord();
+  const hardDelete = useHardDelete();
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
   const { data: items = [] } = useAdminCatalog(showDeleted);
   const { data: fnbProducts = [] } = useFnbProducts();
@@ -248,9 +251,14 @@ export function RewardCatalogTab() {
                   )}
                 </div>
                 {deleted && isMaster && (
-                  <Button size="sm" variant="outline" className="border-green-500/50 text-green-400 hover:bg-green-500/10 flex-shrink-0" onClick={() => restore.mutate({ type: "reward-catalog", id: item._id })} disabled={restore.isPending}>
-                    <RotateCcw className="h-4 w-4 mr-1" /> Restore
-                  </Button>
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    <Button size="sm" variant="outline" className="border-green-500/50 text-green-400 hover:bg-green-500/10" onClick={() => restore.mutate({ type: "reward-catalog", id: item._id })} disabled={restore.isPending}>
+                      <RotateCcw className="h-4 w-4 mr-1" /> Restore
+                    </Button>
+                    <Button size="sm" variant="outline" className="border-destructive/50 text-destructive hover:bg-destructive/10" onClick={() => setHardDeleteTarget({ type: "reward-catalog", id: item._id })} disabled={hardDelete.isPending}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 )}
                 {!deleted && (
                   <div className="flex gap-2 flex-shrink-0">
@@ -402,6 +410,21 @@ export function RewardCatalogTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PinDialog
+        open={!!hardDeleteTarget}
+        onOpenChange={(v) => { if (!v) setHardDeleteTarget(null); }}
+        title="Permanently Delete"
+        description="This will irreversibly remove the record from the database. Enter your master PIN to confirm."
+        confirmLabel="Delete Forever"
+        loading={hardDelete.isPending}
+        onConfirm={(pin) => {
+          if (!hardDeleteTarget) return;
+          hardDelete.mutate({ ...hardDeleteTarget, pin }, {
+            onSuccess: () => setHardDeleteTarget(null),
+          });
+        }}
+      />
     </div>
   );
 }

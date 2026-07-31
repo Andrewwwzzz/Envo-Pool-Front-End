@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Pencil, Trash2, RotateCcw } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, RotateCcw, ShieldAlert } from "lucide-react";
 import {
   ALL_PERMISSIONS,
   useStaffList,
@@ -17,7 +17,9 @@ import {
   useRemoveStaff,
   useRestoreRecord,
   useAdminCustomers,
+  useSetMasterPin,
 } from "@/hooks/useAdmin";
+import { SetPinDialog } from "@/components/admin/PinDialog";
 
 const RESTORE_TYPES = [
   { value: "user", label: "User (deleted account)" },
@@ -224,9 +226,11 @@ function RestoreRecordCard() {
 export default function StaffTab() {
   const { data: staffList = [], isLoading } = useStaffList();
   const removeStaff = useRemoveStaff();
+  const setPin = useSetMasterPin();
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<any | null>(null);
   const [removeTarget, setRemoveTarget] = useState<any | null>(null);
+  const [setPinOpen, setSetPinOpen] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -277,6 +281,29 @@ export default function StaffTab() {
       </Card>
 
       <RestoreRecordCard />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4" /> Master Hard Delete PIN
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            Set or change the PIN used to confirm permanent (hard) deletions. Keep it private.
+          </p>
+          <Button size="sm" variant="outline" onClick={() => setSetPinOpen(true)}>
+            Set / Change PIN
+          </Button>
+        </CardContent>
+      </Card>
+
+      <SetPinDialog
+        open={setPinOpen}
+        onOpenChange={setSetPinOpen}
+        loading={setPin.isPending}
+        onConfirm={(pin) => setPin.mutate(pin, { onSuccess: () => setSetPinOpen(false) })}
+      />
 
       <PromoteStaffDialog open={createOpen} onOpenChange={setCreateOpen} />
 

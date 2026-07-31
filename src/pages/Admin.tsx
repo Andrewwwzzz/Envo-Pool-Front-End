@@ -2818,11 +2818,11 @@ function PromosTab() {
       </Card>
 
       <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Edit Promo Code — {editTarget?.code}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 sm:grid-cols-2 py-2">
+          <div className="grid gap-4 sm:grid-cols-2 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
             <div className="space-y-1.5">
               <Label>Discount Type</Label>
               <Select value={editForm.discount_type} onValueChange={(v) => setEditForm({ ...editForm, discount_type: v })}>
@@ -2900,7 +2900,7 @@ function PromosTab() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0">
             <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
             <Button onClick={handleEdit} disabled={!editForm.discount_value || update.isPending}>
               {update.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}

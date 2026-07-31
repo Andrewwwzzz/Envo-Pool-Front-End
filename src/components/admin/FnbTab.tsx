@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CheckCircle2, XCircle, Clock, Plus, Pencil, RotateCcw, AlertTriangle,
   Gift, TrendingUp, Package, History, ChevronDown, ChevronUp, DollarSign,
-  ShoppingBag, BarChart3, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff,
+  ShoppingBag, BarChart3, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, Trash2,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
@@ -24,7 +24,8 @@ import {
 import { fmtDateTimeSG, getSGDateStr, nowSG } from "@/lib/sgTime";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRestoreRecord } from "@/hooks/useAdmin";
+import { useRestoreRecord, useHardDelete } from "@/hooks/useAdmin";
+import { PinDialog } from "@/components/admin/PinDialog";
 
 // ─── Analytics hook (enhanced) ───────────────────────────────────────────────
 function useFnbAnalytics(day?: string) {
@@ -119,6 +120,8 @@ export function FnbTab() {
   const { user } = useAuth();
   const isMaster = (user as any)?.isMaster === true;
   const restore = useRestoreRecord();
+  const hardDelete = useHardDelete();
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
   const today = getSGDateStr(nowSG());
   const [viewDay, setViewDay] = useState(today);
   const [orderFilter, setOrderFilter] = useState("all");
@@ -533,9 +536,14 @@ export function FnbTab() {
                       </div>
 
                       {deleted && isMaster && (
-                        <Button size="sm" variant="outline" className="border-green-500/50 text-green-400 hover:bg-green-500/10 flex-shrink-0" onClick={() => restore.mutate({ type: "fnb-product", id: p._id })} disabled={restore.isPending}>
-                          <RotateCcw className="h-3.5 w-3.5 mr-1" /> Restore
-                        </Button>
+                        <div className="flex gap-1.5 flex-shrink-0">
+                          <Button size="sm" variant="outline" className="border-green-500/50 text-green-400 hover:bg-green-500/10" onClick={() => restore.mutate({ type: "fnb-product", id: p._id })} disabled={restore.isPending}>
+                            <RotateCcw className="h-3.5 w-3.5 mr-1" /> Restore
+                          </Button>
+                          <Button size="sm" variant="outline" className="border-destructive/50 text-destructive hover:bg-destructive/10" onClick={() => setHardDeleteTarget({ type: "fnb-product", id: p._id })} disabled={hardDelete.isPending}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       )}
                       {!deleted && (
                         <div className="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
@@ -823,6 +831,21 @@ export function FnbTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PinDialog
+        open={!!hardDeleteTarget}
+        onOpenChange={(v) => { if (!v) setHardDeleteTarget(null); }}
+        title="Permanently Delete"
+        description="This will irreversibly remove the record from the database. Enter your master PIN to confirm."
+        confirmLabel="Delete Forever"
+        loading={hardDelete.isPending}
+        onConfirm={(pin) => {
+          if (!hardDeleteTarget) return;
+          hardDelete.mutate({ ...hardDeleteTarget, pin }, {
+            onSuccess: () => setHardDeleteTarget(null),
+          });
+        }}
+      />
     </div>
   );
 }

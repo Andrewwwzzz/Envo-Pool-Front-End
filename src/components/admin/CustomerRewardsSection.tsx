@@ -16,7 +16,7 @@ import DeletedBanner, { getDeletedInfo, isDeleted } from "./DeletedBanner";
 import { useAdminCustomers } from "@/hooks/useAdmin";
 
 const TYPE_LABELS: Record<RewardType, string> = {
-  free_session: "Free Session (1 hr)",
+  free_session: "Free Session (30 min)",
   wallet_credit: "Wallet Credit",
   free_item: "Free Item",
   booking_discount: "Booking Discount",
@@ -57,7 +57,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const [issuedCodes, setIssuedCodes] = useState<string[] | null>(null);
 
   const valueLabel =
-    type === "free_session" ? "Sessions (1 hr each)" :
+    type === "free_session" ? "Sessions (30 min each)" :
     type === "wallet_credit" ? "Amount ($)" :
     type === "booking_discount" ? "Percent off (%)" : null;
 
@@ -260,18 +260,18 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
 
 
       <Dialog open={open} onOpenChange={(o) => { if (!o) { setOpen(false); reset(); } }}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Issue Reward</DialogTitle>
             <DialogDescription>Generate a reward code for this customer.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
             <div className="space-y-2">
               <Label>Type</Label>
               <Select value={type} onValueChange={(v) => setType(v as RewardType)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="free_session">Free Session (1 hr)</SelectItem>
+                  <SelectItem value="free_session">Free Session (30 min)</SelectItem>
                   <SelectItem value="wallet_credit">Wallet Credit</SelectItem>
                   <SelectItem value="free_item">Free Item</SelectItem>
                   <SelectItem value="booking_discount">Booking Discount</SelectItem>
@@ -289,7 +289,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
               <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder='e.g. "1 hour free pool session — Birthday gift!"'
+                placeholder='e.g. "30 min free pool session — Birthday gift!"'
                 rows={2}
               />
             </div>
@@ -342,7 +342,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
               </>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0">
             <Button variant="outline" onClick={() => { setOpen(false); reset(); }} disabled={issueReward.isPending}>Cancel</Button>
             <Button onClick={submit} disabled={issueReward.isPending}>
               {issueReward.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}

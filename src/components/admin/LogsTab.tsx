@@ -63,6 +63,8 @@ const ACTION_LABELS: Record<string, string> = {
   table_timer_stopped: "Table Closed (Admin)",
   device_manual_override: "Light Manual Override",
   device_override_cleared: "Light Override Cleared",
+  master_hard_delete: "Permanent Delete (Master)",
+  record_restored: "Record Restored",
 };
 
 const DETAIL_LABELS: Record<string, string> = {

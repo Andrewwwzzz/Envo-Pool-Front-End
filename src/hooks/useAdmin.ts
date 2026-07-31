@@ -1037,3 +1037,50 @@ export function useRestoreRecord() {
     onError: (err: Error) => toast({ title: "Restore failed", description: err.message, variant: "destructive" }),
   });
 }
+
+export function useSetMasterPin() {
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (pin: string) => {
+      const res = await apiFetch("/api/admin/master/set-pin", {
+        method: "POST",
+        body: JSON.stringify({ pin }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Failed to set PIN");
+      return body;
+    },
+    onSuccess: () => toast({ title: "Master PIN set" }),
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+}
+
+export function useHardDelete() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ type, id, pin }: { type: string; id: string; pin: string }) => {
+      const res = await apiFetch(`/api/admin/master/hard-delete/${type}/${id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ pin }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Failed to hard delete");
+      return body;
+    },
+    onSuccess: () => {
+      toast({ title: "Permanently deleted" });
+      qc.invalidateQueries({ queryKey: ["admin-customers"] });
+      qc.invalidateQueries({ queryKey: ["admin-bookings"] });
+      qc.invalidateQueries({ queryKey: ["fnb-menu-admin"] });
+      qc.invalidateQueries({ queryKey: ["membership", "plans"] });
+      qc.invalidateQueries({ queryKey: ["membership", "subscriptions"] });
+      qc.invalidateQueries({ queryKey: ["lockers"] });
+      qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
+      qc.invalidateQueries({ queryKey: ["multipliers-admin"] });
+      qc.invalidateQueries({ queryKey: ["reward-catalog-admin"] });
+      qc.invalidateQueries({ queryKey: ["admin-promos"] });
+    },
+    onError: (err: Error) => toast({ title: "Hard delete failed", description: err.message, variant: "destructive" }),
+  });
+}

@@ -28,7 +28,8 @@ import {
 } from "@/hooks/useMembership";
 import { useAvailableLockers } from "@/hooks/useLockers";
 
-import { useAdminCustomers, useRestoreRecord } from "@/hooks/useAdmin";
+import { useAdminCustomers, useRestoreRecord, useHardDelete } from "@/hooks/useAdmin";
+import { PinDialog } from "@/components/admin/PinDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { fmtDateSG } from "@/lib/sgTime";
 import ReasonDialog from "./ReasonDialog";
@@ -549,6 +550,8 @@ export default function MembershipTab() {
   const { user } = useAuth();
   const isMaster = (user as any)?.isMaster === true;
   const restore = useRestoreRecord();
+  const hardDelete = useHardDelete();
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
   const { data: plans = [] } = useMembershipPlans("all");
   const [hideDeleted, setHideDeleted] = useState(false);
   const { data: subs = [] } = useAdminSubscriptions(hideDeleted ? "default" : "all");
@@ -623,9 +626,14 @@ export default function MembershipTab() {
                       <div className="text-sm text-muted-foreground">${p.price} / {p.billingCycle}</div>
                     </div>
                     {planDeleted && isMaster && (
-                      <Button size="sm" variant="outline" className="border-green-500/50 text-green-400 hover:bg-green-500/10" onClick={() => restore.mutate({ type: "membership-plan", id: planId })} disabled={restore.isPending}>
-                        <RotateCcw className="h-4 w-4 mr-1" /> Restore
-                      </Button>
+                      <div className="flex gap-1.5">
+                        <Button size="sm" variant="outline" className="border-green-500/50 text-green-400 hover:bg-green-500/10" onClick={() => restore.mutate({ type: "membership-plan", id: planId })} disabled={restore.isPending}>
+                          <RotateCcw className="h-4 w-4 mr-1" /> Restore
+                        </Button>
+                        <Button size="sm" variant="outline" className="border-destructive/50 text-destructive hover:bg-destructive/10" onClick={() => setHardDeleteTarget({ type: "membership-plan", id: planId })} disabled={hardDelete.isPending}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     )}
                     {!planDeleted && (
                       <div className="flex gap-1">
@@ -865,6 +873,21 @@ export default function MembershipTab() {
           )}
         </DialogContent>
       </Dialog>
+
+      <PinDialog
+        open={!!hardDeleteTarget}
+        onOpenChange={(v) => { if (!v) setHardDeleteTarget(null); }}
+        title="Permanently Delete"
+        description="This will irreversibly remove the record from the database. Enter your master PIN to confirm."
+        confirmLabel="Delete Forever"
+        loading={hardDelete.isPending}
+        onConfirm={(pin) => {
+          if (!hardDeleteTarget) return;
+          hardDelete.mutate({ ...hardDeleteTarget, pin }, {
+            onSuccess: () => setHardDeleteTarget(null),
+          });
+        }}
+      />
     </div>
   );
 }
