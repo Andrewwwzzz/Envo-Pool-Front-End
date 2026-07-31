@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { apiFetch } from "@/lib/api";
 
 type DeviceState = "ON" | "OFF" | null;
 
@@ -7,12 +7,6 @@ interface DeviceStatus {
   state: DeviceState;
   loading: boolean;
   error: string | null;
-}
-
-async function callDeviceControl(payload: Record<string, unknown>) {
-  const { data, error } = await supabase.functions.invoke("device-control", { body: payload });
-  if (error) throw new Error(error.message || "Device control request failed");
-  return data;
 }
 
 export function useDeviceState(hardwareId: string | null | undefined, pollInterval = 3000) {
@@ -27,7 +21,8 @@ export function useDeviceState(hardwareId: string | null | undefined, pollInterv
   const fetchState = useCallback(async () => {
     if (!hardwareId) return;
     try {
-      const data: any = await callDeviceControl({ action: "status", hardwareId });
+      const res = await apiFetch(`/api/device/${hardwareId}`);
+      const data = await res.json();
       if (mountedRef.current) {
         setStatus({ state: (data?.state ?? null) as DeviceState, loading: false, error: null });
       }
@@ -59,7 +54,10 @@ export function useDeviceControl(hardwareId: string | null | undefined) {
     if (!hardwareId) return;
     setPending(true);
     try {
-      await callDeviceControl({ action: "control", hardwareId, state });
+      await apiFetch(`/api/device-control/control/${hardwareId}`, {
+        method: "POST",
+        body: JSON.stringify({ state }),
+      });
     } catch (err: any) {
       console.error("Device control error:", err.message);
     } finally {
@@ -71,7 +69,9 @@ export function useDeviceControl(hardwareId: string | null | undefined) {
     if (!hardwareId) return;
     setPending(true);
     try {
-      await callDeviceControl({ action: "clear", hardwareId });
+      await apiFetch(`/api/device-control/clear/${hardwareId}`, {
+        method: "POST",
+      });
     } catch (err: any) {
       console.error("Clear override error:", err.message);
     } finally {
