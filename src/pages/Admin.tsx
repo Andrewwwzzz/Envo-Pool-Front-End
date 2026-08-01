@@ -964,7 +964,7 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
           </section>
         </div>
 
-        {!isDeleted && !isActive && !walkin && (
+        {!isDeleted && !isActive && (
           <DialogFooter className="pt-2">
             <Button variant="destructive" onClick={onDelete}>
               <Trash2 className="h-4 w-4 mr-1" /> Delete Invoice
@@ -984,7 +984,7 @@ function InvoicesTab() {
   const [showDeleted, setShowDeleted] = useState(false);
   const { data, isLoading } = useAdminTimerSessions(showDeleted);
   const timerSessions: any[] = Array.isArray(data) ? data : (data?.sessions || data?.timerSessions || []);
-  const { data: stoppedWalkinsData } = useStoppedWalkinSessions();
+  const { data: stoppedWalkinsData } = useStoppedWalkinSessions(true, showDeleted);
   const stoppedWalkins: any[] = Array.isArray(stoppedWalkinsData) ? stoppedWalkinsData : [];
   // Merge stopped walk-ins into the sessions list with a marker.
   const sessions: any[] = [
@@ -1016,16 +1016,17 @@ function InvoicesTab() {
   const qc = useQueryClient();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteTargetIsWalkin, setDeleteTargetIsWalkin] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
   const [selectedSession, setSelectedSession] = useState<any | null>(null);
   const restore = useRestoreRecord();
   const hardDelete = useHardDelete();
   const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
 
-  const handleDelete = async (id: string, reason: string) => {
+  const handleDelete = async (id: string, reason: string, isWalkin: boolean) => {
     setDeletingId(id);
     try {
-      const res = await apiFetch(`/api/admin/timer-sessions/${id}`, {
+      const res = await apiFetch(isWalkin ? `/api/sessions/${id}` : `/api/admin/timer-sessions/${id}`, {
         method: "DELETE",
         body: JSON.stringify({ reason }),
       });
@@ -1033,7 +1034,9 @@ function InvoicesTab() {
       toast({ title: "Invoice deleted" });
       qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
       qc.invalidateQueries({ queryKey: ["admin-timer-sessions", true] });
+      qc.invalidateQueries({ queryKey: ["walkin-stopped"] });
       setDeleteTargetId(null);
+      setDeleteTargetIsWalkin(false);
       setDeleteReason("");
     } catch {
       toast({ title: "Failed to delete invoice", variant: "destructive" });
@@ -1134,7 +1137,7 @@ function InvoicesTab() {
                   const isDeleted = s.isDeleted === true;
                   const deletedBy = s.deletedBy?.name || s.deletedBy?.email || (typeof s.deletedBy === "string" ? s.deletedBy : "");
                   const tooltipText = isDeleted
-                    ? `Reason: ${s.deletionReason || "—"}\nDeleted by: ${deletedBy || "—"}${s.deletedAt ? `\nDeleted at: ${fmtDateTimeSG(s.deletedAt)}` : ""}`
+                    ? `Reason: ${s.deletionReason || s.deletedReason || "—"}\nDeleted by: ${deletedBy || "—"}${s.deletedAt ? `\nDeleted at: ${fmtDateTimeSG(s.deletedAt)}` : ""}`
                     : undefined;
                   return (
                     <tr
@@ -1171,16 +1174,14 @@ function InvoicesTab() {
                       <td className={`py-3 pr-4 font-medium ${isDeleted ? "line-through text-muted-foreground" : ""}`}>${amount.toFixed(2)}</td>
                       <td className="py-3 pr-4 text-muted-foreground">{staff}</td>
                       <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                        {s._walkin ? (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        ) : isDeleted ? (
+                        {isDeleted ? (
                           <div className="flex items-center justify-end gap-1">
                             <Button
                               variant="outline"
                               size="sm"
                               className="h-7 text-xs"
                               disabled={restore.isPending}
-                              onClick={() => restore.mutate({ type: "timer-session", id: s._id || s.id })}
+                              onClick={() => restore.mutate({ type: s._walkin ? "walkin-session" : "timer-session", id: s._id || s.id })}
                             >
                               <RotateCcw className="h-3 w-3 mr-1" /> Restore
                             </Button>
@@ -1189,7 +1190,7 @@ function InvoicesTab() {
                                 variant="outline"
                                 size="sm"
                                 className="h-7 text-xs border-destructive/50 text-destructive hover:bg-destructive/10"
-                                onClick={() => setHardDeleteTarget({ type: "timer-session", id: s._id || s.id })}
+                                onClick={() => setHardDeleteTarget({ type: s._walkin ? "walkin-session" : "timer-session", id: s._id || s.id })}
                               >
                                 <Trash2 className="h-3 w-3" />
                               </Button>
@@ -1201,7 +1202,7 @@ function InvoicesTab() {
                             size="icon"
                             className="h-8 w-8"
                             disabled={deletingId === (s._id || s.id)}
-                            onClick={() => { setDeleteTargetId(s._id || s.id); setDeleteReason(""); }}
+                            onClick={() => { setDeleteTargetId(s._id || s.id); setDeleteTargetIsWalkin(!!s._walkin); setDeleteReason(""); }}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
@@ -1223,13 +1224,14 @@ function InvoicesTab() {
       onDelete={() => {
         if (selectedSession) {
           setDeleteTargetId(selectedSession._id || selectedSession.id);
+          setDeleteTargetIsWalkin(!!selectedSession._walkin);
           setDeleteReason("");
           setSelectedSession(null);
         }
       }}
     />
 
-    <Dialog open={!!deleteTargetId} onOpenChange={(o) => { if (!o) { setDeleteTargetId(null); setDeleteReason(""); } }}>
+    <Dialog open={!!deleteTargetId} onOpenChange={(o) => { if (!o) { setDeleteTargetId(null); setDeleteTargetIsWalkin(false); setDeleteReason(""); } }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Delete Invoice</DialogTitle>
@@ -1243,11 +1245,11 @@ function InvoicesTab() {
           maxLength={500}
         />
         <DialogFooter>
-          <Button variant="outline" onClick={() => { setDeleteTargetId(null); setDeleteReason(""); }}>Go Back</Button>
+          <Button variant="outline" onClick={() => { setDeleteTargetId(null); setDeleteTargetIsWalkin(false); setDeleteReason(""); }}>Go Back</Button>
           <Button
             variant="destructive"
             disabled={deleteReason.trim().length < 5 || deletingId === deleteTargetId}
-            onClick={() => { if (deleteTargetId) handleDelete(deleteTargetId, deleteReason.trim()); }}
+            onClick={() => { if (deleteTargetId) handleDelete(deleteTargetId, deleteReason.trim(), deleteTargetIsWalkin); }}
           >
             Confirm Delete
           </Button>

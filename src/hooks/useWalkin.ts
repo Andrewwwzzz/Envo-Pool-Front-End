@@ -14,6 +14,10 @@ export interface WalkinSession {
   endTime?: string;
   walletBalanceAfter?: number;
   durationMinutes?: number;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedReason?: string;
+  deletedBy?: any;
 }
 
 export function useMyWalkinSession(enabled = true) {
@@ -116,11 +120,11 @@ export function useForceStopWalkin() {
   });
 }
 
-export function useStoppedWalkinSessions(enabled = true) {
+export function useStoppedWalkinSessions(enabled = true, showDeleted = false) {
   return useQuery<WalkinSession[]>({
-    queryKey: ["walkin-stopped"],
+    queryKey: ["walkin-stopped", showDeleted],
     queryFn: async () => {
-      const res = await apiFetch("/api/sessions?status=stopped");
+      const res = await apiFetch(`/api/sessions?status=stopped${showDeleted ? "&showDeleted=true" : ""}`);
       if (!res.ok) return [];
       const data = await res.json().catch(() => []);
       return Array.isArray(data) ? data : data?.sessions ?? [];
