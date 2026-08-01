@@ -252,7 +252,7 @@ function OverviewTab() {
     return best ? `${best.name} (${best.count})` : "—";
   })();
 
-  // Wallet top-ups this period
+  // Cash & PayNow top-ups this period (excludes reward-code credits — not real money in)
   const walletTopups = (() => {
     if (typeof stats?.walletTopups === "number") return stats.walletTopups;
     const txs = Array.isArray(transactions) ? transactions : (transactions?.transactions ?? []);
@@ -260,6 +260,8 @@ function OverviewTab() {
     for (const t of txs) {
       const type = String(t.type || "").toLowerCase();
       if (type !== "topup" && type !== "top_up" && type !== "wallet_topup") continue;
+      const method = String(t.method || "").toLowerCase();
+      if (method && method !== "cash" && method !== "paynow") continue;
       const date = t.createdAt || t.created_at;
       if (!inRange(date)) continue;
       const status = String(t.status || "").toLowerCase();
@@ -268,6 +270,27 @@ function OverviewTab() {
     }
     return total;
   })();
+
+  // PayNow vs Cash top-up breakdown this period
+  const topupsByMethod = (method: "paynow" | "cash") => {
+    const statsKey = method === "paynow" ? "paynowTopups" : "cashTopups";
+    if (typeof (stats as any)?.[statsKey] === "number") return (stats as any)[statsKey];
+    const txs = Array.isArray(transactions) ? transactions : (transactions?.transactions ?? []);
+    let total = 0;
+    for (const t of txs) {
+      const type = String(t.type || "").toLowerCase();
+      if (type !== "topup" && type !== "top_up" && type !== "wallet_topup") continue;
+      if (String(t.method || "").toLowerCase() !== method) continue;
+      const date = t.createdAt || t.created_at;
+      if (!inRange(date)) continue;
+      const status = String(t.status || "").toLowerCase();
+      if (status && status !== "approved" && status !== "completed" && status !== "success") continue;
+      total += Number(t.amount || 0);
+    }
+    return total;
+  };
+  const paynowTopups = topupsByMethod("paynow");
+  const cashTopups = topupsByMethod("cash");
 
   // Cash collected from timer sessions
   const cashCollected = (() => {
@@ -374,12 +397,25 @@ function OverviewTab() {
         <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
           <p className="text-2xl font-bold">${walletTopups.toFixed(2)}</p>
-          <p className="text-sm text-muted-foreground">Wallet Top-Ups</p>
+          <p className="text-sm text-muted-foreground">Cash & PayNow Top-Ups</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
           <p className="text-2xl font-bold">${cashCollected.toFixed(2)}</p>
           <p className="text-sm text-muted-foreground">Cash Collected</p>
+        </CardContent></Card>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <Card><CardContent className="pt-6 text-center">
+          <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">${paynowTopups.toFixed(2)}</p>
+          <p className="text-sm text-muted-foreground">PayNow Top-Ups</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-6 text-center">
+          <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">${cashTopups.toFixed(2)}</p>
+          <p className="text-sm text-muted-foreground">Cash Top-Ups</p>
         </CardContent></Card>
       </div>
 
