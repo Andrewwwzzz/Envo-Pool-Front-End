@@ -137,6 +137,19 @@ export interface PricingSegment {
 const DEFAULT_HOURLY_RATE = 16.25; // fallback if no rules match
 
 /**
+ * The hourly rate in effect right now (no specific table — global/default
+ * rules only), for prefilling admin "start timer" rate inputs so staff see
+ * today's actual rate instead of a stale hardcoded default.
+ */
+export function getCurrentHourlyRate(
+  rules: PricingRule[],
+  phDates: Set<string> = new Set()
+): number {
+  const rule = findBestRule(rules, new Date(), "", phDates);
+  return rule?.hourly_rate ?? DEFAULT_HOURLY_RATE;
+}
+
+/**
  * Calculate booking price with multi-period support.
  * Splits the booking into 15-minute segments and applies the best matching rule for each.
  * Pass phDates (Set of "YYYY-MM-DD") for public-holiday-aware pricing.

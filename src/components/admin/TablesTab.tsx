@@ -12,6 +12,8 @@ import {
   useBulkScheduleMaintenance,
 } from "@/hooks/useAdmin";
 import { useActiveWalkinSessions } from "@/hooks/useWalkin";
+import { usePricingRules, usePublicHolidaySet } from "@/hooks/usePricing";
+import { getCurrentHourlyRate } from "@/lib/pricing";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -101,8 +103,19 @@ export default function TablesTab() {
   const { toast } = useToast();
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
   const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number; grossCost?: number; discountPercent?: number; paymentMethod?: "cash" | "wallet"; customerName?: string }>>({});
-  const [hourlyRate, setHourlyRate] = useState("20");
+  const { data: pricingRules = [] } = usePricingRules();
+  const phDates = usePublicHolidaySet();
+  const [hourlyRate, setHourlyRate] = useState("");
+  const [rateTouched, setRateTouched] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Prefill the rate preset with whatever's actually in effect right now
+  // (per the active pricing rules), instead of a stale hardcoded default —
+  // stops updating once staff manually edits the field.
+  useEffect(() => {
+    if (rateTouched || pricingRules.length === 0) return;
+    setHourlyRate(String(getCurrentHourlyRate(pricingRules, phDates)));
+  }, [pricingRules, phDates, rateTouched]);
 
   const rate = parseFloat(hourlyRate) || 0;
 
@@ -172,12 +185,12 @@ export default function TablesTab() {
               type="number"
               step="0.01"
               value={hourlyRate}
-              onChange={(e) => setHourlyRate(e.target.value)}
+              onChange={(e) => { setRateTouched(true); setHourlyRate(e.target.value); }}
               className="w-[120px]"
             />
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            Discount (if any) is entered when closing the table.
+            Auto-filled with the current active pricing rate — edit to override. Discount (if any) is entered when closing the table.
           </p>
         </CardContent>
       </Card>
