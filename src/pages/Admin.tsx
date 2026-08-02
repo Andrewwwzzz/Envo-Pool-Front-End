@@ -1659,6 +1659,8 @@ function CustomersTab({
 function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user: authUser } = useAuth();
+  const isFullAdmin = authUser?.isAdmin ?? false;
   const updateWallet = useUpdateCustomerWallet();
   const updateProfile = useUpdateCustomerProfile();
   const updateEmail = useUpdateCustomerEmail();
@@ -1922,6 +1924,21 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                 </Button>
               </div>
             </div>
+            {isFullAdmin && (
+              <div>
+                <p className="text-muted-foreground">Allow Negative Balance</p>
+                <div className="flex items-center gap-2 pt-1">
+                  <Switch
+                    checked={!!customer.allow_negative_balance}
+                    disabled={updateProfile.isPending}
+                    onCheckedChange={(checked) => {
+                      updateProfile.mutate({ userId: customer.user_id, allowNegativeBalance: checked });
+                    }}
+                  />
+                  <span className="text-xs text-muted-foreground">For shared accounts (e.g. Guest Account Table N)</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Re-verify / Set Legal Name dialog */}
@@ -2234,6 +2251,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
         customerName={customer.name || customer.email}
         currentBalance={Number(customer.wallet_balance ?? 0)}
         defaultCategory="fnb"
+        accountAllowsNegative={!!customer.allow_negative_balance}
       />
     </div>
   );

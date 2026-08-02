@@ -35,6 +35,9 @@ interface ChargeWalletDialogProps {
   defaultAmount?: number;
   defaultDescription?: string;
   onCharged?: () => void;
+  // Shared/utility accounts (e.g. "Guest Account Table N") can be flagged to
+  // always allow a negative balance — skips the manual checkbox requirement.
+  accountAllowsNegative?: boolean;
 }
 
 interface FnbItem {
@@ -79,6 +82,7 @@ export function ChargeWalletDialog({
   defaultAmount,
   defaultDescription,
   onCharged,
+  accountAllowsNegative = false,
 }: ChargeWalletDialogProps) {
   const charge = useChargeWallet();
   const { toast } = useToast();
@@ -109,12 +113,13 @@ export function ChargeWalletDialog({
   const newBalance = useMemo(() => currentBalance - (validAmount ? amt : 0), [currentBalance, amt, validAmount]);
   const willGoNegative = validAmount && newBalance < 0;
   const isFnbCategory = category === "fnb";
+  const effectiveAllowNegative = allowNegative || accountAllowsNegative;
 
   const canSubmit = isFnbCategory
     ? fnbItems.length > 0 && isValidTable(tableName) && !charge.isPending
     : validAmount &&
       description.trim().length > 0 &&
-      (!willGoNegative || allowNegative) &&
+      (!willGoNegative || effectiveAllowNegative) &&
       !charge.isPending;
 
   const addFnbItem = () => {
@@ -175,7 +180,7 @@ export function ChargeWalletDialog({
           amount: amt,
           category,
           description: description.trim(),
-          allowNegative,
+          allowNegative: effectiveAllowNegative,
         });
         onCharged?.();
         onOpenChange(false);
@@ -357,7 +362,13 @@ export function ChargeWalletDialog({
             </div>
           )}
 
-          {willGoNegative && !isFnbCategory && (
+          {willGoNegative && !isFnbCategory && accountAllowsNegative && (
+            <div className="flex items-start gap-2 rounded-md border border-border px-3 py-2 text-sm">
+              <AlertTriangle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+              <p className="text-muted-foreground">Charge exceeds wallet balance — this account allows a negative balance, so it'll proceed automatically.</p>
+            </div>
+          )}
+          {willGoNegative && !isFnbCategory && !accountAllowsNegative && (
             <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
               <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
               <div className="space-y-2">

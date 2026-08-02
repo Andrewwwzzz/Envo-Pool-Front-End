@@ -705,6 +705,7 @@ export function useAdminCustomers(searchTerm: string, includeDeleted = false) {
         phone: c.phone || null,
         date_of_birth: c.dateOfBirth ?? c.date_of_birth ?? null,
         wallet_balance: c.walletBalance ?? c.wallet_balance ?? 0,
+        allow_negative_balance: c.allowNegativeBalance ?? false,
         total_spent: c.totalSpent ?? c.total_spent ?? 0,
         age_verified: c.ageVerified ?? c.age_verified ?? false,
         isVerified: c.isVerified ?? false,
@@ -891,18 +892,21 @@ export function useUpdateCustomerProfile() {
       email,
       phone,
       dateOfBirth,
+      allowNegativeBalance,
     }: {
       userId: string;
       name?: string;
       email?: string;
       phone?: string;
       dateOfBirth?: string;
+      allowNegativeBalance?: boolean;
     }) => {
-      const payload: Record<string, string> = {};
+      const payload: Record<string, string | boolean> = {};
       if (name !== undefined) payload.name = name;
       if (email !== undefined) payload.email = email;
       if (phone !== undefined) payload.phone = phone;
       if (dateOfBirth !== undefined) payload.dateOfBirth = dateOfBirth;
+      if (allowNegativeBalance !== undefined) payload.allowNegativeBalance = allowNegativeBalance;
 
       const res = await apiFetch(`/api/users/${userId}/profile`, {
         method: "PATCH",

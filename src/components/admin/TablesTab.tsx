@@ -536,6 +536,10 @@ function CloseTableDialog({
   const selectedCustomer = customers.find((c: any) => c.id === customerId);
   const walletBalance = selectedCustomer?.wallet_balance ?? 0;
   const willGoNegative = !!selectedCustomer && finalCost > walletBalance;
+  // Shared/utility accounts (e.g. "Guest Account Table N") are flagged to always
+  // allow a negative balance — no need for staff to tick the checkbox each time.
+  const accountAllowsNegative = !!selectedCustomer?.allow_negative_balance;
+  const effectiveAllowNegative = allowNegative || accountAllowsNegative;
 
   const handleConfirm = () => {
     if (!closeTarget) return;
@@ -543,7 +547,7 @@ function CloseTableDialog({
       toast({ title: "Select a customer", description: "A customer must be selected to charge their wallet.", variant: "destructive" });
       return;
     }
-    if (paymentMethod === "wallet" && willGoNegative && !allowNegative) {
+    if (paymentMethod === "wallet" && willGoNegative && !effectiveAllowNegative) {
       toast({ title: "Insufficient wallet balance", description: "Check 'Allow negative balance' to proceed anyway.", variant: "destructive" });
       return;
     }
@@ -563,7 +567,7 @@ function CloseTableDialog({
         startedAt,
         customerId: customerId || null,
         paymentMethod,
-        allowNegative,
+        allowNegative: effectiveAllowNegative,
       },
       {
         onSuccess: () => {
@@ -642,7 +646,13 @@ function CloseTableDialog({
                   </div>
                 </>
               )}
-              {willGoNegative && (
+              {willGoNegative && accountAllowsNegative && (
+                <div className="flex items-start gap-2 rounded-md border border-border px-3 py-2 text-sm">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                  <p className="text-muted-foreground">Charge exceeds wallet balance — this account allows a negative balance, so it'll proceed automatically.</p>
+                </div>
+              )}
+              {willGoNegative && !accountAllowsNegative && (
                 <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
                   <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
                   <div className="space-y-2">
