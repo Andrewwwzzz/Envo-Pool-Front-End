@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AlertTriangle, Loader2, Plus, Trash2 } from "lucide-react";
-import { useChargeWallet, type ChargeWalletCategory } from "@/hooks/useAdmin";
+import { useChargeWallet, useAdminUser, type ChargeWalletCategory } from "@/hooks/useAdmin";
 import { useAdminMenu } from "@/hooks/useFnb";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
@@ -87,6 +87,10 @@ export function ChargeWalletDialog({
   const charge = useChargeWallet();
   const { toast } = useToast();
   const { data: fnbProducts = [] } = useAdminMenu();
+  // Caller-supplied accountAllowsNegative may be stale or simply not wired up
+  // (e.g. it comes from a walk-in session row that never carried this field) —
+  // fetch the current value directly so any charge-wallet entry point works.
+  const { data: freshUser } = useAdminUser(userId, open);
 
   const [amount, setAmount] = useState<string>("");
   const [category, setCategory] = useState<ChargeWalletCategory>(defaultCategory);
@@ -113,7 +117,8 @@ export function ChargeWalletDialog({
   const newBalance = useMemo(() => currentBalance - (validAmount ? amt : 0), [currentBalance, amt, validAmount]);
   const willGoNegative = validAmount && newBalance < 0;
   const isFnbCategory = category === "fnb";
-  const effectiveAllowNegative = allowNegative || accountAllowsNegative;
+  const accountFlaggedNegative = accountAllowsNegative || !!freshUser?.allowNegativeBalance;
+  const effectiveAllowNegative = allowNegative || accountFlaggedNegative;
 
   const canSubmit = isFnbCategory
     ? fnbItems.length > 0 && isValidTable(tableName) && !charge.isPending
@@ -362,13 +367,13 @@ export function ChargeWalletDialog({
             </div>
           )}
 
-          {willGoNegative && !isFnbCategory && accountAllowsNegative && (
+          {willGoNegative && !isFnbCategory && accountFlaggedNegative && (
             <div className="flex items-start gap-2 rounded-md border border-border px-3 py-2 text-sm">
               <AlertTriangle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
               <p className="text-muted-foreground">Charge exceeds wallet balance — this account allows a negative balance, so it'll proceed automatically.</p>
             </div>
           )}
-          {willGoNegative && !isFnbCategory && !accountAllowsNegative && (
+          {willGoNegative && !isFnbCategory && !accountFlaggedNegative && (
             <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
               <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
               <div className="space-y-2">

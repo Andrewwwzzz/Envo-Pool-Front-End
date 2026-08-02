@@ -727,6 +727,23 @@ export function useAdminCustomers(searchTerm: string, includeDeleted = false) {
   });
 }
 
+// Fetches a single user by id — used where only a userId is on hand (e.g. an
+// active walk-in session row) and up-to-date fields like allowNegativeBalance
+// are needed before charging their wallet, without relying on whatever
+// (possibly stale/partial) object the caller happens to have around.
+export function useAdminUser(userId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["admin-user", userId],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/users/${userId}`);
+      if (!res.ok) throw new Error("Failed to fetch user");
+      return res.json();
+    },
+    enabled: enabled && !!userId,
+    staleTime: 0,
+  });
+}
+
 export function useCustomerBookings(userId: string) {
   return useQuery({
     queryKey: ["admin-customer-bookings", userId],
