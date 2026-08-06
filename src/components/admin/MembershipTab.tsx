@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pencil, Trash2, Plus, Loader2, KeyRound, Eye, EyeOff, CalendarOff, RotateCcw } from "lucide-react";
+import { Pencil, Trash2, Plus, Loader2, KeyRound, Eye, EyeOff, CalendarOff, RotateCcw, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useMembershipPlans,
@@ -554,6 +554,8 @@ export default function MembershipTab() {
   const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
   const { data: plans = [] } = useMembershipPlans("all");
   const [hideDeleted, setHideDeleted] = useState(false);
+  const [subSearch, setSubSearch] = useState("");
+  const [planFilter, setPlanFilter] = useState("all");
   const { data: subs = [] } = useAdminSubscriptions(hideDeleted ? "default" : "all");
   const { data: customers = [] } = useAdminCustomers("");
   const del = useDeleteMembershipPlan();
@@ -575,7 +577,26 @@ export default function MembershipTab() {
     return m;
   }, [hoursData]);
 
-  const visibleSubs = subs || [];
+  const visibleSubs = useMemo(() => {
+    let list = subs || [];
+    if (planFilter !== "all") {
+      list = list.filter((s: any) => {
+        const plan = typeof s.planId === "object" && s.planId ? s.planId : null;
+        const planId = plan?._id ?? plan?.id ?? s.planId;
+        return String(planId) === planFilter;
+      });
+    }
+    const term = subSearch.trim().toLowerCase();
+    if (term) {
+      list = list.filter((s: any) => {
+        const user = typeof s.userId === "object" && s.userId ? s.userId : null;
+        const name = (user?.name || user?.legal_name || s.customerName || "").toLowerCase();
+        const email = (user?.email || s.customerEmail || "").toLowerCase();
+        return name.includes(term) || email.includes(term);
+      });
+    }
+    return list;
+  }, [subs, subSearch, planFilter]);
   const visiblePlans = hidePlanDeleted ? plans.filter((p: any) => !isDeleted(p)) : plans;
 
   const openCreate = () => { setEditPlan(null); setPlanDlgOpen(true); };
@@ -676,9 +697,29 @@ export default function MembershipTab() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
           <CardTitle className="text-base">Subscriptions</CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={subSearch}
+                onChange={(e) => setSubSearch(e.target.value)}
+                placeholder="Search customer..."
+                className="h-9 w-[180px] pl-7"
+              />
+            </div>
+            <Select value={planFilter} onValueChange={setPlanFilter}>
+              <SelectTrigger className="h-9 w-[180px]">
+                <SelectValue placeholder="All plans" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All plans</SelectItem>
+                {plans.map((p: any) => (
+                  <SelectItem key={p.id ?? p._id} value={String(p.id ?? p._id)}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               size="sm"
               variant={hideDeleted ? "secondary" : "outline"}
@@ -693,7 +734,9 @@ export default function MembershipTab() {
         </CardHeader>
         <CardContent>
           {visibleSubs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No subscriptions.</p>
+            <p className="text-sm text-muted-foreground">
+              {subSearch.trim() || planFilter !== "all" ? "No subscriptions match your search/filter." : "No subscriptions."}
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
