@@ -278,7 +278,7 @@ export default function TopUpWalletDialog({
                 className="w-full bg-green-600 hover:bg-green-700 text-white"
                 onClick={() => { setPaynowConfirmation(null); resetState(); }}
               >
-                <a href="https://wa.me/6587627064" target="_blank" rel="noopener noreferrer">
+                <a href="https://wa.me/6589007983" target="_blank" rel="noopener noreferrer">
                   Contact Admin on WhatsApp
                 </a>
               </Button>
