@@ -645,6 +645,8 @@ export function useAdminStats(from?: string, to?: string) {
         totalRevenue: data.totalRevenue ?? 0,
         totalTransactions: data.totalTransactions ?? 0,
         walletTopups: data.walletTopups ?? data.totalTopups ?? null,
+        cashTopups: data.cashTopups ?? null,
+        paynowTopups: data.paynowTopups ?? null,
         cashCollected: data.cashCollected ?? data.totalCash ?? null,
         mostBookedTable: data.mostBookedTable ?? null,
       };
