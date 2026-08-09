@@ -507,6 +507,7 @@ function CloseTableDialog({
 }) {
   const { toast } = useToast();
   const [discountInput, setDiscountInput] = useState("0");
+  const [rateInput, setRateInput] = useState("");
   const [paymentMethod] = useState<"cash" | "wallet">("wallet");
   const [customerId, setCustomerId] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
@@ -517,16 +518,19 @@ function CloseTableDialog({
   useEffect(() => {
     if (closeTarget) {
       setDiscountInput("0");
-
+      const defaultRate = tables.find((tb) => tb.id === closeTarget)?.hourly_rate ?? rate;
+      setRateInput(String(defaultRate));
       setCustomerId("");
       setCustomerSearch("");
       setCustomerName("");
       setAllowNegative(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closeTarget]);
 
   const table = tables.find((tb) => tb.id === closeTarget);
-  const tableRate = table?.hourly_rate ?? rate;
+  const defaultRate = table?.hourly_rate ?? rate;
+  const tableRate = rateInput === "" ? defaultRate : (Number(rateInput) || 0);
   const seconds = closeTarget ? (elapsed[closeTarget] ?? 0) : 0;
   const gross = Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
   const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
@@ -600,6 +604,20 @@ function CloseTableDialog({
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
+            <Label>Rate ($/hr)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={rateInput}
+              onChange={(e) => setRateInput(e.target.value)}
+              placeholder={String(defaultRate)}
+              autoFocus
+            />
+            <p className="text-xs text-muted-foreground">Defaults to ${defaultRate}/hr — edit to bill this session at a different rate.</p>
+          </div>
+
+          <div className="space-y-2">
             <Label>Discount (%)</Label>
             <Input
               type="number"
@@ -609,7 +627,6 @@ function CloseTableDialog({
               value={discountInput}
               onChange={(e) => setDiscountInput(e.target.value)}
               placeholder="0"
-              autoFocus
             />
             <p className="text-xs text-muted-foreground">Leave at 0 for no discount.</p>
           </div>
