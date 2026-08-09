@@ -85,6 +85,7 @@ const EMPTY_FORM = {
   sellingPrice: "",
   stock: "",
   lowStockThreshold: "5",
+  piecesPerUnit: "1",
   isRedeemable: false,
   isAlcohol: false,
   isActive: true,
@@ -165,6 +166,7 @@ export function FnbTab() {
       name: p.name, category: p.category,
       costPrice: String(p.costPrice), sellingPrice: String(p.sellingPrice),
       stock: String(p.stock), lowStockThreshold: String(p.lowStockThreshold),
+      piecesPerUnit: String(p.piecesPerUnit ?? 1),
       isRedeemable: p.isRedeemable, isAlcohol: p.isAlcohol, isActive: p.isActive, sortOrder: String(p.sortOrder),
     });
     setProductDialog("edit");
@@ -178,6 +180,7 @@ export function FnbTab() {
       name: form.name, category: form.category,
       costPrice: Number(form.costPrice), sellingPrice: Number(form.sellingPrice),
       stock: Number(form.stock), lowStockThreshold: Number(form.lowStockThreshold),
+      piecesPerUnit: Math.max(1, Number(form.piecesPerUnit) || 1),
       isRedeemable: form.isRedeemable, isAlcohol: form.isAlcohol, isActive: form.isActive, sortOrder: Number(form.sortOrder),
     };
     if (productDialog === "create") {
@@ -532,6 +535,9 @@ export function FnbTab() {
                           </span>
                           <span className="text-muted-foreground">Alert at ≤{p.lowStockThreshold}</span>
                           <span className="text-muted-foreground">On-hand value: <span className="text-foreground">${(p.stock * p.costPrice).toFixed(2)}</span></span>
+                          {p.piecesPerUnit > 1 && (
+                            <span className="text-muted-foreground">−{p.piecesPerUnit} pcs/sale</span>
+                          )}
                         </div>
                       </div>
 
@@ -685,6 +691,13 @@ export function FnbTab() {
                 <Label className="text-xs">Low Stock Alert At</Label>
                 <Input type="number" value={form.lowStockThreshold} onChange={(e) => setForm({ ...form, lowStockThreshold: e.target.value })} />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Pieces Per Unit Sold</Label>
+              <Input type="number" min={1} value={form.piecesPerUnit} onChange={(e) => setForm({ ...form, piecesPerUnit: e.target.value })} />
+              <p className="text-xs text-muted-foreground">
+                How many stock pieces one sale deducts — e.g. a "Beer Bucket" sold as 1 unit but tracked as 5 bottles in stock.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Sort Order</Label>
