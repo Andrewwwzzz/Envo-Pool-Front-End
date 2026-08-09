@@ -383,7 +383,7 @@ export default function TablesTab() {
                         <Square className="mr-2 h-3 w-3" /> Close Table
                       </Button>
                     ) : (
-                      <Button size="sm" variant="default" onClick={() => openTable(t.id)} className="w-full" disabled={hasActiveBooking || isMaintenance || hasUserWalkin} title={hasActiveBooking ? "Table has an active booking" : hasUserWalkin ? "Table has an active walk-in session" : isMaintenance ? "Table is under maintenance" : undefined}>
+                      <Button size="sm" variant="default" onClick={() => openTable(t.id)} className="w-full" disabled={hasActiveBooking || hasUserWalkin} title={hasActiveBooking ? "Table has an active booking" : hasUserWalkin ? "Table has an active walk-in session" : isMaintenance ? "Table is under maintenance — public booking/walk-in is blocked, but staff can still open it (e.g. for a private event)" : undefined}>
                         <Play className="mr-2 h-3 w-3" /> Open Table
                       </Button>
                     )}
