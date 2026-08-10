@@ -130,7 +130,7 @@ export function useAdminTables() {
       discountPercent?: number;
       startedAt: string;
       customerId?: string | null;
-      paymentMethod?: "cash" | "wallet";
+      paymentMethod?: "cash" | "paynow" | "wallet";
       allowNegative?: boolean;
     }) => {
       const res = await apiFetch(`/api/admin/tables/${tableId}/stop-timer`, {

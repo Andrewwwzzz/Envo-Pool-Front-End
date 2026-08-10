@@ -102,7 +102,7 @@ export default function TablesTab() {
   const [bulkSchedReason, setBulkSchedReason] = useState("");
   const { toast } = useToast();
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
-  const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number; grossCost?: number; discountPercent?: number; paymentMethod?: "cash" | "wallet"; customerName?: string }>>({});
+  const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number; grossCost?: number; discountPercent?: number; paymentMethod?: "cash" | "paynow" | "wallet"; customerName?: string }>>({});
   const { data: pricingRules = [] } = usePricingRules();
   const phDates = usePublicHolidaySet();
   const [hourlyRate, setHourlyRate] = useState("");
@@ -157,7 +157,7 @@ export default function TablesTab() {
     setCloseTarget(tableId);
   };
 
-  const onTableClosed = (tableId: string, info: { seconds: number; cost: number; grossCost: number; discountPercent: number; paymentMethod: "cash" | "wallet"; customerName: string }) => {
+  const onTableClosed = (tableId: string, info: { seconds: number; cost: number; grossCost: number; discountPercent: number; paymentMethod: "cash" | "paynow" | "wallet"; customerName: string }) => {
     setCompletedSessions((prev) => ({ ...prev, [tableId]: info }));
   };
 
@@ -371,7 +371,11 @@ export default function TablesTab() {
                         </p>
                       )}
                       <p className="text-xs text-muted-foreground">
-                        Paid via {session.customerName || "customer"}'s wallet
+                        {session.paymentMethod === "cash"
+                          ? "Paid via cash"
+                          : session.paymentMethod === "paynow"
+                          ? "Paid via PayNow"
+                          : `Paid via ${session.customerName || "customer"}'s wallet`}
                       </p>
                     </div>
                   )}
@@ -503,12 +507,12 @@ function CloseTableDialog({
   closeTarget: string | null;
   stopTimer: ReturnType<typeof useAdminTables>["stopTimer"];
   onOpenChange: (open: boolean) => void;
-  onClosed: (tableId: string, info: { seconds: number; cost: number; grossCost: number; discountPercent: number; paymentMethod: "cash" | "wallet"; customerName: string }) => void;
+  onClosed: (tableId: string, info: { seconds: number; cost: number; grossCost: number; discountPercent: number; paymentMethod: "cash" | "paynow" | "wallet"; customerName: string }) => void;
 }) {
   const { toast } = useToast();
   const [discountInput, setDiscountInput] = useState("0");
   const [rateInput, setRateInput] = useState("");
-  const [paymentMethod] = useState<"cash" | "wallet">("wallet");
+  const [paymentMethod, setPaymentMethod] = useState<"wallet" | "cash" | "paynow">("wallet");
   const [customerId, setCustomerId] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -520,6 +524,7 @@ function CloseTableDialog({
       setDiscountInput("0");
       const defaultRate = tables.find((tb) => tb.id === closeTarget)?.hourly_rate ?? rate;
       setRateInput(String(defaultRate));
+      setPaymentMethod("wallet");
       setCustomerId("");
       setCustomerSearch("");
       setCustomerName("");
@@ -539,7 +544,7 @@ function CloseTableDialog({
 
   const selectedCustomer = customers.find((c: any) => c.id === customerId);
   const walletBalance = selectedCustomer?.wallet_balance ?? 0;
-  const willGoNegative = !!selectedCustomer && finalCost > walletBalance;
+  const willGoNegative = paymentMethod === "wallet" && !!selectedCustomer && finalCost > walletBalance;
   // Shared/utility accounts (e.g. "Guest Account Table N") are flagged to always
   // allow a negative balance — no need for staff to tick the checkbox each time.
   const accountAllowsNegative = !!selectedCustomer?.allow_negative_balance;
@@ -575,9 +580,10 @@ function CloseTableDialog({
       },
       {
         onSuccess: () => {
+          const methodLabel = paymentMethod === "wallet" ? `charged to ${customerName || "customer"}'s wallet` : `paid via ${paymentMethod === "paynow" ? "PayNow" : "cash"}`;
           toast({
             title: "Table closed",
-            description: `$${finalCost.toFixed(2)} charged to ${customerName || "customer"}'s wallet.`,
+            description: `$${finalCost.toFixed(2)} ${methodLabel}.`,
           });
         },
         onError: (err: Error) => {
@@ -631,9 +637,31 @@ function CloseTableDialog({
             <p className="text-xs text-muted-foreground">Leave at 0 for no discount.</p>
           </div>
 
+          <div className="space-y-2">
+            <Label>Payment Method</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["wallet", "cash", "paynow"] as const).map((m) => (
+                <Button
+                  key={m}
+                  type="button"
+                  size="sm"
+                  variant={paymentMethod === m ? "default" : "outline"}
+                  onClick={() => setPaymentMethod(m)}
+                >
+                  {m === "wallet" ? "Wallet" : m === "cash" ? "Cash" : "PayNow"}
+                </Button>
+              ))}
+            </div>
+            {paymentMethod !== "wallet" && (
+              <p className="text-xs text-muted-foreground">
+                Paid at the counter — doesn't touch any wallet, and counts toward Cash/PayNow Top-Ups.
+              </p>
+            )}
+          </div>
+
           {(
             <div className="space-y-2">
-              <Label>Customer <span className="text-destructive">*</span></Label>
+              <Label>Customer {paymentMethod === "wallet" && <span className="text-destructive">*</span>}</Label>
               {selectedCustomer ? (
                 <div className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
                   <div>
