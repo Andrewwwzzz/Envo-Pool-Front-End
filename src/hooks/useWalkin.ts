@@ -93,6 +93,7 @@ export function useStopWalkin() {
       qc.invalidateQueries({ queryKey: ["transaction-history"] });
       qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
       qc.invalidateQueries({ queryKey: ["session-detail"] });
+      qc.invalidateQueries({ queryKey: ["membership", "my-hours"] });
     },
   });
 }

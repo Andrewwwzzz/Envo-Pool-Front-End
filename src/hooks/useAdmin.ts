@@ -161,6 +161,11 @@ export function useAdminTables() {
       queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
       queryClient.invalidateQueries({ queryKey: ["walletHistory"] });
+      // A closed table's playing time counts toward the customer's membership
+      // hours (TimerSession.customerId) — without this the Membership tab's
+      // hours column stays stale until its own 60s staleTime expires.
+      queryClient.invalidateQueries({ queryKey: ["membership", "admin-hours"] });
+      queryClient.invalidateQueries({ queryKey: ["membership", "my-hours"] });
     },
   });
 

@@ -760,6 +760,7 @@ export default function MembershipTab() {
                     const plan = typeof s.planId === "object" && s.planId ? s.planId : null;
                     const customerName = user?.name || user?.legal_name || s.customerName || "—";
                     const customerEmail = user?.email || s.customerEmail || "";
+                    const customerShortId = user?.shortId || s.customerShortId || "";
                     const planName = plan?.name || s.planName || "—";
                     const price = s.pricePaid ?? plan?.price ?? s.price ?? 0;
                     const rowId = s._id ?? s.id;
@@ -773,6 +774,9 @@ export default function MembershipTab() {
                         <TableCell>
                           <div className="font-medium">{customerName}</div>
                           <div className="text-xs text-muted-foreground">{customerEmail}</div>
+                          {customerShortId && (
+                            <div className="text-xs text-muted-foreground font-mono">ID: {customerShortId}</div>
+                          )}
                         </TableCell>
                         <TableCell>{planName}</TableCell>
                         <TableCell className={deleted ? "line-through" : ""}>${price}</TableCell>
