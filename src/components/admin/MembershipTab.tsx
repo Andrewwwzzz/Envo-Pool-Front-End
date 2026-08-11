@@ -24,6 +24,7 @@ import {
   useAssignMembershipLocker,
   useUpdateLockerPin,
   useRegenerateMembershipPin,
+  useToggleDoorAccess,
   type MembershipPlan,
 } from "@/hooks/useMembership";
 import { useAvailableLockers } from "@/hooks/useLockers";
@@ -395,6 +396,32 @@ function VenuePinCell({ sub }: { sub: any }) {
   );
 }
 
+// Tracks whether staff has actually programmed the venue PIN into each
+// door's keypad — off by default when a membership is first assigned.
+function DoorAccessCell({ sub }: { sub: any }) {
+  const toggle = useToggleDoorAccess();
+  const membershipId = sub._id ?? sub.id;
+  const mainAssigned = !!sub.mainDoorAssigned;
+  const backAssigned = !!sub.backDoorAssigned;
+
+  const setDoor = (door: "main" | "back", assigned: boolean) => {
+    toggle.mutate({ membershipId, door, assigned });
+  };
+
+  return (
+    <div className="flex flex-col gap-1 text-xs">
+      <label className="flex items-center gap-1.5">
+        <Switch checked={mainAssigned} onCheckedChange={(v) => setDoor("main", v)} disabled={toggle.isPending} />
+        Main Door
+      </label>
+      <label className="flex items-center gap-1.5">
+        <Switch checked={backAssigned} onCheckedChange={(v) => setDoor("back", v)} disabled={toggle.isPending} />
+        Back Door
+      </label>
+    </div>
+  );
+}
+
 function LockerCell({ sub }: { sub: any }) {
   const { toast } = useToast();
   const [assignOpen, setAssignOpen] = useState(false);
@@ -751,6 +778,7 @@ export default function MembershipTab() {
                     <TableHead>Status</TableHead>
                     <TableHead>Locker</TableHead>
                     <TableHead>Venue PIN</TableHead>
+                    <TableHead>Door Access</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -815,6 +843,7 @@ export default function MembershipTab() {
                         </TableCell>
                         <TableCell>{!deleted ? <LockerCell sub={s} /> : "—"}</TableCell>
                         <TableCell>{!deleted ? <VenuePinCell sub={s} /> : "—"}</TableCell>
+                        <TableCell>{!deleted ? <DoorAccessCell sub={s} /> : "—"}</TableCell>
                         <TableCell className="text-right">
                           {!deleted && (
                             <Button

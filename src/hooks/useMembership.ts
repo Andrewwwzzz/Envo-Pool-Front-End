@@ -299,6 +299,21 @@ export function useRegenerateMembershipPin() {
   });
 }
 
+export function useToggleDoorAccess() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ membershipId, door, assigned }: { membershipId: string; door: "main" | "back"; assigned: boolean }) => {
+      const r = await apiFetch(`/api/membership/admin/memberships/${membershipId}/door-access`, {
+        method: "PATCH",
+        body: JSON.stringify({ door, assigned }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["membership", "subscriptions"] }),
+  });
+}
+
 // ── Public Holidays (used to gate day-restricted membership benefits) ──
 
 export interface PublicHoliday {
