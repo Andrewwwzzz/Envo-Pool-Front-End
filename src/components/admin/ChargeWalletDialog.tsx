@@ -101,6 +101,11 @@ export function ChargeWalletDialog({
   const [selectedQuantity, setSelectedQuantity] = useState<string>("1");
   const [tableName, setTableName] = useState<string>("");
   const [fnbPaymentMethod, setFnbPaymentMethod] = useState<"wallet" | "cash" | "paynow">("wallet");
+  // The F&B path submits via a raw apiFetch loop (one request per unit),
+  // not charge.mutateAsync, so charge.isPending never covers it — without
+  // this, a slow order left the Confirm button clickable and staff double-
+  // tapping it (thinking it hadn't registered) created duplicate orders.
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -123,11 +128,12 @@ export function ChargeWalletDialog({
   const effectiveAllowNegative = allowNegative || accountFlaggedNegative;
 
   const canSubmit = isFnbCategory
-    ? fnbItems.length > 0 && isValidTable(tableName) && !charge.isPending
+    ? fnbItems.length > 0 && isValidTable(tableName) && !charge.isPending && !isSubmitting
     : validAmount &&
       description.trim().length > 0 &&
       (!willGoNegative || effectiveAllowNegative) &&
-      !charge.isPending;
+      !charge.isPending &&
+      !isSubmitting;
 
   const addFnbItem = () => {
     if (!selectedProductId || !selectedQuantity) return;
@@ -161,7 +167,8 @@ export function ChargeWalletDialog({
   };
 
   const submit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       if (isFnbCategory && fnbItems.length > 0) {
         // Call /api/fnb/orders/staff once per unit so each item becomes a real FnbOrder
@@ -194,6 +201,8 @@ export function ChargeWalletDialog({
       }
     } catch {
       /* errors surface via toast in hook or handled above */
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -417,11 +426,11 @@ export function ChargeWalletDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={charge.isPending}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={charge.isPending || isSubmitting}>
             Cancel
           </Button>
           <Button onClick={submit} disabled={!canSubmit}>
-            {charge.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+            {charge.isPending || isSubmitting ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
             Charge ${validAmount ? amt.toFixed(2) : "0.00"}
           </Button>
         </DialogFooter>
