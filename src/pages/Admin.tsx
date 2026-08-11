@@ -170,7 +170,7 @@ const Admin = () => {
   );
 };
 
-type PeriodKey = "today" | "this_week" | "this_month" | "last_month" | "this_year" | "all_time";
+type PeriodKey = "today" | "this_week" | "this_month" | "last_month" | "this_year" | "all_time" | "custom";
 
 function getPeriodRange(period: PeriodKey): { from: string; to: string } {
   const toISO = (d: Date) =>
@@ -202,7 +202,12 @@ function getPeriodRange(period: PeriodKey): { from: string; to: string } {
 function OverviewTab() {
   const { toast } = useToast();
   const [period, setPeriod] = useState<PeriodKey>("this_month");
-  const { from, to } = getPeriodRange(period);
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const presetRange = getPeriodRange(period === "custom" ? "today" : period);
+  const { from, to } = period === "custom"
+    ? { from: customFrom || presetRange.from, to: customTo || presetRange.to }
+    : presetRange;
 
   const { data: stats } = useAdminStats(from, to) as { data: any };
   const { data: bookings } = useAdminBookings() as { data: any };
@@ -345,7 +350,7 @@ function OverviewTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex items-center gap-1 flex-wrap">
           {periodOptions.map((opt) => (
             <Button
               key={opt.key}
@@ -356,6 +361,21 @@ function OverviewTab() {
               {opt.label}
             </Button>
           ))}
+          <div className="flex items-center gap-1 ml-1">
+            <Input
+              type="date"
+              value={from}
+              onChange={(e) => { setCustomFrom(e.target.value); setCustomTo(customTo || to); setPeriod("custom"); }}
+              className="h-8 w-[140px] text-xs"
+            />
+            <span className="text-xs text-muted-foreground">–</span>
+            <Input
+              type="date"
+              value={to}
+              onChange={(e) => { setCustomTo(e.target.value); setCustomFrom(customFrom || from); setPeriod("custom"); }}
+              className="h-8 w-[140px] text-xs"
+            />
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">{from} → {to}</p>
       </div>
