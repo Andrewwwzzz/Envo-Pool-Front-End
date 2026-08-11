@@ -100,6 +100,7 @@ export function ChargeWalletDialog({
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [selectedQuantity, setSelectedQuantity] = useState<string>("1");
   const [tableName, setTableName] = useState<string>("");
+  const [fnbPaymentMethod, setFnbPaymentMethod] = useState<"wallet" | "cash" | "paynow">("wallet");
 
   useEffect(() => {
     if (open) {
@@ -109,6 +110,7 @@ export function ChargeWalletDialog({
       setAllowNegative(false);
       setFnbItems([]);
       setTableName("");
+      setFnbPaymentMethod("wallet");
     }
   }, [open, defaultAmount, defaultCategory, defaultDescription]);
 
@@ -168,7 +170,7 @@ export function ChargeWalletDialog({
           for (let i = 0; i < item.quantity; i++) {
             const res = await apiFetch("/api/fnb/orders/staff", {
               method: "POST",
-              body: JSON.stringify({ userId, productId: item.productId, tableName: normalizeTableName(tableName) || null }),
+              body: JSON.stringify({ userId, productId: item.productId, tableName: normalizeTableName(tableName) || null, paymentMethod: fnbPaymentMethod }),
             });
             if (!res.ok) {
               const err = await res.json().catch(() => ({}));
@@ -246,6 +248,30 @@ export function ChargeWalletDialog({
               />
               {tableName.trim() && !isValidTable(tableName) && (
                 <p className="text-xs text-red-400">Invalid table — must be between 1 and {MAX_TABLE}</p>
+              )}
+            </div>
+          )}
+
+          {isFnbCategory && (
+            <div className="space-y-1.5">
+              <Label>Payment Method</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {(["wallet", "cash", "paynow"] as const).map((m) => (
+                  <Button
+                    key={m}
+                    type="button"
+                    size="sm"
+                    variant={fnbPaymentMethod === m ? "default" : "outline"}
+                    onClick={() => setFnbPaymentMethod(m)}
+                  >
+                    {m === "wallet" ? "Wallet" : m === "cash" ? "Cash" : "PayNow"}
+                  </Button>
+                ))}
+              </div>
+              {fnbPaymentMethod !== "wallet" && (
+                <p className="text-xs text-muted-foreground">
+                  Paid at the counter — doesn't touch any wallet, and counts toward Cash/PayNow Top-Ups.
+                </p>
               )}
             </div>
           )}
