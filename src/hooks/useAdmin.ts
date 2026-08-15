@@ -20,6 +20,61 @@ export function useAdminBookings(showDeleted = false) {
   });
 }
 
+// Admin-controlled walk-in booking: pick a table + fixed duration, pay
+// upfront (wallet/cash/paynow) — like a customer booking but staff-initiated.
+export function useBookTableNow() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      tableId,
+      durationMinutes,
+      customerId,
+      paymentMethod,
+      allowNegative,
+      discountPercent,
+      hourlyRate,
+    }: {
+      tableId: string;
+      durationMinutes: number;
+      customerId: string | null;
+      paymentMethod: "wallet" | "cash" | "paynow";
+      allowNegative?: boolean;
+      discountPercent?: number;
+      hourlyRate?: number;
+    }) => {
+      const res = await apiFetch(`/api/admin/tables/${tableId}/book-now`, {
+        method: "POST",
+        body: JSON.stringify({
+          durationMinutes,
+          customerId,
+          paymentMethod,
+          allowNegative: !!allowNegative,
+          discountPercent: discountPercent || 0,
+          hourlyRate: hourlyRate || 0,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || err.message || "Failed to book table");
+      }
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["walletHistory"] });
+      queryClient.invalidateQueries({ queryKey: ["membership", "admin-hours"] });
+      queryClient.invalidateQueries({ queryKey: ["membership", "my-hours"] });
+    },
+  });
+}
+
 export function useDeleteBooking() {
   const queryClient = useQueryClient();
   const { toast } = useToast();

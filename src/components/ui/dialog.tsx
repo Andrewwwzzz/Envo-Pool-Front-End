@@ -38,8 +38,9 @@ const DialogContent = React.forwardRef<
       className={cn(
         // Shared base
         "fixed z-50 grid w-full gap-4 border bg-background p-6 shadow-lg duration-200",
+        "max-h-[90vh] overflow-y-auto",
         // Mobile: bottom sheet (< 640px)
-        "max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:top-auto max-sm:rounded-t-2xl max-sm:pb-8",
+        "max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:top-auto max-sm:rounded-t-2xl max-sm:pb-8 max-sm:max-h-[85vh]",
         "max-sm:data-[state=open]:animate-in max-sm:data-[state=closed]:animate-out",
         "max-sm:data-[state=open]:fade-in-0 max-sm:data-[state=closed]:fade-out-0",
         "max-sm:data-[state=open]:slide-in-from-bottom-[100%] max-sm:data-[state=closed]:slide-out-to-bottom-[100%]",

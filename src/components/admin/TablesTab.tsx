@@ -10,6 +10,7 @@ import {
   useScheduleMaintenance,
   useDeleteMaintenance,
   useBulkScheduleMaintenance,
+  useBookTableNow,
 } from "@/hooks/useAdmin";
 import { useActiveWalkinSessions } from "@/hooks/useWalkin";
 import { usePricingRules, usePublicHolidaySet } from "@/hooks/usePricing";
@@ -23,7 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import ReasonDialog from "@/components/admin/ReasonDialog";
 import DeletedBanner, { getDeletedInfo, isDeleted as isRecordDeleted } from "@/components/admin/DeletedBanner";
-import { Timer, Play, Square, Wrench, DollarSign, Wifi, WifiOff, Power, PowerOff, RotateCcw, Loader2, AlertTriangle, X, Check, Eye, EyeOff } from "lucide-react";
+import { Timer, Play, Square, Wrench, DollarSign, Wifi, WifiOff, Power, PowerOff, RotateCcw, Loader2, AlertTriangle, X, Check, Eye, EyeOff, CalendarClock } from "lucide-react";
 
 function ChipStatus({ lastSeen }: { lastSeen: string | null }) {
   const [, setTick] = useState(0);
@@ -155,6 +156,13 @@ export default function TablesTab() {
 
   const openCloseDialog = (tableId: string) => {
     setCloseTarget(tableId);
+  };
+
+  // Book-now dialog — fixed-duration, paid-upfront admin booking for walk-in guests
+  const [bookTarget, setBookTarget] = useState<string | null>(null);
+
+  const openBookDialog = (tableId: string) => {
+    setBookTarget(tableId);
   };
 
   const onTableClosed = (tableId: string, info: { seconds: number; cost: number; grossCost: number; discountPercent: number; paymentMethod: "cash" | "paynow" | "wallet"; customerName: string }) => {
@@ -387,9 +395,14 @@ export default function TablesTab() {
                         <Square className="mr-2 h-3 w-3" /> Close Table
                       </Button>
                     ) : (
-                      <Button size="sm" variant="default" onClick={() => openTable(t.id)} className="w-full" disabled={hasActiveBooking || hasUserWalkin} title={hasActiveBooking ? "Table has an active booking" : hasUserWalkin ? "Table has an active walk-in session" : isMaintenance ? "Table is under maintenance — public booking/walk-in is blocked, but staff can still open it (e.g. for a private event)" : undefined}>
-                        <Play className="mr-2 h-3 w-3" /> Open Table
-                      </Button>
+                      <>
+                        <Button size="sm" variant="default" onClick={() => openTable(t.id)} className="w-full" disabled={hasActiveBooking || hasUserWalkin} title={hasActiveBooking ? "Table has an active booking" : hasUserWalkin ? "Table has an active walk-in session" : isMaintenance ? "Table is under maintenance — public booking/walk-in is blocked, but staff can still open it (e.g. for a private event)" : "Pay-by-time — bill is calculated when the table is closed"}>
+                          <Play className="mr-2 h-3 w-3" /> Open Table (Pro-rate)
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => openBookDialog(t.id)} className="w-full" disabled={hasActiveBooking || hasUserWalkin} title={hasActiveBooking ? "Table has an active booking" : hasUserWalkin ? "Table has an active walk-in session" : "Set a fixed duration and pay upfront — like a customer booking"}>
+                          <CalendarClock className="mr-2 h-3 w-3" /> Book Now (Fixed Duration)
+                        </Button>
+                      </>
                     )}
                     {!isRunning && (
                       <>
@@ -487,6 +500,12 @@ export default function TablesTab() {
         stopTimer={stopTimer}
         onOpenChange={(o) => { if (!o) setCloseTarget(null); }}
         onClosed={onTableClosed}
+      />
+
+      <BookNowDialog
+        tables={tables || []}
+        bookTarget={bookTarget}
+        onOpenChange={(o) => { if (!o) setBookTarget(null); }}
       />
     </div>
   );
@@ -716,6 +735,273 @@ function CloseTableDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button variant="destructive" onClick={handleConfirm} disabled={stopTimer.isPending}>
             {stopTimer.isPending ? "Closing..." : "Confirm & Close"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const DURATION_PRESETS = [30, 60, 90, 120, 180];
+
+function BookNowDialog({
+  tables,
+  bookTarget,
+  onOpenChange,
+}: {
+  tables: any[];
+  bookTarget: string | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { toast } = useToast();
+  const bookTableNow = useBookTableNow();
+  const { data: pricingRules = [] } = usePricingRules();
+  const phDates = usePublicHolidaySet();
+
+  const [durationInput, setDurationInput] = useState("60");
+  const [rateInput, setRateInput] = useState("");
+  const [discountInput, setDiscountInput] = useState("0");
+  const [paymentMethod, setPaymentMethod] = useState<"wallet" | "cash" | "paynow">("wallet");
+  const [customerId, setCustomerId] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [allowNegative, setAllowNegative] = useState(false);
+  const { data: customers = [] } = useAdminCustomers(customerSearch);
+
+  useEffect(() => {
+    if (bookTarget) {
+      setDurationInput("60");
+      setRateInput(String(getCurrentHourlyRate(pricingRules, phDates)));
+      setDiscountInput("0");
+      setPaymentMethod("wallet");
+      setCustomerId("");
+      setCustomerSearch("");
+      setCustomerName("");
+      setAllowNegative(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookTarget]);
+
+  const table = tables.find((tb) => tb.id === bookTarget);
+  const durationMinutes = Math.max(0, parseInt(durationInput, 10) || 0);
+  const rate = Math.max(0, parseFloat(rateInput) || 0);
+
+  const gross = Math.round((durationMinutes / 60) * rate * 100) / 100;
+  const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
+  const discountAmt = Math.round(gross * (discountPct / 100) * 100) / 100;
+  const estimatedTotal = Math.max(0, Math.round((gross - discountAmt) * 100) / 100);
+
+  const selectedCustomer = customers.find((c: any) => c.id === customerId);
+  const walletBalance = selectedCustomer?.wallet_balance ?? 0;
+  const willGoNegative = paymentMethod === "wallet" && !!selectedCustomer && estimatedTotal > walletBalance;
+  const accountAllowsNegative = !!selectedCustomer?.allow_negative_balance;
+  const effectiveAllowNegative = allowNegative || accountAllowsNegative;
+
+  const handleConfirm = () => {
+    if (!bookTarget) return;
+    if (paymentMethod === "wallet" && !customerId) {
+      toast({ title: "Select a customer", description: "A customer must be selected to charge their wallet.", variant: "destructive" });
+      return;
+    }
+    if (durationMinutes < 15) {
+      toast({ title: "Duration too short", description: "Minimum booking duration is 15 minutes.", variant: "destructive" });
+      return;
+    }
+    if (paymentMethod === "wallet" && willGoNegative && !effectiveAllowNegative) {
+      toast({ title: "Insufficient wallet balance", description: "Check 'Allow negative balance' to proceed anyway.", variant: "destructive" });
+      return;
+    }
+
+    bookTableNow.mutate(
+      {
+        tableId: bookTarget,
+        durationMinutes,
+        customerId: customerId || null,
+        paymentMethod,
+        allowNegative: effectiveAllowNegative,
+        discountPercent: discountPct,
+        hourlyRate: rate,
+      },
+      {
+        onSuccess: (data: any) => {
+          const amount = data?.finalAmount ?? estimatedTotal;
+          const methodLabel = paymentMethod === "wallet" ? `charged to ${customerName || "customer"}'s wallet` : `paid via ${paymentMethod === "paynow" ? "PayNow" : "cash"}`;
+          toast({
+            title: "Table booked",
+            description: `${durationMinutes} min · $${Number(amount).toFixed(2)} ${methodLabel}.`,
+          });
+        },
+        onError: (err: Error) => {
+          toast({ title: "Failed to book table", description: err.message, variant: "destructive" });
+        },
+      }
+    );
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={!!bookTarget} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Book Table Now</DialogTitle>
+          <DialogDescription>
+            {bookTarget && (
+              <>
+                Table {table?.table_number} · fixed duration, paid upfront — like a booking, for a walk-in guest.
+              </>
+            )}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label>Rate ($/hr)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={rateInput}
+              onChange={(e) => setRateInput(e.target.value)}
+              autoFocus
+            />
+            <p className="text-xs text-muted-foreground">Auto-filled with the current active pricing rate — click in to edit and bill this booking at a different flat rate.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Duration</Label>
+            <div className="grid grid-cols-5 gap-2">
+              {DURATION_PRESETS.map((m) => (
+                <Button
+                  key={m}
+                  type="button"
+                  size="sm"
+                  variant={durationMinutes === m ? "default" : "outline"}
+                  onClick={() => setDurationInput(String(m))}
+                >
+                  {m < 60 ? `${m}m` : `${m / 60}h`}
+                </Button>
+              ))}
+            </div>
+            <Input
+              type="number"
+              step="15"
+              min="15"
+              max="720"
+              value={durationInput}
+              onChange={(e) => setDurationInput(e.target.value)}
+              placeholder="Minutes"
+            />
+            <p className="text-xs text-muted-foreground">Custom minutes — 15 min to 12 hours.</p>
+          </div>
+
+          <div className="rounded-md border border-border px-3 py-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Estimated price</span>
+              <span className="font-medium">${gross.toFixed(2)}</span>
+            </div>
+            {discountPct > 0 && (
+              <div className="flex items-center justify-between text-emerald-500 text-xs mt-1">
+                <span>{discountPct}% discount</span>
+                <span>-${discountAmt.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between mt-1 border-t border-border pt-1">
+              <span className="text-muted-foreground">Est. total</span>
+              <span className="font-semibold">${estimatedTotal.toFixed(2)}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Final price is computed at confirm — includes the customer's membership discount/free minutes if they have one active.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Discount (%)</Label>
+            <Input
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              value={discountInput}
+              onChange={(e) => setDiscountInput(e.target.value)}
+              placeholder="0"
+            />
+            <p className="text-xs text-muted-foreground">Leave at 0 for no extra discount.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Payment Method</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["wallet", "cash", "paynow"] as const).map((m) => (
+                <Button
+                  key={m}
+                  type="button"
+                  size="sm"
+                  variant={paymentMethod === m ? "default" : "outline"}
+                  onClick={() => setPaymentMethod(m)}
+                >
+                  {m === "wallet" ? "Wallet" : m === "cash" ? "Cash" : "PayNow"}
+                </Button>
+              ))}
+            </div>
+            {paymentMethod !== "wallet" && (
+              <p className="text-xs text-muted-foreground">
+                Paid at the counter — doesn't touch any wallet, and counts toward Cash/PayNow Top-Ups.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Customer {paymentMethod === "wallet" && <span className="text-destructive">*</span>}</Label>
+            {selectedCustomer ? (
+              <div className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+                <div>
+                  <p className="font-medium">{customerName}</p>
+                  <p className="text-xs text-muted-foreground">Balance: ${walletBalance.toFixed(2)}</p>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => { setCustomerId(""); setCustomerName(""); }}>Change</Button>
+              </div>
+            ) : (
+              <>
+                <Input placeholder="Search name or email" value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} />
+                <div className="max-h-36 overflow-y-auto rounded-md border border-border">
+                  {customers.slice(0, 20).map((c: any) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => { setCustomerId(c.id); setCustomerName(c.name || c.legal_name || c.email); }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                    >
+                      <div className="font-medium">{c.name || c.legal_name || "—"}</div>
+                      <div className="text-xs text-muted-foreground">{c.email} · ${Number(c.wallet_balance ?? 0).toFixed(2)}</div>
+                    </button>
+                  ))}
+                  {customerSearch && customers.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">No customers found</div>
+                  )}
+                </div>
+              </>
+            )}
+            {willGoNegative && accountAllowsNegative && (
+              <div className="flex items-start gap-2 rounded-md border border-border px-3 py-2 text-sm">
+                <AlertTriangle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                <p className="text-muted-foreground">Charge exceeds wallet balance — this account allows a negative balance, so it'll proceed automatically.</p>
+              </div>
+            )}
+            {willGoNegative && !accountAllowsNegative && (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
+                <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
+                <div className="space-y-2">
+                  <p className="text-destructive">Charge exceeds this customer's wallet balance.</p>
+                  <label className="flex items-center gap-2 text-xs">
+                    <Checkbox checked={allowNegative} onCheckedChange={(v) => setAllowNegative(v === true)} />
+                    Allow negative balance
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleConfirm} disabled={bookTableNow.isPending}>
+            {bookTableNow.isPending ? "Booking..." : "Confirm & Book"}
           </Button>
         </DialogFooter>
       </DialogContent>
