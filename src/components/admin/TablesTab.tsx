@@ -105,6 +105,7 @@ export default function TablesTab() {
   const { toast } = useToast();
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
   const [bookingCountdown, setBookingCountdown] = useState<Record<string, number>>({});
+  const [walkinElapsed, setWalkinElapsed] = useState<Record<string, number>>({});
   const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number; grossCost?: number; discountPercent?: number; paymentMethod?: "cash" | "paynow" | "wallet"; customerName?: string }>>({});
   const { data: pricingRules = [] } = usePricingRules();
   const phDates = usePublicHolidaySet();
@@ -147,11 +148,14 @@ export default function TablesTab() {
 
   // Count down to endTime for tables currently held by an active booking
   // (confirmed, or pending_payment within its payment window) — mirrors the
-  // pro-rate timer's count-up above, just running the other direction.
+  // pro-rate timer's count-up above, just running the other direction. Also
+  // counts UP the elapsed time for tables with an active user walk-in
+  // session, which otherwise has no live duration display at all.
   useEffect(() => {
     if (bookingIntervalRef.current) clearInterval(bookingIntervalRef.current);
 
     const endTimesByTable: Record<string, number> = {};
+    const walkinStartByTable: Record<string, number> = {};
     for (const t of (tables || [])) {
       if (t.timer_started_at) continue;
       const tableHwId = t.hardware_id;
@@ -168,17 +172,32 @@ export default function TablesTab() {
         }
       }
       if (soonestEnd !== null) endTimesByTable[t.id] = soonestEnd;
+
+      const walkin = (walkinSessions as any[]).find((s: any) => {
+        const sTableId = s.tableId || s.table_id;
+        return sTableId === tableHwId || sTableId === t.id;
+      });
+      if (walkin) {
+        const startedAt = walkin.startedAt || walkin.startTime;
+        if (startedAt) walkinStartByTable[t.id] = new Date(startedAt).getTime();
+      }
     }
 
-    const tableIds = Object.keys(endTimesByTable);
-    if (tableIds.length > 0) {
+    const countdownIds = Object.keys(endTimesByTable);
+    const walkinIds = Object.keys(walkinStartByTable);
+    if (countdownIds.length > 0 || walkinIds.length > 0) {
       const tick = () => {
         const now = Date.now();
-        const next: Record<string, number> = {};
-        for (const id of tableIds) {
-          next[id] = Math.max(0, Math.floor((endTimesByTable[id] - now) / 1000));
+        const nextCountdown: Record<string, number> = {};
+        for (const id of countdownIds) {
+          nextCountdown[id] = Math.max(0, Math.floor((endTimesByTable[id] - now) / 1000));
         }
-        setBookingCountdown((prev) => ({ ...prev, ...next }));
+        const nextWalkin: Record<string, number> = {};
+        for (const id of walkinIds) {
+          nextWalkin[id] = Math.max(0, Math.floor((now - walkinStartByTable[id]) / 1000));
+        }
+        setBookingCountdown((prev) => ({ ...prev, ...nextCountdown }));
+        setWalkinElapsed((prev) => ({ ...prev, ...nextWalkin }));
       };
       tick();
       bookingIntervalRef.current = setInterval(tick, 1000);
@@ -186,7 +205,7 @@ export default function TablesTab() {
     return () => {
       if (bookingIntervalRef.current) clearInterval(bookingIntervalRef.current);
     };
-  }, [tables, bookings]);
+  }, [tables, bookings, walkinSessions]);
 
   const openTable = (tableId: string) => {
     setCompletedSessions((prev) => {
@@ -397,12 +416,17 @@ export default function TablesTab() {
 
                   {/* Timer display */}
                   <div className="flex items-center gap-2">
-                    <Timer className={`h-4 w-4 ${displayState === "booked" ? "text-accent-foreground" : "text-muted-foreground"}`} />
-                    <span className={`font-mono text-xl ${isRunning ? "text-primary" : displayState === "booked" ? "text-accent-foreground" : "text-muted-foreground"}`}>
-                      {displayState === "booked" ? formatTime(bookingCountdown[t.id] ?? 0) : formatTime(isRunning ? seconds : (session?.seconds ?? 0))}
+                    <Timer className={`h-4 w-4 ${displayState === "booked" ? "text-accent-foreground" : displayState === "walkin" ? "text-amber-400" : "text-muted-foreground"}`} />
+                    <span className={`font-mono text-xl ${isRunning ? "text-primary" : displayState === "booked" ? "text-accent-foreground" : displayState === "walkin" ? "text-amber-400" : "text-muted-foreground"}`}>
+                      {displayState === "booked" ? formatTime(bookingCountdown[t.id] ?? 0)
+                        : displayState === "walkin" ? formatTime(walkinElapsed[t.id] ?? 0)
+                        : formatTime(isRunning ? seconds : (session?.seconds ?? 0))}
                     </span>
                     {displayState === "booked" && (
                       <span className="text-xs text-muted-foreground">left</span>
+                    )}
+                    {displayState === "walkin" && (
+                      <span className="text-xs text-muted-foreground">played</span>
                     )}
                   </div>
 
