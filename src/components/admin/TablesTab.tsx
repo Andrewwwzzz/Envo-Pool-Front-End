@@ -15,6 +15,7 @@ import {
 import { useActiveWalkinSessions } from "@/hooks/useWalkin";
 import { usePricingRules, usePublicHolidaySet } from "@/hooks/usePricing";
 import { getCurrentHourlyRate } from "@/lib/pricing";
+import { roundCashAmount } from "@/lib/money";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -103,12 +104,14 @@ export default function TablesTab() {
   const [bulkSchedReason, setBulkSchedReason] = useState("");
   const { toast } = useToast();
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
+  const [bookingCountdown, setBookingCountdown] = useState<Record<string, number>>({});
   const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number; grossCost?: number; discountPercent?: number; paymentMethod?: "cash" | "paynow" | "wallet"; customerName?: string }>>({});
   const { data: pricingRules = [] } = usePricingRules();
   const phDates = usePublicHolidaySet();
   const [hourlyRate, setHourlyRate] = useState("");
   const [rateTouched, setRateTouched] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const bookingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Prefill the rate preset with whatever's actually in effect right now
   // (per the active pricing rules), instead of a stale hardcoded default —
@@ -141,6 +144,49 @@ export default function TablesTab() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [tables]);
+
+  // Count down to endTime for tables currently held by an active booking
+  // (confirmed, or pending_payment within its payment window) — mirrors the
+  // pro-rate timer's count-up above, just running the other direction.
+  useEffect(() => {
+    if (bookingIntervalRef.current) clearInterval(bookingIntervalRef.current);
+
+    const endTimesByTable: Record<string, number> = {};
+    for (const t of (tables || [])) {
+      if (t.timer_started_at) continue;
+      const tableHwId = t.hardware_id;
+      const now = Date.now();
+      let soonestEnd: number | null = null;
+      for (const b of (bookings || [])) {
+        const bTableId = typeof b.tableId === "object" ? b.tableId?._id || b.tableId?.hardware_id : b.tableId;
+        if (bTableId !== t.id && bTableId !== tableHwId) continue;
+        if (!["pending_payment", "confirmed"].includes(b.status)) continue;
+        const bStart = new Date(b.startTime || b.start_time).getTime();
+        const bEnd = new Date(b.endTime || b.end_time).getTime();
+        if (bStart <= now && bEnd > now && (soonestEnd === null || bEnd < soonestEnd)) {
+          soonestEnd = bEnd;
+        }
+      }
+      if (soonestEnd !== null) endTimesByTable[t.id] = soonestEnd;
+    }
+
+    const tableIds = Object.keys(endTimesByTable);
+    if (tableIds.length > 0) {
+      const tick = () => {
+        const now = Date.now();
+        const next: Record<string, number> = {};
+        for (const id of tableIds) {
+          next[id] = Math.max(0, Math.floor((endTimesByTable[id] - now) / 1000));
+        }
+        setBookingCountdown((prev) => ({ ...prev, ...next }));
+      };
+      tick();
+      bookingIntervalRef.current = setInterval(tick, 1000);
+    }
+    return () => {
+      if (bookingIntervalRef.current) clearInterval(bookingIntervalRef.current);
+    };
+  }, [tables, bookings]);
 
   const openTable = (tableId: string) => {
     setCompletedSessions((prev) => {
@@ -351,10 +397,13 @@ export default function TablesTab() {
 
                   {/* Timer display */}
                   <div className="flex items-center gap-2">
-                    <Timer className="h-4 w-4 text-muted-foreground" />
-                    <span className={`font-mono text-xl ${isRunning ? "text-primary" : "text-muted-foreground"}`}>
-                      {formatTime(isRunning ? seconds : (session?.seconds ?? 0))}
+                    <Timer className={`h-4 w-4 ${displayState === "booked" ? "text-accent-foreground" : "text-muted-foreground"}`} />
+                    <span className={`font-mono text-xl ${isRunning ? "text-primary" : displayState === "booked" ? "text-accent-foreground" : "text-muted-foreground"}`}>
+                      {displayState === "booked" ? formatTime(bookingCountdown[t.id] ?? 0) : formatTime(isRunning ? seconds : (session?.seconds ?? 0))}
                     </span>
+                    {displayState === "booked" && (
+                      <span className="text-xs text-muted-foreground">left</span>
+                    )}
                   </div>
 
                   {/* Live cost */}
@@ -559,7 +608,10 @@ function CloseTableDialog({
   const gross = Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
   const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
   const discountAmt = Math.round(gross * (discountPct / 100) * 100) / 100;
-  const finalCost = Math.max(0, Math.round((gross - discountAmt) * 100) / 100);
+  const finalCostExact = Math.max(0, Math.round((gross - discountAmt) * 100) / 100);
+  // Cash has no 1c/5c coins to give as change — round the bill to the
+  // nearest 10c. Wallet/PayNow settle to the exact cent.
+  const finalCost = paymentMethod === "cash" ? roundCashAmount(finalCostExact) : finalCostExact;
 
   const selectedCustomer = customers.find((c: any) => c.id === customerId);
   const walletBalance = selectedCustomer?.wallet_balance ?? 0;
@@ -789,7 +841,10 @@ function BookNowDialog({
   const gross = Math.round((durationMinutes / 60) * rate * 100) / 100;
   const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
   const discountAmt = Math.round(gross * (discountPct / 100) * 100) / 100;
-  const estimatedTotal = Math.max(0, Math.round((gross - discountAmt) * 100) / 100);
+  const estimatedTotalExact = Math.max(0, Math.round((gross - discountAmt) * 100) / 100);
+  // Cash has no 1c/5c coins to give as change — round the bill to the
+  // nearest 10c. Wallet/PayNow settle to the exact cent.
+  const estimatedTotal = paymentMethod === "cash" ? roundCashAmount(estimatedTotalExact) : estimatedTotalExact;
 
   const selectedCustomer = customers.find((c: any) => c.id === customerId);
   const walletBalance = selectedCustomer?.wallet_balance ?? 0;

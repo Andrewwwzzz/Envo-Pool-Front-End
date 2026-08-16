@@ -5,20 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Shield, FileText, ArrowLeft } from "lucide-react";
+import { Shield, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch, BASE_URL } from "@/lib/api";
 
-type SignupMode = "choose" | "manual";
-
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const [signupMode, setSignupMode] = useState<SignupMode>("choose");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
-  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [singpassLoading, setSingpassLoading] = useState(false);
   const { toast } = useToast();
@@ -48,51 +43,28 @@ const Auth = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      if (isLogin) {
-        const res = await apiFetch("/api/auth/login", {
-          method: "POST",
-          body: JSON.stringify({ email, password }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || "Login failed");
-        }
-        setAuth(data.token, data.user);
-        toast({ title: "Login successful" });
-        navigate("/booking");
-      } else {
-        // Age check: must be at least 16
-        const dob = new Date(dateOfBirth);
-        const minDate = new Date();
-        minDate.setFullYear(minDate.getFullYear() - 16);
-        if (isNaN(dob.getTime()) || dob > minDate) {
-          throw new Error("You must be at least 16 years old to register an account.");
-        }
-        const res = await apiFetch("/api/auth/register", {
-          method: "POST",
-          body: JSON.stringify({ email, password, phone, dateOfBirth }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || "Registration failed");
-        }
-        toast({ title: "Account created", description: "Await admin verification before booking." });
-        setIsLogin(true);
-        setSignupMode("choose");
+      const res = await apiFetch("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Login failed");
       }
+      setAuth(data.token, data.user);
+      toast({ title: "Login successful" });
+      navigate("/booking");
     } catch (err: any) {
-      toast({ title: isLogin ? "Login failed" : "Signup failed", description: err.message, variant: "destructive" });
+      toast({ title: "Login failed", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
-
-  const showChooser = !isLogin && signupMode === "choose";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4 dark">
@@ -104,14 +76,14 @@ const Auth = () => {
           <p className="text-muted-foreground mt-2 text-sm tracking-widest uppercase">Premium Pool Experience</p>
         </div>
 
-        {showChooser ? (
+        {!isLogin ? (
           <div className="space-y-4">
             <div className="text-center mb-2">
               <h2 className="text-2xl tracking-tight font-bold text-slate-400">Join Us</h2>
-              <p className="text-sm text-muted-foreground mt-1">Choose how you'd like to verify your identity</p>
+              <p className="text-sm text-muted-foreground mt-1">Verify your identity to create an account</p>
             </div>
 
-            {/* Option 1: Singpass */}
+            {/* Singpass — the only self-service signup path */}
             <Card className="card-premium backdrop-blur-sm relative border-accent/40">
               <div className="absolute -top-2 right-4">
                 <Badge className="bg-green-600 hover:bg-green-600 text-white border-transparent">Recommended</Badge>
@@ -142,27 +114,20 @@ const Auth = () => {
               </CardContent>
             </Card>
 
-            {/* Option 2: Manual */}
+            {/* No Singpass? Informational only — no self-service form */}
             <Card className="card-premium backdrop-blur-sm">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
                     <FileText className="h-5 w-5 text-muted-foreground" />
                   </div>
-                  <CardTitle className="text-lg">Sign up manually</CardTitle>
+                  <CardTitle className="text-lg">Can't use Singpass?</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent>
                 <CardDescription>
-                  Head over to the counter to create account with our staff. (ID Verification)
+                  Head over to the counter and our staff will help set up your account (ID verification).
                 </CardDescription>
-                <Button
-                  variant="outline"
-                  onClick={() => setSignupMode("manual")}
-                  className="w-full h-11 text-sm font-semibold tracking-wide uppercase"
-                >
-                  Sign up manually
-                </Button>
               </CardContent>
             </Card>
 
@@ -176,43 +141,11 @@ const Auth = () => {
         ) : (
           <Card className="card-premium backdrop-blur-sm">
             <CardHeader className="space-y-1 pb-4">
-              {!isLogin && (
-                <button
-                  type="button"
-                  onClick={() => { setSignupMode("choose"); setEmail(""); setPassword(""); setDateOfBirth(""); }}
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-1"
-                >
-                  <ArrowLeft className="h-3 w-3" /> Back to options
-                </button>
-              )}
-              <CardTitle className="text-2xl tracking-tight">{isLogin ? "Welcome Back" : "Join Us"}</CardTitle>
-              <CardDescription>
-                {isLogin ? "Sign in to reserve your table" : "Create an account to get started"}
-              </CardDescription>
+              <CardTitle className="text-2xl tracking-tight">Welcome Back</CardTitle>
+              <CardDescription>Sign in to reserve your table</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {!isLogin && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="dob">Date of Birth</Label>
-                      <input
-                        id="dob"
-                        type="date"
-                        value={dateOfBirth}
-                        autoComplete="bday"
-                        required
-                        onChange={(e) => {
-                          (e.target as HTMLInputElement).setCustomValidity("");
-                          setDateOfBirth(e.target.value);
-                        }}
-                        onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity("You must be at least 16 years old to register an account.")}
-                        max={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 16); return d.toISOString().split("T")[0]; })()}
-                        className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      />
-                    </div>
-                  </>
-                )}
+              <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="bg-background/50" />
@@ -221,37 +154,21 @@ const Auth = () => {
                   <Label htmlFor="password">Password</Label>
                   <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="bg-background/50" />
                 </div>
-                {!isLogin && (
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number <span className="text-muted-foreground font-normal">(optional)</span></Label>
-                    <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 91234567" className="bg-background/50" />
-                  </div>
-                )}
                 <Button type="submit" className="w-full h-11 text-sm font-semibold tracking-wide uppercase" disabled={loading}>
-                  {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
+                  {loading ? "Loading..." : "Sign In"}
                 </Button>
-                {isLogin && (
-                  <div className="text-center space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      Don't have an account?{" "}
-                      <button
-                        type="button"
-                        className="text-accent hover:text-accent/80 font-medium transition-colors"
-                        onClick={() => {
-                          const next = !isLogin;
-                          setIsLogin(next);
-                          setSignupMode("choose");
-                          if (next === false) {
-                            // Switching to signup — clear form
-                            setEmail(""); setPassword(""); setDateOfBirth("");
-                          }
-                        }}
-                      >
-                        {isLogin ? "Sign Up" : "Sign In"}
-                      </button>
-                    </p>
-                  </div>
-                )}
+                <div className="text-center space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Don't have an account?{" "}
+                    <button
+                      type="button"
+                      className="text-accent hover:text-accent/80 font-medium transition-colors"
+                      onClick={() => { setIsLogin(false); setEmail(""); setPassword(""); }}
+                    >
+                      Sign Up
+                    </button>
+                  </p>
+                </div>
               </form>
             </CardContent>
           </Card>
