@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Crown, Lock, Percent, Timer, Beer, KeyRound, Loader2, Eye, EyeOff, PiggyBank, CircleDot, Zap, XCircle } from "lucide-react";
+import { Crown, Lock, Percent, Timer, Beer, KeyRound, Loader2, Eye, EyeOff, PiggyBank, CircleDot, Zap, XCircle, IdCard } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import {
@@ -96,6 +96,18 @@ function LockerCard({ lockerRental }: { lockerRental: any }) {
   );
 }
 
+function UniqueIdDisplay({ shortId }: { shortId: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-md border border-accent/30 bg-accent/5 px-3 py-2.5">
+      <IdCard className="h-4 w-4 text-accent flex-shrink-0" />
+      <div>
+        <div className="text-xs font-medium text-accent">Unique ID</div>
+        <div className="font-mono text-sm mt-0.5">{shortId}</div>
+      </div>
+    </div>
+  );
+}
+
 function VenuePinDisplay({ pin }: { pin: string }) {
   const [show, setShow] = useState(false);
   return (
@@ -118,12 +130,14 @@ function MembershipCard({
   onRenew,
   onCancel,
   hoursEntry,
+  shortId,
 }: {
   membership: any;
   walletBalance: number;
   onRenew: (m: any) => void;
   onCancel: (m: any) => void;
   hoursEntry?: MembershipHours;
+  shortId?: string | null;
 }) {
   const status: string = String(membership?.status ?? (membership?.active ? "active" : "")).toLowerCase();
   const plan =
@@ -214,6 +228,8 @@ function MembershipCard({
             </div>
           </div>
         </div>
+
+        {shortId && <UniqueIdDisplay shortId={shortId} />}
 
         {/* Venue access PIN — shown only for private memberships */}
         {plan?.isPrivate && membership?.venuePin && (
@@ -576,6 +592,7 @@ export default function DashboardMembership() {
                 onRenew={setRenewTarget}
                 onCancel={setCancelTarget}
                 hoursEntry={hoursEntry}
+                shortId={profile?.shortId}
               />
             );
           })}
