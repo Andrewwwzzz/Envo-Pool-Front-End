@@ -144,7 +144,7 @@ export function FnbTab() {
   const [pauseNotice, setPauseNotice] = useState("Back in a moment — toilet break!");
   const [pauseMins, setPauseMins] = useState<number | "">(15);
 
-  const { data: orders = [], isLoading: ordersLoading } = useAdminFnbOrders(orderFilter);
+  const { data: orders = [], isLoading: ordersLoading } = useAdminFnbOrders(orderFilter, viewDay);
   const { data: analytics } = useFnbAnalytics(viewDay);
   const { data: allProducts = [] } = useAdminMenu(!hideDeleted);
   const products = hideDeleted ? allProducts.filter((p) => !(p as any).isDeleted) : allProducts;

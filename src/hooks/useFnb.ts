@@ -126,12 +126,15 @@ export function usePlaceOrder() {
 
 // ── Admin hooks ──────────────────────────────────────
 
-export function useAdminFnbOrders(status?: string) {
+export function useAdminFnbOrders(status?: string, day?: string) {
   return useQuery({
-    queryKey: ["fnb-orders-admin", status],
+    queryKey: ["fnb-orders-admin", status, day],
     queryFn: async () => {
-      const url = status && status !== "all" ? `/api/fnb/orders?status=${status}` : "/api/fnb/orders";
-      const res = await apiFetch(url);
+      const params = new URLSearchParams();
+      if (status && status !== "all") params.set("status", status);
+      if (day) params.set("day", day);
+      const qs = params.toString();
+      const res = await apiFetch(qs ? `/api/fnb/orders?${qs}` : "/api/fnb/orders");
       if (!res.ok) throw new Error("Failed to load orders");
       const data = await res.json();
       return (Array.isArray(data) ? data : []) as FnbOrder[];
