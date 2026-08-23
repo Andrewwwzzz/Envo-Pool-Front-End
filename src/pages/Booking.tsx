@@ -7,7 +7,7 @@ import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
 import { validateRewardCode, Reward } from "@/hooks/useRewards";
 import { useProfile } from "@/hooks/useProfile";
 import { useMyMembership, usePublicHolidays } from "@/hooks/useMembership";
-import { calculateBookingPrice, calculateDiscount } from "@/lib/pricing";
+import { calculateBookingPrice, calculateDiscount, getCurrentHourlyRate } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -64,6 +64,7 @@ const Booking = () => {
   const [validatingReward, setValidatingReward] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"wallet" | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [walkinConfirmTable, setWalkinConfirmTable] = useState<{ id: string; hardware_id: string | null; table_number: number } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
@@ -826,7 +827,7 @@ const Booking = () => {
                             variant="outline"
                             className="gap-1 text-xs border-accent/30 text-accent hover:bg-accent/10"
                             disabled={startWalkin.isPending}
-                            onClick={() => handleStartWalkin(table)}
+                            onClick={() => setWalkinConfirmTable(table)}
                           >
                             <Timer className="h-3 w-3" />
                             {startWalkin.isPending ? "Starting..." : "Start Walk-in"}
@@ -1107,6 +1108,37 @@ const Booking = () => {
               <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancel</Button>
               <Button disabled={!agreedToTerms || isProcessing} onClick={handleConfirmBook} className="bg-accent text-accent-foreground hover:bg-accent/90">
                 {isProcessing ? "Processing..." : "Confirm & Pay"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!walkinConfirmTable} onOpenChange={(o) => { if (!o) setWalkinConfirmTable(null); }}>
+          <DialogContent className="card-premium">
+            <DialogHeader>
+              <DialogTitle>Start Walk-in Session?</DialogTitle>
+              <DialogDescription>
+                {walkinConfirmTable && (
+                  <>
+                    This starts a <strong>pay-by-time</strong> session on Table {walkinConfirmTable.table_number} right now, charged to your wallet
+                    {pricingRules ? ` at $${getCurrentHourlyRate(pricingRules, publicHolidayDateSet).toFixed(2)}/hr` : ""}.
+                    You'll keep being billed per minute until you stop it yourself from this page — it does not stop automatically.
+                  </>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setWalkinConfirmTable(null)}>Cancel</Button>
+              <Button
+                disabled={startWalkin.isPending}
+                onClick={async () => {
+                  const table = walkinConfirmTable;
+                  setWalkinConfirmTable(null);
+                  if (table) await handleStartWalkin(table);
+                }}
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
+              >
+                {startWalkin.isPending ? "Starting..." : "Start Session"}
               </Button>
             </DialogFooter>
           </DialogContent>

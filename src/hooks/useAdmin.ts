@@ -719,6 +719,72 @@ export function useAdminStats(from?: string, to?: string) {
   });
 }
 
+// Correct the payment method on an already-closed timer-session invoice —
+// e.g. PayNow failed due to a bad connection and it was actually settled
+// in cash. Backend reconciles the wallet/Transaction records so the
+// accounting overview stays accurate.
+export function useChangeInvoicePaymentMethod() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      sessionId,
+      newMethod,
+      customerId,
+      allowNegative,
+    }: {
+      sessionId: string;
+      newMethod: "cash" | "paynow" | "wallet";
+      customerId?: string | null;
+      allowNegative?: boolean;
+    }) => {
+      const res = await apiFetch(`/api/admin/timer-sessions/${sessionId}/payment-method`, {
+        method: "PATCH",
+        body: JSON.stringify({ newMethod, customerId: customerId || null, allowNegative: !!allowNegative }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.message || "Failed to change payment method");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["walletHistory"] });
+    },
+  });
+}
+
+// Staff-assisted account creation for walk-in guests who can't/won't use
+// Singpass — created pre-verified since staff do the ID check in person.
+export function useAdminCreateCustomer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      legalName: string;
+      email: string;
+      password: string;
+      phone?: string;
+      dateOfBirth: string;
+    }) => {
+      const res = await apiFetch("/api/admin/create-customer", {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.message || "Failed to create customer account");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
+    },
+  });
+}
+
 export function useVerifyUser() {
   const queryClient = useQueryClient();
   const { toast } = useToast();

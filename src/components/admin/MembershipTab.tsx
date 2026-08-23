@@ -725,7 +725,16 @@ export default function MembershipTab() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
-          <CardTitle className="text-base">Subscriptions</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">
+            Subscriptions
+            <Badge variant="secondary" className="font-normal">
+              {visibleSubs.length} {visibleSubs.length === 1 ? "member" : "members"}
+              {planFilter !== "all" && (() => {
+                const p = plans.find((pl: any) => String(pl.id ?? pl._id) === planFilter);
+                return p ? ` — ${p.name} (${p.billingCycle})` : "";
+              })()}
+            </Badge>
+          </CardTitle>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -743,7 +752,7 @@ export default function MembershipTab() {
               <SelectContent>
                 <SelectItem value="all">All plans</SelectItem>
                 {plans.map((p: any) => (
-                  <SelectItem key={p.id ?? p._id} value={String(p.id ?? p._id)}>{p.name}</SelectItem>
+                  <SelectItem key={p.id ?? p._id} value={String(p.id ?? p._id)}>{p.name} ({p.billingCycle})</SelectItem>
                 ))}
               </SelectContent>
             </Select>

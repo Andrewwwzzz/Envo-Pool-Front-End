@@ -20,6 +20,8 @@ import {
   useAdminPricingRules,
   useAdminPromoCodes,
   useAdminCustomers,
+  useAdminCreateCustomer,
+  useChangeInvoicePaymentMethod,
   useUpdateCustomerWallet,
   useUpdateCustomerProfile,
   useUpdateCustomerEmail,
@@ -55,7 +57,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { LogOut, ArrowLeft, DollarSign, Calendar, CalendarDays, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download, Copy, XCircle, Eye, EyeOff, AlertTriangle, Key, RefreshCw, Mail } from "lucide-react";
+import { LogOut, ArrowLeft, DollarSign, Calendar, CalendarDays, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download, Copy, XCircle, Eye, EyeOff, AlertTriangle, Key, RefreshCw, Mail, UserPlus } from "lucide-react";
 import ReasonDialog from "@/components/admin/ReasonDialog";
 import { ChargeWalletDialog } from "@/components/admin/ChargeWalletDialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -212,7 +214,6 @@ function OverviewTab() {
   const { data: stats } = useAdminStats(from, to) as { data: any };
   const { data: bookings } = useAdminBookings() as { data: any };
   const { data: transactions } = useAdminTransactions() as { data: any };
-  const { data: timerSessions } = useAdminTimerSessions() as { data: any };
   const { data: tablesList } = useAdminTables();
 
   const [reportFrom, setReportFrom] = useState(from);
@@ -296,19 +297,6 @@ function OverviewTab() {
   };
   const paynowTopups = topupsByMethod("paynow");
   const cashTopups = topupsByMethod("cash");
-
-  // Cash collected from timer sessions
-  const cashCollected = (() => {
-    if (typeof stats?.cashCollected === "number") return stats.cashCollected;
-    const sessions = Array.isArray(timerSessions) ? timerSessions : (timerSessions?.sessions ?? []);
-    let total = 0;
-    for (const s of sessions) {
-      const date = s.endedAt || s.ended_at || s.startedAt || s.started_at || s.createdAt || s.created_at;
-      if (!inRange(date)) continue;
-      total += Number(s.totalCost ?? s.total_cost ?? s.amount ?? 0);
-    }
-    return total;
-  })();
 
   const handleDownload = async () => {
     setGenerating(true);
@@ -418,11 +406,6 @@ function OverviewTab() {
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
           <p className="text-2xl font-bold">${walletTopups.toFixed(2)}</p>
           <p className="text-sm text-muted-foreground">Cash & PayNow Top-Ups</p>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6 text-center">
-          <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">${cashCollected.toFixed(2)}</p>
-          <p className="text-sm text-muted-foreground">Cash Collected</p>
         </CardContent></Card>
       </div>
 
@@ -673,9 +656,19 @@ function BookingsTab() {
 }
 
 function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | null; onClose: () => void; onDelete: () => void }) {
+  const { toast } = useToast();
   const [nowTick, setNowTick] = useState(Date.now());
   const propWalkin = !!session?._walkin || !!session?.userId;
   const propId = session ? String(session._id || session.id || "") : "";
+
+  // Payment method correction (timer-session invoices only)
+  const changePaymentMethod = useChangeInvoicePaymentMethod();
+  const [editingMethod, setEditingMethod] = useState(false);
+  const [methodDraft, setMethodDraft] = useState<"cash" | "paynow" | "wallet">("cash");
+  const [methodCustomerId, setMethodCustomerId] = useState("");
+  const [methodCustomerSearch, setMethodCustomerSearch] = useState("");
+  const [methodAllowNegative, setMethodAllowNegative] = useState(false);
+  const { data: methodCustomers = [] } = useAdminCustomers(methodCustomerSearch);
 
   // Re-fetch latest session details (especially for walk-in sessions) so that when
   // the session is stopped/force-stopped elsewhere, the modal reflects the new
@@ -718,6 +711,16 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
   }, [isActive]);
+
+  useEffect(() => {
+    setEditingMethod(false);
+    setMethodDraft((merged?.paymentMethod === "cash" || merged?.paymentMethod === "paynow" || merged?.paymentMethod === "wallet") ? merged.paymentMethod : "cash");
+    const existingCustomerId = typeof merged?.customerId === "object" ? (merged?.customerId?._id || merged?.customerId?.id) : merged?.customerId;
+    setMethodCustomerId(existingCustomerId ? String(existingCustomerId) : "");
+    setMethodCustomerSearch("");
+    setMethodAllowNegative(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propId]);
 
   if (!session) return null;
   const s = merged;
@@ -990,18 +993,131 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3 text-sm pt-1">
-              <div>
-                <div className="text-muted-foreground">Method</div>
-                <Badge variant="outline" className={walkin ? "bg-green-500/10 text-green-400 border-green-500/30" : "bg-muted text-muted-foreground border-border"}>
-                  {walkin ? "Wallet" : "Cash"}
-                </Badge>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Paid At</div>
-                <div className="font-medium">{endLabel}</div>
-              </div>
-            </div>
+            {(() => {
+              const realMethod: string = s.paymentMethod || (walkin ? "wallet" : "cash");
+              const methodLabel = realMethod === "wallet" ? "Wallet" : realMethod === "paynow" ? "PayNow" : realMethod === "cash" ? "Cash" : "Unpaid";
+              const methodBadgeClass =
+                realMethod === "wallet" ? "bg-green-500/10 text-green-400 border-green-500/30"
+                : realMethod === "paynow" ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                : realMethod === "cash" ? "bg-muted text-muted-foreground border-border"
+                : "bg-destructive/10 text-destructive border-destructive/30";
+              const canEditMethod = !walkin && !isActive && !isDeleted;
+              const selectedMethodCustomer = methodCustomers.find((c: any) => c.id === methodCustomerId);
+              const methodWalletBalance = selectedMethodCustomer?.wallet_balance ?? 0;
+              const methodWillGoNegative = methodDraft === "wallet" && !!selectedMethodCustomer && amount > methodWalletBalance;
+              const methodAccountAllowsNegative = !!selectedMethodCustomer?.allow_negative_balance;
+              const methodEffectiveAllowNegative = methodAllowNegative || methodAccountAllowsNegative;
+
+              const handleSaveMethod = () => {
+                if (methodDraft === realMethod) { setEditingMethod(false); return; }
+                if (methodDraft === "wallet" && !methodCustomerId) {
+                  toast({ title: "Select a customer", description: "A customer must be selected to charge the wallet.", variant: "destructive" });
+                  return;
+                }
+                if (methodDraft === "wallet" && methodWillGoNegative && !methodEffectiveAllowNegative) {
+                  toast({ title: "Insufficient wallet balance", description: "Check 'Allow negative balance' to proceed anyway.", variant: "destructive" });
+                  return;
+                }
+                changePaymentMethod.mutate(
+                  { sessionId: id, newMethod: methodDraft, customerId: methodDraft === "wallet" ? methodCustomerId : undefined, allowNegative: methodEffectiveAllowNegative },
+                  {
+                    onSuccess: () => {
+                      toast({ title: "Payment method updated", description: `Changed from ${methodLabel} to ${methodDraft === "wallet" ? "Wallet" : methodDraft === "paynow" ? "PayNow" : "Cash"}.` });
+                      setEditingMethod(false);
+                    },
+                    onError: (err: Error) => {
+                      toast({ title: "Failed to change payment method", description: err.message, variant: "destructive" });
+                    },
+                  }
+                );
+              };
+
+              return (
+                <div className="space-y-2 pt-1">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-muted-foreground">Method</div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={methodBadgeClass}>{methodLabel}</Badge>
+                        {canEditMethod && !editingMethod && (
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingMethod(true)} aria-label="Change payment method">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Paid At</div>
+                      <div className="font-medium">{endLabel}</div>
+                    </div>
+                  </div>
+
+                  {editingMethod && (
+                    <div className="rounded-md border border-border/50 p-3 space-y-3">
+                      <div className="grid grid-cols-3 gap-2">
+                        {(["cash", "paynow", "wallet"] as const).map((m) => (
+                          <Button key={m} type="button" size="sm" variant={methodDraft === m ? "default" : "outline"} onClick={() => setMethodDraft(m)}>
+                            {m === "wallet" ? "Wallet" : m === "paynow" ? "PayNow" : "Cash"}
+                          </Button>
+                        ))}
+                      </div>
+
+                      {methodDraft === "wallet" && (
+                        <div className="space-y-2">
+                          <Label className="text-xs">Customer</Label>
+                          {selectedMethodCustomer ? (
+                            <div className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+                              <div>
+                                <p className="font-medium">{selectedMethodCustomer.name || selectedMethodCustomer.legal_name || selectedMethodCustomer.email}</p>
+                                <p className="text-xs text-muted-foreground">Balance: ${methodWalletBalance.toFixed(2)}</p>
+                              </div>
+                              <Button size="sm" variant="ghost" onClick={() => setMethodCustomerId("")}>Change</Button>
+                            </div>
+                          ) : (
+                            <>
+                              <Input placeholder="Search name or email" value={methodCustomerSearch} onChange={(e) => setMethodCustomerSearch(e.target.value)} className="h-8 text-sm" />
+                              <div className="max-h-32 overflow-y-auto rounded-md border border-border">
+                                {methodCustomers.slice(0, 20).map((c: any) => (
+                                  <button key={c.id} type="button" onClick={() => setMethodCustomerId(c.id)} className="w-full text-left px-3 py-2 text-sm hover:bg-muted">
+                                    <div className="font-medium">{c.name || c.legal_name || "—"}</div>
+                                    <div className="text-xs text-muted-foreground">{c.email} · ${Number(c.wallet_balance ?? 0).toFixed(2)}</div>
+                                  </button>
+                                ))}
+                                {methodCustomerSearch && methodCustomers.length === 0 && (
+                                  <div className="px-3 py-2 text-xs text-muted-foreground">No customers found</div>
+                                )}
+                              </div>
+                            </>
+                          )}
+                          {methodWillGoNegative && methodAccountAllowsNegative && (
+                            <div className="flex items-start gap-2 rounded-md border border-border px-3 py-2 text-xs">
+                              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                              <p className="text-muted-foreground">Charge exceeds wallet balance — this account allows a negative balance, so it'll proceed automatically.</p>
+                            </div>
+                          )}
+                          {methodWillGoNegative && !methodAccountAllowsNegative && (
+                            <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2">
+                              <p className="text-xs text-destructive">Charge exceeds this customer's wallet balance.</p>
+                              <label className="flex items-center gap-2 text-xs">
+                                <Checkbox checked={methodAllowNegative} onCheckedChange={(v) => setMethodAllowNegative(v === true)} />
+                                Allow negative balance
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setEditingMethod(false)} disabled={changePaymentMethod.isPending}>Cancel</Button>
+                        <Button size="sm" onClick={handleSaveMethod} disabled={changePaymentMethod.isPending}>
+                          {changePaymentMethod.isPending ? "Saving..." : "Save"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </section>
 
           <Separator className="bg-border/50" />
@@ -1371,6 +1487,9 @@ function CustomersTab({
   const hardDelete = useHardDelete();
   const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
 
+  // Staff-assisted account creation
+  const [createOpen, setCreateOpen] = useState(false);
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(t);
@@ -1469,7 +1588,13 @@ function CustomersTab({
             <Trash2 className="h-3.5 w-3.5 mr-1.5" />
             {showDeleted ? "Hide Deleted" : "Show Deleted"}
           </Button>
+          <Button size="sm" className="whitespace-nowrap" onClick={() => setCreateOpen(true)}>
+            <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+            Create Customer
+          </Button>
         </div>
+
+        <CreateCustomerDialog open={createOpen} onOpenChange={setCreateOpen} />
 
 
 
@@ -1673,6 +1798,87 @@ function CustomersTab({
         />
       )}
     </Card>
+  );
+}
+
+function CreateCustomerDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { toast } = useToast();
+  const createCustomer = useAdminCreateCustomer();
+  const [legalName, setLegalName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+
+  const reset = () => {
+    setLegalName(""); setEmail(""); setPassword(""); setPhone(""); setDateOfBirth("");
+  };
+
+  const maxDob = (() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 16);
+    return d.toISOString().split("T")[0];
+  })();
+
+  const canSubmit = legalName.trim() && email.trim() && password.length >= 6 && dateOfBirth;
+
+  const handleSubmit = () => {
+    if (!canSubmit) return;
+    createCustomer.mutate(
+      { legalName: legalName.trim(), email: email.trim(), password, phone: phone.trim() || undefined, dateOfBirth },
+      {
+        onSuccess: (data: any) => {
+          toast({ title: "Customer account created", description: `${legalName.trim()} — Short ID ${data?.user?.shortId ?? "—"}` });
+          reset();
+          onOpenChange(false);
+        },
+        onError: (err: Error) => {
+          toast({ title: "Failed to create account", description: err.message, variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) reset(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5 text-primary" /> Create Customer Account</DialogTitle>
+          <DialogDescription>
+            For walk-in guests who can't or don't want to use Singpass. Verify their ID in person first — the account is created pre-verified.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="cc-name">Full Legal Name</Label>
+            <Input id="cc-name" value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="As shown on their ID" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="cc-dob">Date of Birth</Label>
+            <Input id="cc-dob" type="date" value={dateOfBirth} max={maxDob} onChange={(e) => setDateOfBirth(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="cc-email">Email</Label>
+            <Input id="cc-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="cc-password">Password</Label>
+            <Input id="cc-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} placeholder="At least 6 characters" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="cc-phone">Phone Number <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <Input id="cc-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 91234567" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={createCustomer.isPending}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={!canSubmit || createCustomer.isPending}>
+            {createCustomer.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+            Create Account
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
