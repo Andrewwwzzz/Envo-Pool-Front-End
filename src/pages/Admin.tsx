@@ -57,7 +57,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { LogOut, ArrowLeft, DollarSign, Calendar, CalendarDays, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download, Copy, XCircle, Eye, EyeOff, AlertTriangle, Key, RefreshCw, Mail, UserPlus } from "lucide-react";
+import { LogOut, ArrowLeft, DollarSign, Calendar, CalendarDays, BarChart3, Trash2, Search, Users, Timer, Play, Square, Wrench, FileText, ScrollText, Pencil, X, Check, MoreHorizontal, Clock, TrendingUp, Power, PowerOff, RotateCcw, Loader2, Wifi, WifiOff, Download, Copy, XCircle, Eye, EyeOff, AlertTriangle, Key, RefreshCw, Mail, UserPlus, Plus } from "lucide-react";
 import ReasonDialog from "@/components/admin/ReasonDialog";
 import { ChargeWalletDialog } from "@/components/admin/ChargeWalletDialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -4070,6 +4070,7 @@ function TopUpsTab() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [inlineRejectMode, setInlineRejectMode] = useState(false);
   const [inlineRejectReason, setInlineRejectReason] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["admin-topups"] });
@@ -4167,10 +4168,16 @@ function TopUpsTab() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3 flex-wrap">
         <CardTitle>Top Up Requests</CardTitle>
-        <Button size="sm" variant="outline" onClick={checkGmailNow} disabled={checkingGmail} className="gap-1.5">
-          <RefreshCw className={`h-3.5 w-3.5 ${checkingGmail ? "animate-spin" : ""}`} />
-          {checkingGmail ? "Checking..." : "Check Gmail Now"}
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => setCreateOpen(true)} className="gap-1.5">
+            <Plus className="h-3.5 w-3.5" />
+            Create Request
+          </Button>
+          <Button size="sm" variant="outline" onClick={checkGmailNow} disabled={checkingGmail} className="gap-1.5">
+            <RefreshCw className={`h-3.5 w-3.5 ${checkingGmail ? "animate-spin" : ""}`} />
+            {checkingGmail ? "Checking..." : "Check Gmail Now"}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <Tabs value={status} onValueChange={(v) => setStatus(v as any)}>
@@ -4308,6 +4315,8 @@ function TopUpsTab() {
           </DialogContent>
         </Dialog>
 
+        <CreateTopUpDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={refresh} />
+
         <TopUpDetailDialog
           request={(requests || []).find((r: any) => (r._id || r.id) === detailId) || null}
           onClose={() => { setDetailId(null); setInlineRejectMode(false); setInlineRejectReason(""); }}
@@ -4346,6 +4355,117 @@ function TopUpsTab() {
         />
       </CardContent>
     </Card>
+  );
+}
+
+function CreateTopUpDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreated: () => void;
+}) {
+  const { toast } = useToast();
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState<"cash" | "paynow">("cash");
+  const [customerId, setCustomerId] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const { data: customers = [] } = useAdminCustomers(customerSearch);
+
+  const reset = () => {
+    setAmount(""); setMethod("cash"); setCustomerId(""); setCustomerSearch("");
+  };
+
+  const selectedCustomer = customers.find((c: any) => c.id === customerId);
+  const amountNum = parseFloat(amount) || 0;
+  const canSubmit = !!customerId && amountNum >= 10 && amountNum <= 500;
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    try {
+      const res = await apiFetch("/api/transactions/topup/admin/create", {
+        method: "POST",
+        body: JSON.stringify({ userId: customerId, amount: amountNum, method }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.message || "Failed to create request");
+      toast({ title: "Top up request created", description: `$${amountNum.toFixed(2)} for ${selectedCustomer?.name || "customer"} — approve it below to credit their wallet.` });
+      reset();
+      onOpenChange(false);
+      onCreated();
+    } catch (err: any) {
+      toast({ title: "Failed to create request", description: err?.message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) reset(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create Top Up Request</DialogTitle>
+          <DialogDescription>
+            For a customer paying at the counter or whose PayNow transfer wasn't auto-matched. Creates a pending request — approve it afterward (below) to actually credit the wallet.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="space-y-1.5">
+            <Label>Customer</Label>
+            {selectedCustomer ? (
+              <div className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+                <div>
+                  <p className="font-medium">{selectedCustomer.name || selectedCustomer.legal_name || selectedCustomer.email}</p>
+                  <p className="text-xs text-muted-foreground">Balance: ${Number(selectedCustomer.wallet_balance ?? 0).toFixed(2)}</p>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => setCustomerId("")}>Change</Button>
+              </div>
+            ) : (
+              <>
+                <Input placeholder="Search name or email" value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} />
+                <div className="max-h-36 overflow-y-auto rounded-md border border-border">
+                  {customers.slice(0, 20).map((c: any) => (
+                    <button key={c.id} type="button" onClick={() => setCustomerId(c.id)} className="w-full text-left px-3 py-2 text-sm hover:bg-muted">
+                      <div className="font-medium">{c.name || c.legal_name || "—"}</div>
+                      <div className="text-xs text-muted-foreground">{c.email} · ${Number(c.wallet_balance ?? 0).toFixed(2)}</div>
+                    </button>
+                  ))}
+                  {customerSearch && customers.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">No customers found</div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Amount</Label>
+            <Input type="number" step="0.01" min="10" max="500" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Min $10, max $500" />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Method</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["cash", "paynow"] as const).map((m) => (
+                <Button key={m} type="button" size="sm" variant={method === m ? "default" : "outline"} onClick={() => setMethod(m)}>
+                  {m === "cash" ? "Cash" : "PayNow"}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={!canSubmit || submitting}>
+            {submitting ? "Creating..." : "Create Request"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
