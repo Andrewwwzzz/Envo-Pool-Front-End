@@ -1116,6 +1116,7 @@ export const ALL_PERMISSIONS = [
   { key: "pricing", label: "Pricing" },
   { key: "promos", label: "Promos" },
   { key: "lockers", label: "Lockers" },
+  { key: "cashcount", label: "Cash Count" },
   { key: "logs", label: "Logs" },
 ] as const;
 
