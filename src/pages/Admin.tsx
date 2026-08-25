@@ -112,17 +112,7 @@ const Admin = () => {
           <div className="overflow-x-auto pb-1">
             <TabsList className="inline-flex w-max gap-0.5 min-w-full">
               {can("overview") && <TabsTrigger value="overview">Overview</TabsTrigger>}
-              {can("bookings") && <TabsTrigger value="bookings">Bookings</TabsTrigger>}
               {can("tables") && <TabsTrigger value="tables">Tables</TabsTrigger>}
-              {can("invoices") && <TabsTrigger value="invoices">Invoices</TabsTrigger>}
-              {can("topups") && <TopUpsTabTrigger />}
-              {can("customers") && <TabsTrigger value="customers">Customers</TabsTrigger>}
-              {can("rewards") && <TabsTrigger value="rewards">Rewards</TabsTrigger>}
-              {can("pricing") && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
-              {can("promos") && <TabsTrigger value="promos">Promos</TabsTrigger>}
-              {isAdmin && <TabsTrigger value="campaigns">Campaigns</TabsTrigger>}
-              {can("membership") && <TabsTrigger value="membership">Membership</TabsTrigger>}
-              {can("lockers") && <TabsTrigger value="lockers">Lockers</TabsTrigger>}
               {can("fnb") && (
                 <TabsTrigger value="fnb" className="relative">
                   F&B
@@ -133,18 +123,25 @@ const Admin = () => {
                   )}
                 </TabsTrigger>
               )}
-              {can("walkin") && <TabsTrigger value="walkin">Walk-in</TabsTrigger>}
-              {can("verification") && <VerificationTabTrigger />}
-              {can("logs") && <TabsTrigger value="logs">Logs</TabsTrigger>}
+              {can("topups") && <TopUpsTabTrigger />}
+              {can("customers") && <TabsTrigger value="customers">Customers</TabsTrigger>}
+              {can("invoices") && <TabsTrigger value="invoices">Invoices</TabsTrigger>}
+              {can("bookings") && <TabsTrigger value="bookings">Bookings</TabsTrigger>}
+              {can("membership") && <TabsTrigger value="membership">Membership</TabsTrigger>}
+              {can("rewards") && <TabsTrigger value="rewards">Rewards</TabsTrigger>}
+              {can("pricing") && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
+              {can("promos") && <TabsTrigger value="promos">Promos</TabsTrigger>}
+              {isAdmin && <TabsTrigger value="campaigns">Campaigns</TabsTrigger>}
+              {can("lockers") && <TabsTrigger value="lockers">Lockers</TabsTrigger>}
               {isMaster && <TabsTrigger value="staff">Staff</TabsTrigger>}
               {isMaster && <TabsTrigger value="accounting">Accounting</TabsTrigger>}
+              {can("logs") && <TabsTrigger value="logs">Logs</TabsTrigger>}
             </TabsList>
           </div>
 
           {can("overview") && <TabsContent value="overview"><OverviewTab /></TabsContent>}
-          {can("bookings") && <TabsContent value="bookings"><BookingsTab /></TabsContent>}
           {can("tables") && <TabsContent value="tables"><TablesTab /></TabsContent>}
-          {can("invoices") && <TabsContent value="invoices"><InvoicesTab /></TabsContent>}
+          {can("fnb") && <TabsContent value="fnb"><FnbTab /></TabsContent>}
           {can("topups") && <TabsContent value="topups"><TopUpsTab /></TabsContent>}
           {can("customers") && (
             <TabsContent value="customers">
@@ -154,18 +151,17 @@ const Admin = () => {
               />
             </TabsContent>
           )}
+          {can("invoices") && <TabsContent value="invoices"><InvoicesTab /></TabsContent>}
+          {can("bookings") && <TabsContent value="bookings"><BookingsTab /></TabsContent>}
+          {can("membership") && <TabsContent value="membership"><MembershipTab /></TabsContent>}
           {can("rewards") && <TabsContent value="rewards"><RewardsTab onCustomerClick={goToCustomer} /></TabsContent>}
           {can("pricing") && <TabsContent value="pricing"><PricingTab /></TabsContent>}
           {can("promos") && <TabsContent value="promos"><PromosTab /></TabsContent>}
           {isAdmin && <TabsContent value="campaigns"><CampaignsTab /></TabsContent>}
-          {can("membership") && <TabsContent value="membership"><MembershipTab /></TabsContent>}
           {can("lockers") && <TabsContent value="lockers"><LockersTab /></TabsContent>}
-          {can("fnb") && <TabsContent value="fnb"><FnbTab /></TabsContent>}
-          {can("walkin") && <TabsContent value="walkin"><WalkinSessionsTab /></TabsContent>}
-          {can("verification") && <TabsContent value="verification"><VerificationTab /></TabsContent>}
-          {can("logs") && <TabsContent value="logs"><LogsTab /></TabsContent>}
           {isMaster && <TabsContent value="staff"><StaffTab /></TabsContent>}
           {isMaster && <TabsContent value="accounting"><AccountingTab /></TabsContent>}
+          {can("logs") && <TabsContent value="logs"><LogsTab /></TabsContent>}
         </Tabs>
       </main>
     </div>
@@ -760,10 +756,16 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
   const hasManualDiscount = !isActive && manualDiscountAmount > 0;
   const hasDiscountBreakdown = !isActive && (membershipDiscountAmount > 0 || freeMinutesCredit > 0 || hasManualDiscount);
   const staff = s.startedBy?.name || s.startedBy?.email || "—";
-  const customerName =
-    (typeof s.userId === "object"
-      ? s.userId?.name || s.userId?.username || s.userId?.email
-      : null) || s.userName || s.customerName || "—";
+  // Who the charge belongs to — walk-in sessions are always a real logged-in
+  // customer; admin-opened sessions are only tied to a customer if one was
+  // selected at counter, otherwise it's an anonymous walk-in on the Guest Account.
+  const customerName = walkin
+    ? ((typeof s.userId === "object"
+        ? s.userId?.name || s.userId?.username || s.userId?.email
+        : null) || s.userName || s.customerName || "—")
+    : ((typeof s.customerId === "object" && s.customerId
+        ? s.customerId?.name || s.customerId?.email
+        : null) || "Guest");
   const tableName = s.tableName || (s.tables?.table_number ? `Table ${s.tables.table_number}` : (s.tableId ? getTableLabel(s.tableId) : "—"));
 
   // pricingSegments: prefer explicit segments array; otherwise fall back to single segment from rate+duration.
@@ -1122,16 +1124,20 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
 
           <Separator className="bg-border/50" />
 
-          {/* Customer / Staff */}
+          {/* Customer */}
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              {walkin ? "Customer" : "Staff Details"}
-            </h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Customer</h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <div className="text-muted-foreground">{walkin ? "Customer" : "Opened by"}</div>
-                <div className="font-medium">{walkin ? customerName : staff}</div>
+                <div className="text-muted-foreground">{walkin ? "Customer" : "Charged to"}</div>
+                <div className="font-medium">{customerName}</div>
               </div>
+              {!walkin && (
+                <div>
+                  <div className="text-muted-foreground">Opened by</div>
+                  <div className="font-medium">{staff}</div>
+                </div>
+              )}
             </div>
           </section>
         </div>
@@ -1276,7 +1282,7 @@ function InvoicesTab() {
                   <th className="pb-2 pr-4">Rate</th>
                   <th className="pb-2 pr-4">Amount</th>
                   <th className="pb-2 pr-4">Payment</th>
-                  <th className="pb-2 pr-4">Staff</th>
+                  <th className="pb-2 pr-4">Customer</th>
                   <th className="pb-2"></th>
                 </tr>
               </thead>
@@ -1301,11 +1307,19 @@ function InvoicesTab() {
                   const amount = s._walkin
                     ? Number(s.amountCharged ?? 0)
                     : Number(s.amountCharged ?? s.amount_charged ?? s.total_cost ?? 0);
-                  const staff = s._walkin
+                  // Who the charge belongs to — not who processed it. Walk-in
+                  // sessions are always a real logged-in customer; admin-opened
+                  // tables are only tied to a customer if one was selected
+                  // (wallet payment requires it, cash/paynow optionally has
+                  // one) — otherwise it was an anonymous walk-in charged to
+                  // the shared Guest Account.
+                  const chargedTo = s._walkin
                     ? ((typeof s.userId === "object"
                         ? (s.userId?.name || s.userId?.username || s.userId?.email)
-                        : null) || s.startedBy?.name || s.startedBy?.email || "—")
-                    : (s.startedBy?.name || s.startedBy?.email || "—");
+                        : null) || "—")
+                    : (typeof s.customerId === "object" && s.customerId
+                        ? (s.customerId?.name || s.customerId?.email)
+                        : "Guest");
                   const showNoRate = rate <= 0 && amount <= 0;
                   const paymentMethod: string = s.paymentMethod || (s._walkin ? "wallet" : "cash");
                   const paymentLabel = paymentMethod === "wallet" ? "Wallet" : paymentMethod === "paynow" ? "PayNow" : paymentMethod === "cash" ? "Cash" : "Unpaid";
@@ -1355,7 +1369,13 @@ function InvoicesTab() {
                       <td className="py-3 pr-4">
                         <Badge variant="outline" className={paymentBadgeClass}>{paymentLabel}</Badge>
                       </td>
-                      <td className="py-3 pr-4 text-muted-foreground">{staff}</td>
+                      <td className="py-3 pr-4">
+                        {chargedTo === "Guest" ? (
+                          <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-[10px] py-0 px-1.5">Guest</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">{chargedTo}</span>
+                        )}
+                      </td>
                       <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         {isDeleted ? (
                           <div className="flex items-center justify-end gap-1">

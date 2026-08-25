@@ -1105,19 +1105,17 @@ export function useUpdateCustomerEmail() {
 
 export const ALL_PERMISSIONS = [
   { key: "overview", label: "Overview" },
-  { key: "bookings", label: "Bookings" },
   { key: "tables", label: "Tables" },
-  { key: "invoices", label: "Invoices" },
+  { key: "fnb", label: "F&B" },
   { key: "topups", label: "Top Ups" },
   { key: "customers", label: "Customers" },
+  { key: "invoices", label: "Invoices" },
+  { key: "bookings", label: "Bookings" },
+  { key: "membership", label: "Membership" },
   { key: "rewards", label: "Rewards" },
   { key: "pricing", label: "Pricing" },
   { key: "promos", label: "Promos" },
-  { key: "membership", label: "Membership" },
   { key: "lockers", label: "Lockers" },
-  { key: "fnb", label: "F&B" },
-  { key: "walkin", label: "Walk-in" },
-  { key: "verification", label: "Verification" },
   { key: "logs", label: "Logs" },
 ] as const;
 
