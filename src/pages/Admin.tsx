@@ -364,7 +364,7 @@ function OverviewTab() {
         <p className="text-xs text-muted-foreground">{from} → {to}</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
         <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
           <p className="text-2xl font-bold">${(stats?.totalRevenue ?? 0).toFixed(2)}</p>
@@ -385,9 +385,6 @@ function OverviewTab() {
           <p className="text-2xl font-bold">{stats?.totalTransactions ?? 0}</p>
           <p className="text-sm text-muted-foreground">Total Transactions</p>
         </CardContent></Card>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card><CardContent className="pt-6 text-center">
           <TrendingUp className="h-6 w-6 mx-auto text-primary mb-2" />
           <p className="text-2xl font-bold">${avgBookingValue.toFixed(2)}</p>
@@ -403,9 +400,6 @@ function OverviewTab() {
           <p className="text-2xl font-bold">${walletTopups.toFixed(2)}</p>
           <p className="text-sm text-muted-foreground">Cash & PayNow Top-Ups</p>
         </CardContent></Card>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
           <p className="text-2xl font-bold">${paynowTopups.toFixed(2)}</p>
@@ -560,7 +554,19 @@ function BookingsTab() {
                     <td className="py-3 pr-4">{fmtTimeSG(getField(b, "startTime", "start_time"))} – {fmtTimeSG(getField(b, "endTime", "end_time"))}</td>
                     <td className="py-3 pr-4">{(() => { const s = b.startTime || b.start_time; const e = b.endTime || b.end_time; const mins = s && e ? Math.round((new Date(e).getTime() - new Date(s).getTime()) / 60000) : 0; const h = Math.floor(mins / 60); const m = mins % 60; return m > 0 ? `${h}h ${m}m` : `${h}h`; })()}</td>
                     <td className="py-3 pr-4">${(getField(b, "amount", "finalPrice", "final_price", "price") ?? 0).toFixed(2)}</td>
-                    <td className="py-3 pr-4 capitalize">{getField(b, "paymentMethod", "payment_method", "inferredPaymentMethod") ?? (b.paymentStatus === "paid" ? "paynow" : "—")}</td>
+                    <td className="py-3 pr-4">
+                      {(() => {
+                        const method: string = getField(b, "paymentMethod", "payment_method", "inferredPaymentMethod") ?? (b.paymentStatus === "paid" ? "paynow" : "");
+                        if (!method) return <span className="text-muted-foreground">—</span>;
+                        const label = method === "wallet" ? "Wallet" : method === "paynow" ? "PayNow" : method === "cash" ? "Cash" : method;
+                        const cls =
+                          method === "wallet" ? "bg-green-500/10 text-green-400 border-green-500/30"
+                          : method === "paynow" ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
+                          : method === "cash" ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                          : "bg-muted text-muted-foreground border-border";
+                        return <Badge variant="outline" className={cls}>{label}</Badge>;
+                      })()}
+                    </td>
                     <td className="py-3 pr-4">
                       <Badge variant="outline" className={`capitalize ${
                         b.status === "refunded" ? "text-orange-600 border-orange-300" :
@@ -763,7 +769,7 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
     ? ((typeof s.userId === "object"
         ? s.userId?.name || s.userId?.username || s.userId?.email
         : null) || s.userName || s.customerName || "—")
-    : ((typeof s.customerId === "object" && s.customerId
+    : ((typeof s.customerId === "object" && s.customerId && s.customerId?.name !== "Guest Account"
         ? s.customerId?.name || s.customerId?.email
         : null) || "Guest");
   const tableName = s.tableName || (s.tables?.table_number ? `Table ${s.tables.table_number}` : (s.tableId ? getTableLabel(s.tableId) : "—"));
@@ -1317,7 +1323,7 @@ function InvoicesTab() {
                     ? ((typeof s.userId === "object"
                         ? (s.userId?.name || s.userId?.username || s.userId?.email)
                         : null) || "—")
-                    : (typeof s.customerId === "object" && s.customerId
+                    : (typeof s.customerId === "object" && s.customerId && s.customerId?.name !== "Guest Account"
                         ? (s.customerId?.name || s.customerId?.email)
                         : "Guest");
                   const showNoRate = rate <= 0 && amount <= 0;
