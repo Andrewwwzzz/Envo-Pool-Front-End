@@ -27,7 +27,8 @@ const paymentBadge = (method?: string | null) => {
   if (!method) return null;
   const m = method.toLowerCase();
   if (m === "wallet") return { label: "Wallet", className: "bg-green-500/10 text-green-400 border-green-500/30" };
-  if (m === "paynow" || m === "stripe") return { label: "PayNow", className: "bg-blue-500/10 text-blue-400 border-blue-500/30" };
+  if (m === "paynow" || m === "stripe") return { label: "PayNow", className: "bg-purple-500/10 text-purple-400 border-purple-500/30" };
+  if (m === "cash") return { label: "Cash", className: "bg-blue-500/10 text-blue-400 border-blue-500/30" };
   return null;
 };
 

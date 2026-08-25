@@ -289,9 +289,13 @@ export default function RewardsTab({
                         </button>
                       </td>
                       <td className="py-2 pr-4">
-                        <Badge variant="outline" className="capitalize whitespace-nowrap">
-                          {TYPE_LABELS[r.type] || r.type}
-                        </Badge>
+                        {r.type === "free_item" && r.description ? (
+                          <Badge variant="outline" className="whitespace-nowrap">{r.description}</Badge>
+                        ) : (
+                          <Badge variant="outline" className="capitalize whitespace-nowrap">
+                            {TYPE_LABELS[r.type] || r.type}
+                          </Badge>
+                        )}
                       </td>
                       <td className={`py-2 pr-4 whitespace-nowrap ${deleted ? "line-through" : ""}`}>{formatValue(r)}</td>
                       <td className="py-2 pr-4">{REASON_LABELS[r.reason] || r.reason || "—"}</td>

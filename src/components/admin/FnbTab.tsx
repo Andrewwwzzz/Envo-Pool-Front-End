@@ -228,7 +228,17 @@ export function FnbTab() {
         <Gift className="h-3 w-3" /> Free — Reward
       </span>
     );
-    return <span className="text-green-400 text-xs font-medium">${price?.toFixed(2)}</span>;
+    const methodLabel = method === "cash" ? "Cash" : method === "paynow" ? "PayNow" : "Wallet";
+    const methodBadgeClass =
+      method === "wallet" ? "bg-green-500/10 text-green-400 border-green-500/30"
+      : method === "paynow" ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
+      : "bg-blue-500/10 text-blue-400 border-blue-500/30";
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="text-green-400 text-xs font-medium">${price?.toFixed(2)}</span>
+        <Badge variant="outline" className={methodBadgeClass}>{methodLabel}</Badge>
+      </span>
+    );
   };
 
   // derived analytics

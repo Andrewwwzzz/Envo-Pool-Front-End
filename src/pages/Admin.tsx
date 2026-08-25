@@ -998,8 +998,8 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
               const methodLabel = realMethod === "wallet" ? "Wallet" : realMethod === "paynow" ? "PayNow" : realMethod === "cash" ? "Cash" : "Unpaid";
               const methodBadgeClass =
                 realMethod === "wallet" ? "bg-green-500/10 text-green-400 border-green-500/30"
-                : realMethod === "paynow" ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
-                : realMethod === "cash" ? "bg-muted text-muted-foreground border-border"
+                : realMethod === "paynow" ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
+                : realMethod === "cash" ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
                 : "bg-destructive/10 text-destructive border-destructive/30";
               const canEditMethod = !walkin && !isActive && !isDeleted;
               const selectedMethodCustomer = methodCustomers.find((c: any) => c.id === methodCustomerId);
@@ -1275,6 +1275,7 @@ function InvoicesTab() {
                   <th className="pb-2 pr-4">Duration</th>
                   <th className="pb-2 pr-4">Rate</th>
                   <th className="pb-2 pr-4">Amount</th>
+                  <th className="pb-2 pr-4">Payment</th>
                   <th className="pb-2 pr-4">Staff</th>
                   <th className="pb-2"></th>
                 </tr>
@@ -1306,6 +1307,13 @@ function InvoicesTab() {
                         : null) || s.startedBy?.name || s.startedBy?.email || "—")
                     : (s.startedBy?.name || s.startedBy?.email || "—");
                   const showNoRate = rate <= 0 && amount <= 0;
+                  const paymentMethod: string = s.paymentMethod || (s._walkin ? "wallet" : "cash");
+                  const paymentLabel = paymentMethod === "wallet" ? "Wallet" : paymentMethod === "paynow" ? "PayNow" : paymentMethod === "cash" ? "Cash" : "Unpaid";
+                  const paymentBadgeClass =
+                    paymentMethod === "wallet" ? "bg-green-500/10 text-green-400 border-green-500/30"
+                    : paymentMethod === "paynow" ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
+                    : paymentMethod === "cash" ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                    : "bg-destructive/10 text-destructive border-destructive/30";
                   const isDeleted = s.isDeleted === true;
                   const deletedBy = s.deletedBy?.name || s.deletedBy?.email || (typeof s.deletedBy === "string" ? s.deletedBy : "");
                   const tooltipText = isDeleted
@@ -1338,12 +1346,15 @@ function InvoicesTab() {
                             No Rate
                           </Badge>
                         ) : rate > 0 ? (
-                          `$${rate.toFixed(0)}/hr`
+                          `$${rate.toFixed(2)}/hr`
                         ) : (
                           "—"
                         )}
                       </td>
                       <td className={`py-3 pr-4 font-medium ${isDeleted ? "line-through text-muted-foreground" : ""}`}>${amount.toFixed(2)}</td>
+                      <td className="py-3 pr-4">
+                        <Badge variant="outline" className={paymentBadgeClass}>{paymentLabel}</Badge>
+                      </td>
                       <td className="py-3 pr-4 text-muted-foreground">{staff}</td>
                       <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         {isDeleted ? (
@@ -1882,6 +1893,110 @@ function CreateCustomerDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   );
 }
 
+// Drill-down for a wallet transaction row — resolves what it actually was
+// (booking, timer-session invoice, walk-in session, F&B order, or nothing
+// more specific than the raw transaction) and renders the right detail view.
+function WalletTransactionDetailDialog({ transaction, onClose }: { transaction: any | null; onClose: () => void }) {
+  const txId = transaction?._id || transaction?.id || null;
+
+  const { data: resolved, isLoading } = useQuery({
+    queryKey: ["wallet-tx-resolve", txId],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/admin/transactions/${txId}/resolve`);
+      if (!res.ok) throw new Error("Failed to load transaction details");
+      return res.json();
+    },
+    enabled: !!txId,
+  });
+
+  if (!transaction) return null;
+
+  // Booking — reuse the existing admin booking detail dialog as-is.
+  if (resolved?.kind === "booking") {
+    return <AdminBookingDetailDialog booking={resolved.data} open onOpenChange={(o) => !o && onClose()} />;
+  }
+
+  // Timer-session invoice (admin pro-rate table) — reuse InvoiceDetailDialog directly.
+  if (resolved?.kind === "timer_session") {
+    return <InvoiceDetailDialog session={{ ...resolved.data, _walkin: false }} onClose={onClose} onDelete={() => {}} />;
+  }
+
+  // Walk-in session — shape it the same way InvoicesTab does before handing to InvoiceDetailDialog.
+  if (resolved?.kind === "walkin_session") {
+    const s = resolved.data;
+    const shaped = {
+      ...s,
+      _walkin: true,
+      startedAt: s.startedAt ?? s.startTime,
+      endedAt: s.stoppedAt ?? s.endedAt ?? s.endTime,
+      durationSeconds:
+        s.durationSeconds ??
+        (s.durationMinutes ? s.durationMinutes * 60 : undefined) ??
+        (s.startedAt && (s.stoppedAt || s.endedAt)
+          ? Math.max(0, Math.floor((new Date(s.stoppedAt || s.endedAt).getTime() - new Date(s.startedAt).getTime()) / 1000))
+          : 0),
+      amountCharged: s.amountCharged ?? s.totalCost ?? s.runningCost ?? 0,
+      tableName: s.tableName || (s.tableId ? getTableLabel(s.tableId) : ""),
+    };
+    return <InvoiceDetailDialog session={shaped} onClose={onClose} onDelete={() => {}} />;
+  }
+
+  // F&B order or unresolved/plain transaction — simple inline view.
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {resolved?.kind === "fnb_order" ? "F&B Order Details" : "Transaction Details"}
+          </DialogTitle>
+        </DialogHeader>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        ) : resolved?.kind === "fnb_order" ? (
+          (() => {
+            const o = resolved.data;
+            return (
+              <div className="space-y-3 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  <div><p className="text-muted-foreground text-xs">Product</p><p className="font-medium">{o.productName || o.productId?.name}</p></div>
+                  <div><p className="text-muted-foreground text-xs">Category</p><p className="font-medium capitalize">{o.productCategory || o.productId?.category || "—"}</p></div>
+                  <div><p className="text-muted-foreground text-xs">Total Price</p><p className="font-medium">${Number(o.totalPrice ?? 0).toFixed(2)}</p></div>
+                  <div><p className="text-muted-foreground text-xs">Payment Method</p><p className="font-medium capitalize">{o.paymentMethod}</p></div>
+                  <div><p className="text-muted-foreground text-xs">Table</p><p className="font-medium">{o.tableName || "—"}</p></div>
+                  <div><p className="text-muted-foreground text-xs">Status</p><p className="font-medium capitalize">{o.status}</p></div>
+                  <div><p className="text-muted-foreground text-xs">Ordered</p><p className="font-medium">{fmtDateTimeSG(o.createdAt)}</p></div>
+                  {o.servedAt && <div><p className="text-muted-foreground text-xs">Served At</p><p className="font-medium">{fmtDateTimeSG(o.servedAt)}</p></div>}
+                  {o.servedBy?.name && <div><p className="text-muted-foreground text-xs">Served By</p><p className="font-medium">{o.servedBy.name}</p></div>}
+                  {o.cancelReason && <div className="col-span-2"><p className="text-muted-foreground text-xs">Cancel Reason</p><p className="font-medium">{o.cancelReason}</p></div>}
+                </div>
+              </div>
+            );
+          })()
+        ) : (
+          (() => {
+            const t = resolved?.data || transaction;
+            return (
+              <div className="space-y-3 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  <div><p className="text-muted-foreground text-xs">Type</p><p className="font-medium capitalize">{t.type}</p></div>
+                  <div><p className="text-muted-foreground text-xs">Method</p><p className="font-medium capitalize">{t.method}</p></div>
+                  <div><p className="text-muted-foreground text-xs">Amount</p><p className="font-medium">${Math.abs(Number(t.amount) || 0).toFixed(2)}</p></div>
+                  <div><p className="text-muted-foreground text-xs">Status</p><p className="font-medium capitalize">{t.status}</p></div>
+                  <div><p className="text-muted-foreground text-xs">Date</p><p className="font-medium">{fmtDateTimeSG(t.createdAt || t.created_at)}</p></div>
+                </div>
+                {t.description && (
+                  <div><p className="text-muted-foreground text-xs">Description</p><p className="font-medium">{t.description}</p></div>
+                )}
+                <p className="text-xs text-muted-foreground pt-1">No linked order, booking, or session found for this transaction.</p>
+              </div>
+            );
+          })()
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1898,6 +2013,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const { data: activityLogs } = useAdminActivityLogs();
   const { data: allCustomers } = useAdminCustomers("");
   const { data: tablesList } = useAdminTables();
+  const [selectedWalletTx, setSelectedWalletTx] = useState<any | null>(null);
 
   const verifyInfo = (() => {
     if (customer.kyc_source === "singpass") {
@@ -2308,7 +2424,12 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                     ? "bg-destructive/15 text-destructive border-destructive/30"
                     : "bg-amber-500/15 text-amber-600 border-amber-500/30";
                   return (
-                    <div key={t._id || t.id} className="flex justify-between items-center text-sm border-b border-border pb-2 last:border-0">
+                    <button
+                      type="button"
+                      key={t._id || t.id}
+                      onClick={() => setSelectedWalletTx(t)}
+                      className="w-full flex justify-between items-center text-sm border-b border-border pb-2 last:border-0 text-left hover:bg-muted/40 rounded-md px-1 -mx-1 transition-colors"
+                    >
                       <div>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className={badgeClass}>{typeLabel}</Badge>
@@ -2321,7 +2442,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                           {isCredit ? "+" : "-"}${Math.abs(amt).toFixed(2)}
                         </p>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -2329,6 +2450,8 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           })()}
         </CardContent>
       </Card>
+
+      <WalletTransactionDetailDialog transaction={selectedWalletTx} onClose={() => setSelectedWalletTx(null)} />
 
       {/* Rewards */}
       <CustomerRewardsSection userId={customer.user_id} />
@@ -4175,7 +4298,7 @@ function TopUpsTab() {
           </Button>
           <Button size="sm" variant="outline" onClick={checkGmailNow} disabled={checkingGmail} className="gap-1.5">
             <RefreshCw className={`h-3.5 w-3.5 ${checkingGmail ? "animate-spin" : ""}`} />
-            {checkingGmail ? "Checking..." : "Check Gmail Now"}
+            {checkingGmail ? "Checking..." : "Check Payment Now"}
           </Button>
         </div>
       </CardHeader>

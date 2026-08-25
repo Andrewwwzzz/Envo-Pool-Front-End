@@ -47,8 +47,9 @@ const statusLabel: Record<string, string> = {
 
 const paymentStyles: Record<string, string> = {
   wallet: "bg-green-500/10 text-green-400 border-green-500/30",
-  paynow: "bg-blue-500/10 text-blue-400 border-blue-500/30",
-  stripe: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  paynow: "bg-purple-500/10 text-purple-400 border-purple-500/30",
+  stripe: "bg-purple-500/10 text-purple-400 border-purple-500/30",
+  cash: "bg-blue-500/10 text-blue-400 border-blue-500/30",
   reward: "bg-primary/10 text-primary border-primary/30",
 };
 
@@ -56,6 +57,7 @@ const paymentLabel: Record<string, string> = {
   wallet: "Wallet",
   paynow: "PayNow",
   stripe: "PayNow",
+  cash: "Cash",
   reward: "Reward",
   booking_payment: "Wallet",
   wallet_deduct: "Wallet",
