@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 export interface FnbProduct {
   _id: string;
   name: string;
-  category: "soft_drinks" | "beer" | "finger_food" | "snacks";
+  category: "soft_drinks" | "beer" | "finger_food" | "snacks" | "others";
   costPrice: number;
   sellingPrice: number;
   stock: number;
@@ -47,6 +47,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   beer: "Beer",
   finger_food: "Finger Food",
   snacks: "Snack",
+  others: "Other",
 };
 
 export const CATEGORY_COLORS: Record<string, string> = {
@@ -54,7 +55,17 @@ export const CATEGORY_COLORS: Record<string, string> = {
   beer: "bg-amber-500/20 text-amber-400",
   finger_food: "bg-orange-500/20 text-orange-400",
   snacks: "bg-green-500/20 text-green-400",
+  others: "bg-purple-500/20 text-purple-400",
 };
+
+export type CategoryGroup = "drinks" | "food" | "snacks" | "others";
+
+export function getCategoryGroup(cat: string): CategoryGroup {
+  if (cat === "soft_drinks" || cat === "beer") return "drinks";
+  if (cat === "finger_food") return "food";
+  if (cat === "snacks") return "snacks";
+  return "others";
+}
 
 // ── Customer hooks ──────────────────────────────────────
 

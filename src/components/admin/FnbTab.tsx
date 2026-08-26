@@ -19,7 +19,7 @@ import {
   useAdminFnbOrders, useAdminMenu, useServeOrder, useCancelFnbOrder,
   useCreateProduct, useUpdateProduct, useRestockProduct, useDeleteProduct,
   useFnbStatus, useSetFnbStatus,
-  FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS,
+  FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, getCategoryGroup, CategoryGroup,
 } from "@/hooks/useFnb";
 import { fmtDateTimeSG, getSGDateStr, nowSG } from "@/lib/sgTime";
 import { useToast } from "@/hooks/use-toast";
@@ -130,6 +130,7 @@ export function FnbTab() {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelRefund, setCancelRefund] = useState(false);
   const [hideDeleted, setHideDeleted] = useState(true);
+  const [categoryGroupFilter, setCategoryGroupFilter] = useState<"all" | CategoryGroup>("all");
   const [productDialog, setProductDialog] = useState<"create" | "edit" | "restock" | "adjust" | "logs" | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<FnbProduct | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -147,7 +148,8 @@ export function FnbTab() {
   const { data: orders = [], isLoading: ordersLoading } = useAdminFnbOrders(orderFilter, viewDay);
   const { data: analytics } = useFnbAnalytics(viewDay);
   const { data: allProducts = [] } = useAdminMenu(!hideDeleted);
-  const products = hideDeleted ? allProducts.filter((p) => !(p as any).isDeleted) : allProducts;
+  const products = (hideDeleted ? allProducts.filter((p) => !(p as any).isDeleted) : allProducts)
+    .filter((p) => categoryGroupFilter === "all" || getCategoryGroup(p.category) === categoryGroupFilter);
   const { data: stockLogs = [] } = useStockLogs(productDialog === "logs" ? selectedProduct?._id ?? null : null);
 
   const serveOrder = useServeOrder();
@@ -511,6 +513,20 @@ export function FnbTab() {
             </div>
           </div>
 
+          <div className="flex gap-2 flex-wrap">
+            {(["all", "drinks", "food", "snacks", "others"] as const).map((tab) => (
+              <Button
+                key={tab}
+                size="sm"
+                variant={categoryGroupFilter === tab ? "default" : "outline"}
+                onClick={() => setCategoryGroupFilter(tab)}
+                className={categoryGroupFilter === tab ? "bg-accent text-accent-foreground" : ""}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </Button>
+            ))}
+          </div>
+
           <div className="space-y-2">
             {products.map((p) => {
               const lowStock = p.stock <= p.lowStockThreshold;
@@ -672,6 +688,7 @@ export function FnbTab() {
                   <SelectItem value="beer">Beer</SelectItem>
                   <SelectItem value="finger_food">Finger Food</SelectItem>
                   <SelectItem value="snacks">Snacks</SelectItem>
+                  <SelectItem value="others">Others</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -31,7 +31,7 @@ function useCountdown(resumeAt: string | null | undefined) {
   return label;
 }
 
-type Category = "all" | "drinks" | "food" | "snacks";
+type Category = "all" | "drinks" | "food" | "snacks" | "others";
 
 const MAX_TABLE = 14;
 
@@ -57,6 +57,7 @@ function getCategoryGroup(cat: string): Category {
   if (cat === "soft_drinks" || cat === "beer") return "drinks";
   if (cat === "finger_food") return "food";
   if (cat === "snacks") return "snacks";
+  if (cat === "others") return "others";
   return "all";
 }
 
@@ -128,9 +129,9 @@ export default function DashboardFnb() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-            <ShoppingBag className="h-6 w-6 text-accent" /> F&B
+            <ShoppingBag className="h-6 w-6 text-accent" /> F&B & Others
           </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">Order food & drinks, delivered to your table</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">Order food, drinks & more, delivered to your table</p>
         </div>
         <Badge className="bg-accent/10 text-accent text-sm px-3 py-1">
           Wallet: ${walletBalance.toFixed(2)}
@@ -168,7 +169,7 @@ export default function DashboardFnb() {
 
       {/* Category tabs */}
       <div className="flex gap-2 flex-wrap">
-        {(["all", "drinks", "food", "snacks"] as Category[]).map((tab) => (
+        {(["all", "drinks", "food", "snacks", "others"] as Category[]).map((tab) => (
           <Button
             key={tab}
             variant={activeTab === tab ? "default" : "outline"}

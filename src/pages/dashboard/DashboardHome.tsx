@@ -43,7 +43,7 @@ const navBlocks = [
   { to: "/dashboard/transactions", label: "Transactions", icon: History, desc: "Payment history", color: "text-purple-400", bg: "bg-purple-500/10 border-purple-500/20" },
   { to: "/dashboard/rewards", label: "My Rewards", icon: Gift, desc: "Points & reward codes", color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20" },
   { to: "/dashboard/membership", label: "Membership", icon: Crown, desc: "Plans & benefits", color: "text-yellow-400", bg: "bg-yellow-500/10 border-yellow-500/20" },
-  { to: "/dashboard/fnb", label: "F&B", icon: ShoppingBag, desc: "Order food & drinks", color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20" },
+  { to: "/dashboard/fnb", label: "F&B & Others", icon: ShoppingBag, desc: "Order food, drinks & more", color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20" },
   { to: "/dashboard/settings", label: "Account", icon: Settings, desc: "Profile & settings", color: "text-green-400", bg: "bg-green-500/10 border-green-500/20" },
 ];
 
