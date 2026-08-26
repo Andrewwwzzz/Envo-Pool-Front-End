@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
-import { Wallet, CheckCircle2, AlertTriangle, History, Pencil } from "lucide-react";
+import { Wallet, CheckCircle2, AlertTriangle, History, Pencil, Trash2, RotateCcw } from "lucide-react";
 
 type Phase = "opening" | "closing";
 type ShiftType = "morning" | "night";
@@ -20,9 +21,14 @@ interface CountValues {
   counted: string;
   cashAfterMidnight: string;
   reason: string;
+  overrideExpected: boolean;
+  expectedOverride: string;
 }
 
-const EMPTY_VALUES: CountValues = { shiftType: "morning", date: "", counted: "", cashAfterMidnight: "", reason: "" };
+const EMPTY_VALUES: CountValues = {
+  shiftType: "morning", date: "", counted: "", cashAfterMidnight: "", reason: "",
+  overrideExpected: false, expectedOverride: "",
+};
 
 function useCashCountContext(phase: Phase, shiftType: ShiftType, date: string, excludeId?: string) {
   return useQuery({
@@ -39,11 +45,11 @@ function useCashCountContext(phase: Phase, shiftType: ShiftType, date: string, e
   });
 }
 
-function useCashCountHistory() {
+function useCashCountHistory(showDeleted: boolean) {
   return useQuery<any[]>({
-    queryKey: ["cashcount-history"],
+    queryKey: ["cashcount-history", showDeleted],
     queryFn: async () => {
-      const r = await apiFetch(`/api/cashcount?limit=100`);
+      const r = await apiFetch(`/api/cashcount?limit=100${showDeleted ? "&deleted=true" : ""}`);
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
@@ -82,6 +88,34 @@ function useEditCashCount() {
   });
 }
 
+function useDeleteCashCount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const r = await apiFetch(`/api/cashcount/${id}`, { method: "DELETE" });
+      if (!r.ok) throw new Error(await r.text());
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cashcount-context"] });
+      qc.invalidateQueries({ queryKey: ["cashcount-history"] });
+    },
+  });
+}
+
+function useRestoreCashCount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const r = await apiFetch(`/api/cashcount/${id}/restore`, { method: "POST" });
+      if (!r.ok) throw new Error(await r.text());
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cashcount-context"] });
+      qc.invalidateQueries({ queryKey: ["cashcount-history"] });
+    },
+  });
+}
+
 // Shared counting form used both for a fresh submission and for editing an
 // existing entry — the live preview (expected amount, tally/mismatch) works
 // the same way in both cases.
@@ -90,6 +124,7 @@ function CashCountForm({
   values,
   onChange,
   excludeId,
+  allowOverride,
   onSubmit,
   submitLabel,
   isPending,
@@ -98,12 +133,13 @@ function CashCountForm({
   values: CountValues;
   onChange: (v: CountValues) => void;
   excludeId?: string;
+  allowOverride?: boolean;
   onSubmit: (payload: Record<string, unknown>) => Promise<void>;
   submitLabel: string;
   isPending: boolean;
 }) {
   const { toast } = useToast();
-  const { shiftType, date, counted, cashAfterMidnight, reason } = values;
+  const { shiftType, date, counted, cashAfterMidnight, reason, overrideExpected, expectedOverride } = values;
   const isNightClosing = phase === "closing" && shiftType === "night";
 
   const { data: context, isLoading: contextLoading } = useCashCountContext(phase, shiftType, date, excludeId);
@@ -117,7 +153,8 @@ function CashCountForm({
   // belongs to that next day's Cash Top-Ups — it must be excluded from this
   // shift's tally, or a late top-up would look like an unexplained gain.
   const tallyPreview = hasCounted ? Math.round((countedNum - afterMidnightNum) * 100) / 100 : null;
-  const expected = context?.expectedAmount ?? 0;
+  const hasValidOverride = allowOverride && overrideExpected && expectedOverride.trim() !== "" && !isNaN(parseFloat(expectedOverride));
+  const expected = hasValidOverride ? parseFloat(expectedOverride) : (context?.expectedAmount ?? 0);
   const previewDiscrepancy = tallyPreview !== null && context ? Math.round((tallyPreview - expected) * 100) / 100 : null;
   const hasMismatch = previewDiscrepancy !== null && Math.abs(previewDiscrepancy) >= 0.01;
 
@@ -138,6 +175,7 @@ function CashCountForm({
       reason: reason.trim(),
       ...(date ? { date } : {}),
       ...(isNightClosing && cashAfterMidnight.trim() !== "" ? { cashAfterMidnight: parseFloat(cashAfterMidnight) } : {}),
+      ...(hasValidOverride ? { expectedAmountOverride: parseFloat(expectedOverride) } : {}),
     });
   };
 
@@ -190,6 +228,18 @@ function CashCountForm({
             <p className="text-amber-400 pt-1">
               Morning shift had a ${Math.abs(context.priorShiftDiscrepancy).toFixed(2)} discrepancy — check if it's the same issue.
             </p>
+          )}
+        </div>
+      )}
+
+      {allowOverride && phase === "closing" && (
+        <div className="space-y-1.5">
+          <label className="flex items-center gap-2 text-xs">
+            <Checkbox checked={overrideExpected} onCheckedChange={(v) => set({ overrideExpected: v === true })} />
+            Override expected amount
+          </label>
+          {overrideExpected && (
+            <Input type="number" step="0.01" placeholder="0.00" value={expectedOverride} onChange={(e) => set({ expectedOverride: e.target.value })} />
           )}
         </div>
       )}
@@ -288,6 +338,8 @@ function EditCashCountDialog({ entry, onClose }: { entry: any | null; onClose: (
         counted: String(entry.countedAmount),
         cashAfterMidnight: entry.cashAfterMidnight ? String(entry.cashAfterMidnight) : "",
         reason: entry.reason || "",
+        overrideExpected: !!entry.isOverridden,
+        expectedOverride: entry.isOverridden ? String(entry.expectedAmount) : "",
       });
     }
   }, [entry]);
@@ -305,6 +357,7 @@ function EditCashCountDialog({ entry, onClose }: { entry: any | null; onClose: (
           values={values}
           onChange={setValues}
           excludeId={entry._id}
+          allowOverride
           submitLabel="Save Changes"
           isPending={editMutation.isPending}
           onSubmit={async (payload) => {
@@ -323,19 +376,36 @@ function EditCashCountDialog({ entry, onClose }: { entry: any | null; onClose: (
 }
 
 function CashCountHistory({ isMaster }: { isMaster: boolean }) {
-  const { data: entries = [], isLoading } = useCashCountHistory();
+  const { toast } = useToast();
+  const [showDeleted, setShowDeleted] = useState(false);
+  const { data: entries = [], isLoading } = useCashCountHistory(showDeleted);
   const [editing, setEditing] = useState<any | null>(null);
+  const deleteMutation = useDeleteCashCount();
+  const restoreMutation = useRestoreCashCount();
 
   return (
     <Card className="card-premium">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
         <CardTitle className="flex items-center gap-2 text-base"><History className="h-4 w-4" /> Cash Count History</CardTitle>
+        {isMaster && (
+          <Button
+            size="sm"
+            variant={showDeleted ? "destructive" : "outline"}
+            className="gap-1.5 text-xs h-7"
+            onClick={() => setShowDeleted((v) => !v)}
+          >
+            <Trash2 className="h-3 w-3" />
+            {showDeleted ? "Hide Deleted" : "Show Deleted"}
+          </Button>
+        )}
       </CardHeader>
       <CardContent>
         {isLoading ? (
           <p className="text-sm text-muted-foreground py-6 text-center">Loading…</p>
         ) : entries.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">No cash counts logged yet.</p>
+          <p className="text-sm text-muted-foreground py-6 text-center">
+            {showDeleted ? "No deleted cash counts." : "No cash counts logged yet."}
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -368,7 +438,14 @@ function CashCountHistory({ isMaster }: { isMaster: boolean }) {
                           </div>
                         )}
                       </td>
-                      <td className="py-2 pr-4 text-right font-mono text-muted-foreground">${e.expectedAmount.toFixed(2)}</td>
+                      <td className="py-2 pr-4 text-right font-mono text-muted-foreground">
+                        ${e.expectedAmount.toFixed(2)}
+                        {e.isOverridden && (
+                          <div className="text-[10px] font-sans" title={`System calculated $${e.systemExpectedAmount?.toFixed(2)}`}>
+                            overridden
+                          </div>
+                        )}
+                      </td>
                       <td className="py-2 pr-4">
                         {tallies ? (
                           <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">Tally</Badge>
@@ -389,9 +466,37 @@ function CashCountHistory({ isMaster }: { isMaster: boolean }) {
                       </td>
                       {isMaster && (
                         <td className="py-2">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditing(e)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            {showDeleted ? (
+                              <Button
+                                size="icon" variant="ghost" className="h-7 w-7 text-green-500 hover:text-green-400"
+                                title="Restore"
+                                disabled={restoreMutation.isPending}
+                                onClick={() => restoreMutation.mutate(e._id, {
+                                  onSuccess: () => toast({ title: "Cash count entry restored" }),
+                                  onError: (err: any) => toast({ title: "Couldn't restore", description: err.message, variant: "destructive" }),
+                                })}
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              </Button>
+                            ) : (
+                              <>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditing(e)}>
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="icon" variant="ghost" className="h-7 w-7"
+                                  disabled={deleteMutation.isPending}
+                                  onClick={() => deleteMutation.mutate(e._id, {
+                                    onSuccess: () => toast({ title: "Cash count entry deleted" }),
+                                    onError: (err: any) => toast({ title: "Couldn't delete", description: err.message, variant: "destructive" }),
+                                  })}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       )}
                     </tr>
