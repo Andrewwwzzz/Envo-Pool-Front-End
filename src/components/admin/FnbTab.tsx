@@ -11,20 +11,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CheckCircle2, XCircle, Clock, Plus, Pencil, RotateCcw, AlertTriangle,
   Gift, TrendingUp, Package, History, ChevronDown, ChevronUp, DollarSign,
-  ShoppingBag, BarChart3, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, Trash2,
+  ShoppingBag, BarChart3, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, Trash2, Minus, X,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import {
   useAdminFnbOrders, useAdminMenu, useServeOrder, useCancelFnbOrder,
   useCreateProduct, useUpdateProduct, useRestockProduct, useDeleteProduct,
-  useFnbStatus, useSetFnbStatus,
+  useFnbStatus, useSetFnbStatus, usePlaceStaffOrder,
   FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, getCategoryGroup, CategoryGroup,
 } from "@/hooks/useFnb";
 import { fmtDateTimeSG, getSGDateStr, nowSG } from "@/lib/sgTime";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRestoreRecord, useHardDelete } from "@/hooks/useAdmin";
+import { useRestoreRecord, useHardDelete, useAdminTables } from "@/hooks/useAdmin";
 import { PinDialog } from "@/components/admin/PinDialog";
 
 // ─── Analytics hook (enhanced) ───────────────────────────────────────────────
@@ -117,6 +117,177 @@ function FnbCountdown({ resumeAt }: { resumeAt: string }) {
   return <span className="text-orange-400 font-mono">{remaining}</span>;
 }
 
+// ─── Place Order dialog — quick counter order for a walk-in guest,
+// optionally charged to a running table's tab instead of paid immediately ──
+type CartLine = { product: FnbProduct; qty: number };
+
+function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { toast } = useToast();
+  const { data: tables = [] } = useAdminTables();
+  const { data: products = [] } = useAdminMenu();
+  const placeOrder = usePlaceStaffOrder();
+
+  const runningTables = tables.filter((t: any) => !!t.timer_started_at);
+  const availableProducts = products.filter((p) => p.isActive && p.stock > 0);
+
+  const [tableId, setTableId] = useState<string>("");
+  const [search, setSearch] = useState("");
+  const [cart, setCart] = useState<CartLine[]>([]);
+  const [payment, setPayment] = useState<"charge_to_table" | "cash" | "paynow">("charge_to_table");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setTableId("");
+      setSearch("");
+      setCart([]);
+      setPayment("charge_to_table");
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!tableId && payment === "charge_to_table") setPayment("cash");
+  }, [tableId, payment]);
+
+  const filteredProducts = search.trim()
+    ? availableProducts.filter((p) => p.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : availableProducts;
+
+  const selectedTable = runningTables.find((t: any) => t.id === tableId);
+  const total = cart.reduce((s, l) => s + l.product.sellingPrice * l.qty, 0);
+
+  const addToCart = (product: FnbProduct) => {
+    setCart((prev) => {
+      const existing = prev.find((l) => l.product._id === product._id);
+      if (existing) return prev.map((l) => (l.product._id === product._id ? { ...l, qty: l.qty + 1 } : l));
+      return [...prev, { product, qty: 1 }];
+    });
+  };
+  const changeQty = (productId: string, delta: number) => {
+    setCart((prev) => prev
+      .map((l) => (l.product._id === productId ? { ...l, qty: l.qty + delta } : l))
+      .filter((l) => l.qty > 0));
+  };
+
+  const handleSubmit = async () => {
+    if (cart.length === 0) return;
+    setSubmitting(true);
+    let succeeded = 0;
+    let failed = 0;
+    for (const line of cart) {
+      for (let i = 0; i < line.qty; i++) {
+        try {
+          await placeOrder.mutateAsync({
+            productId: line.product._id,
+            ...(payment === "charge_to_table"
+              ? { chargeToTable: true, tableRefId: tableId, tableName: `Table ${selectedTable?.table_number}` }
+              : { paymentMethod: payment, tableId: tableId || undefined, tableName: tableId ? `Table ${selectedTable?.table_number}` : undefined }),
+          });
+          succeeded++;
+        } catch {
+          failed++;
+        }
+      }
+    }
+    setSubmitting(false);
+    if (failed === 0) {
+      toast({ title: `${succeeded} item${succeeded === 1 ? "" : "s"} ordered` });
+      onOpenChange(false);
+    } else {
+      toast({ title: `${succeeded} ordered, ${failed} failed`, description: "Check stock levels for the failed items.", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Place Order</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Table <span className="text-muted-foreground">(optional — for charge-to-table)</span></Label>
+            <Select value={tableId || "none"} onValueChange={(v) => setTableId(v === "none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="No table — pay now" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No table — pay now</SelectItem>
+                {runningTables.map((t: any) => (
+                  <SelectItem key={t.id} value={t.id}>Table {t.table_number}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Add Items</Label>
+            <Input placeholder="Search menu..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <div className="max-h-40 overflow-y-auto rounded-md border border-border divide-y divide-border/50">
+              {filteredProducts.map((p) => (
+                <button
+                  key={p._id}
+                  type="button"
+                  onClick={() => addToCart(p)}
+                  className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-muted text-left"
+                >
+                  <span>{p.name}</span>
+                  <span className="text-muted-foreground">${p.sellingPrice.toFixed(2)}</span>
+                </button>
+              ))}
+              {filteredProducts.length === 0 && (
+                <div className="px-3 py-2 text-xs text-muted-foreground">No items found</div>
+              )}
+            </div>
+          </div>
+
+          {cart.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Order</Label>
+              <div className="rounded-md border border-border divide-y divide-border/50">
+                {cart.map((l) => (
+                  <div key={l.product._id} className="flex items-center justify-between px-3 py-2 text-sm">
+                    <span className="flex-1 truncate">{l.product.name}</span>
+                    <div className="flex items-center gap-2">
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeQty(l.product._id, -1)}><Minus className="h-3 w-3" /></Button>
+                      <span className="w-5 text-center">{l.qty}</span>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeQty(l.product._id, 1)}><Plus className="h-3 w-3" /></Button>
+                      <span className="w-16 text-right text-muted-foreground">${(l.product.sellingPrice * l.qty).toFixed(2)}</span>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeQty(l.product._id, -l.qty)}><X className="h-3 w-3 text-destructive" /></Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between text-sm font-semibold px-1">
+                <span>Total</span>
+                <span>${total.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Payment</Label>
+            <div className="grid grid-cols-3 gap-2">
+              <Button type="button" size="sm" variant={payment === "charge_to_table" ? "default" : "outline"} disabled={!tableId} onClick={() => setPayment("charge_to_table")}>
+                Charge to Table
+              </Button>
+              <Button type="button" size="sm" variant={payment === "cash" ? "default" : "outline"} onClick={() => setPayment("cash")}>Cash</Button>
+              <Button type="button" size="sm" variant={payment === "paynow" ? "default" : "outline"} onClick={() => setPayment("paynow")}>PayNow</Button>
+            </div>
+            {payment === "charge_to_table" && (
+              <p className="text-xs text-muted-foreground">Added to Table {selectedTable?.table_number}'s bill — settled together when the table closes.</p>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={cart.length === 0 || submitting}>
+            {submitting ? "Placing..." : `Place Order — $${total.toFixed(2)}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function FnbTab() {
   const { user } = useAuth();
   const isMaster = (user as any)?.isMaster === true;
@@ -144,6 +315,7 @@ export function FnbTab() {
   const [pauseOpen, setPauseOpen] = useState(false);
   const [pauseNotice, setPauseNotice] = useState("Back in a moment — toilet break!");
   const [pauseMins, setPauseMins] = useState<number | "">(15);
+  const [placeOrderOpen, setPlaceOrderOpen] = useState(false);
 
   const { data: orders = [], isLoading: ordersLoading } = useAdminFnbOrders(orderFilter, viewDay);
   const { data: analytics } = useFnbAnalytics(viewDay);
@@ -274,6 +446,9 @@ export function FnbTab() {
               </div>
             </div>
             <div className="flex gap-2">
+              <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => setPlaceOrderOpen(true)}>
+                <Plus className="h-3.5 w-3.5 mr-1" /> Place Order
+              </Button>
               {fnbStatus?.isOpen === false ? (
                 <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => setFnbStatus.mutate({ isOpen: true })} disabled={setFnbStatus.isPending}>
                   <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Reopen F&B
@@ -287,6 +462,8 @@ export function FnbTab() {
           </div>
         </CardContent>
       </Card>
+
+      <PlaceOrderDialog open={placeOrderOpen} onOpenChange={setPlaceOrderOpen} />
 
       {/* Pause dialog */}
       <Dialog open={pauseOpen} onOpenChange={setPauseOpen}>

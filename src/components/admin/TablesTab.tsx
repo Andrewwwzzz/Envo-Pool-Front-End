@@ -13,6 +13,7 @@ import {
   useBookTableNow,
 } from "@/hooks/useAdmin";
 import { useActiveWalkinSessions } from "@/hooks/useWalkin";
+import { useTablePendingFnb } from "@/hooks/useFnb";
 import { usePricingRules, usePublicHolidaySet } from "@/hooks/usePricing";
 import { getCurrentHourlyRate } from "@/lib/pricing";
 import { roundCashAmount } from "@/lib/money";
@@ -610,6 +611,8 @@ function CloseTableDialog({
   const [customerName, setCustomerName] = useState("");
   const [allowNegative, setAllowNegative] = useState(false);
   const { data: customers = [] } = useAdminCustomers(customerSearch);
+  const { data: pendingFnb = [] } = useTablePendingFnb(closeTarget);
+  const fnbTotal = Math.round(pendingFnb.reduce((s, o: any) => s + o.totalPrice, 0) * 100) / 100;
 
   useEffect(() => {
     if (closeTarget) {
@@ -632,7 +635,8 @@ function CloseTableDialog({
   const gross = Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
   const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
   const discountAmt = Math.round(gross * (discountPct / 100) * 100) / 100;
-  const finalCostExact = Math.max(0, Math.round((gross - discountAmt) * 100) / 100);
+  const timeChargeExact = Math.max(0, Math.round((gross - discountAmt) * 100) / 100);
+  const finalCostExact = Math.round((timeChargeExact + fnbTotal) * 100) / 100;
   // Cash has no 1c/5c coins to give as change — round the bill to the
   // nearest 10c. Wallet/PayNow settle to the exact cent.
   const finalCost = paymentMethod === "cash" ? roundCashAmount(finalCostExact) : finalCostExact;
@@ -678,7 +682,7 @@ function CloseTableDialog({
           const methodLabel = paymentMethod === "wallet" ? `charged to ${customerName || "customer"}'s wallet` : `paid via ${paymentMethod === "paynow" ? "PayNow" : "cash"}`;
           toast({
             title: "Table closed",
-            description: `$${finalCost.toFixed(2)} ${methodLabel}.`,
+            description: `$${finalCost.toFixed(2)} ${methodLabel}.` + (fnbTotal > 0 ? ` (incl. $${fnbTotal.toFixed(2)} F&B)` : ""),
           });
         },
         onError: (err: Error) => {
@@ -698,12 +702,29 @@ function CloseTableDialog({
             {closeTarget && (
               <>
                 Table {table?.table_number} · {seconds}s @ ${tableRate}/hr — gross ${gross.toFixed(2)}
-                {discountPct > 0 && <> · after {discountPct}% off: <strong>${finalCost.toFixed(2)}</strong></>}
+                {discountPct > 0 && <> · after {discountPct}% off: ${timeChargeExact.toFixed(2)}</>}
+                {fnbTotal > 0 && <> + F&B ${fnbTotal.toFixed(2)}</>}
+                {(discountPct > 0 || fnbTotal > 0) && <> — total: <strong>${finalCost.toFixed(2)}</strong></>}
               </>
             )}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
+          {pendingFnb.length > 0 && (
+            <div className="rounded-md border border-border/50 divide-y divide-border/50">
+              <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/30">F&B charged to this table</div>
+              {pendingFnb.map((o: any) => (
+                <div key={o._id} className="flex justify-between px-3 py-1.5 text-sm">
+                  <span>{o.productName}</span>
+                  <span className="text-muted-foreground">${o.totalPrice.toFixed(2)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between px-3 py-1.5 text-sm font-medium">
+                <span>F&B Total</span>
+                <span>${fnbTotal.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Rate ($/hr)</Label>
             <Input

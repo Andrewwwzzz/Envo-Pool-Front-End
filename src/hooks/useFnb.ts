@@ -25,7 +25,7 @@ export interface FnbOrder {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  paymentMethod: "wallet" | "free_membership" | "free_reward";
+  paymentMethod: "wallet" | "cash" | "paynow" | "free_membership" | "free_reward" | "charge_to_table";
   tableId: string | null;
   tableName: string | null;
   status: "pending" | "served" | "cancelled";
@@ -114,23 +114,32 @@ export function usePlaceOrder() {
       tableId?: string;
       tableName?: string;
       isFreeRedemption?: boolean;
+      // Skips the built-in success/error toast — used when placing several
+      // items in a row (cart checkout), where one combined summary toast at
+      // the end reads better than one popup per item.
+      silent?: boolean;
     }) => {
+      const { silent, ...payload } = body;
       const res = await apiFetch("/api/fnb/orders", {
         method: "POST",
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to place order");
       return data;
     },
-    onSuccess: () => {
-      toast({ title: "Order received!", description: "We'll bring it to your table shortly." });
+    onSuccess: (_data, variables) => {
+      if (!variables?.silent) {
+        toast({ title: "Order received!", description: "We'll bring it to your table shortly." });
+      }
       qc.invalidateQueries({ queryKey: ["fnb-orders-my"] });
       qc.invalidateQueries({ queryKey: ["fnb-redemption-check"] });
       qc.invalidateQueries({ queryKey: ["fnb-menu"] });
     },
-    onError: (err: Error) => {
-      toast({ title: "Order failed", description: err.message, variant: "destructive" });
+    onError: (err: Error, variables) => {
+      if (!variables?.silent) {
+        toast({ title: "Order failed", description: err.message, variant: "destructive" });
+      }
     },
   });
 }
@@ -151,6 +160,49 @@ export function useAdminFnbOrders(status?: string, day?: string) {
       return (Array.isArray(data) ? data : []) as FnbOrder[];
     },
     refetchInterval: 10000,
+  });
+}
+
+// F&B orders charged to a specific table's tab, still awaiting settlement
+// when that table closes out — powers both the staff "Place Order" dialog
+// (what's already on this tab) and the Close Table bill preview.
+export function useTablePendingFnb(tableRefId: string | null) {
+  return useQuery({
+    queryKey: ["fnb-orders-table-pending", tableRefId],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/fnb/orders?tableRefId=${tableRefId}&paymentMethod=charge_to_table`);
+      if (!res.ok) throw new Error("Failed to load table's F&B charges");
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []) as FnbOrder[];
+    },
+    enabled: !!tableRefId,
+    refetchInterval: 10000,
+  });
+}
+
+export function usePlaceStaffOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: {
+      productId: string;
+      userId?: string;
+      tableId?: string;
+      tableName?: string;
+      isFreeRedemption?: boolean;
+      paymentMethod?: "cash" | "paynow";
+      chargeToTable?: boolean;
+      tableRefId?: string;
+    }) => {
+      const res = await apiFetch("/api/fnb/orders/staff", { method: "POST", body: JSON.stringify(body) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(data.error || "Failed to place order"), { data });
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fnb-orders-admin"] });
+      qc.invalidateQueries({ queryKey: ["fnb-menu-admin"] });
+      qc.invalidateQueries({ queryKey: ["fnb-orders-table-pending"] });
+    },
   });
 }
 

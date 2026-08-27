@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ShoppingBag, Clock, CheckCircle2, XCircle, Gift } from "lucide-react";
+import { ShoppingBag, Clock, CheckCircle2, XCircle, Gift, Minus, Plus, X } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import {
   useMenu, useMyFnbOrders, useRedemptionCheck, usePlaceOrder,
@@ -12,6 +12,7 @@ import {
   FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS,
 } from "@/hooks/useFnb";
 import { fmtDateTimeSG } from "@/lib/sgTime";
+import { useToast } from "@/hooks/use-toast";
 
 function useCountdown(resumeAt: string | null | undefined) {
   const [label, setLabel] = useState("");
@@ -61,7 +62,10 @@ function getCategoryGroup(cat: string): Category {
   return "all";
 }
 
+type CartLine = { product: FnbProduct; qty: number };
+
 export default function DashboardFnb() {
+  const { toast } = useToast();
   const { data: profile } = useProfile();
   const { data: menu = [] } = useMenu();
   const { data: orders = [] } = useMyFnbOrders();
@@ -73,6 +77,9 @@ export default function DashboardFnb() {
   const [activeTab, setActiveTab] = useState<Category>("all");
   const [tableInput, setTableInput] = useState("");
   const [confirm, setConfirm] = useState<{ product: FnbProduct; isFree: boolean } | null>(null);
+  const [cart, setCart] = useState<CartLine[]>([]);
+  const [placingCart, setPlacingCart] = useState(false);
+  const [cartConfirmOpen, setCartConfirmOpen] = useState(false);
 
   const walletBalance = profile?.walletBalance ?? 0;
 
@@ -92,6 +99,58 @@ export default function DashboardFnb() {
       },
       { onSettled: () => setConfirm(null) }
     );
+  };
+
+  const cartTotal = cart.reduce((s, l) => s + l.product.sellingPrice * l.qty, 0);
+
+  const addToCart = (product: FnbProduct) => {
+    setCart((prev) => {
+      const existing = prev.find((l) => l.product._id === product._id);
+      if (existing) return prev.map((l) => (l.product._id === product._id ? { ...l, qty: l.qty + 1 } : l));
+      return [...prev, { product, qty: 1 }];
+    });
+  };
+  const changeCartQty = (productId: string, delta: number) => {
+    setCart((prev) => prev
+      .map((l) => (l.product._id === productId ? { ...l, qty: l.qty + delta } : l))
+      .filter((l) => l.qty > 0));
+  };
+
+  const handlePlaceCart = async () => {
+    if (cart.length === 0 || !isValidTable(tableInput)) return;
+    setCartConfirmOpen(false);
+    setPlacingCart(true);
+    let succeeded = 0;
+    let failed = 0;
+    const remaining: CartLine[] = [];
+    for (const line of cart) {
+      let lineFailed = 0;
+      for (let i = 0; i < line.qty; i++) {
+        try {
+          await placeOrder.mutateAsync({
+            productId: line.product._id,
+            tableId: normalizeTableName(tableInput),
+            tableName: normalizeTableName(tableInput),
+            isFreeRedemption: false,
+            silent: true,
+          });
+          succeeded++;
+        } catch {
+          failed++;
+          lineFailed++;
+        }
+      }
+      // Keep only the units that didn't go through, so a stock-related
+      // failure leaves the cart ready to retry instead of vanishing.
+      if (lineFailed > 0) remaining.push({ product: line.product, qty: lineFailed });
+    }
+    setPlacingCart(false);
+    setCart(remaining);
+    if (failed === 0) {
+      toast({ title: `${succeeded} item${succeeded === 1 ? "" : "s"} ordered!`, description: "We'll bring it to your table shortly." });
+    } else {
+      toast({ title: `${succeeded} ordered, ${failed} failed`, description: "An item may have gone out of stock — remaining items are still in your cart.", variant: "destructive" });
+    }
   };
 
   const statusBadge = (status: string) => {
@@ -187,7 +246,6 @@ export default function DashboardFnb() {
         {filteredMenu.map((product) => {
           const outOfStock = product.stock <= 0;
           const canRedeem = redemption?.canRedeem && product.isRedeemable;
-          const canAfford = walletBalance >= product.sellingPrice;
 
           return (
             <Card key={product._id} className={`border-border/50 ${outOfStock ? "opacity-50" : ""}`}>
@@ -217,10 +275,10 @@ export default function DashboardFnb() {
                       size="sm"
                       variant="outline"
                       className="w-full text-xs"
-                      disabled={!canAfford || !isValidTable(tableInput)}
-                      onClick={() => setConfirm({ product, isFree: false })}
+                      disabled={!isValidTable(tableInput)}
+                      onClick={() => addToCart(product)}
                     >
-                      {!isValidTable(tableInput) ? "Enter valid table" : canAfford ? `Order $${product.sellingPrice.toFixed(2)}` : "Insufficient Balance"}
+                      {!isValidTable(tableInput) ? "Enter valid table" : `Add to Cart — $${product.sellingPrice.toFixed(2)}`}
                     </Button>
                   </div>
                 )}
@@ -234,6 +292,42 @@ export default function DashboardFnb() {
           </div>
         )}
       </div>
+
+      {/* Cart */}
+      {cart.length > 0 && (
+        <Card className="border-accent/40 bg-background sticky bottom-2 z-10 shadow-lg">
+          <CardContent className="p-4 space-y-3">
+            <h3 className="font-semibold text-sm text-foreground flex items-center gap-1.5">
+              <ShoppingBag className="h-4 w-4" /> Your Cart
+            </h3>
+            <div className="space-y-1.5">
+              {cart.map((l) => (
+                <div key={l.product._id} className="flex items-center justify-between text-sm">
+                  <span className="flex-1 truncate pr-2">{l.product.name}</span>
+                  <div className="flex items-center gap-2">
+                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeCartQty(l.product._id, -1)}><Minus className="h-3 w-3" /></Button>
+                    <span className="w-5 text-center">{l.qty}</span>
+                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeCartQty(l.product._id, 1)}><Plus className="h-3 w-3" /></Button>
+                    <span className="w-14 text-right text-muted-foreground">${(l.product.sellingPrice * l.qty).toFixed(2)}</span>
+                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeCartQty(l.product._id, -l.qty)}><X className="h-3 w-3 text-destructive" /></Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between pt-2 border-t border-border/50">
+              <span className="font-semibold text-sm">Total: ${cartTotal.toFixed(2)}</span>
+              <Button
+                size="sm"
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
+                disabled={placingCart || !isValidTable(tableInput) || cartTotal > walletBalance}
+                onClick={() => setCartConfirmOpen(true)}
+              >
+                {placingCart ? "Placing..." : cartTotal > walletBalance ? "Insufficient Balance" : "Place Order"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Today's Orders */}
       <div className="space-y-3">
@@ -293,6 +387,40 @@ export default function DashboardFnb() {
               disabled={placeOrder.isPending}
             >
               {placeOrder.isPending ? "Placing..." : "Confirm Order"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm cart order */}
+      <Dialog open={cartConfirmOpen} onOpenChange={setCartConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Order</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-2">
+            {cart.map((l) => (
+              <div key={l.product._id} className="flex justify-between text-sm">
+                <span>{l.qty} × {l.product.name}</span>
+                <span className="text-muted-foreground">${(l.product.sellingPrice * l.qty).toFixed(2)}</span>
+              </div>
+            ))}
+            <div className="flex justify-between text-sm font-semibold pt-2 border-t border-border/50">
+              <span>Total</span>
+              <span>${cartTotal.toFixed(2)}</span>
+            </div>
+            <p className="text-sm text-muted-foreground pt-1">
+              ${cartTotal.toFixed(2)} will be deducted from your wallet. Deliver to: <span className="text-foreground">{tableInput}</span>
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCartConfirmOpen(false)}>Cancel</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              onClick={handlePlaceCart}
+              disabled={placingCart}
+            >
+              {placingCart ? "Placing..." : "Confirm Order"}
             </Button>
           </DialogFooter>
         </DialogContent>
