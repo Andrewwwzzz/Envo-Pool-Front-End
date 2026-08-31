@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface BackendUser {
   id: string;
@@ -106,7 +108,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser);
   };
 
-  const signOut = () => {
+  // Actually clears the session — used directly by the forced-logout paths
+  // below (inactivity timeout, invalid/expired token) where there's no user
+  // present to confirm. The public `signOut` a user clicks instead just
+  // opens the confirmation dialog rendered further down.
+  const doSignOut = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     // Clear all cached query data
@@ -116,6 +122,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setUser(null);
   };
+
+  const [confirmSignOutOpen, setConfirmSignOutOpen] = useState(false);
+  const signOut = () => setConfirmSignOutOpen(true);
 
   // Inactivity timeout — sign user out after 30 minutes of no activity
   const lastActivityRef = useRef<number>(Date.now());
@@ -129,7 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const interval = setInterval(() => {
       if (Date.now() - lastActivityRef.current > TIMEOUT_MS) {
         toast("You have been signed out due to inactivity");
-        signOut();
+        doSignOut();
       }
     }, 60 * 1000);
     return () => {
@@ -143,13 +152,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (u) {
       setUser(u);
     } else {
-      signOut();
+      doSignOut();
     }
   };
 
   return (
     <AuthContext.Provider value={{ user, token, loading, signOut, setAuth, refreshUser }}>
       {children}
+      <Dialog open={confirmSignOutOpen} onOpenChange={setConfirmSignOutOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign out?</DialogTitle>
+            <DialogDescription>You'll need to log in again to access your account.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmSignOutOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => { setConfirmSignOutOpen(false); doSignOut(); }}>Sign Out</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AuthContext.Provider>
   );
 };
