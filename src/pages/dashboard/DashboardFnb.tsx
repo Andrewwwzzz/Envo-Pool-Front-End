@@ -4,15 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ShoppingBag, Clock, CheckCircle2, XCircle, Gift, Minus, Plus, X } from "lucide-react";
+import { ShoppingBag, Clock, CheckCircle2, XCircle, Gift, Minus, Plus, X, Star } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import {
   useMenu, useMyFnbOrders, useRedemptionCheck, usePlaceOrder,
   useFnbStatus,
-  FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS,
+  FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, NACHO_CHEESE_PRICE,
 } from "@/hooks/useFnb";
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { useToast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
 
 function useCountdown(resumeAt: string | null | undefined) {
   const [label, setLabel] = useState("");
@@ -62,7 +63,8 @@ function getCategoryGroup(cat: string): Category {
   return "all";
 }
 
-type CartLine = { product: FnbProduct; qty: number };
+type CartLine = { product: FnbProduct; qty: number; sauce: "chilli" | "ketchup" | null; nacho: boolean };
+const lineKey = (l: Pick<CartLine, "product" | "sauce" | "nacho">) => `${l.product._id}|${l.sauce ?? ""}|${l.nacho ? "1" : "0"}`;
 
 export default function DashboardFnb() {
   const { toast } = useToast();
@@ -80,6 +82,9 @@ export default function DashboardFnb() {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [placingCart, setPlacingCart] = useState(false);
   const [cartConfirmOpen, setCartConfirmOpen] = useState(false);
+  const [sauceModalProduct, setSauceModalProduct] = useState<FnbProduct | null>(null);
+  const [sauceChoice, setSauceChoice] = useState<"chilli" | "ketchup" | null>(null);
+  const [nachoChoice, setNachoChoice] = useState(false);
 
   const walletBalance = profile?.walletBalance ?? 0;
 
@@ -101,18 +106,33 @@ export default function DashboardFnb() {
     );
   };
 
-  const cartTotal = cart.reduce((s, l) => s + l.product.sellingPrice * l.qty, 0);
+  const cartTotal = cart.reduce((s, l) => s + (l.product.sellingPrice + (l.nacho ? NACHO_CHEESE_PRICE : 0)) * l.qty, 0);
 
-  const addToCart = (product: FnbProduct) => {
+  const addLineToCart = (line: Omit<CartLine, "qty">) => {
     setCart((prev) => {
-      const existing = prev.find((l) => l.product._id === product._id);
-      if (existing) return prev.map((l) => (l.product._id === product._id ? { ...l, qty: l.qty + 1 } : l));
-      return [...prev, { product, qty: 1 }];
+      const key = lineKey(line);
+      const existing = prev.find((l) => lineKey(l) === key);
+      if (existing) return prev.map((l) => (lineKey(l) === key ? { ...l, qty: l.qty + 1 } : l));
+      return [...prev, { ...line, qty: 1 }];
     });
   };
-  const changeCartQty = (productId: string, delta: number) => {
+  const addToCart = (product: FnbProduct) => {
+    if (product.hasSauceOptions) {
+      setSauceChoice(null);
+      setNachoChoice(false);
+      setSauceModalProduct(product);
+      return;
+    }
+    addLineToCart({ product, sauce: null, nacho: false });
+  };
+  const confirmSauceModal = () => {
+    if (!sauceModalProduct) return;
+    addLineToCart({ product: sauceModalProduct, sauce: sauceChoice, nacho: nachoChoice });
+    setSauceModalProduct(null);
+  };
+  const changeCartQty = (key: string, delta: number) => {
     setCart((prev) => prev
-      .map((l) => (l.product._id === productId ? { ...l, qty: l.qty + delta } : l))
+      .map((l) => (lineKey(l) === key ? { ...l, qty: l.qty + delta } : l))
       .filter((l) => l.qty > 0));
   };
 
@@ -132,6 +152,7 @@ export default function DashboardFnb() {
             tableId: normalizeTableName(tableInput),
             tableName: normalizeTableName(tableInput),
             isFreeRedemption: false,
+            ...(line.product.hasSauceOptions ? { selectedSauce: line.sauce ?? undefined, nachoCheeseAddOn: line.nacho } : {}),
             silent: true,
           });
           succeeded++;
@@ -142,7 +163,7 @@ export default function DashboardFnb() {
       }
       // Keep only the units that didn't go through, so a stock-related
       // failure leaves the cart ready to retry instead of vanishing.
-      if (lineFailed > 0) remaining.push({ product: line.product, qty: lineFailed });
+      if (lineFailed > 0) remaining.push({ product: line.product, sauce: line.sauce, nacho: line.nacho, qty: lineFailed });
     }
     setPlacingCart(false);
     setCart(remaining);
@@ -248,7 +269,12 @@ export default function DashboardFnb() {
           const canRedeem = redemption?.canRedeem && product.isRedeemable;
 
           return (
-            <Card key={product._id} className={`border-border/50 ${outOfStock ? "opacity-50" : ""}`}>
+            <Card key={product._id} className={`relative border-border/50 ${outOfStock ? "opacity-50" : ""}`}>
+              {product.isSignature && (
+                <div className="absolute -top-2.5 -right-2.5 h-8 w-8 rounded-full bg-amber-400 flex items-center justify-center shadow-md ring-2 ring-background z-10">
+                  <Star className="h-5 w-5 text-amber-950 fill-amber-950" />
+                </div>
+              )}
               <CardContent className="p-4 space-y-3">
                 <div>
                   <p className="font-semibold text-sm text-foreground">{product.name}</p>
@@ -301,18 +327,29 @@ export default function DashboardFnb() {
               <ShoppingBag className="h-4 w-4" /> Your Cart
             </h3>
             <div className="space-y-1.5">
-              {cart.map((l) => (
-                <div key={l.product._id} className="flex items-center justify-between text-sm">
-                  <span className="flex-1 truncate pr-2">{l.product.name}</span>
-                  <div className="flex items-center gap-2">
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeCartQty(l.product._id, -1)}><Minus className="h-3 w-3" /></Button>
-                    <span className="w-5 text-center">{l.qty}</span>
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeCartQty(l.product._id, 1)}><Plus className="h-3 w-3" /></Button>
-                    <span className="w-14 text-right text-muted-foreground">${(l.product.sellingPrice * l.qty).toFixed(2)}</span>
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeCartQty(l.product._id, -l.qty)}><X className="h-3 w-3 text-destructive" /></Button>
+              {cart.map((l) => {
+                const key = lineKey(l);
+                const unitPrice = l.product.sellingPrice + (l.nacho ? NACHO_CHEESE_PRICE : 0);
+                return (
+                  <div key={key} className="flex items-center justify-between text-sm">
+                    <div className="flex-1 min-w-0 pr-2">
+                      <p className="truncate">{l.product.name}</p>
+                      {l.sauce && (
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {l.sauce} sauce{l.nacho ? " + nacho cheese" : ""}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeCartQty(key, -1)}><Minus className="h-3 w-3" /></Button>
+                      <span className="w-5 text-center">{l.qty}</span>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeCartQty(key, 1)}><Plus className="h-3 w-3" /></Button>
+                      <span className="w-14 text-right text-muted-foreground">${(unitPrice * l.qty).toFixed(2)}</span>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeCartQty(key, -l.qty)}><X className="h-3 w-3 text-destructive" /></Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="flex items-center justify-between pt-2 border-t border-border/50">
               <span className="font-semibold text-sm">Total: ${cartTotal.toFixed(2)}</span>
@@ -399,12 +436,18 @@ export default function DashboardFnb() {
             <DialogTitle>Confirm Order</DialogTitle>
           </DialogHeader>
           <div className="py-2 space-y-2">
-            {cart.map((l) => (
-              <div key={l.product._id} className="flex justify-between text-sm">
-                <span>{l.qty} × {l.product.name}</span>
-                <span className="text-muted-foreground">${(l.product.sellingPrice * l.qty).toFixed(2)}</span>
-              </div>
-            ))}
+            {cart.map((l) => {
+              const unitPrice = l.product.sellingPrice + (l.nacho ? NACHO_CHEESE_PRICE : 0);
+              return (
+                <div key={lineKey(l)} className="flex justify-between text-sm">
+                  <span>
+                    {l.qty} × {l.product.name}
+                    {l.sauce && <span className="text-muted-foreground capitalize"> ({l.sauce}{l.nacho ? " + nacho" : ""})</span>}
+                  </span>
+                  <span className="text-muted-foreground">${(unitPrice * l.qty).toFixed(2)}</span>
+                </div>
+              );
+            })}
             <div className="flex justify-between text-sm font-semibold pt-2 border-t border-border/50">
               <span>Total</span>
               <span>${cartTotal.toFixed(2)}</span>
@@ -422,6 +465,33 @@ export default function DashboardFnb() {
             >
               {placingCart ? "Placing..." : "Confirm Order"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sauce choice — shown for hasSauceOptions items before adding to cart */}
+      <Dialog open={!!sauceModalProduct} onOpenChange={(o) => !o && setSauceModalProduct(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{sauceModalProduct?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground uppercase tracking-wider">Sauce (free) — optional</label>
+              <div className="grid grid-cols-3 gap-2">
+                <Button type="button" variant={sauceChoice === null ? "default" : "outline"} onClick={() => setSauceChoice(null)}>None</Button>
+                <Button type="button" variant={sauceChoice === "chilli" ? "default" : "outline"} onClick={() => setSauceChoice("chilli")}>Chilli</Button>
+                <Button type="button" variant={sauceChoice === "ketchup" ? "default" : "outline"} onClick={() => setSauceChoice("ketchup")}>Ketchup</Button>
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={nachoChoice} onCheckedChange={(v) => setNachoChoice(v === true)} />
+              Add Nacho Cheese (+${NACHO_CHEESE_PRICE.toFixed(2)})
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSauceModalProduct(null)}>Cancel</Button>
+            <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={confirmSauceModal}>Add to Cart</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

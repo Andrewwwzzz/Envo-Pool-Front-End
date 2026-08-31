@@ -13,9 +13,13 @@ export interface FnbProduct {
   piecesPerUnit: number;
   isRedeemable: boolean;
   isAlcohol: boolean;
+  isSignature: boolean;
+  hasSauceOptions: boolean;
   isActive: boolean;
   sortOrder: number;
 }
+
+export const NACHO_CHEESE_PRICE = 1;
 
 export interface FnbOrder {
   _id: string;
@@ -26,6 +30,8 @@ export interface FnbOrder {
   unitPrice: number;
   totalPrice: number;
   paymentMethod: "wallet" | "cash" | "paynow" | "free_membership" | "free_reward" | "charge_to_table";
+  selectedSauce: "chilli" | "ketchup" | null;
+  nachoCheeseAddOn: boolean;
   tableId: string | null;
   tableName: string | null;
   status: "pending" | "served" | "cancelled";
@@ -114,6 +120,8 @@ export function usePlaceOrder() {
       tableId?: string;
       tableName?: string;
       isFreeRedemption?: boolean;
+      selectedSauce?: "chilli" | "ketchup";
+      nachoCheeseAddOn?: boolean;
       // Skips the built-in success/error toast — used when placing several
       // items in a row (cart checkout), where one combined summary toast at
       // the end reads better than one popup per item.
@@ -192,6 +200,8 @@ export function usePlaceStaffOrder() {
       paymentMethod?: "cash" | "paynow";
       chargeToTable?: boolean;
       tableRefId?: string;
+      selectedSauce?: "chilli" | "ketchup";
+      nachoCheeseAddOn?: boolean;
     }) => {
       const res = await apiFetch("/api/fnb/orders/staff", { method: "POST", body: JSON.stringify(body) });
       const data = await res.json().catch(() => ({}));

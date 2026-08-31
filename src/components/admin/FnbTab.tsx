@@ -5,13 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CheckCircle2, XCircle, Clock, Plus, Pencil, RotateCcw, AlertTriangle,
   Gift, TrendingUp, Package, History, ChevronDown, ChevronUp, DollarSign,
-  ShoppingBag, BarChart3, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, Trash2, Minus, X,
+  ShoppingBag, BarChart3, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, Trash2, Minus, X, Star,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
@@ -19,7 +20,7 @@ import {
   useAdminFnbOrders, useAdminMenu, useServeOrder, useCancelFnbOrder,
   useCreateProduct, useUpdateProduct, useRestockProduct, useDeleteProduct,
   useFnbStatus, useSetFnbStatus, usePlaceStaffOrder,
-  FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, getCategoryGroup, CategoryGroup,
+  FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, getCategoryGroup, CategoryGroup, NACHO_CHEESE_PRICE,
 } from "@/hooks/useFnb";
 import { fmtDateTimeSG, getSGDateStr, nowSG } from "@/lib/sgTime";
 import { useToast } from "@/hooks/use-toast";
@@ -88,6 +89,8 @@ const EMPTY_FORM = {
   piecesPerUnit: "1",
   isRedeemable: false,
   isAlcohol: false,
+  isSignature: false,
+  hasSauceOptions: false,
   isActive: true,
   sortOrder: "0",
 };
@@ -119,7 +122,8 @@ function FnbCountdown({ resumeAt }: { resumeAt: string }) {
 
 // ─── Place Order dialog — quick counter order for a walk-in guest,
 // optionally charged to a running table's tab instead of paid immediately ──
-type CartLine = { product: FnbProduct; qty: number };
+type CartLine = { product: FnbProduct; qty: number; sauce: "chilli" | "ketchup" | null; nacho: boolean };
+const lineKey = (l: Pick<CartLine, "product" | "sauce" | "nacho">) => `${l.product._id}|${l.sauce ?? ""}|${l.nacho ? "1" : "0"}`;
 
 function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { toast } = useToast();
@@ -135,6 +139,9 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   const [cart, setCart] = useState<CartLine[]>([]);
   const [payment, setPayment] = useState<"charge_to_table" | "cash" | "paynow">("charge_to_table");
   const [submitting, setSubmitting] = useState(false);
+  const [sauceModalProduct, setSauceModalProduct] = useState<FnbProduct | null>(null);
+  const [sauceChoice, setSauceChoice] = useState<"chilli" | "ketchup" | null>(null);
+  const [nachoChoice, setNachoChoice] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -154,18 +161,33 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
     : availableProducts;
 
   const selectedTable = runningTables.find((t: any) => t.id === tableId);
-  const total = cart.reduce((s, l) => s + l.product.sellingPrice * l.qty, 0);
+  const total = cart.reduce((s, l) => s + (l.product.sellingPrice + (l.nacho ? NACHO_CHEESE_PRICE : 0)) * l.qty, 0);
 
-  const addToCart = (product: FnbProduct) => {
+  const addLineToCart = (line: Omit<CartLine, "qty">) => {
     setCart((prev) => {
-      const existing = prev.find((l) => l.product._id === product._id);
-      if (existing) return prev.map((l) => (l.product._id === product._id ? { ...l, qty: l.qty + 1 } : l));
-      return [...prev, { product, qty: 1 }];
+      const key = lineKey(line);
+      const existing = prev.find((l) => lineKey(l) === key);
+      if (existing) return prev.map((l) => (lineKey(l) === key ? { ...l, qty: l.qty + 1 } : l));
+      return [...prev, { ...line, qty: 1 }];
     });
   };
-  const changeQty = (productId: string, delta: number) => {
+  const addToCart = (product: FnbProduct) => {
+    if (product.hasSauceOptions) {
+      setSauceChoice(null);
+      setNachoChoice(false);
+      setSauceModalProduct(product);
+      return;
+    }
+    addLineToCart({ product, sauce: null, nacho: false });
+  };
+  const confirmSauceModal = () => {
+    if (!sauceModalProduct) return;
+    addLineToCart({ product: sauceModalProduct, sauce: sauceChoice, nacho: nachoChoice });
+    setSauceModalProduct(null);
+  };
+  const changeQty = (key: string, delta: number) => {
     setCart((prev) => prev
-      .map((l) => (l.product._id === productId ? { ...l, qty: l.qty + delta } : l))
+      .map((l) => (lineKey(l) === key ? { ...l, qty: l.qty + delta } : l))
       .filter((l) => l.qty > 0));
   };
 
@@ -179,6 +201,7 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
         try {
           await placeOrder.mutateAsync({
             productId: line.product._id,
+            ...(line.product.hasSauceOptions ? { selectedSauce: line.sauce ?? undefined, nachoCheeseAddOn: line.nacho } : {}),
             ...(payment === "charge_to_table"
               ? { chargeToTable: true, tableRefId: tableId, tableName: `Table ${selectedTable?.table_number}` }
               : { paymentMethod: payment, tableId: tableId || undefined, tableName: tableId ? `Table ${selectedTable?.table_number}` : undefined }),
@@ -229,7 +252,10 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
                   onClick={() => addToCart(p)}
                   className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-muted text-left"
                 >
-                  <span>{p.name}</span>
+                  <span className="flex items-center gap-1.5">
+                    {p.isSignature && <Star className="h-3 w-3 text-amber-400 fill-amber-400 shrink-0" />}
+                    {p.name}
+                  </span>
                   <span className="text-muted-foreground">${p.sellingPrice.toFixed(2)}</span>
                 </button>
               ))}
@@ -243,18 +269,29 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
             <div className="space-y-1.5">
               <Label className="text-xs">Order</Label>
               <div className="rounded-md border border-border divide-y divide-border/50">
-                {cart.map((l) => (
-                  <div key={l.product._id} className="flex items-center justify-between px-3 py-2 text-sm">
-                    <span className="flex-1 truncate">{l.product.name}</span>
-                    <div className="flex items-center gap-2">
-                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeQty(l.product._id, -1)}><Minus className="h-3 w-3" /></Button>
-                      <span className="w-5 text-center">{l.qty}</span>
-                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeQty(l.product._id, 1)}><Plus className="h-3 w-3" /></Button>
-                      <span className="w-16 text-right text-muted-foreground">${(l.product.sellingPrice * l.qty).toFixed(2)}</span>
-                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeQty(l.product._id, -l.qty)}><X className="h-3 w-3 text-destructive" /></Button>
+                {cart.map((l) => {
+                  const key = lineKey(l);
+                  const unitPrice = l.product.sellingPrice + (l.nacho ? NACHO_CHEESE_PRICE : 0);
+                  return (
+                    <div key={key} className="flex items-center justify-between px-3 py-2 text-sm">
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate">{l.product.name}</p>
+                        {l.sauce && (
+                          <p className="text-xs text-muted-foreground capitalize">
+                            {l.sauce} sauce{l.nacho ? " + nacho cheese" : ""}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeQty(key, -1)}><Minus className="h-3 w-3" /></Button>
+                        <span className="w-5 text-center">{l.qty}</span>
+                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeQty(key, 1)}><Plus className="h-3 w-3" /></Button>
+                        <span className="w-16 text-right text-muted-foreground">${(unitPrice * l.qty).toFixed(2)}</span>
+                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => changeQty(key, -l.qty)}><X className="h-3 w-3 text-destructive" /></Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="flex justify-between text-sm font-semibold px-1">
                 <span>Total</span>
@@ -284,6 +321,33 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Sauce choice — required for hasSauceOptions items before adding to cart */}
+      <Dialog open={!!sauceModalProduct} onOpenChange={(o) => !o && setSauceModalProduct(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{sauceModalProduct?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Sauce (free) <span className="text-muted-foreground">— optional</span></Label>
+              <div className="grid grid-cols-3 gap-2">
+                <Button type="button" size="sm" variant={sauceChoice === null ? "default" : "outline"} onClick={() => setSauceChoice(null)}>None</Button>
+                <Button type="button" size="sm" variant={sauceChoice === "chilli" ? "default" : "outline"} onClick={() => setSauceChoice("chilli")}>Chilli</Button>
+                <Button type="button" size="sm" variant={sauceChoice === "ketchup" ? "default" : "outline"} onClick={() => setSauceChoice("ketchup")}>Ketchup</Button>
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={nachoChoice} onCheckedChange={(v) => setNachoChoice(v === true)} />
+              Add Nacho Cheese (+${NACHO_CHEESE_PRICE.toFixed(2)})
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSauceModalProduct(null)}>Cancel</Button>
+            <Button onClick={confirmSauceModal}>Add to Cart</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
@@ -341,7 +405,7 @@ export function FnbTab() {
       costPrice: String(p.costPrice), sellingPrice: String(p.sellingPrice),
       stock: String(p.stock), lowStockThreshold: String(p.lowStockThreshold),
       piecesPerUnit: String(p.piecesPerUnit ?? 1),
-      isRedeemable: p.isRedeemable, isAlcohol: p.isAlcohol, isActive: p.isActive, sortOrder: String(p.sortOrder),
+      isRedeemable: p.isRedeemable, isAlcohol: p.isAlcohol, isSignature: !!p.isSignature, hasSauceOptions: !!p.hasSauceOptions, isActive: p.isActive, sortOrder: String(p.sortOrder),
     });
     setProductDialog("edit");
   };
@@ -355,7 +419,7 @@ export function FnbTab() {
       costPrice: Number(form.costPrice), sellingPrice: Number(form.sellingPrice),
       stock: Number(form.stock), lowStockThreshold: Number(form.lowStockThreshold),
       piecesPerUnit: Math.max(1, Number(form.piecesPerUnit) || 1),
-      isRedeemable: form.isRedeemable, isAlcohol: form.isAlcohol, isActive: form.isActive, sortOrder: Number(form.sortOrder),
+      isRedeemable: form.isRedeemable, isAlcohol: form.isAlcohol, isSignature: form.isSignature, hasSauceOptions: form.hasSauceOptions, isActive: form.isActive, sortOrder: Number(form.sortOrder),
     };
     if (productDialog === "create") {
       createProduct.mutate(payload, { onSuccess: () => setProductDialog(null) });
@@ -639,6 +703,13 @@ export function FnbTab() {
                         <p className="text-sm text-muted-foreground mt-0.5">
                           {order.userId?.name || "Unknown"} · {order.tableName || "No table"}
                         </p>
+                        {(order.selectedSauce || order.nachoCheeseAddOn) && (
+                          <p className="text-xs text-amber-400 mt-0.5 capitalize">
+                            {[order.selectedSauce ? `${order.selectedSauce} sauce` : null, order.nachoCheeseAddOn ? "+ nacho cheese" : null]
+                              .filter(Boolean)
+                              .join(" ")}
+                          </p>
+                        )}
                         <div className="flex items-center gap-2 mt-0.5">
                           {paymentBadge(order.paymentMethod, order.totalPrice)}
                           <span className="text-xs text-muted-foreground">· {fmtDateTimeSG(order.createdAt)}</span>
@@ -715,12 +786,14 @@ export function FnbTab() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
+                          {!deleted && p.isSignature && <Star className="h-4 w-4 text-amber-400 fill-amber-400 shrink-0" />}
                           <p className={`font-semibold ${deleted ? "line-through text-muted-foreground" : "text-foreground"}`}>{p.name}</p>
                           {deleted && <Badge variant="outline" className="text-xs text-destructive border-destructive/40">Deleted</Badge>}
                           {!deleted && <Badge className={`text-xs ${CATEGORY_COLORS[p.category]}`}>{CATEGORY_LABELS[p.category]}</Badge>}
                           {!deleted && !p.isActive && <Badge variant="outline" className="text-muted-foreground text-xs">Inactive</Badge>}
                           {!deleted && p.isRedeemable && <Badge className="bg-amber-500/20 text-amber-400 text-xs"><Gift className="h-2.5 w-2.5 mr-0.5" />Redeemable</Badge>}
                           {!deleted && p.isAlcohol && <Badge className="bg-red-500/20 text-red-400 text-xs">18+ Alcohol</Badge>}
+                          {!deleted && p.hasSauceOptions && <Badge variant="outline" className="text-xs">Sauce Options</Badge>}
                         </div>
 
                         {/* Price + margin row */}
@@ -926,6 +999,20 @@ export function FnbTab() {
                 <p className="text-xs text-muted-foreground">Requires buyer to be 18+</p>
               </div>
               <Switch checked={form.isAlcohol} onCheckedChange={(v) => setForm({ ...form, isAlcohol: v })} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm">Signature item ⭐</Label>
+                <p className="text-xs text-muted-foreground">Starred as a house specialty on the menu</p>
+              </div>
+              <Switch checked={form.isSignature} onCheckedChange={(v) => setForm({ ...form, isSignature: v })} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm">Sauce options</Label>
+                <p className="text-xs text-muted-foreground">Chilli/ketchup (free) + nacho cheese (+$1) at order time</p>
+              </div>
+              <Switch checked={form.hasSauceOptions} onCheckedChange={(v) => setForm({ ...form, hasSauceOptions: v })} />
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-sm">Active (show on menu)</Label>
