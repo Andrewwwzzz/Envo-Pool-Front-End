@@ -6,7 +6,27 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Gift } from "lucide-react";
 import paynowQr from "@/assets/paynow-qr.png";
+
+interface PromoTier {
+  key: string;
+  amount: number;
+  reward: "membership" | "membership_locker" | "bonus_credit";
+  bonusAmount: number;
+  label: string;
+}
+
+function usePromoInfo() {
+  return useQuery({
+    queryKey: ["topup-promo"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/transactions/topup/promo");
+      if (!res.ok) return { active: false, tiers: [] as PromoTier[] };
+      return res.json() as Promise<{ active: boolean; validTo: string; tiers: PromoTier[] }>;
+    },
+  });
+}
 
 export default function TopUpWalletDialog({
   open,
@@ -22,10 +42,12 @@ export default function TopUpWalletDialog({
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<"paynow" | "cash" | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [cashConfirmation, setCashConfirmation] = useState<{ amount: number } | null>(null);
-  const [paynowConfirmation, setPaynowConfirmation] = useState<{ amount: number } | null>(null);
+  const [cashConfirmation, setCashConfirmation] = useState<{ amount: number; promoLabel?: string } | null>(null);
+  const [paynowConfirmation, setPaynowConfirmation] = useState<{ amount: number; promoLabel?: string } | null>(null);
+  const [promoTier, setPromoTier] = useState<string | null>(null);
 
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const { data: promo } = usePromoInfo();
 
   const { data: requests } = useQuery({
     queryKey: ["my-topup-requests"],
@@ -53,8 +75,20 @@ export default function TopUpWalletDialog({
     }
   };
 
-  const resetState = () => { setAmount(""); setMethod(null); setCashConfirmation(null); };
+  const resetState = () => { setAmount(""); setMethod(null); setCashConfirmation(null); setPromoTier(null); };
   const handleClose = (v: boolean) => { if (!v) resetState(); onOpenChange(v); };
+
+  const selectPromoTier = (tier: PromoTier) => {
+    setAmount(String(tier.amount));
+    setPromoTier(tier.key);
+  };
+  const handleAmountChange = (v: string) => {
+    setAmount(v);
+    // Manually changing the amount away from the selected tier's value
+    // un-selects the promo — can't claim a $500 reward on a $200 top-up.
+    const selectedTier = promo?.tiers.find((t) => t.key === promoTier);
+    if (selectedTier && Number(v) !== selectedTier.amount) setPromoTier(null);
+  };
 
   const handleSubmit = async () => {
     const amt = Number(amount);
@@ -64,13 +98,14 @@ export default function TopUpWalletDialog({
     try {
       const res = await apiFetch("/api/transactions/topup/request", {
         method: "POST",
-        body: JSON.stringify({ amount: amt, method }),
+        body: JSON.stringify({ amount: amt, method, promoTier: promoTier || undefined }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.message || data?.error || "Failed to submit request");
       qc.invalidateQueries({ queryKey: ["my-topup-requests"] });
-      if (method === "cash") setCashConfirmation({ amount: amt });
-      else setPaynowConfirmation({ amount: amt });
+      const selectedTier = promo?.tiers.find((t) => t.key === promoTier);
+      if (method === "cash") setCashConfirmation({ amount: amt, promoLabel: selectedTier?.label });
+      else setPaynowConfirmation({ amount: amt, promoLabel: selectedTier?.label });
     } catch (e: any) {
       toast({ title: e?.message || "Failed to submit request", variant: "destructive" });
     } finally {
@@ -118,6 +153,11 @@ export default function TopUpWalletDialog({
                 <span className="font-bold">${cashConfirmation.amount.toFixed(2)}</span>.
               </p>
               <p className="text-muted-foreground">Staff will credit your wallet once payment is received.</p>
+              {cashConfirmation.promoLabel && (
+                <p className="flex items-center gap-1.5 text-amber-400">
+                  <Gift className="h-3.5 w-3.5 shrink-0" /> You'll also receive: {cashConfirmation.promoLabel}
+                </p>
+              )}
             </div>
             <Button className="w-full" onClick={() => handleClose(false)}>Done</Button>
           </div>
@@ -135,6 +175,36 @@ export default function TopUpWalletDialog({
         </DialogHeader>
 
         <div className="space-y-5">
+          {promo?.active && promo.tiers.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold flex items-center gap-1.5">
+                <Gift className="h-4 w-4 text-amber-400" /> Top Up More, Get More
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {promo.tiers.map((tier) => (
+                  <button
+                    key={tier.key}
+                    type="button"
+                    onClick={() => selectPromoTier(tier)}
+                    className={`rounded-lg border p-2.5 text-center transition-all ${
+                      promoTier === tier.key
+                        ? "border-amber-500 bg-amber-500/10 ring-2 ring-amber-500/30"
+                        : "border-border hover:border-amber-500/50 hover:bg-muted/50"
+                    }`}
+                  >
+                    <div className="font-bold text-sm">${tier.amount}</div>
+                    <div className="text-[10px] text-muted-foreground mt-1 leading-tight">{tier.label}</div>
+                  </button>
+                ))}
+              </div>
+              {promoTier && (
+                <p className="text-xs text-amber-400">
+                  Selected — top up exactly ${promo.tiers.find((t) => t.key === promoTier)?.amount} to receive this reward.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
             <p className="text-sm font-semibold">Step 1 — Choose Payment Method</p>
             <div className="grid grid-cols-2 gap-3">
@@ -192,7 +262,7 @@ export default function TopUpWalletDialog({
                 step="1"
                 placeholder="Amount (minimum $10)"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => handleAmountChange(e.target.value)}
               />
               <Button
                 onClick={handleSubmit}
@@ -236,6 +306,11 @@ export default function TopUpWalletDialog({
                           {methodLabel(r.method)}
                         </Badge>
                       )}
+                      {r.promoTier && (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30 gap-1">
+                          <Gift className="h-2.5 w-2.5" /> ${r.promoTier} tier
+                        </Badge>
+                      )}
                       {String(r.status || "").toLowerCase() === "pending" && (
                         <button
                           onClick={() => handleCancel(r._id || r.id)}
@@ -272,6 +347,11 @@ export default function TopUpWalletDialog({
                 <p className="text-muted-foreground">
                   This usually completes within <span className="text-foreground font-medium">1 minute</span> once your payment is made under your registered name. If it hasn't gone through after <span className="text-foreground font-medium">5 minutes</span>, please contact our admin.
                 </p>
+                {paynowConfirmation?.promoLabel && (
+                  <p className="flex items-center gap-1.5 text-amber-400">
+                    <Gift className="h-3.5 w-3.5 shrink-0" /> You'll also receive: {paynowConfirmation.promoLabel}
+                  </p>
+                )}
               </div>
               <Button
                 asChild
