@@ -15,6 +15,7 @@ import {
 import { useActiveWalkinSessions } from "@/hooks/useWalkin";
 import { useTablePendingFnb } from "@/hooks/useFnb";
 import { usePricingRules, usePublicHolidaySet } from "@/hooks/usePricing";
+import { useCustomerActiveMembership } from "@/hooks/useMembership";
 import { getCurrentHourlyRate } from "@/lib/pricing";
 import { roundCashAmount } from "@/lib/money";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -613,6 +614,11 @@ function CloseTableDialog({
   const { data: customers = [] } = useAdminCustomers(customerSearch);
   const { data: pendingFnb = [] } = useTablePendingFnb(closeTarget);
   const fnbTotal = Math.round(pendingFnb.reduce((s, o: any) => s + o.totalPrice, 0) * 100) / 100;
+  // Membership discount only auto-applies for wallet charges to a known
+  // customer — matches the backend's stop-timer logic exactly.
+  const { data: activeMembership } = useCustomerActiveMembership(
+    paymentMethod === "wallet" ? customerId : null
+  );
 
   useEffect(() => {
     if (closeTarget) {
@@ -633,9 +639,13 @@ function CloseTableDialog({
   const tableRate = rateInput === "" ? defaultRate : (Number(rateInput) || 0);
   const seconds = closeTarget ? (elapsed[closeTarget] ?? 0) : 0;
   const gross = Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
+  // Preview only — the real amount (which also accounts for free minutes,
+  // time-of-day gating, etc.) is computed server-side on confirm.
+  const membershipPct = activeMembership?.discountPercent || 0;
+  const afterMembership = Math.max(0, Math.round(gross * (1 - membershipPct / 100) * 100) / 100);
   const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
-  const discountAmt = Math.round(gross * (discountPct / 100) * 100) / 100;
-  const timeChargeExact = Math.max(0, Math.round((gross - discountAmt) * 100) / 100);
+  const discountAmt = Math.round(afterMembership * (discountPct / 100) * 100) / 100;
+  const timeChargeExact = Math.max(0, Math.round((afterMembership - discountAmt) * 100) / 100);
   const finalCostExact = Math.round((timeChargeExact + fnbTotal) * 100) / 100;
   // Cash has no 1c/5c coins to give as change — round the bill to the
   // nearest 10c. Wallet/PayNow settle to the exact cent.
@@ -678,11 +688,17 @@ function CloseTableDialog({
         allowNegative: effectiveAllowNegative,
       },
       {
-        onSuccess: () => {
+        onSuccess: (data: any) => {
+          // Use the server-computed amount — it's the authoritative figure
+          // once free minutes / membership % / manual % are all combined.
+          const actualCost = typeof data?.amountCharged === "number" ? data.amountCharged : finalCost;
           const methodLabel = paymentMethod === "wallet" ? `charged to ${customerName || "customer"}'s wallet` : `paid via ${paymentMethod === "paynow" ? "PayNow" : "cash"}`;
+          const memberNote = data?.membershipDiscountAmount > 0 || data?.freeMinutesCredit > 0
+            ? ` (member discount applied)`
+            : "";
           toast({
             title: "Table closed",
-            description: `$${finalCost.toFixed(2)} ${methodLabel}.` + (fnbTotal > 0 ? ` (incl. $${fnbTotal.toFixed(2)} F&B)` : ""),
+            description: `$${actualCost.toFixed(2)} ${methodLabel}.${memberNote}` + (fnbTotal > 0 ? ` (incl. $${fnbTotal.toFixed(2)} F&B)` : ""),
           });
         },
         onError: (err: Error) => {
@@ -702,6 +718,7 @@ function CloseTableDialog({
             {closeTarget && (
               <>
                 Table {table?.table_number} · {seconds}s @ ${tableRate}/hr — gross ${gross.toFixed(2)}
+                {membershipPct > 0 && <> · member {membershipPct}% off: ${afterMembership.toFixed(2)}</>}
                 {discountPct > 0 && <> · after {discountPct}% off: ${timeChargeExact.toFixed(2)}</>}
                 {fnbTotal > 0 && <> + F&B ${fnbTotal.toFixed(2)}</>}
                 {(discountPct > 0 || fnbTotal > 0) && <> — total: <strong>${finalCost.toFixed(2)}</strong></>}
@@ -750,7 +767,10 @@ function CloseTableDialog({
               onChange={(e) => setDiscountInput(e.target.value)}
               placeholder="0"
             />
-            <p className="text-xs text-muted-foreground">Leave at 0 for no discount.</p>
+            <p className="text-xs text-muted-foreground">
+              Leave at 0 for no discount.
+              {membershipPct > 0 && " Applied on top of the customer's membership discount."}
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -783,6 +803,13 @@ function CloseTableDialog({
                   <div>
                     <p className="font-medium">{customerName}</p>
                     <p className="text-xs text-muted-foreground">Balance: ${walletBalance.toFixed(2)}</p>
+                    {activeMembership && (
+                      <Badge variant="secondary" className="mt-1">
+                        {activeMembership.planName} member
+                        {activeMembership.discountPercent > 0 && ` — ${activeMembership.discountPercent}% off auto-applied`}
+                        {activeMembership.freeMinutesPerVisit > 0 && ` + free minutes`}
+                      </Badge>
+                    )}
                   </div>
                   <Button size="sm" variant="ghost" onClick={() => { setCustomerId(""); setCustomerName(""); }}>Change</Button>
                 </div>

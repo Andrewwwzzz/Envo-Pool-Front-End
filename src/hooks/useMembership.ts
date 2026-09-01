@@ -119,6 +119,31 @@ export function useAdminSubscriptions(filter: "default" | "deleted" | "all" = "d
   });
 }
 
+// Best active membership discount for one customer — used by the Close
+// Table dialog to preview/auto-apply the member discount before charging
+// their wallet. Returns null if the customer has no active membership.
+export function useCustomerActiveMembership(userId: string | null | undefined) {
+  return useQuery<{ planName: string; discountPercent: number; freeMinutesPerVisit: number } | null>({
+    queryKey: ["membership", "customer-active", userId],
+    queryFn: async () => {
+      const j = await getJson(`/api/membership/admin/subscriptions?filter=active&userId=${userId}`);
+      const arr: any[] = Array.isArray(j) ? j : j.subscriptions ?? [];
+      const active = arr.filter((s) => s.status === "active" && s.planId?.benefits);
+      if (active.length === 0) return null;
+      const best = active.reduce((a, b) =>
+        (b.planId.benefits.bookingDiscount || 0) > (a.planId.benefits.bookingDiscount || 0) ? b : a
+      );
+      return {
+        planName: best.planId.name,
+        discountPercent: best.planId.benefits.bookingDiscount || 0,
+        freeMinutesPerVisit: best.planId.benefits.freeMinutesPerVisit || 0,
+      };
+    },
+    enabled: !!userId,
+    staleTime: 30_000,
+  });
+}
+
 export function useAdminMembershipHours() {
   return useQuery<{ membershipId: string; hoursThisMonth: number; requiredHours: number; cycleStart: string; renewalDate: string }[]>({
     queryKey: ["membership", "admin-hours"],
