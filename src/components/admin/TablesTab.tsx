@@ -891,6 +891,11 @@ function BookNowDialog({
   const [customerName, setCustomerName] = useState("");
   const [allowNegative, setAllowNegative] = useState(false);
   const { data: customers = [] } = useAdminCustomers(customerSearch);
+  // Membership discount only auto-applies for wallet charges to a known
+  // customer — matches the backend's book-now logic exactly.
+  const { data: activeMembership } = useCustomerActiveMembership(
+    paymentMethod === "wallet" ? customerId : null
+  );
 
   useEffect(() => {
     if (bookTarget) {
@@ -911,9 +916,13 @@ function BookNowDialog({
   const rate = Math.max(0, parseFloat(rateInput) || 0);
 
   const gross = Math.round((durationMinutes / 60) * rate * 100) / 100;
+  // Preview only — the real amount (which also accounts for free minutes,
+  // time-of-day gating, etc.) is computed server-side on confirm.
+  const membershipPct = activeMembership?.discountPercent || 0;
+  const afterMembership = Math.max(0, Math.round(gross * (1 - membershipPct / 100) * 100) / 100);
   const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
-  const discountAmt = Math.round(gross * (discountPct / 100) * 100) / 100;
-  const estimatedTotalExact = Math.max(0, Math.round((gross - discountAmt) * 100) / 100);
+  const discountAmt = Math.round(afterMembership * (discountPct / 100) * 100) / 100;
+  const estimatedTotalExact = Math.max(0, Math.round((afterMembership - discountAmt) * 100) / 100);
   // Cash has no 1c/5c coins to give as change — round the bill to the
   // nearest 10c. Wallet/PayNow settle to the exact cent.
   const estimatedTotal = paymentMethod === "cash" ? roundCashAmount(estimatedTotalExact) : estimatedTotalExact;
@@ -1025,6 +1034,12 @@ function BookNowDialog({
               <span className="text-muted-foreground">Estimated price</span>
               <span className="font-medium">${gross.toFixed(2)}</span>
             </div>
+            {membershipPct > 0 && (
+              <div className="flex items-center justify-between text-emerald-500 text-xs mt-1">
+                <span>Member {membershipPct}% discount</span>
+                <span>-${(gross - afterMembership).toFixed(2)}</span>
+              </div>
+            )}
             {discountPct > 0 && (
               <div className="flex items-center justify-between text-emerald-500 text-xs mt-1">
                 <span>{discountPct}% discount</span>
@@ -1081,6 +1096,13 @@ function BookNowDialog({
                 <div>
                   <p className="font-medium">{customerName}</p>
                   <p className="text-xs text-muted-foreground">Balance: ${walletBalance.toFixed(2)}</p>
+                  {activeMembership && (
+                    <Badge variant="secondary" className="mt-1">
+                      {activeMembership.planName} member
+                      {activeMembership.discountPercent > 0 && ` — ${activeMembership.discountPercent}% off auto-applied`}
+                      {activeMembership.freeMinutesPerVisit > 0 && ` + free minutes`}
+                    </Badge>
+                  )}
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => { setCustomerId(""); setCustomerName(""); }}>Change</Button>
               </div>
