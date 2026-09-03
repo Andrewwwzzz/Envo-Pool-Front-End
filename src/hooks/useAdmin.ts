@@ -34,6 +34,8 @@ export function useBookTableNow() {
       allowNegative,
       discountPercent,
       hourlyRate,
+      applyMembershipDiscount,
+      applyMembershipFreeMinutes,
     }: {
       tableId: string;
       durationMinutes: number;
@@ -42,6 +44,8 @@ export function useBookTableNow() {
       allowNegative?: boolean;
       discountPercent?: number;
       hourlyRate?: number;
+      applyMembershipDiscount?: boolean;
+      applyMembershipFreeMinutes?: boolean;
     }) => {
       const res = await apiFetch(`/api/admin/tables/${tableId}/book-now`, {
         method: "POST",
@@ -52,6 +56,8 @@ export function useBookTableNow() {
           allowNegative: !!allowNegative,
           discountPercent: discountPercent || 0,
           hourlyRate: hourlyRate || 0,
+          applyMembershipDiscount: applyMembershipDiscount !== false,
+          applyMembershipFreeMinutes: applyMembershipFreeMinutes !== false,
         }),
       });
       if (!res.ok) {
@@ -178,6 +184,8 @@ export function useAdminTables() {
       customerId,
       paymentMethod,
       allowNegative,
+      applyMembershipDiscount,
+      applyMembershipFreeMinutes,
     }: {
       tableId: string;
       durationSeconds: number;
@@ -187,6 +195,8 @@ export function useAdminTables() {
       customerId?: string | null;
       paymentMethod?: "cash" | "paynow" | "wallet";
       allowNegative?: boolean;
+      applyMembershipDiscount?: boolean;
+      applyMembershipFreeMinutes?: boolean;
     }) => {
       const res = await apiFetch(`/api/admin/tables/${tableId}/stop-timer`, {
         method: "POST",
@@ -198,6 +208,8 @@ export function useAdminTables() {
           customerId: customerId || null,
           paymentMethod: paymentMethod || "cash",
           allowNegative: !!allowNegative,
+          applyMembershipDiscount: applyMembershipDiscount !== false,
+          applyMembershipFreeMinutes: applyMembershipFreeMinutes !== false,
         }),
       });
       if (!res.ok) {

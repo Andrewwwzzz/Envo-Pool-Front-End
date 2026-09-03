@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useDeviceState, useDeviceControl } from "@/hooks/useDeviceControl";
+import { useDeviceState, useDeviceControl, useBulkDeviceControl } from "@/hooks/useDeviceControl";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG, sgSlotToUTC, getSGDateStr } from "@/lib/sgTime";
 import {
   useAdminTables,
@@ -96,6 +96,7 @@ function DeviceControlPanel({ hardwareId }: { hardwareId: string | null }) {
 export default function TablesTab() {
   const { data: tables, startTimer, stopTimer, setMaintenance, setBulkMaintenance } = useAdminTables();
   const bulkSchedule = useBulkScheduleMaintenance();
+  const { controlDevices, pending: bulkPowerPending } = useBulkDeviceControl();
   const { data: bookings } = useAdminBookings();
   const { data: walkinSessions = [] } = useActiveWalkinSessions();
   const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
@@ -324,6 +325,46 @@ export default function TablesTab() {
                     disabled={setBulkMaintenance.isPending}
                   >
                     <Timer className="mr-2 h-3 w-3" /> Schedule Maintenance
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      const hwIds = (tables || []).filter(t => selectedTables.has(t.id) && t.hardware_id).map(t => t.hardware_id);
+                      if (hwIds.length === 0) {
+                        toast({ title: "No linked chips in selection", description: "None of the selected tables have hardware linked.", variant: "destructive" });
+                        return;
+                      }
+                      const { total, failed } = await controlDevices(hwIds, "ON");
+                      toast({
+                        title: failed > 0 ? `Turned ON ${total - failed}/${total} table(s)` : `Turned ON ${total} table(s)`,
+                        variant: failed > 0 ? "destructive" : undefined,
+                      });
+                      setSelectedTables(new Set());
+                    }}
+                    disabled={bulkPowerPending}
+                  >
+                    {bulkPowerPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Power className="mr-2 h-3 w-3" />} Turn ON
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      const hwIds = (tables || []).filter(t => selectedTables.has(t.id) && t.hardware_id).map(t => t.hardware_id);
+                      if (hwIds.length === 0) {
+                        toast({ title: "No linked chips in selection", description: "None of the selected tables have hardware linked.", variant: "destructive" });
+                        return;
+                      }
+                      const { total, failed } = await controlDevices(hwIds, "OFF");
+                      toast({
+                        title: failed > 0 ? `Turned OFF ${total - failed}/${total} table(s)` : `Turned OFF ${total} table(s)`,
+                        variant: failed > 0 ? "destructive" : undefined,
+                      });
+                      setSelectedTables(new Set());
+                    }}
+                    disabled={bulkPowerPending}
+                  >
+                    {bulkPowerPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <PowerOff className="mr-2 h-3 w-3" />} Turn OFF
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => setSelectedTables(new Set())} disabled={setBulkMaintenance.isPending}>
                     <X className="h-3 w-3" />
@@ -611,6 +652,8 @@ function CloseTableDialog({
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [allowNegative, setAllowNegative] = useState(false);
+  const [applyMembershipDiscount, setApplyMembershipDiscount] = useState(true);
+  const [applyMembershipFreeMinutes, setApplyMembershipFreeMinutes] = useState(true);
   const { data: customers = [] } = useAdminCustomers(customerSearch);
   const { data: pendingFnb = [] } = useTablePendingFnb(closeTarget);
   const fnbTotal = Math.round(pendingFnb.reduce((s, o: any) => s + o.totalPrice, 0) * 100) / 100;
@@ -630,6 +673,8 @@ function CloseTableDialog({
       setCustomerSearch("");
       setCustomerName("");
       setAllowNegative(false);
+      setApplyMembershipDiscount(true);
+      setApplyMembershipFreeMinutes(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closeTarget]);
@@ -641,7 +686,7 @@ function CloseTableDialog({
   const gross = Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
   // Preview only — the real amount (which also accounts for free minutes,
   // time-of-day gating, etc.) is computed server-side on confirm.
-  const membershipPct = activeMembership?.discountPercent || 0;
+  const membershipPct = applyMembershipDiscount ? (activeMembership?.discountPercent || 0) : 0;
   const afterMembership = Math.max(0, Math.round(gross * (1 - membershipPct / 100) * 100) / 100);
   const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
   const discountAmt = Math.round(afterMembership * (discountPct / 100) * 100) / 100;
@@ -686,6 +731,8 @@ function CloseTableDialog({
         customerId: customerId || null,
         paymentMethod,
         allowNegative: effectiveAllowNegative,
+        applyMembershipDiscount,
+        applyMembershipFreeMinutes,
       },
       {
         onSuccess: (data: any) => {
@@ -852,6 +899,22 @@ function CloseTableDialog({
                   </div>
                 </div>
               )}
+              {activeMembership && (
+                <div className="space-y-1.5 rounded-md border border-border px-3 py-2">
+                  {activeMembership.discountPercent > 0 && (
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox checked={applyMembershipDiscount} onCheckedChange={(v) => setApplyMembershipDiscount(v === true)} />
+                      Apply {activeMembership.discountPercent}% membership discount
+                    </label>
+                  )}
+                  {activeMembership.freeMinutesPerVisit > 0 && (
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox checked={applyMembershipFreeMinutes} onCheckedChange={(v) => setApplyMembershipFreeMinutes(v === true)} />
+                      Apply {activeMembership.freeMinutesPerVisit} free minutes
+                    </label>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -890,6 +953,8 @@ function BookNowDialog({
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [allowNegative, setAllowNegative] = useState(false);
+  const [applyMembershipDiscount, setApplyMembershipDiscount] = useState(true);
+  const [applyMembershipFreeMinutes, setApplyMembershipFreeMinutes] = useState(true);
   const { data: customers = [] } = useAdminCustomers(customerSearch);
   // Membership discount only auto-applies for wallet charges to a known
   // customer — matches the backend's book-now logic exactly.
@@ -907,6 +972,8 @@ function BookNowDialog({
       setCustomerSearch("");
       setCustomerName("");
       setAllowNegative(false);
+      setApplyMembershipDiscount(true);
+      setApplyMembershipFreeMinutes(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookTarget]);
@@ -918,7 +985,7 @@ function BookNowDialog({
   const gross = Math.round((durationMinutes / 60) * rate * 100) / 100;
   // Preview only — the real amount (which also accounts for free minutes,
   // time-of-day gating, etc.) is computed server-side on confirm.
-  const membershipPct = activeMembership?.discountPercent || 0;
+  const membershipPct = applyMembershipDiscount ? (activeMembership?.discountPercent || 0) : 0;
   const afterMembership = Math.max(0, Math.round(gross * (1 - membershipPct / 100) * 100) / 100);
   const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
   const discountAmt = Math.round(afterMembership * (discountPct / 100) * 100) / 100;
@@ -957,6 +1024,8 @@ function BookNowDialog({
         allowNegative: effectiveAllowNegative,
         discountPercent: discountPct,
         hourlyRate: rate,
+        applyMembershipDiscount,
+        applyMembershipFreeMinutes,
       },
       {
         onSuccess: (data: any) => {
@@ -1143,6 +1212,22 @@ function BookNowDialog({
                     Allow negative balance
                   </label>
                 </div>
+              </div>
+            )}
+            {activeMembership && (
+              <div className="space-y-1.5 rounded-md border border-border px-3 py-2">
+                {activeMembership.discountPercent > 0 && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={applyMembershipDiscount} onCheckedChange={(v) => setApplyMembershipDiscount(v === true)} />
+                    Apply {activeMembership.discountPercent}% membership discount
+                  </label>
+                )}
+                {activeMembership.freeMinutesPerVisit > 0 && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={applyMembershipFreeMinutes} onCheckedChange={(v) => setApplyMembershipFreeMinutes(v === true)} />
+                    Apply {activeMembership.freeMinutesPerVisit} free minutes
+                  </label>
+                )}
               </div>
             )}
           </div>
