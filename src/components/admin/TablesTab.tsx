@@ -520,21 +520,28 @@ export default function TablesTab() {
                         </Button>
                       </>
                     )}
-                    {!isRunning && (
-                      <>
-                        <ScheduleMaintenanceButton tableId={t.id} tableNumber={t.table_number} />
-                        <Button
-                          size="sm"
-                          variant={isMaintenance ? "outline" : "secondary"}
-                          onClick={() => setMaintenance.mutate({ tableId: t.id, maintenance: !isMaintenance })}
-                          className="w-full"
-                          disabled={false}
-                        >
-                          <Wrench className="mr-2 h-3 w-3" />
-                          {isMaintenance ? "Reopen Table" : "Close Table"}
-                        </Button>
-                      </>
-                    )}
+                    {!isRunning && <ScheduleMaintenanceButton tableId={t.id} tableNumber={t.table_number} />}
+                    {/* Independent of isRunning — the maintenance flag is a
+                        separate piece of state from whether a timer happens
+                        to be active, and staff need to be able to clear it
+                        (e.g. after opening the table themselves to bypass
+                        the public-booking block) without first stopping the
+                        session. isMaintenance itself is forced false while
+                        running so the badge above reads "In Use", so this
+                        button checks the raw table.status directly. */}
+                    <Button
+                      size="sm"
+                      variant={t.status === "maintenance" ? "outline" : "secondary"}
+                      onClick={() => setMaintenance.mutate({ tableId: t.id, maintenance: t.status !== "maintenance" })}
+                      className="w-full"
+                      title={t.status === "maintenance" ? "Clear the maintenance flag — allows public booking/walk-in again" : "Block public booking/walk-in on this table indefinitely"}
+                    >
+                      <Wrench className="mr-2 h-3 w-3" />
+                      {/* Distinct label from the timer's "Close Table" button
+                          above (stop session) — this toggles the separate
+                          indefinite maintenance flag, not the running session. */}
+                      {t.status === "maintenance" ? "Reopen Table" : "Mark Under Maintenance"}
+                    </Button>
                   </div>
 
                   {/* Scheduled maintenance windows */}
