@@ -719,7 +719,16 @@ const Booking = () => {
   };
 
   const isTableBookable = (table: typeof tables extends (infer T)[] ? T : never) => {
-    return table.status !== "Maintenance" && table.status !== "In Use";
+    if (table.status === "Maintenance") return false;
+    if (table.status === "In Use") {
+      // "In Use" reflects a session happening right now (staff-opened for
+      // a private event, or a customer walk-in) — only relevant when
+      // browsing today. A table busy right now will surely be free again
+      // by a future date, so it shouldn't block selecting that date; the
+      // actual time slot is still checked precisely in step 3.
+      return !selectedDate || !isTodaySG(selectedDate);
+    }
+    return true;
   };
 
   return (
