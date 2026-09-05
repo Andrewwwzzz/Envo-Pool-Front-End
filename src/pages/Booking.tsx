@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, CalendarDays, Tag, CreditCard, Wallet, ChevronRight, Shield } from "lucide-react";
+import { LogOut, CalendarDays, Tag, CreditCard, Wallet, ChevronRight, Shield, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
 import { TimeSlotPicker } from "@/components/TimeSlotPicker";
@@ -24,7 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { apiFetch, BASE_URL } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isBefore } from "date-fns";
-import { todaySG, sgSlotToUTC, sgDayBoundsUTC, isTodaySG, toSG, getSGDateStr, isWithinCurrentOperatingDay } from "@/lib/sgTime";
+import { todaySG, sgSlotToUTC, sgDayBoundsUTC, isTodaySG, toSG, getSGDateStr, isWithinCurrentOperatingDay, fmtTimeSG } from "@/lib/sgTime";
 import WalkinSessionPanel from "@/components/WalkinSessionPanel";
 import { CampaignPopup } from "@/components/CampaignPopup";
 import { useMyWalkinSession, useStartWalkin } from "@/hooks/useWalkin";
@@ -122,6 +122,31 @@ const Booking = () => {
     enabled: !!selectedTable && !!selectedDate,
     refetchInterval: 30000,
     staleTime: 0,
+  });
+
+  // Nearest upcoming confirmed booking today for whichever table the customer
+  // is about to walk into — shown as a warning before they confirm, since a
+  // walk-in doesn't stop itself and they'd otherwise only find out when the
+  // booking's start time force-stops their session mid-play.
+  const { data: walkinUpcomingBooking } = useQuery({
+    queryKey: ["walkin-upcoming-booking", walkinConfirmTable?.id],
+    queryFn: async () => {
+      if (!walkinConfirmTable) return null;
+      const tableRef = walkinConfirmTable.hardware_id || walkinConfirmTable.id;
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const res = await apiFetch(
+        `/api/bookings?tableId=${encodeURIComponent(tableRef)}&date=${dateStr}&status=confirmed`
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      const bookings: any[] = Array.isArray(data) ? data : (data?.bookings || []);
+      const upcoming = bookings
+        .filter((b: any) => new Date(b.startTime).getTime() > now.getTime())
+        .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      return upcoming[0] || null;
+    },
+    enabled: !!walkinConfirmTable,
   });
 
   const { data: tableMaintenance } = useQuery({
@@ -726,7 +751,18 @@ const Booking = () => {
       // browsing today. A table busy right now will surely be free again
       // by a future date, so it shouldn't block selecting that date; the
       // actual time slot is still checked precisely in step 3.
-      return !selectedDate || !isTodaySG(selectedDate);
+      if (!selectedDate) return false;
+      if (isTodaySG(selectedDate)) return false;
+      // Business hours don't reset at calendar midnight — a session still
+      // running late tonight can spill into tomorrow's earliest hours
+      // before the venue reopens. In that late-night/pre-open window,
+      // keep tomorrow blocked too; any date further out is unaffected.
+      const nowSGTHour = toSG(new Date()).getHours();
+      const inOvernightSpilloverWindow = nowSGTHour >= 21 || nowSGTHour < 4;
+      if (inOvernightSpilloverWindow) {
+        const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        if (getSGDateStr(selectedDate) === getSGDateStr(tomorrow)) return false;
+      }
     }
     return true;
   };
@@ -1136,6 +1172,14 @@ const Booking = () => {
                 )}
               </DialogDescription>
             </DialogHeader>
+            {walkinUpcomingBooking && (
+              <div className="flex items-start gap-2 rounded-md border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-sm">
+                <AlertTriangle className="h-4 w-4 mt-0.5 text-yellow-400 shrink-0" />
+                <p className="text-yellow-400">
+                  This table has a booking starting at <strong>{fmtTimeSG(walkinUpcomingBooking.startTime)}</strong> — if you're still playing then, you'll be asked to stop.
+                </p>
+              </div>
+            )}
             <DialogFooter>
               <Button variant="outline" onClick={() => setWalkinConfirmTable(null)}>Cancel</Button>
               <Button
