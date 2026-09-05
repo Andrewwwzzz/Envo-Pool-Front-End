@@ -78,8 +78,15 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
         const result = (tables || []).map((t: any) => {
           const hardwareId = t.hardwareId ?? t.hardware_id ?? null;
           const liveStatus = t.liveStatus ?? t.status ?? "available";
+          // permanentMaintenance is the indefinite admin flag, not a
+          // scheduled MaintenanceWindow that merely happens to be active
+          // right now — a table shouldn't look unbookable-for-every-date
+          // just because a time-boxed window is in progress at this moment.
+          // The actual date/time being booked is checked separately (per
+          // time slot, and again server-side on booking creation).
+          const permanentMaintenance = t.permanentMaintenance ?? (t.status === "maintenance");
           let status: TableStatus;
-          if (liveStatus === "maintenance" || t.isActive === false) {
+          if (permanentMaintenance || t.isActive === false) {
             status = "Maintenance";
           } else if (liveStatus === "in_use" || t.timerStartedAt || t.timer_started_at || hasActiveWalkin(hardwareId)) {
             status = "In Use";
@@ -114,8 +121,8 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
         const tableId = t._id || t.id;
         const hardwareId = t.hardwareId ?? t.hardware_id ?? null;
 
-        const liveStatus = t.liveStatus ?? t.status ?? "available";
-        if (liveStatus === "maintenance" || t.isActive === false) {
+        const permanentMaintenance = t.permanentMaintenance ?? (t.status === "maintenance");
+        if (permanentMaintenance || t.isActive === false) {
           return { id: tableId, table_number: t.tableNumber ?? t.table_number, hardware_id: hardwareId, status: "Maintenance" as TableStatus };
         }
         if (t.timerStartedAt || t.timer_started_at || hasActiveWalkin(hardwareId)) {
