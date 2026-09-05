@@ -23,6 +23,8 @@ import {
   FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, getCategoryGroup, CategoryGroup, NACHO_CHEESE_PRICE,
 } from "@/hooks/useFnb";
 import { fmtDateTimeSG, getSGDateStr, nowSG } from "@/lib/sgTime";
+import { useAdminGmailPayments } from "@/hooks/useAdmin";
+import { PayNowVerifyIcon } from "@/components/admin/PayNowVerifyIcon";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRestoreRecord, useHardDelete, useAdminTables } from "@/hooks/useAdmin";
@@ -382,6 +384,7 @@ export function FnbTab() {
   const [placeOrderOpen, setPlaceOrderOpen] = useState(false);
 
   const { data: orders = [], isLoading: ordersLoading } = useAdminFnbOrders(orderFilter, viewDay);
+  const { data: gmailPayments } = useAdminGmailPayments(true);
   const { data: analytics } = useFnbAnalytics(viewDay);
   const { data: allProducts = [] } = useAdminMenu(!hideDeleted);
   const products = (hideDeleted ? allProducts.filter((p) => !(p as any).isDeleted) : allProducts)
@@ -455,7 +458,7 @@ export function FnbTab() {
     return <Badge className="bg-red-500/20 text-red-400"><XCircle className="h-3 w-3 mr-1" />Cancelled</Badge>;
   };
 
-  const paymentBadge = (method: string, price: number) => {
+  const paymentBadge = (method: string, price: number, orderedAt?: string | Date | null) => {
     if (method === "free_membership") return (
       <span className="inline-flex items-center gap-1 text-amber-400 text-xs font-medium">
         <Gift className="h-3 w-3" /> Free — Membership
@@ -475,6 +478,7 @@ export function FnbTab() {
       <span className="inline-flex items-center gap-1.5">
         <span className="text-green-400 text-xs font-medium">${price?.toFixed(2)}</span>
         <Badge variant="outline" className={methodBadgeClass}>{methodLabel}</Badge>
+        <PayNowVerifyIcon paymentMethod={method} amount={price} timestamp={orderedAt} gmailPayments={gmailPayments} />
       </span>
     );
   };
@@ -711,7 +715,7 @@ export function FnbTab() {
                           </p>
                         )}
                         <div className="flex items-center gap-2 mt-0.5">
-                          {paymentBadge(order.paymentMethod, order.totalPrice)}
+                          {paymentBadge(order.paymentMethod, order.totalPrice, order.createdAt)}
                           <span className="text-xs text-muted-foreground">· {fmtDateTimeSG(order.createdAt)}</span>
                         </div>
                       </div>

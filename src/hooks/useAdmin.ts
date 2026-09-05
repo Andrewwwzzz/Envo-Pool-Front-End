@@ -3,6 +3,24 @@ import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 import { getCached, setCache } from "@/lib/queryCache";
 
+// Every PayNow payment Gmail extracted, matched or not — used to cross-
+// reference against paynow-paid bookings/invoices/F&B orders that often
+// have no linked customer account (walk-ins), so amount+time is the only
+// way to verify "did this transfer actually come in".
+export function useAdminGmailPayments(enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin-gmail-payments"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/transactions/topup/admin/gmail-payments");
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : data?.payments ?? [];
+    },
+    enabled,
+    refetchInterval: 15000,
+  });
+}
+
 export function useAdminBookings(showDeleted = false) {
   const key = showDeleted ? "admin-bookings-deleted" : "admin-bookings";
   return useQuery({

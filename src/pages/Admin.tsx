@@ -48,6 +48,8 @@ import { useAdminPublicHolidays } from "@/hooks/usePricing";
 import { useAdminCampaigns } from "@/hooks/useCampaign";
 import { OperatingHoursSection } from "@/components/admin/OperatingHoursSection";
 import { useAdminTransactions, useAdminActivityLogs } from "@/hooks/useAdminLogs";
+import { useAdminGmailPayments } from "@/hooks/useAdmin";
+import { PayNowVerifyIcon } from "@/components/admin/PayNowVerifyIcon";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -454,6 +456,7 @@ function BookingsTab() {
   const [search, setSearch] = useState("");
   const { data: bookings, isLoading } = useAdminBookings(false);
   const { data: tablesList } = useAdminTables();
+  const { data: gmailPayments } = useAdminGmailPayments(true);
   const updateStatus = useUpdateBookingStatus();
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
@@ -567,7 +570,14 @@ function BookingsTab() {
                           : method === "paynow" ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
                           : method === "cash" ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
                           : "bg-muted text-muted-foreground border-border";
-                        return <Badge variant="outline" className={cls}>{label}</Badge>;
+                        const amount = getField(b, "amount", "finalPrice", "final_price", "price") ?? 0;
+                        const paidTimestamp = b.paidAt || getField(b, "createdAt", "created_at");
+                        return (
+                          <>
+                            <Badge variant="outline" className={cls}>{label}</Badge>
+                            <PayNowVerifyIcon paymentMethod={method} amount={amount} timestamp={paidTimestamp} gmailPayments={gmailPayments} />
+                          </>
+                        );
                       })()}
                     </td>
                     <td className="py-3 pr-4">
@@ -1171,6 +1181,7 @@ function InvoicesTab() {
   const [showDeleted, setShowDeleted] = useState(false);
   const { data, isLoading } = useAdminTimerSessions(showDeleted);
   const timerSessions: any[] = Array.isArray(data) ? data : (data?.sessions || data?.timerSessions || []);
+  const { data: gmailPayments } = useAdminGmailPayments(true);
   const { data: stoppedWalkinsData } = useStoppedWalkinSessions(true, showDeleted);
   const stoppedWalkins: any[] = Array.isArray(stoppedWalkinsData) ? stoppedWalkinsData : [];
   // Merge stopped walk-ins into the sessions list with a marker.
@@ -1377,6 +1388,7 @@ function InvoicesTab() {
                       <td className={`py-3 pr-4 font-medium ${isDeleted ? "line-through text-muted-foreground" : ""}`}>${amount.toFixed(2)}</td>
                       <td className="py-3 pr-4">
                         <Badge variant="outline" className={paymentBadgeClass}>{paymentLabel}</Badge>
+                        <PayNowVerifyIcon paymentMethod={paymentMethod} amount={amount} timestamp={endedAt} gmailPayments={gmailPayments} />
                       </td>
                       <td className="py-3 pr-4">
                         {chargedTo === "Guest" ? (
@@ -4158,7 +4170,7 @@ function VerificationTab() {
   );
 }
 
-function useAdminTopUps(status: string) {
+function useAdminTopUps(status: string, enabled = true) {
   return useQuery({
     queryKey: ["admin-topups", status],
     queryFn: async () => {
@@ -4168,6 +4180,7 @@ function useAdminTopUps(status: string) {
       const data = await res.json();
       return Array.isArray(data) ? data : data?.requests ?? [];
     },
+    enabled,
     refetchInterval: 15000,
   });
 }
@@ -4211,11 +4224,77 @@ function VerificationTabTrigger() {
   );
 }
 
+function GmailTransactionsTable({ payments }: { payments: any[] | undefined }) {
+  const matchBadge = (status: string) => {
+    if (status === "auto_matched") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+    if (status === "suggested_match") return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+    if (status === "ambiguous") return "bg-orange-500/10 text-orange-400 border-orange-500/30";
+    return "bg-muted/40 text-muted-foreground border-border";
+  };
+  const matchLabel = (status: string) => {
+    if (status === "auto_matched") return "Auto-matched";
+    if (status === "suggested_match") return "Suggested match";
+    if (status === "ambiguous") return "Ambiguous";
+    return "Unmatched";
+  };
+
+  if (!payments?.length) {
+    return <p className="text-muted-foreground text-sm">No PayNow transactions found.</p>;
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border text-left text-muted-foreground">
+            <th className="py-2 pr-4">Date & Time</th>
+            <th className="py-2 pr-4">Sender (Bank)</th>
+            <th className="py-2 pr-4">Amount</th>
+            <th className="py-2 pr-4">Reference</th>
+            <th className="py-2 pr-4">Matched Customer</th>
+            <th className="py-2 pr-4">Match Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {payments.map((p: any) => {
+            const customer = p.matchedUserId;
+            const legalName = customer?.kyc?.verified ? customer?.kyc?.name : null;
+            return (
+              <tr key={p._id} className="border-b border-border/50">
+                <td className="py-2 pr-4">{fmtDateTimeSG(p.transactionTimestamp)}</td>
+                <td className="py-2 pr-4">
+                  <div>{p.senderName || "—"}</div>
+                  <div className="text-xs text-muted-foreground">{p.bank || "—"}</div>
+                </td>
+                <td className="py-2 pr-4 font-medium">${Number(p.amount || 0).toFixed(2)}</td>
+                <td className="py-2 pr-4 font-mono text-xs">{p.bankReference || "—"}</td>
+                <td className="py-2 pr-4">
+                  {customer ? (legalName || customer.name) : "—"}
+                </td>
+                <td className="py-2 pr-4">
+                  <Badge variant="outline" className={matchBadge(p.matchStatus)}>
+                    {matchLabel(p.matchStatus)}
+                    {p.matchStatus === "ambiguous" && p.candidateCount > 0 ? ` (${p.candidateCount})` : ""}
+                  </Badge>
+                  {p.note && (
+                    <div className="text-xs text-muted-foreground mt-0.5 max-w-xs">{p.note}</div>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function TopUpsTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [status, setStatus] = useState<"pending" | "approved" | "rejected" | "all">("pending");
-  const { data: requests } = useAdminTopUps(status);
+  const [status, setStatus] = useState<"pending" | "approved" | "rejected" | "all" | "transactions">("pending");
+  const { data: requests } = useAdminTopUps(status, status !== "transactions");
+  const { data: gmailPayments } = useAdminGmailPayments(status === "transactions");
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -4338,10 +4417,13 @@ function TopUpsTab() {
             <TabsTrigger value="approved">Approved</TabsTrigger>
             <TabsTrigger value="rejected">Rejected</TabsTrigger>
             <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="transactions">Transactions</TabsTrigger>
           </TabsList>
         </Tabs>
 
-        {!requests?.length ? (
+        {status === "transactions" ? (
+          <GmailTransactionsTable payments={gmailPayments} />
+        ) : !requests?.length ? (
           <p className="text-muted-foreground text-sm">No requests.</p>
         ) : (
           <div className="overflow-x-auto">
