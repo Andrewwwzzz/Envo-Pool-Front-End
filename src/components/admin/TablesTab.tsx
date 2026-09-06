@@ -674,7 +674,11 @@ function CloseTableDialog({
     if (closeTarget) {
       setDiscountInput("0");
       const defaultRate = tables.find((tb) => tb.id === closeTarget)?.hourly_rate ?? rate;
-      setRateInput(String(defaultRate));
+      // Empty = bill via the actual time-of-day pricing across the whole
+      // session (correctly split across any peak/off-peak boundary the
+      // session crossed) — only set a number here if staff wants to
+      // override with one flat rate for the entire duration instead.
+      setRateInput("");
       setPaymentMethod("wallet");
       setCustomerId("");
       setCustomerSearch("");
@@ -732,7 +736,10 @@ function CloseTableDialog({
       {
         tableId,
         durationSeconds: seconds,
-        hourlyRate: Number(tableRate),
+        // 0/omitted tells the backend to price via actual time-of-day
+        // segments instead of one flat rate — only send a real number when
+        // staff explicitly typed an override.
+        hourlyRate: rateInput === "" ? 0 : Number(rateInput),
         discountPercent: discountPct,
         startedAt,
         customerId: customerId || null,
@@ -771,11 +778,12 @@ function CloseTableDialog({
           <DialogDescription>
             {closeTarget && (
               <>
-                Table {table?.table_number} · {seconds}s @ ${tableRate}/hr — gross ${gross.toFixed(2)}
+                Table {table?.table_number} · {seconds}s @ ${tableRate}/hr{rateInput === "" ? " (est.)" : ""} — gross ${gross.toFixed(2)}
                 {membershipPct > 0 && <> · member {membershipPct}% off: ${afterMembership.toFixed(2)}</>}
                 {discountPct > 0 && <> · after {discountPct}% off: ${timeChargeExact.toFixed(2)}</>}
                 {fnbTotal > 0 && <> + F&B ${fnbTotal.toFixed(2)}</>}
                 {(discountPct > 0 || fnbTotal > 0) && <> — total: <strong>${finalCost.toFixed(2)}</strong></>}
+                {rateInput === "" && <> · final amount is billed per actual time-of-day pricing, split across any peak/off-peak boundary the session crossed</>}
               </>
             )}
           </DialogDescription>
@@ -797,17 +805,18 @@ function CloseTableDialog({
             </div>
           )}
           <div className="space-y-2">
-            <Label>Rate ($/hr)</Label>
+            <Label>Rate Override ($/hr)</Label>
             <Input
               type="number"
               step="0.01"
               min="0"
               value={rateInput}
               onChange={(e) => setRateInput(e.target.value)}
-              placeholder={String(defaultRate)}
-              autoFocus
+              placeholder={`Auto (${defaultRate}/hr right now)`}
             />
-            <p className="text-xs text-muted-foreground">Defaults to ${defaultRate}/hr — edit to bill this session at a different rate.</p>
+            <p className="text-xs text-muted-foreground">
+              Leave blank to bill the actual time-of-day pricing for the whole session (correctly split if it crossed a peak/off-peak boundary). Only set a number to force one flat rate for the entire session instead.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -972,7 +981,11 @@ function BookNowDialog({
   useEffect(() => {
     if (bookTarget) {
       setDurationInput("60");
-      setRateInput(String(getCurrentHourlyRate(pricingRules, phDates)));
+      // Empty = bill via actual time-of-day pricing across the whole
+      // booking window (correctly split across any peak/off-peak boundary
+      // it crosses) — only set a number here to override with one flat
+      // rate for the entire duration instead.
+      setRateInput("");
       setDiscountInput("0");
       setPaymentMethod("wallet");
       setCustomerId("");
@@ -987,7 +1000,11 @@ function BookNowDialog({
 
   const table = tables.find((tb) => tb.id === bookTarget);
   const durationMinutes = Math.max(0, parseInt(durationInput, 10) || 0);
-  const rate = Math.max(0, parseFloat(rateInput) || 0);
+  // Preview only — falls back to the current live rate when no override is
+  // set, same as CloseTableDialog. The real amount is computed server-side
+  // via actual time-of-day segments.
+  const currentRate = getCurrentHourlyRate(pricingRules, phDates);
+  const rate = rateInput === "" ? currentRate : Math.max(0, parseFloat(rateInput) || 0);
 
   const gross = Math.round((durationMinutes / 60) * rate * 100) / 100;
   // Preview only — the real amount (which also accounts for free minutes,
@@ -1030,7 +1047,10 @@ function BookNowDialog({
         paymentMethod,
         allowNegative: effectiveAllowNegative,
         discountPercent: discountPct,
-        hourlyRate: rate,
+        // 0 tells the backend to price via actual time-of-day segments
+        // instead of one flat rate — only send a real number when staff
+        // explicitly typed an override.
+        hourlyRate: rateInput === "" ? 0 : rate,
         applyMembershipDiscount,
         applyMembershipFreeMinutes,
       },
@@ -1066,16 +1086,18 @@ function BookNowDialog({
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label>Rate ($/hr)</Label>
+            <Label>Rate Override ($/hr)</Label>
             <Input
               type="number"
               step="0.01"
               min="0"
               value={rateInput}
               onChange={(e) => setRateInput(e.target.value)}
-              autoFocus
+              placeholder={`Auto (${currentRate}/hr right now)`}
             />
-            <p className="text-xs text-muted-foreground">Auto-filled with the current active pricing rate — click in to edit and bill this booking at a different flat rate.</p>
+            <p className="text-xs text-muted-foreground">
+              Leave blank to bill actual time-of-day pricing for the whole window (correctly split if it crosses a peak/off-peak boundary). Only set a number to force one flat rate for the entire booking instead.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -1107,7 +1129,7 @@ function BookNowDialog({
 
           <div className="rounded-md border border-border px-3 py-2 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Estimated price</span>
+              <span className="text-muted-foreground">Estimated price{rateInput === "" ? " (est.)" : ""}</span>
               <span className="font-medium">${gross.toFixed(2)}</span>
             </div>
             {membershipPct > 0 && (
@@ -1126,7 +1148,7 @@ function BookNowDialog({
               <span className="text-muted-foreground">Est. total</span>
               <span className="font-semibold">${estimatedTotal.toFixed(2)}</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Final price is computed at confirm — includes the customer's membership discount/free minutes if they have one active.</p>
+            <p className="text-xs text-muted-foreground mt-1">Final price is computed at confirm — includes the customer's membership discount/free minutes if they have one active{rateInput === "" ? ", and correctly splits across any peak/off-peak boundary the booking crosses" : ""}.</p>
           </div>
 
           <div className="space-y-2">
