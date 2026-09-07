@@ -863,6 +863,7 @@ export function useAdminCustomers(searchTerm: string, includeDeleted = false) {
         phone: c.phone || null,
         date_of_birth: c.dateOfBirth ?? c.date_of_birth ?? null,
         wallet_balance: c.walletBalance ?? c.wallet_balance ?? 0,
+        reward_points: c.rewardPoints ?? c.reward_points ?? 0,
         allow_negative_balance: c.allowNegativeBalance ?? false,
         total_spent: c.totalSpent ?? c.total_spent ?? 0,
         age_verified: c.ageVerified ?? c.age_verified ?? false,
@@ -941,14 +942,20 @@ export function useUpdateCustomerWallet() {
       userId,
       walletBalance,
       walletDelta,
+      points,
+      pointsDelta,
     }: {
       userId: string;
       walletBalance?: number;
       walletDelta?: number;
+      points?: number;
+      pointsDelta?: number;
     }) => {
       const payload: Record<string, number> = {};
       if (walletBalance !== undefined) payload.walletBalance = walletBalance;
       if (walletDelta !== undefined) payload.walletDelta = walletDelta;
+      if (points !== undefined) payload.points = points;
+      if (pointsDelta !== undefined) payload.pointsDelta = pointsDelta;
 
       const res = await apiFetch(`/api/users/${userId}/wallet`, {
         method: "PATCH",
@@ -964,6 +971,8 @@ export function useUpdateCustomerWallet() {
       queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
       queryClient.invalidateQueries({ queryKey: ["admin-transactions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["points-history"] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });

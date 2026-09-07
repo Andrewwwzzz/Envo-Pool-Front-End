@@ -2176,6 +2176,11 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const [walletExact, setWalletExact] = useState(String(customer.wallet_balance));
   const [walletDelta, setWalletDelta] = useState("0");
 
+  // Points editing state — mirrors wallet
+  const [pointsMode, setPointsMode] = useState<"exact" | "delta">("delta");
+  const [pointsExact, setPointsExact] = useState(String(customer.reward_points ?? 0));
+  const [pointsDelta, setPointsDelta] = useState("0");
+
   const saveEdit = () => {
     const payload: Parameters<typeof updateWallet.mutate>[0] = { userId: customer.user_id };
     if (walletMode === "exact") {
@@ -2183,6 +2188,13 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
     } else {
       const d = parseFloat(walletDelta);
       if (d !== 0) payload.walletDelta = d;
+    }
+    if (pointsMode === "exact") {
+      const p = parseInt(pointsExact, 10);
+      if (!Number.isNaN(p)) payload.points = p;
+    } else {
+      const d = parseInt(pointsDelta, 10);
+      if (d) payload.pointsDelta = d;
     }
     updateWallet.mutate(payload);
     setEditing(false);
@@ -2266,7 +2278,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                 <>
                   <Button size="sm" variant="outline" onClick={openEditDetails}><Pencil className="mr-1 h-3 w-3" /> Edit Details</Button>
                   <Button size="sm" variant="outline" onClick={() => { setNewEmailInput(customer.email ?? ""); setEmailReason(""); setChangeEmailOpen(true); }}><Pencil className="mr-1 h-3 w-3" /> Change Email</Button>
-                  <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet</Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet & Points</Button>
                   <Button size="sm" variant="outline" onClick={() => { setNewPassword(""); setConfirmPassword(""); setResetPasswordOpen(true); }}><Key className="mr-1 h-3 w-3" /> Reset Password</Button>
                 </>
               )}
@@ -2382,6 +2394,39 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                 )}
               </div>
 
+              {/* Points Section */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="font-semibold">Reward Points (Current: {customer.reward_points ?? 0})</Label>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant={pointsMode === "delta" ? "default" : "outline"} onClick={() => setPointsMode("delta")} className="text-xs h-7">+/− Adjust</Button>
+                    <Button size="sm" variant={pointsMode === "exact" ? "default" : "outline"} onClick={() => setPointsMode("exact")} className="text-xs h-7">Set Exact</Button>
+                  </div>
+                </div>
+                {pointsMode === "exact" ? (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Set points to:</Label>
+                    <Input type="number" step="1" min="0" value={pointsExact} onChange={(e) => setPointsExact(e.target.value)} placeholder="e.g. 5000" />
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Add or subtract points (use negative to deduct):</Label>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0", 10) - 1000))}>−1000</Button>
+                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0", 10) - 100))}>−100</Button>
+                      <Input type="number" step="1" value={pointsDelta} onChange={(e) => setPointsDelta(e.target.value)} className="w-28" placeholder="0" />
+                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0", 10) + 100))}>+100</Button>
+                      <Button size="sm" variant="outline" onClick={() => setPointsDelta(String(parseInt(pointsDelta || "0", 10) + 1000))}>+1000</Button>
+                    </div>
+                    {parseInt(pointsDelta || "0", 10) !== 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        New balance: <strong>{(customer.reward_points ?? 0) + parseInt(pointsDelta || "0", 10)}</strong>
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-2">
                 <Button size="sm" onClick={saveEdit} disabled={updateWallet.isPending}>
                   {updateWallet.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />} Save Changes
@@ -2394,6 +2439,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
               <div className="flex gap-6">
                 <span>Wallet: <strong>${(customer.wallet_balance ?? 0).toFixed(2)}</strong></span>
                 <span>Total Spent: <strong>${(customer.total_spent ?? 0).toFixed(2)}</strong></span>
+                <span>Points: <strong>{customer.reward_points ?? 0}</strong></span>
               </div>
               <Button size="sm" variant="outline" onClick={() => setChargeOpen(true)}>
                 <DollarSign className="h-3.5 w-3.5 mr-1" /> Charge Wallet
