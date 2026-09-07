@@ -29,24 +29,34 @@ export function findMatchingGmailPayment(
 // Small inline indicator for a paynow row — shown next to the payment
 // method badge on Bookings/Invoices/F&B orders. Silent (renders nothing)
 // for any other payment method.
+//
+// groupAmount (F&B only): a customer often orders a few items separately
+// then pays for all of them in one transfer — no single order's price
+// matches the transfer amount on its own. If provided, this is the sum of
+// this order + other nearby same-table paynow orders; it's tried as a
+// fallback when the order's own price doesn't match anything by itself.
 export function PayNowVerifyIcon({
   paymentMethod,
   amount,
   timestamp,
   gmailPayments,
+  groupAmount,
 }: {
   paymentMethod: string | null | undefined;
   amount: number;
   timestamp: string | Date | null | undefined;
   gmailPayments: any[] | undefined;
+  groupAmount?: number;
 }) {
   if (String(paymentMethod || "").toLowerCase() !== "paynow") return null;
-  const match = findMatchingGmailPayment(amount, timestamp, gmailPayments);
+  const soloMatch = findMatchingGmailPayment(amount, timestamp, gmailPayments);
+  const match = soloMatch || (groupAmount && groupAmount !== amount ? findMatchingGmailPayment(groupAmount, timestamp, gmailPayments) : null);
   if (match) {
+    const groupNote = !soloMatch ? " — matched as part of a combined payment with other orders on this table" : "";
     return (
       <span
         className="inline-block ml-1.5 align-text-bottom"
-        title={`PayNow transfer verified — $${Number(match.amount).toFixed(2)} from "${match.senderName || "unknown"}" at ${fmtTimeSG(match.transactionTimestamp)}`}
+        title={`PayNow transfer verified — $${Number(match.amount).toFixed(2)} from "${match.senderName || "unknown"}" at ${fmtTimeSG(match.transactionTimestamp)}${groupNote}`}
       >
         <Mail className="h-3.5 w-3.5 text-emerald-400" />
       </span>
@@ -55,7 +65,7 @@ export function PayNowVerifyIcon({
   return (
     <span
       className="inline-block ml-1.5 align-text-bottom"
-      title="No matching PayNow transfer found in Gmail within ±20 min — verify manually"
+      title="No matching PayNow transfer found in Gmail within ±20 min — verify manually (checked this order alone and combined with other same-table orders nearby)"
     >
       <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
     </span>

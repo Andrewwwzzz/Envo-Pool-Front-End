@@ -458,7 +458,26 @@ export function FnbTab() {
     return <Badge className="bg-red-500/20 text-red-400"><XCircle className="h-3 w-3 mr-1" />Cancelled</Badge>;
   };
 
-  const paymentBadge = (method: string, price: number, orderedAt?: string | Date | null) => {
+  // Customers often order a few items separately, then pay for all of them
+  // in one PayNow transfer — no single order's price matches that transfer
+  // on its own. Sums this order + other paynow orders on the same table
+  // within the same match window the verify icon uses, so the combined
+  // total can be tried as a fallback when the lone price doesn't match.
+  const PAYNOW_GROUP_WINDOW_MINUTES = 20;
+  const computeGroupAmount = (order: any) => {
+    if (order.paymentMethod !== "paynow" || !order.tableName || !order.createdAt) return undefined;
+    const t = new Date(order.createdAt).getTime();
+    const windowMs = PAYNOW_GROUP_WINDOW_MINUTES * 60 * 1000;
+    const group = (orders as any[]).filter((o) => {
+      if (o.paymentMethod !== "paynow" || o.tableName !== order.tableName) return false;
+      const ot = new Date(o.createdAt).getTime();
+      return Math.abs(ot - t) <= windowMs;
+    });
+    if (group.length <= 1) return undefined;
+    return Math.round(group.reduce((sum, o) => sum + (o.totalPrice || 0), 0) * 100) / 100;
+  };
+
+  const paymentBadge = (method: string, price: number, orderedAt?: string | Date | null, groupAmount?: number) => {
     if (method === "free_membership") return (
       <span className="inline-flex items-center gap-1 text-amber-400 text-xs font-medium">
         <Gift className="h-3 w-3" /> Free — Membership
@@ -478,7 +497,7 @@ export function FnbTab() {
       <span className="inline-flex items-center gap-1.5">
         <span className="text-green-400 text-xs font-medium">${price?.toFixed(2)}</span>
         <Badge variant="outline" className={methodBadgeClass}>{methodLabel}</Badge>
-        <PayNowVerifyIcon paymentMethod={method} amount={price} timestamp={orderedAt} gmailPayments={gmailPayments} />
+        <PayNowVerifyIcon paymentMethod={method} amount={price} timestamp={orderedAt} gmailPayments={gmailPayments} groupAmount={groupAmount} />
       </span>
     );
   };
@@ -715,7 +734,7 @@ export function FnbTab() {
                           </p>
                         )}
                         <div className="flex items-center gap-2 mt-0.5">
-                          {paymentBadge(order.paymentMethod, order.totalPrice, order.createdAt)}
+                          {paymentBadge(order.paymentMethod, order.totalPrice, order.createdAt, computeGroupAmount(order))}
                           <span className="text-xs text-muted-foreground">· {fmtDateTimeSG(order.createdAt)}</span>
                         </div>
                       </div>
