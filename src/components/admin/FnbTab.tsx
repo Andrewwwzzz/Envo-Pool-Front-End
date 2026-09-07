@@ -363,7 +363,7 @@ export function FnbTab() {
   const today = getSGDateStr(nowSG());
   const [viewDay, setViewDay] = useState(today);
   const [orderFilter, setOrderFilter] = useState("all");
-  const [cancelDialog, setCancelDialog] = useState<{ id: string; name: string; price: number; paymentMethod: string } | null>(null);
+  const [cancelDialog, setCancelDialog] = useState<{ id: string; name: string; price: number; paymentMethod: string; pointsSpent: number } | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelRefund, setCancelRefund] = useState(false);
   const [hideDeleted, setHideDeleted] = useState(true);
@@ -732,7 +732,7 @@ export function FnbTab() {
                           <Button
                             size="sm"
                             variant="destructive"
-                            onClick={() => { setCancelDialog({ id: order._id, name: order.productName, price: order.totalPrice || 0, paymentMethod: order.paymentMethod }); setCancelReason(""); setCancelRefund(false); }}
+                            onClick={() => { setCancelDialog({ id: order._id, name: order.productName, price: order.totalPrice || 0, paymentMethod: order.paymentMethod, pointsSpent: order.pointsSpent || 0 }); setCancelReason(""); setCancelRefund(false); }}
                           >
                             <XCircle className="h-4 w-4" />
                           </Button>
@@ -897,15 +897,19 @@ export function FnbTab() {
               <Label className="text-xs">Reason <span className="text-red-400">*</span></Label>
               <Input placeholder="e.g. Out of stock" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
             </div>
-            {cancelDialog && cancelDialog.price > 0 && (
+            {cancelDialog && (cancelDialog.price > 0 || (cancelDialog.paymentMethod === "free_reward" && cancelDialog.pointsSpent > 0)) && (
               <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
                 <div>
                   <p className="text-sm font-medium">
-                    {cancelDialog.paymentMethod === "wallet" ? "Refund to wallet" : "Mark as refunded"}
+                    {cancelDialog.paymentMethod === "wallet" ? "Refund to wallet"
+                      : cancelDialog.paymentMethod === "free_reward" ? "Refund points"
+                      : "Mark as refunded"}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {cancelDialog.paymentMethod === "wallet"
                       ? `$${cancelDialog.price.toFixed(2)} credited back to customer's wallet`
+                      : cancelDialog.paymentMethod === "free_reward"
+                      ? `${cancelDialog.pointsSpent} points credited back to the customer — they paid points for this, not cash`
                       : `$${cancelDialog.price.toFixed(2)} paid in ${cancelDialog.paymentMethod === "paynow" ? "PayNow" : "cash"} — hand it back to the customer, this just corrects the accounting`}
                   </p>
                 </div>
