@@ -415,6 +415,11 @@ function OverviewTab() {
           <p className="text-2xl font-bold">${cashTopups.toFixed(2)}</p>
           <p className="text-sm text-muted-foreground">Cash Top-Ups</p>
         </CardContent></Card>
+        <Card><CardContent className="pt-6 text-center">
+          <Mail className="h-6 w-6 mx-auto text-primary mb-2" />
+          <p className="text-2xl font-bold">${(stats?.bankPaynowReceived ?? 0).toFixed(2)}</p>
+          <p className="text-sm text-muted-foreground">Bank PayNow Received</p>
+        </CardContent></Card>
       </div>
 
       <Card>

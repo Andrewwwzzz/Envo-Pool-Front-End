@@ -804,6 +804,7 @@ export function useAdminStats(from?: string, to?: string) {
         cashTopups: data.cashTopups ?? null,
         paynowTopups: data.paynowTopups ?? null,
         cashCollected: data.cashCollected ?? data.totalCash ?? null,
+        bankPaynowReceived: data.bankPaynowReceived ?? 0,
         mostBookedTable: data.mostBookedTable ?? null,
       };
       setCache(cacheKey, stats);
