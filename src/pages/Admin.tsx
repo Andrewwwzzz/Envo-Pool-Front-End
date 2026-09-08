@@ -4337,6 +4337,7 @@ function GmailTransactionsTable({ payments }: { payments: any[] | undefined }) {
 
 function PaynowReconciliationTable() {
   const [date, setDate] = useState(getSGDateStr(new Date()));
+  const [showDetails, setShowDetails] = useState(false);
   const { data, isLoading } = useAdminPaynowReconciliation(date);
 
   const matchTypeBadge = (matchType: string) => {
@@ -4345,18 +4346,56 @@ function PaynowReconciliationTable() {
     return "bg-amber-500/10 text-amber-400 border-amber-500/30";
   };
 
+  const t = data?.totals;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <Label className="text-sm">Date</Label>
         <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44 h-9" max={getSGDateStr(new Date())} />
+        <span className="text-xs text-muted-foreground">00:00 – 23:59 SGT</span>
       </div>
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading...</p>
-      ) : !data ? (
+      ) : !data || !t ? (
         <p className="text-sm text-muted-foreground">No data for this date.</p>
       ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs text-muted-foreground">PayNow Received (Gmail)</p>
+              <p className="text-xl font-semibold mt-1">${t.transfersAmount.toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t.transfersCount} transfer{t.transfersCount === 1 ? "" : "s"}</p>
+            </div>
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs text-muted-foreground">PayNow Charged (System)</p>
+              <p className="text-xl font-semibold mt-1">${t.systemChargesAmount.toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t.systemChargesCount} charge{t.systemChargesCount === 1 ? "" : "s"}</p>
+            </div>
+            <div className={`rounded-lg border p-3 ${t.difference === 0 ? "border-border" : "border-destructive/40 bg-destructive/5"}`}>
+              <p className="text-xs text-muted-foreground">Difference</p>
+              <p className={`text-xl font-semibold mt-1 ${t.difference === 0 ? "text-emerald-500" : "text-destructive"}`}>
+                {t.difference > 0 ? "+" : ""}${t.difference.toFixed(2)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t.difference === 0 ? "Fully reconciled" : "Received vs charged"}</p>
+            </div>
+            <div className={`rounded-lg border p-3 ${t.unmatchedTransfersAmount === 0 && t.unmatchedChargesAmount === 0 ? "border-border" : "border-amber-500/40 bg-amber-500/5"}`}>
+              <p className="text-xs text-muted-foreground">Unresolved</p>
+              <p className="text-xl font-semibold mt-1">
+                ${t.unmatchedTransfersAmount.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">in</span> / ${t.unmatchedChargesAmount.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">out</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t.unmatchedTransfersCount} unmatched transfer{t.unmatchedTransfersCount === 1 ? "" : "s"} · {t.unmatchedChargesCount} unmatched charge{t.unmatchedChargesCount === 1 ? "" : "s"}</p>
+            </div>
+          </div>
+
+          <Button size="sm" variant="outline" onClick={() => setShowDetails((v) => !v)}>
+            {showDetails ? "Hide transaction details" : "Show transaction details"}
+          </Button>
+        </>
+      )}
+
+      {!isLoading && data && t && showDetails && (
         <>
           <div>
             <h4 className="text-sm font-medium mb-2">Incoming PayNow Transfers ({data.transfers.length})</h4>

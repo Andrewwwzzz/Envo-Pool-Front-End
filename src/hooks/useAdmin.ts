@@ -83,6 +83,7 @@ export function useAdminPaynowReconciliation(date: string | null) {
       return res.json();
     },
     enabled: !!date,
+    refetchInterval: 15000,
   });
 }
 
