@@ -4789,7 +4789,7 @@ function CreateTopUpDialog({
 
   const selectedCustomer = customers.find((c: any) => c.id === customerId);
   const amountNum = parseFloat(amount) || 0;
-  const canSubmit = !!customerId && amountNum >= 10 && amountNum <= 500;
+  const canSubmit = !!customerId && amountNum > 0 && amountNum <= 500;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -4852,7 +4852,7 @@ function CreateTopUpDialog({
 
           <div className="space-y-1.5">
             <Label>Amount</Label>
-            <Input type="number" step="0.01" min="10" max="500" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Min $10, max $500" />
+            <Input type="number" step="0.01" min="0.01" max="500" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Max $500" />
           </div>
 
           <div className="space-y-1.5">
