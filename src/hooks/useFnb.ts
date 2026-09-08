@@ -197,7 +197,7 @@ export function usePlaceStaffOrder() {
       tableId?: string;
       tableName?: string;
       isFreeRedemption?: boolean;
-      paymentMethod?: "cash" | "paynow";
+      paymentMethod?: "wallet" | "cash" | "paynow";
       chargeToTable?: boolean;
       tableRefId?: string;
       selectedSauce?: "chilli" | "ketchup";
@@ -265,6 +265,43 @@ export function useCancelFnbOrder() {
     onSuccess: () => {
       toast({ title: "Order cancelled and refunded" });
       qc.invalidateQueries({ queryKey: ["fnb-orders-admin"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useEditFnbOrderPaymentMethod() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      paymentMethod,
+      tableRefId,
+      tableName,
+      allowNegative,
+    }: {
+      orderId: string;
+      paymentMethod: "wallet" | "cash" | "paynow" | "charge_to_table";
+      tableRefId?: string;
+      tableName?: string;
+      allowNegative?: boolean;
+    }) => {
+      const res = await apiFetch(`/api/fnb/orders/${orderId}/payment-method`, {
+        method: "PATCH",
+        body: JSON.stringify({ paymentMethod, tableRefId, tableName, allowNegative }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(data.error || "Failed to update payment method"), { data });
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: "Payment method updated" });
+      qc.invalidateQueries({ queryKey: ["fnb-orders-admin"] });
+      qc.invalidateQueries({ queryKey: ["fnb-orders-table-pending"] });
+      qc.invalidateQueries({ queryKey: ["admin-customers"] });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });

@@ -19,11 +19,11 @@ import { apiFetch } from "@/lib/api";
 import {
   useAdminFnbOrders, useAdminMenu, useServeOrder, useCancelFnbOrder,
   useCreateProduct, useUpdateProduct, useRestockProduct, useDeleteProduct,
-  useFnbStatus, useSetFnbStatus, usePlaceStaffOrder,
+  useFnbStatus, useSetFnbStatus, usePlaceStaffOrder, useEditFnbOrderPaymentMethod,
   FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, getCategoryGroup, CategoryGroup, NACHO_CHEESE_PRICE,
 } from "@/hooks/useFnb";
 import { fmtDateTimeSG, getSGDateStr, nowSG } from "@/lib/sgTime";
-import { useAdminGmailPayments } from "@/hooks/useAdmin";
+import { useAdminGmailPayments, useAdminCustomers } from "@/hooks/useAdmin";
 import { PayNowVerifyIcon } from "@/components/admin/PayNowVerifyIcon";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -139,11 +139,20 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   const [tableId, setTableId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [payment, setPayment] = useState<"charge_to_table" | "cash" | "paynow">("charge_to_table");
+  const [payment, setPayment] = useState<"charge_to_table" | "cash" | "paynow" | "wallet">("charge_to_table");
   const [submitting, setSubmitting] = useState(false);
   const [sauceModalProduct, setSauceModalProduct] = useState<FnbProduct | null>(null);
   const [sauceChoice, setSauceChoice] = useState<"chilli" | "ketchup" | null>(null);
   const [nachoChoice, setNachoChoice] = useState(false);
+
+  // Customer — optional for cash/paynow/charge-to-table (defaults to a
+  // shared guest account), but required to pay via wallet since that has to
+  // be a real customer's balance.
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerId, setCustomerId] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const { data: customers = [] } = useAdminCustomers(customerSearch);
+  const selectedCustomer = customers.find((c: any) => c.id === customerId);
 
   useEffect(() => {
     if (open) {
@@ -151,12 +160,19 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
       setSearch("");
       setCart([]);
       setPayment("charge_to_table");
+      setCustomerSearch("");
+      setCustomerId("");
+      setCustomerName("");
     }
   }, [open]);
 
   useEffect(() => {
     if (!tableId && payment === "charge_to_table") setPayment("cash");
   }, [tableId, payment]);
+
+  useEffect(() => {
+    if (!customerId && payment === "wallet") setPayment("cash");
+  }, [customerId, payment]);
 
   const filteredProducts = search.trim()
     ? availableProducts.filter((p) => p.name.toLowerCase().includes(search.trim().toLowerCase()))
@@ -204,6 +220,7 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
           await placeOrder.mutateAsync({
             productId: line.product._id,
             ...(line.product.hasSauceOptions ? { selectedSauce: line.sauce ?? undefined, nachoCheeseAddOn: line.nacho } : {}),
+            ...(customerId ? { userId: customerId } : {}),
             ...(payment === "charge_to_table"
               ? { chargeToTable: true, tableRefId: tableId, tableName: `Table ${selectedTable?.table_number}` }
               : { paymentMethod: payment, tableId: tableId || undefined, tableName: tableId ? `Table ${selectedTable?.table_number}` : undefined }),
@@ -303,16 +320,57 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
           )}
 
           <div className="space-y-1.5">
+            <Label className="text-xs">Customer <span className="text-muted-foreground">(optional — required for Wallet payment)</span></Label>
+            {selectedCustomer ? (
+              <div className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+                <div>
+                  <p className="font-medium">{customerName}</p>
+                  <p className="text-xs text-muted-foreground">Balance: ${Number(selectedCustomer.wallet_balance ?? 0).toFixed(2)}</p>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => { setCustomerId(""); setCustomerName(""); }}>Change</Button>
+              </div>
+            ) : (
+              <>
+                <Input placeholder="Search name or email..." value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} />
+                {customerSearch.trim() && (
+                  <div className="max-h-32 overflow-y-auto rounded-md border border-border">
+                    {customers.slice(0, 20).map((c: any) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => { setCustomerId(c.id); setCustomerName(c.name || c.legal_name || c.email); setCustomerSearch(""); }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                      >
+                        <div className="font-medium">{c.name || c.legal_name || "—"}</div>
+                        <div className="text-xs text-muted-foreground">{c.email} · ${Number(c.wallet_balance ?? 0).toFixed(2)}</div>
+                      </button>
+                    ))}
+                    {customers.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">No customers found</div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
             <Label className="text-xs">Payment</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               <Button type="button" size="sm" variant={payment === "charge_to_table" ? "default" : "outline"} disabled={!tableId} onClick={() => setPayment("charge_to_table")}>
-                Charge to Table
+                Table
+              </Button>
+              <Button type="button" size="sm" variant={payment === "wallet" ? "default" : "outline"} disabled={!customerId} onClick={() => setPayment("wallet")}>
+                Wallet
               </Button>
               <Button type="button" size="sm" variant={payment === "cash" ? "default" : "outline"} onClick={() => setPayment("cash")}>Cash</Button>
               <Button type="button" size="sm" variant={payment === "paynow" ? "default" : "outline"} onClick={() => setPayment("paynow")}>PayNow</Button>
             </div>
             {payment === "charge_to_table" && (
               <p className="text-xs text-muted-foreground">Added to Table {selectedTable?.table_number}'s bill — settled together when the table closes.</p>
+            )}
+            {payment === "wallet" && selectedCustomer && total > Number(selectedCustomer.wallet_balance ?? 0) && !selectedCustomer.allow_negative_balance && (
+              <p className="text-xs text-destructive">Exceeds {customerName}'s wallet balance — order will fail unless their account allows a negative balance.</p>
             )}
           </div>
         </div>
@@ -354,6 +412,97 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   );
 }
 
+const EDITABLE_PAYMENT_METHODS = ["wallet", "cash", "paynow", "charge_to_table"] as const;
+type EditablePaymentMethod = (typeof EDITABLE_PAYMENT_METHODS)[number];
+
+// Corrects which channel an already-placed order was paid through (e.g.
+// staff logged it as cash but the customer actually paid PayNow, or it
+// should have gone on the table's tab instead). Free membership/reward
+// redemptions aren't editable here — their points/stock logic is separate.
+function EditPaymentMethodDialog({
+  open,
+  onOpenChange,
+  order,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  order: { _id: string; productName: string; paymentMethod: string; totalPrice: number } | null;
+}) {
+  const editPayment = useEditFnbOrderPaymentMethod();
+  const { data: tables = [] } = useAdminTables();
+  const runningTables = tables.filter((t: any) => !!t.timer_started_at);
+
+  const [method, setMethod] = useState<EditablePaymentMethod>("cash");
+  const [tableId, setTableId] = useState("");
+
+  useEffect(() => {
+    if (open && order) {
+      setMethod((EDITABLE_PAYMENT_METHODS as readonly string[]).includes(order.paymentMethod) ? (order.paymentMethod as EditablePaymentMethod) : "cash");
+      setTableId("");
+    }
+  }, [open, order]);
+
+  if (!order) return null;
+  const selectedTable = runningTables.find((t: any) => t.id === tableId);
+
+  const submit = () => {
+    if (method === order.paymentMethod || (method === "charge_to_table" && !tableId)) return;
+    editPayment.mutate(
+      {
+        orderId: order._id,
+        paymentMethod: method,
+        ...(method === "charge_to_table" ? { tableRefId: tableId, tableName: `Table ${selectedTable?.table_number}` } : {}),
+      },
+      { onSuccess: () => onOpenChange(false) }
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Edit Payment Method</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            {order.productName} — currently paid via <strong className="capitalize">{order.paymentMethod.replace(/_/g, " ")}</strong>, ${order.totalPrice?.toFixed(2)}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {EDITABLE_PAYMENT_METHODS.map((m) => (
+              <Button key={m} type="button" size="sm" variant={method === m ? "default" : "outline"} onClick={() => setMethod(m)}>
+                {m === "wallet" ? "Wallet" : m === "cash" ? "Cash" : m === "paynow" ? "PayNow" : "Charge to Table"}
+              </Button>
+            ))}
+          </div>
+          {method === "charge_to_table" && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Table</Label>
+              <Select value={tableId || "none"} onValueChange={(v) => setTableId(v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Select a running table" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select a running table</SelectItem>
+                  {runningTables.map((t: any) => (
+                    <SelectItem key={t.id} value={t.id}>Table {t.table_number}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {method !== order.paymentMethod && method !== "charge_to_table" && order.paymentMethod !== "charge_to_table" && (
+            <p className="text-xs text-muted-foreground">This reverses the original charge and applies a new one — both are logged so revenue totals stay accurate.</p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={submit} disabled={method === order.paymentMethod || (method === "charge_to_table" && !tableId) || editPayment.isPending}>
+            {editPayment.isPending ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function FnbTab() {
   const { user } = useAuth();
   const isMaster = (user as any)?.isMaster === true;
@@ -364,6 +513,7 @@ export function FnbTab() {
   const [viewDay, setViewDay] = useState(today);
   const [orderFilter, setOrderFilter] = useState("all");
   const [cancelDialog, setCancelDialog] = useState<{ id: string; name: string; price: number; paymentMethod: string; pointsSpent: number } | null>(null);
+  const [editPaymentOrder, setEditPaymentOrder] = useState<{ _id: string; productName: string; paymentMethod: string; totalPrice: number } | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelRefund, setCancelRefund] = useState(false);
   const [hideDeleted, setHideDeleted] = useState(true);
@@ -488,10 +638,11 @@ export function FnbTab() {
         <Gift className="h-3 w-3" /> Free — Reward
       </span>
     );
-    const methodLabel = method === "cash" ? "Cash" : method === "paynow" ? "PayNow" : "Wallet";
+    const methodLabel = method === "cash" ? "Cash" : method === "paynow" ? "PayNow" : method === "charge_to_table" ? "Table Tab" : "Wallet";
     const methodBadgeClass =
       method === "wallet" ? "bg-green-500/10 text-green-400 border-green-500/30"
       : method === "paynow" ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
+      : method === "charge_to_table" ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
       : "bg-blue-500/10 text-blue-400 border-blue-500/30";
     return (
       <span className="inline-flex items-center gap-1.5">
@@ -551,6 +702,7 @@ export function FnbTab() {
       </Card>
 
       <PlaceOrderDialog open={placeOrderOpen} onOpenChange={setPlaceOrderOpen} />
+      <EditPaymentMethodDialog open={!!editPaymentOrder} onOpenChange={(o) => !o && setEditPaymentOrder(null)} order={editPaymentOrder} />
 
       {/* Pause dialog */}
       <Dialog open={pauseOpen} onOpenChange={setPauseOpen}>
@@ -735,6 +887,16 @@ export function FnbTab() {
                         )}
                         <div className="flex items-center gap-2 mt-0.5">
                           {paymentBadge(order.paymentMethod, order.totalPrice, order.createdAt, computeGroupAmount(order), order._id)}
+                          {order.status !== "cancelled" && (EDITABLE_PAYMENT_METHODS as readonly string[]).includes(order.paymentMethod) && (
+                            <button
+                              type="button"
+                              onClick={() => setEditPaymentOrder({ _id: order._id, productName: order.productName, paymentMethod: order.paymentMethod, totalPrice: order.totalPrice })}
+                              className="text-muted-foreground hover:text-foreground"
+                              title="Edit payment method"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                          )}
                           <span className="text-xs text-muted-foreground">· {fmtDateTimeSG(order.createdAt)}</span>
                         </div>
                       </div>
