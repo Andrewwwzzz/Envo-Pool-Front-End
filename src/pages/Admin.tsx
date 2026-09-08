@@ -48,7 +48,7 @@ import { useAdminPublicHolidays } from "@/hooks/usePricing";
 import { useAdminCampaigns } from "@/hooks/useCampaign";
 import { OperatingHoursSection } from "@/components/admin/OperatingHoursSection";
 import { useAdminTransactions, useAdminActivityLogs } from "@/hooks/useAdminLogs";
-import { useAdminGmailPayments } from "@/hooks/useAdmin";
+import { useAdminGmailPayments, useAdminPaynowReconciliation } from "@/hooks/useAdmin";
 import { PayNowVerifyIcon } from "@/components/admin/PayNowVerifyIcon";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -575,7 +575,7 @@ function BookingsTab() {
                         return (
                           <>
                             <Badge variant="outline" className={cls}>{label}</Badge>
-                            <PayNowVerifyIcon paymentMethod={method} amount={amount} timestamp={paidTimestamp} gmailPayments={gmailPayments} />
+                            <PayNowVerifyIcon paymentMethod={method} amount={amount} timestamp={paidTimestamp} gmailPayments={gmailPayments} refType="Booking" refId={b._id || b.id} />
                           </>
                         );
                       })()}
@@ -1388,7 +1388,7 @@ function InvoicesTab() {
                       <td className={`py-3 pr-4 font-medium ${isDeleted ? "line-through text-muted-foreground" : ""}`}>${amount.toFixed(2)}</td>
                       <td className="py-3 pr-4">
                         <Badge variant="outline" className={paymentBadgeClass}>{paymentLabel}</Badge>
-                        <PayNowVerifyIcon paymentMethod={paymentMethod} amount={amount} timestamp={endedAt} gmailPayments={gmailPayments} />
+                        <PayNowVerifyIcon paymentMethod={paymentMethod} amount={amount} timestamp={endedAt} gmailPayments={gmailPayments} refType="TimerSession" refId={s._id || s.id} />
                       </td>
                       <td className="py-3 pr-4">
                         {chargedTo === "Guest" ? (
@@ -4335,10 +4335,124 @@ function GmailTransactionsTable({ payments }: { payments: any[] | undefined }) {
   );
 }
 
+function PaynowReconciliationTable() {
+  const [date, setDate] = useState(getSGDateStr(new Date()));
+  const { data, isLoading } = useAdminPaynowReconciliation(date);
+
+  const matchTypeBadge = (matchType: string) => {
+    if (matchType === "auto") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+    if (matchType === "manual") return "bg-blue-500/10 text-blue-400 border-blue-500/30";
+    return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-2">
+        <Label className="text-sm">Date</Label>
+        <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44 h-9" max={getSGDateStr(new Date())} />
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      ) : !data ? (
+        <p className="text-sm text-muted-foreground">No data for this date.</p>
+      ) : (
+        <>
+          <div>
+            <h4 className="text-sm font-medium mb-2">Incoming PayNow Transfers ({data.transfers.length})</h4>
+            {!data.transfers.length ? (
+              <p className="text-sm text-muted-foreground">No PayNow transfers detected this day.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-muted-foreground">
+                      <th className="py-2 pr-4">Time</th>
+                      <th className="py-2 pr-4">Sender</th>
+                      <th className="py-2 pr-4">Amount</th>
+                      <th className="py-2 pr-4">Reference</th>
+                      <th className="py-2 pr-4">Matched To</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.transfers.map((t: any) => (
+                      <tr key={t.gmailPaymentId} className="border-b border-border/50">
+                        <td className="py-2 pr-4">{fmtTimeSG(t.at)}</td>
+                        <td className="py-2 pr-4">{t.senderName || "—"}</td>
+                        <td className="py-2 pr-4 font-medium">${Number(t.amount).toFixed(2)}</td>
+                        <td className="py-2 pr-4 font-mono text-xs">{t.bankReference || "—"}</td>
+                        <td className="py-2 pr-4">
+                          {t.matched ? (
+                            <span>
+                              {t.matched.label}
+                              <Badge variant="outline" className={`ml-1.5 ${matchTypeBadge(t.matchType)}`}>
+                                {t.matchType === "auto" ? "Auto" : "Manual"}
+                              </Badge>
+                            </span>
+                          ) : (
+                            <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30">
+                              No system charge found
+                            </Badge>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h4 className="text-sm font-medium mb-2">System Charges With No Transfer Found ({data.unmatchedCharges.length})</h4>
+            {!data.unmatchedCharges.length ? (
+              <p className="text-sm text-emerald-500">Every PayNow-paid charge this day matched a transfer.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-muted-foreground">
+                      <th className="py-2 pr-4">Time</th>
+                      <th className="py-2 pr-4">Charge</th>
+                      <th className="py-2 pr-4">Amount</th>
+                      <th className="py-2 pr-4">Resolve</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.unmatchedCharges.map((c: any) => (
+                      <tr key={`${c.refType}-${c.refId}`} className="border-b border-border/50">
+                        <td className="py-2 pr-4">{fmtTimeSG(c.at)}</td>
+                        <td className="py-2 pr-4">{c.label}</td>
+                        <td className="py-2 pr-4 font-medium">
+                          ${Number(c.amount).toFixed(2)}
+                          <PayNowVerifyIcon
+                            paymentMethod="paynow"
+                            amount={c.amount}
+                            timestamp={c.at}
+                            gmailPayments={data.transfers.map((t: any) => ({ _id: t.gmailPaymentId, amount: t.amount, senderName: t.senderName, transactionTimestamp: t.at }))}
+                            refType={c.refType}
+                            refId={c.refId}
+                          />
+                        </td>
+                        <td className="py-2 pr-4 text-xs text-muted-foreground">Click the icon to link or flag</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function TopUpsTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [status, setStatus] = useState<"pending" | "approved" | "rejected" | "all" | "transactions">("pending");
+  const [transactionsView, setTransactionsView] = useState<"all" | "reconciliation">("all");
   const { data: requests } = useAdminTopUps(status, status !== "transactions");
   const { data: gmailPayments } = useAdminGmailPayments(status === "transactions");
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -4468,7 +4582,21 @@ function TopUpsTab() {
         </Tabs>
 
         {status === "transactions" ? (
-          <GmailTransactionsTable payments={gmailPayments} />
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Button size="sm" variant={transactionsView === "all" ? "default" : "outline"} onClick={() => setTransactionsView("all")}>
+                All Payments
+              </Button>
+              <Button size="sm" variant={transactionsView === "reconciliation" ? "default" : "outline"} onClick={() => setTransactionsView("reconciliation")}>
+                Daily Reconciliation
+              </Button>
+            </div>
+            {transactionsView === "all" ? (
+              <GmailTransactionsTable payments={gmailPayments} />
+            ) : (
+              <PaynowReconciliationTable />
+            )}
+          </div>
         ) : !requests?.length ? (
           <p className="text-muted-foreground text-sm">No requests.</p>
         ) : (

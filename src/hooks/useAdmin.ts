@@ -21,6 +21,71 @@ export function useAdminGmailPayments(enabled: boolean) {
   });
 }
 
+// Manual staff overrides for the PayNow verify icon — takes precedence
+// over the automatic amount+time match when present.
+export function useAdminPaynowOverrides(enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin-paynow-overrides"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/transactions/topup/admin/paynow-verifications");
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+    enabled,
+    refetchInterval: 15000,
+  });
+}
+
+export function useSetPaynowOverride() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { refType: "Booking" | "TimerSession" | "FnbOrder"; refId: string; status: "linked" | "confirmed_paid" | "flagged_unpaid"; gmailPaymentId?: string; note?: string }) => {
+      const res = await apiFetch("/api/transactions/topup/admin/paynow-verify", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to save override");
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-paynow-overrides"] });
+      qc.invalidateQueries({ queryKey: ["admin-paynow-reconciliation"] });
+    },
+  });
+}
+
+export function useClearPaynowOverride() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { refType: "Booking" | "TimerSession" | "FnbOrder"; refId: string }) => {
+      const res = await apiFetch("/api/transactions/topup/admin/paynow-verify", {
+        method: "DELETE",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Failed to clear override");
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-paynow-overrides"] });
+      qc.invalidateQueries({ queryKey: ["admin-paynow-reconciliation"] });
+    },
+  });
+}
+
+export function useAdminPaynowReconciliation(date: string | null) {
+  return useQuery({
+    queryKey: ["admin-paynow-reconciliation", date],
+    queryFn: async () => {
+      if (!date) return null;
+      const res = await apiFetch(`/api/transactions/topup/admin/paynow-reconciliation?date=${date}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!date,
+  });
+}
+
 export function useAdminBookings(showDeleted = false) {
   const key = showDeleted ? "admin-bookings-deleted" : "admin-bookings";
   return useQuery({

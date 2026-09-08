@@ -477,7 +477,7 @@ export function FnbTab() {
     return Math.round(group.reduce((sum, o) => sum + (o.totalPrice || 0), 0) * 100) / 100;
   };
 
-  const paymentBadge = (method: string, price: number, orderedAt?: string | Date | null, groupAmount?: number) => {
+  const paymentBadge = (method: string, price: number, orderedAt?: string | Date | null, groupAmount?: number, orderId?: string) => {
     if (method === "free_membership") return (
       <span className="inline-flex items-center gap-1 text-amber-400 text-xs font-medium">
         <Gift className="h-3 w-3" /> Free — Membership
@@ -497,7 +497,7 @@ export function FnbTab() {
       <span className="inline-flex items-center gap-1.5">
         <span className="text-green-400 text-xs font-medium">${price?.toFixed(2)}</span>
         <Badge variant="outline" className={methodBadgeClass}>{methodLabel}</Badge>
-        <PayNowVerifyIcon paymentMethod={method} amount={price} timestamp={orderedAt} gmailPayments={gmailPayments} groupAmount={groupAmount} />
+        <PayNowVerifyIcon paymentMethod={method} amount={price} timestamp={orderedAt} gmailPayments={gmailPayments} groupAmount={groupAmount} refType="FnbOrder" refId={orderId} />
       </span>
     );
   };
@@ -734,7 +734,7 @@ export function FnbTab() {
                           </p>
                         )}
                         <div className="flex items-center gap-2 mt-0.5">
-                          {paymentBadge(order.paymentMethod, order.totalPrice, order.createdAt, computeGroupAmount(order))}
+                          {paymentBadge(order.paymentMethod, order.totalPrice, order.createdAt, computeGroupAmount(order), order._id)}
                           <span className="text-xs text-muted-foreground">· {fmtDateTimeSG(order.createdAt)}</span>
                         </div>
                       </div>
