@@ -48,7 +48,7 @@ import { useAdminPublicHolidays } from "@/hooks/usePricing";
 import { useAdminCampaigns } from "@/hooks/useCampaign";
 import { OperatingHoursSection } from "@/components/admin/OperatingHoursSection";
 import { useAdminTransactions, useAdminActivityLogs } from "@/hooks/useAdminLogs";
-import { useAdminGmailPayments, useAdminPaynowReconciliation } from "@/hooks/useAdmin";
+import { useAdminGmailPayments } from "@/hooks/useAdmin";
 import { PayNowVerifyIcon } from "@/components/admin/PayNowVerifyIcon";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -4283,10 +4283,10 @@ function GmailTransactionsTable({ payments }: { payments: any[] | undefined }) {
     return "bg-muted/40 text-muted-foreground border-border";
   };
   const matchLabel = (status: string) => {
-    if (status === "auto_matched") return "Auto-matched";
-    if (status === "suggested_match") return "Suggested match";
+    if (status === "auto_matched") return "Auto-matched to Top-Up";
+    if (status === "suggested_match") return "Suggested Top-Up";
     if (status === "ambiguous") return "Ambiguous";
-    return "Unmatched";
+    return "No Top-Up Match";
   };
 
   if (!payments?.length) {
@@ -4303,7 +4303,7 @@ function GmailTransactionsTable({ payments }: { payments: any[] | undefined }) {
             <th className="py-2 pr-4">Amount</th>
             <th className="py-2 pr-4">Reference</th>
             <th className="py-2 pr-4">Matched Customer</th>
-            <th className="py-2 pr-4">Match Status</th>
+            <th className="py-2 pr-4">Top-Up Match Status</th>
           </tr>
         </thead>
         <tbody>
@@ -4340,163 +4340,10 @@ function GmailTransactionsTable({ payments }: { payments: any[] | undefined }) {
   );
 }
 
-function PaynowReconciliationTable() {
-  const [date, setDate] = useState(getSGDateStr(new Date()));
-  const [showDetails, setShowDetails] = useState(false);
-  const { data, isLoading } = useAdminPaynowReconciliation(date);
-
-  const matchTypeBadge = (matchType: string) => {
-    if (matchType === "auto") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
-    if (matchType === "manual") return "bg-blue-500/10 text-blue-400 border-blue-500/30";
-    return "bg-amber-500/10 text-amber-400 border-amber-500/30";
-  };
-
-  const t = data?.totals;
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Label className="text-sm">Date</Label>
-        <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44 h-9" max={getSGDateStr(new Date())} />
-        <span className="text-xs text-muted-foreground">00:00 – 23:59 SGT</span>
-      </div>
-
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading...</p>
-      ) : !data || !t ? (
-        <p className="text-sm text-muted-foreground">No data for this date.</p>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="rounded-lg border border-border p-3">
-              <p className="text-xs text-muted-foreground">PayNow Received (Gmail)</p>
-              <p className="text-xl font-semibold mt-1">${t.transfersAmount.toFixed(2)}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{t.transfersCount} transfer{t.transfersCount === 1 ? "" : "s"}</p>
-            </div>
-            <div className="rounded-lg border border-border p-3">
-              <p className="text-xs text-muted-foreground">PayNow Charged (System)</p>
-              <p className="text-xl font-semibold mt-1">${t.systemChargesAmount.toFixed(2)}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{t.systemChargesCount} charge{t.systemChargesCount === 1 ? "" : "s"}</p>
-            </div>
-            <div className={`rounded-lg border p-3 ${t.difference === 0 ? "border-border" : "border-destructive/40 bg-destructive/5"}`}>
-              <p className="text-xs text-muted-foreground">Difference</p>
-              <p className={`text-xl font-semibold mt-1 ${t.difference === 0 ? "text-emerald-500" : "text-destructive"}`}>
-                {t.difference > 0 ? "+" : ""}${t.difference.toFixed(2)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">{t.difference === 0 ? "Fully reconciled" : "Received vs charged"}</p>
-            </div>
-            <div className={`rounded-lg border p-3 ${t.unmatchedTransfersAmount === 0 && t.unmatchedChargesAmount === 0 ? "border-border" : "border-amber-500/40 bg-amber-500/5"}`}>
-              <p className="text-xs text-muted-foreground">Unresolved</p>
-              <p className="text-xl font-semibold mt-1">
-                ${t.unmatchedTransfersAmount.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">in</span> / ${t.unmatchedChargesAmount.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">out</span>
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">{t.unmatchedTransfersCount} unmatched transfer{t.unmatchedTransfersCount === 1 ? "" : "s"} · {t.unmatchedChargesCount} unmatched charge{t.unmatchedChargesCount === 1 ? "" : "s"}</p>
-            </div>
-          </div>
-
-          <Button size="sm" variant="outline" onClick={() => setShowDetails((v) => !v)}>
-            {showDetails ? "Hide transaction details" : "Show transaction details"}
-          </Button>
-        </>
-      )}
-
-      {!isLoading && data && t && showDetails && (
-        <>
-          <div>
-            <h4 className="text-sm font-medium mb-2">Incoming PayNow Transfers ({data.transfers.length})</h4>
-            {!data.transfers.length ? (
-              <p className="text-sm text-muted-foreground">No PayNow transfers detected this day.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left text-muted-foreground">
-                      <th className="py-2 pr-4">Time</th>
-                      <th className="py-2 pr-4">Sender</th>
-                      <th className="py-2 pr-4">Amount</th>
-                      <th className="py-2 pr-4">Reference</th>
-                      <th className="py-2 pr-4">Matched To</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.transfers.map((t: any) => (
-                      <tr key={t.gmailPaymentId} className="border-b border-border/50">
-                        <td className="py-2 pr-4">{fmtTimeSG(t.at)}</td>
-                        <td className="py-2 pr-4">{t.senderName || "—"}</td>
-                        <td className="py-2 pr-4 font-medium">${Number(t.amount).toFixed(2)}</td>
-                        <td className="py-2 pr-4 font-mono text-xs">{t.bankReference || "—"}</td>
-                        <td className="py-2 pr-4">
-                          {t.matched ? (
-                            <span>
-                              {t.matched.label}
-                              <Badge variant="outline" className={`ml-1.5 ${matchTypeBadge(t.matchType)}`}>
-                                {t.matchType === "auto" ? "Auto" : "Manual"}
-                              </Badge>
-                            </span>
-                          ) : (
-                            <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30">
-                              No system charge found
-                            </Badge>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <h4 className="text-sm font-medium mb-2">System Charges With No Transfer Found ({data.unmatchedCharges.length})</h4>
-            {!data.unmatchedCharges.length ? (
-              <p className="text-sm text-emerald-500">Every PayNow-paid charge this day matched a transfer.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left text-muted-foreground">
-                      <th className="py-2 pr-4">Time</th>
-                      <th className="py-2 pr-4">Charge</th>
-                      <th className="py-2 pr-4">Amount</th>
-                      <th className="py-2 pr-4">Resolve</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.unmatchedCharges.map((c: any) => (
-                      <tr key={`${c.refType}-${c.refId}`} className="border-b border-border/50">
-                        <td className="py-2 pr-4">{fmtTimeSG(c.at)}</td>
-                        <td className="py-2 pr-4">{c.label}</td>
-                        <td className="py-2 pr-4 font-medium">
-                          ${Number(c.amount).toFixed(2)}
-                          <PayNowVerifyIcon
-                            paymentMethod="paynow"
-                            amount={c.amount}
-                            timestamp={c.at}
-                            gmailPayments={data.transfers.map((t: any) => ({ _id: t.gmailPaymentId, amount: t.amount, senderName: t.senderName, transactionTimestamp: t.at }))}
-                            refType={c.refType}
-                            refId={c.refId}
-                          />
-                        </td>
-                        <td className="py-2 pr-4 text-xs text-muted-foreground">Click the icon to link or flag</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 function TopUpsTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [status, setStatus] = useState<"pending" | "approved" | "rejected" | "all" | "transactions">("pending");
-  const [transactionsView, setTransactionsView] = useState<"all" | "reconciliation">("all");
   const { data: requests } = useAdminTopUps(status, status !== "transactions");
   const { data: gmailPayments } = useAdminGmailPayments(status === "transactions");
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -4626,21 +4473,12 @@ function TopUpsTab() {
         </Tabs>
 
         {status === "transactions" ? (
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              <Button size="sm" variant={transactionsView === "all" ? "default" : "outline"} onClick={() => setTransactionsView("all")}>
-                All Payments
-              </Button>
-              <Button size="sm" variant={transactionsView === "reconciliation" ? "default" : "outline"} onClick={() => setTransactionsView("reconciliation")}>
-                Daily Reconciliation
-              </Button>
-            </div>
-            {transactionsView === "all" ? (
-              <GmailTransactionsTable payments={gmailPayments} />
-            ) : (
-              <PaynowReconciliationTable />
-            )}
-          </div>
+          <>
+            <p className="text-xs text-muted-foreground mb-2">
+              "Top-Up Match Status" only checks whether a transfer was linked to a top-up request — a transfer that directly paid for a booking, invoice, or F&B order will always show "No Top-Up Match" here even though it's fully accounted for. Check the PayNow icon next to that charge instead.
+            </p>
+            <GmailTransactionsTable payments={gmailPayments} />
+          </>
         ) : !requests?.length ? (
           <p className="text-muted-foreground text-sm">No requests.</p>
         ) : (

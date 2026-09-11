@@ -51,7 +51,6 @@ export function useSetPaynowOverride() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-paynow-overrides"] });
-      qc.invalidateQueries({ queryKey: ["admin-paynow-reconciliation"] });
     },
   });
 }
@@ -68,22 +67,7 @@ export function useClearPaynowOverride() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-paynow-overrides"] });
-      qc.invalidateQueries({ queryKey: ["admin-paynow-reconciliation"] });
     },
-  });
-}
-
-export function useAdminPaynowReconciliation(date: string | null) {
-  return useQuery({
-    queryKey: ["admin-paynow-reconciliation", date],
-    queryFn: async () => {
-      if (!date) return null;
-      const res = await apiFetch(`/api/transactions/topup/admin/paynow-reconciliation?date=${date}`);
-      if (!res.ok) return null;
-      return res.json();
-    },
-    enabled: !!date,
-    refetchInterval: 15000,
   });
 }
 
