@@ -110,7 +110,7 @@ export default function TablesTab() {
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
   const [bookingCountdown, setBookingCountdown] = useState<Record<string, number>>({});
   const [walkinElapsed, setWalkinElapsed] = useState<Record<string, number>>({});
-  const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number; grossCost?: number; discountPercent?: number; paymentMethod?: "cash" | "paynow" | "wallet"; customerName?: string }>>({});
+  const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number; grossCost?: number; discountPercent?: number; paymentMethod?: "cash" | "paynow" | "wallet"; customerName?: string; fnbTotal?: number }>>({});
   const { data: pricingRules = [] } = usePricingRules();
   const phDates = usePublicHolidaySet();
   const [hourlyRate, setHourlyRate] = useState("");
@@ -234,7 +234,7 @@ export default function TablesTab() {
     setBookTarget(tableId);
   };
 
-  const onTableClosed = (tableId: string, info: { seconds: number; cost: number; grossCost: number; discountPercent: number; paymentMethod: "cash" | "paynow" | "wallet"; customerName: string }) => {
+  const onTableClosed = (tableId: string, info: { seconds: number; cost: number; grossCost: number; discountPercent: number; paymentMethod: "cash" | "paynow" | "wallet"; customerName: string; fnbTotal?: number }) => {
     setCompletedSessions((prev) => ({ ...prev, [tableId]: info }));
   };
 
@@ -501,6 +501,7 @@ export default function TablesTab() {
                           : session.paymentMethod === "paynow"
                           ? "Paid via PayNow"
                           : `Paid via ${session.customerName || "customer"}'s wallet`}
+                        {(session.fnbTotal ?? 0) > 0 && <> (incl. ${session.fnbTotal!.toFixed(2)} F&B charged to table)</>}
                       </p>
                     </div>
                   )}
@@ -650,7 +651,7 @@ function CloseTableDialog({
   closeTarget: string | null;
   stopTimer: ReturnType<typeof useAdminTables>["stopTimer"];
   onOpenChange: (open: boolean) => void;
-  onClosed: (tableId: string, info: { seconds: number; cost: number; grossCost: number; discountPercent: number; paymentMethod: "cash" | "paynow" | "wallet"; customerName: string }) => void;
+  onClosed: (tableId: string, info: { seconds: number; cost: number; grossCost: number; discountPercent: number; paymentMethod: "cash" | "paynow" | "wallet"; customerName: string; fnbTotal?: number }) => void;
 }) {
   const { toast } = useToast();
   const [discountInput, setDiscountInput] = useState("0");
@@ -741,7 +742,7 @@ function CloseTableDialog({
     const tableId = closeTarget;
     const startedAt = startedAtISO!;
 
-    onClosed(tableId, { seconds, cost: finalCost, grossCost: gross, discountPercent: discountPct, paymentMethod, customerName });
+    onClosed(tableId, { seconds, cost: finalCost, grossCost: gross, discountPercent: discountPct, paymentMethod, customerName, fnbTotal });
 
     stopTimer.mutate(
       {
@@ -771,7 +772,7 @@ function CloseTableDialog({
           // the Invoice tab instead of the pre-submission guess.
           const actualCost = typeof data?.amountCharged === "number" ? data.amountCharged : finalCost;
           const actualGross = typeof data?.grossAmount === "number" ? data.grossAmount : gross;
-          onClosed(tableId, { seconds, cost: actualCost, grossCost: actualGross, discountPercent: discountPct, paymentMethod, customerName });
+          onClosed(tableId, { seconds, cost: actualCost, grossCost: actualGross, discountPercent: discountPct, paymentMethod, customerName, fnbTotal });
           const methodLabel = paymentMethod === "wallet" ? `charged to ${customerName || "customer"}'s wallet` : `paid via ${paymentMethod === "paynow" ? "PayNow" : "cash"}`;
           const memberNote = data?.membershipDiscountAmount > 0 || data?.freeMinutesCredit > 0
             ? ` (member discount applied)`

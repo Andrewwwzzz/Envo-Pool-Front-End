@@ -778,6 +778,11 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
   const manualDiscountPercent = Number(s.discountPercent ?? s.discount_percent ?? 0);
   const manualDiscountAmount = Number(s.discountAmount ?? s.discount_amount ?? 0);
   const hasManualDiscount = !isActive && manualDiscountAmount > 0;
+  // F&B ordered "charge to table" during this session, rolled into the same
+  // final bill — shown here so staff can see exactly which orders were
+  // actually paid as part of this invoice vs. still outstanding elsewhere.
+  const fnbTotal = Number(s.fnbTotal ?? s.fnb_total ?? 0);
+  const fnbOrders: any[] = Array.isArray(s.fnbOrderIds) ? s.fnbOrderIds.filter((o: any) => o && typeof o === "object") : [];
   const hasDiscountBreakdown = !isActive && (membershipDiscountAmount > 0 || freeMinutesCredit > 0 || hasManualDiscount);
   const staff = s.startedBy?.name || s.startedBy?.email || "—";
   // Who the charge belongs to — walk-in sessions are always a real logged-in
@@ -938,6 +943,12 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                   <span className="text-muted-foreground">Total duration</span>
                   <span className="tabular-nums">{durationLabel}</span>
                 </div>
+                {fnbTotal > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">F&amp;B charged to table</span>
+                    <span className="tabular-nums">${fnbTotal.toFixed(2)}</span>
+                  </div>
+                )}
                 {hasDiscountBreakdown && (
                   <>
                     <div className="flex justify-between">
@@ -980,6 +991,12 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                   <span className="text-muted-foreground">Duration</span>
                   <span className="tabular-nums">{durationLabel}</span>
                 </div>
+                {fnbTotal > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">F&amp;B charged to table</span>
+                    <span className="tabular-nums">${fnbTotal.toFixed(2)}</span>
+                  </div>
+                )}
                 <Separator className="bg-border/50 my-1" />
                 {hasDiscountBreakdown && (
                   <>
@@ -1145,6 +1162,34 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
               );
             })()}
           </section>
+
+          {fnbOrders.length > 0 && (
+            <>
+              <Separator className="bg-border/50" />
+              <section className="space-y-2">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">F&amp;B Charged to Table</h3>
+                <div className="rounded-md border border-border/50 divide-y divide-border/50 text-sm">
+                  {fnbOrders.map((o: any) => (
+                    <div key={o._id || o.id} className="flex items-center justify-between px-3 py-1.5">
+                      <span>
+                        {o.productName}
+                        {o.quantity > 1 ? ` x${o.quantity}` : ""}
+                        {o.status === "cancelled" && (
+                          <Badge variant="outline" className="ml-1.5 bg-destructive/10 text-destructive border-destructive/30 text-[10px] py-0 px-1.5">Cancelled</Badge>
+                        )}
+                      </span>
+                      <span className="tabular-nums text-muted-foreground">${Number(o.totalPrice ?? 0).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {isDeleted
+                    ? "This invoice was deleted — these orders' payment status may need separate review."
+                    : "These orders were settled together with this invoice — paid in full as part of the total above."}
+                </p>
+              </section>
+            </>
+          )}
 
           <Separator className="bg-border/50" />
 
