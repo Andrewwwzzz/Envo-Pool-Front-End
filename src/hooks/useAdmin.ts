@@ -178,6 +178,26 @@ export function useDeleteBooking() {
   });
 }
 
+// Exact time-of-day segmented price for a running session, computed by the
+// same function stop-timer bills with for real — used by the Close Table /
+// Book Now dialogs so the amount shown to staff (and quoted to a PayNow
+// customer) doesn't diverge from a flat-rate guess whenever the session
+// crosses a peak/off-peak boundary. Query key buckets durationSeconds to
+// the nearest 5s so the live elapsed-seconds ticker doesn't refetch every
+// single second.
+export function useSessionPreviewCost(startedAt: string | null, durationSeconds: number, enabled: boolean) {
+  const bucket = Math.floor(durationSeconds / 5);
+  return useQuery({
+    queryKey: ["session-preview-cost", startedAt, bucket],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/sessions/preview-cost?startedAt=${encodeURIComponent(startedAt!)}&durationSeconds=${durationSeconds}`);
+      if (!res.ok) return null;
+      return res.json() as Promise<{ segments: any[]; total: number }>;
+    },
+    enabled: enabled && !!startedAt && durationSeconds > 0,
+  });
+}
+
 export function useAdminTables() {
   const queryClient = useQueryClient();
   const { toast } = useToast();

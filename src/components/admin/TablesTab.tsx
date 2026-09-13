@@ -11,6 +11,7 @@ import {
   useDeleteMaintenance,
   useBulkScheduleMaintenance,
   useBookTableNow,
+  useSessionPreviewCost,
 } from "@/hooks/useAdmin";
 import { useActiveWalkinSessions } from "@/hooks/useWalkin";
 import { useTablePendingFnb } from "@/hooks/useFnb";
@@ -694,7 +695,19 @@ function CloseTableDialog({
   const defaultRate = table?.hourly_rate ?? rate;
   const tableRate = rateInput === "" ? defaultRate : (Number(rateInput) || 0);
   const seconds = closeTarget ? (elapsed[closeTarget] ?? 0) : 0;
-  const gross = Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
+  const startedAtISO = closeTarget
+    ? (table?.timer_started_at ? new Date(table.timer_started_at).toISOString() : new Date(Date.now() - seconds * 1000).toISOString())
+    : null;
+  // When billing via time-of-day pricing (no manual rate override), fetch
+  // the exact segmented total live instead of guessing with a flat rate for
+  // the whole session — a flat guess silently diverges once the session
+  // crosses a peak/off-peak boundary, which was causing staff to
+  // quote/collect the wrong PayNow amount from customers before this fix.
+  const useLivePreview = rateInput === "";
+  const { data: preview } = useSessionPreviewCost(startedAtISO, seconds, !!closeTarget && useLivePreview);
+  const gross = useLivePreview && typeof preview?.total === "number"
+    ? preview.total
+    : Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
   // Preview only — the real amount (which also accounts for free minutes,
   // time-of-day gating, etc.) is computed server-side on confirm.
   const membershipPct = applyMembershipDiscount ? (activeMembership?.discountPercent || 0) : 0;
@@ -726,9 +739,7 @@ function CloseTableDialog({
       return;
     }
     const tableId = closeTarget;
-    const startedAt = table?.timer_started_at
-      ? new Date(table.timer_started_at).toISOString()
-      : new Date(Date.now() - seconds * 1000).toISOString();
+    const startedAt = startedAtISO!;
 
     onClosed(tableId, { seconds, cost: finalCost, grossCost: gross, discountPercent: discountPct, paymentMethod, customerName });
 
@@ -751,8 +762,16 @@ function CloseTableDialog({
       {
         onSuccess: (data: any) => {
           // Use the server-computed amount — it's the authoritative figure
-          // once free minutes / membership % / manual % are all combined.
+          // once free minutes / membership % / manual % / time-of-day
+          // segments are all combined. The estimate passed to onClosed()
+          // above (before this request even went out) used a flat rate for
+          // the whole session, so it silently diverges from this whenever
+          // the session crossed a peak/off-peak pricing boundary — correct
+          // the persisted "Session Complete" card here so it always matches
+          // the Invoice tab instead of the pre-submission guess.
           const actualCost = typeof data?.amountCharged === "number" ? data.amountCharged : finalCost;
+          const actualGross = typeof data?.grossAmount === "number" ? data.grossAmount : gross;
+          onClosed(tableId, { seconds, cost: actualCost, grossCost: actualGross, discountPercent: discountPct, paymentMethod, customerName });
           const methodLabel = paymentMethod === "wallet" ? `charged to ${customerName || "customer"}'s wallet` : `paid via ${paymentMethod === "paynow" ? "PayNow" : "cash"}`;
           const memberNote = data?.membershipDiscountAmount > 0 || data?.freeMinutesCredit > 0
             ? ` (member discount applied)`
@@ -778,12 +797,12 @@ function CloseTableDialog({
           <DialogDescription>
             {closeTarget && (
               <>
-                Table {table?.table_number} · {seconds}s @ ${tableRate}/hr{rateInput === "" ? " (est.)" : ""} — gross ${gross.toFixed(2)}
+                Table {table?.table_number} · {seconds}s @ ${tableRate}/hr{useLivePreview && !preview ? " (fetching exact price...)" : ""} — gross ${gross.toFixed(2)}
                 {membershipPct > 0 && <> · member {membershipPct}% off: ${afterMembership.toFixed(2)}</>}
                 {discountPct > 0 && <> · after {discountPct}% off: ${timeChargeExact.toFixed(2)}</>}
                 {fnbTotal > 0 && <> + F&B ${fnbTotal.toFixed(2)}</>}
                 {(discountPct > 0 || fnbTotal > 0) && <> — total: <strong>${finalCost.toFixed(2)}</strong></>}
-                {rateInput === "" && <> · final amount is billed per actual time-of-day pricing, split across any peak/off-peak boundary the session crossed</>}
+                {useLivePreview && preview && <> · billed at exact time-of-day pricing, correctly split across any peak/off-peak boundary this session crossed</>}
               </>
             )}
           </DialogDescription>
@@ -1006,7 +1025,15 @@ function BookNowDialog({
   const currentRate = getCurrentHourlyRate(pricingRules, phDates);
   const rate = rateInput === "" ? currentRate : Math.max(0, parseFloat(rateInput) || 0);
 
-  const gross = Math.round((durationMinutes / 60) * rate * 100) / 100;
+  // Bucketed to the nearest 30s so this doesn't refetch on every render —
+  // "now" only needs to be roughly right for a preview of a booking that's
+  // about to start.
+  const previewStart = new Date(Math.floor(Date.now() / 30000) * 30000).toISOString();
+  const useLivePreview = rateInput === "";
+  const { data: preview } = useSessionPreviewCost(previewStart, durationMinutes * 60, !!bookTarget && useLivePreview && durationMinutes > 0);
+  const gross = useLivePreview && typeof preview?.total === "number"
+    ? preview.total
+    : Math.round((durationMinutes / 60) * rate * 100) / 100;
   // Preview only — the real amount (which also accounts for free minutes,
   // time-of-day gating, etc.) is computed server-side on confirm.
   const membershipPct = applyMembershipDiscount ? (activeMembership?.discountPercent || 0) : 0;
@@ -1129,7 +1156,7 @@ function BookNowDialog({
 
           <div className="rounded-md border border-border px-3 py-2 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Estimated price{rateInput === "" ? " (est.)" : ""}</span>
+              <span className="text-muted-foreground">{useLivePreview ? (preview ? "Exact price" : "Price (fetching exact...)") : "Price"}</span>
               <span className="font-medium">${gross.toFixed(2)}</span>
             </div>
             {membershipPct > 0 && (
