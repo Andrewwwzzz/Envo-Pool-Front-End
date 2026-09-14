@@ -655,6 +655,8 @@ export function FnbTab() {
 
   // derived analytics
   const paidRevenue = analytics?.paidRevenue ?? analytics?.revenue ?? 0;
+  const chargedToTableRevenue = analytics?.chargedToTableRevenue ?? 0;
+  const directRevenue = analytics?.directRevenue ?? Math.max(0, paidRevenue - chargedToTableRevenue);
   const freeCount = analytics?.freeCount ?? 0;
   const freeCostValue = analytics?.freeCostValue ?? 0;
   const paidCount = analytics?.paidCount ?? analytics?.orderCount ?? 0;
@@ -776,6 +778,12 @@ export function FnbTab() {
             </div>
             <p className="text-xl font-bold text-accent">${paidRevenue.toFixed(2)}</p>
             <p className="text-xs text-muted-foreground mt-1">{paidCount} paid orders</p>
+            {chargedToTableRevenue > 0 && (
+              <p className="text-[11px] text-muted-foreground mt-1.5 pt-1.5 border-t border-border/50">
+                ${directRevenue.toFixed(2)} at counter · ${chargedToTableRevenue.toFixed(2)} charged to table
+                <span className="block text-amber-400/90">already in Cash Count — don't add again</span>
+              </p>
+            )}
           </CardContent>
         </Card>
 
