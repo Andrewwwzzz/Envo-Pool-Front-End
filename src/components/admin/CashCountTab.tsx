@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
+import { fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
 import { Wallet, CheckCircle2, AlertTriangle, History, Pencil, Trash2, RotateCcw } from "lucide-react";
 
 type Phase = "opening" | "closing";
@@ -45,6 +46,54 @@ function useCashCountContext(phase: Phase, shiftType: ShiftType, date: string, e
   });
 }
 
+function useCashCountChecklist() {
+  return useQuery({
+    queryKey: ["cashcount-checklist"],
+    queryFn: async () => {
+      const r = await apiFetch(`/api/cashcount/checklist`);
+      if (!r.ok) throw new Error(await r.text());
+      return r.json() as Promise<{ date: string; slots: { shiftType: ShiftType; phase: Phase; filled: boolean; submittedBy: string | null; submittedAt: string | null; discrepancy: number | null }[] }>;
+    },
+    refetchInterval: 60000,
+  });
+}
+
+function CashCountChecklist() {
+  const { data } = useCashCountChecklist();
+  if (!data) return null;
+  const missing = data.slots.filter((s) => !s.filled);
+
+  return (
+    <Card className={missing.length > 0 ? "border-amber-500/40 bg-amber-950/10" : "border-emerald-500/40 bg-emerald-950/10"}>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-medium">Today's Shifts — {data.date}</p>
+          {missing.length === 0 ? (
+            <Badge variant="outline" className="bg-emerald-500/15 text-emerald-500 border-emerald-500/40">All 4 logged</Badge>
+          ) : (
+            <Badge variant="outline" className="bg-amber-500/15 text-amber-400 border-amber-500/40">{missing.length} missing</Badge>
+          )}
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {data.slots.map((s) => (
+            <div key={`${s.shiftType}-${s.phase}`} className={`rounded-md border p-2 text-xs ${s.filled ? "border-border/50 bg-muted/20" : "border-amber-500/40 bg-amber-950/20"}`}>
+              <div className="capitalize font-medium">{s.shiftType} {s.phase}</div>
+              {s.filled ? (
+                <div className="text-muted-foreground mt-0.5">
+                  {s.submittedBy || "Logged"}
+                  {s.submittedAt && <span className="block">{fmtTimeSG(s.submittedAt)}</span>}
+                </div>
+              ) : (
+                <div className="text-amber-400 mt-0.5">Not logged</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function useCashCountHistory(showDeleted: boolean) {
   return useQuery<any[]>({
     queryKey: ["cashcount-history", showDeleted],
@@ -68,6 +117,7 @@ function useSubmitCashCount() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cashcount-context"] });
       qc.invalidateQueries({ queryKey: ["cashcount-history"] });
+      qc.invalidateQueries({ queryKey: ["cashcount-checklist"] });
     },
   });
 }
@@ -84,6 +134,7 @@ function useEditCashCount() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cashcount-context"] });
       qc.invalidateQueries({ queryKey: ["cashcount-history"] });
+      qc.invalidateQueries({ queryKey: ["cashcount-checklist"] });
     },
   });
 }
@@ -98,6 +149,7 @@ function useDeleteCashCount() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cashcount-context"] });
       qc.invalidateQueries({ queryKey: ["cashcount-history"] });
+      qc.invalidateQueries({ queryKey: ["cashcount-checklist"] });
     },
   });
 }
@@ -112,6 +164,7 @@ function useRestoreCashCount() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cashcount-context"] });
       qc.invalidateQueries({ queryKey: ["cashcount-history"] });
+      qc.invalidateQueries({ queryKey: ["cashcount-checklist"] });
     },
   });
 }
@@ -427,7 +480,12 @@ function CashCountHistory({ isMaster }: { isMaster: boolean }) {
                   const tallies = Math.abs(e.discrepancy) < 0.01;
                   return (
                     <tr key={e._id}>
-                      <td className="py-2 pr-4 whitespace-nowrap">{e.date}</td>
+                      <td className="py-2 pr-4 whitespace-nowrap">
+                        {e.date}
+                        {e.createdAt && (
+                          <div className="text-[10px] text-muted-foreground">{fmtTimeSG(e.createdAt)}</div>
+                        )}
+                      </td>
                       <td className="py-2 pr-4 capitalize">{e.shiftType}</td>
                       <td className="py-2 pr-4 capitalize">{e.phase}</td>
                       <td className="py-2 pr-4 text-right font-mono">
@@ -459,7 +517,7 @@ function CashCountHistory({ isMaster }: { isMaster: boolean }) {
                       <td className="py-2 pr-4 text-muted-foreground whitespace-nowrap">
                         {e.submittedBy?.name || e.submittedBy?.username || "—"}
                         {e.editedBy && (
-                          <div className="text-[10px]" title={e.editedAt ? new Date(e.editedAt).toLocaleString("en-SG") : ""}>
+                          <div className="text-[10px]" title={e.editedAt ? fmtDateTimeSG(e.editedAt) : ""}>
                             edited by {e.editedBy?.name || e.editedBy?.username}
                           </div>
                         )}
@@ -518,6 +576,7 @@ export function CashCountTab() {
 
   return (
     <div className="space-y-6">
+      <CashCountChecklist />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <CashCountCard phase="opening" />
         <CashCountCard phase="closing" />
