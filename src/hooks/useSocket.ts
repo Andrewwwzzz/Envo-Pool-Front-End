@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { io, Socket } from "socket.io-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 const SOCKET_URL = "https://api.envopoolsg.com";
 
@@ -123,6 +124,19 @@ export function useSocket() {
       console.log("Socket: walkin_booking_conflict_admin", payload);
       invalidateWalkin();
       window.dispatchEvent(new CustomEvent("walkin_booking_conflict_admin", { detail: payload }));
+    });
+
+    // Staff/admin only — server only emits this into the "staff" room
+    // (see server.js socket connection handler), so a customer's socket
+    // never receives it even though this listener is registered globally.
+    socket.on("fnb_low_stock", (payload: any) => {
+      console.log("Socket: fnb_low_stock", payload);
+      toast({
+        title: "Low stock",
+        description: `${payload?.productName} is down to ${payload?.stock} (alert at ${payload?.lowStockThreshold})`,
+        variant: "destructive",
+      });
+      queryClient.invalidateQueries({ queryKey: ["fnb-menu-admin"] });
     });
 
     socket.on("disconnect", (reason) => {
