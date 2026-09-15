@@ -217,7 +217,7 @@ export default function TablesTab() {
       delete copy[tableId];
       return copy;
     });
-    startTimer.mutate({ tableId, hourlyRate: rate });
+    startTimer.mutate({ tableId, hourlyRate: rate, isManualRate: rateTouched });
   };
 
   // Close-table dialog — table id currently being closed (dialog owns its own state)
@@ -675,12 +675,15 @@ function CloseTableDialog({
   useEffect(() => {
     if (closeTarget) {
       setDiscountInput("0");
-      const defaultRate = tables.find((tb) => tb.id === closeTarget)?.hourly_rate ?? rate;
+      const openedTable = tables.find((tb) => tb.id === closeTarget);
       // Empty = bill via the actual time-of-day pricing across the whole
       // session (correctly split across any peak/off-peak boundary the
-      // session crossed) — only set a number here if staff wants to
-      // override with one flat rate for the entire duration instead.
-      setRateInput("");
+      // session crossed). But if this table was opened with a deliberate
+      // manual rate override (e.g. a $9/hr comp rate that doesn't match any
+      // real pricing rule), pre-fill it here — otherwise leaving this blank
+      // silently re-prices the whole session at today's live rate instead
+      // of the rate staff actually opened it at.
+      setRateInput(openedTable?.is_manual_rate && openedTable.hourly_rate > 0 ? String(openedTable.hourly_rate) : "");
       setPaymentMethod("wallet");
       setCustomerId("");
       setCustomerSearch("");
@@ -835,7 +838,9 @@ function CloseTableDialog({
               placeholder={`Auto (${defaultRate}/hr right now)`}
             />
             <p className="text-xs text-muted-foreground">
-              Leave blank to bill the actual time-of-day pricing for the whole session (correctly split if it crossed a peak/off-peak boundary). Only set a number to force one flat rate for the entire session instead.
+              {table?.is_manual_rate
+                ? `This table was opened at a custom $${table.hourly_rate.toFixed(2)}/hr rate — pre-filled so it's honored for the whole session. Clear it to bill time-of-day pricing instead.`
+                : "Leave blank to bill the actual time-of-day pricing for the whole session (correctly split if it crossed a peak/off-peak boundary). Only set a number to force one flat rate for the entire session instead."}
             </p>
           </div>
 

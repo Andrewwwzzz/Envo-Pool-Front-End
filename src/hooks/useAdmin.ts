@@ -213,6 +213,7 @@ export function useAdminTables() {
         table_number: t.tableNumber ?? t.table_number,
         hardware_id: t.hardwareId ?? t.hardware_id ?? null,
         hourly_rate: t.timerHourlyRate ?? t.hourlyRate ?? t.hourly_rate ?? t.basePrice ?? 0,
+        is_manual_rate: t.timerHourlyRateManual ?? false,
         status: t.liveStatus ?? t.status ?? "available",
         timer_started_at: t.timerStartedAt ?? t.timer_started_at ?? null,
         last_seen: t.lastSeen ?? t.last_seen ?? null,
@@ -243,10 +244,10 @@ export function useAdminTables() {
   });
 
   const startTimer = useMutation({
-    mutationFn: async ({ tableId, hourlyRate }: { tableId: string; hourlyRate: number }) => {
+    mutationFn: async ({ tableId, hourlyRate, isManualRate }: { tableId: string; hourlyRate: number; isManualRate?: boolean }) => {
       const res = await apiFetch(`/api/admin/tables/${tableId}/start-timer`, {
         method: "POST",
-        body: JSON.stringify({ hourlyRate }),
+        body: JSON.stringify({ hourlyRate, isManualRate: !!isManualRate }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
