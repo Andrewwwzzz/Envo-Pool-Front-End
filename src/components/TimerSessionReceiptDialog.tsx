@@ -42,6 +42,11 @@ const TimerSessionReceiptDialog = ({ session, open, onOpenChange }: Props) => {
   const amount = Number(t.amountCharged ?? 0);
   const discountPercent = Number(t.discountPercent ?? 0);
   const discountAmount = Number(t.discountAmount ?? 0);
+  const membershipDiscountPercent = Number(t.membershipDiscountPercent ?? 0);
+  const membershipDiscountAmount = Number(t.membershipDiscountAmount ?? 0);
+  const freeMinutesCredit = Number(t.freeMinutesCredit ?? 0);
+  const freeMinutesApplied = Number(t.freeMinutesApplied ?? 0);
+  const subtotal = Number(t.grossAmount ?? (amount + discountAmount + membershipDiscountAmount + freeMinutesCredit));
   const label = t.tableName || resolveTableLabel(t.tableId, tables as any) || "Table ?";
 
   const handleCopyId = async () => {
@@ -121,8 +126,20 @@ const TimerSessionReceiptDialog = ({ session, open, onOpenChange }: Props) => {
           <section className="space-y-1.5 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Subtotal</span>
-              <span className="font-medium tabular-nums">${(amount + discountAmount).toFixed(2)}</span>
+              <span className="font-medium tabular-nums">${subtotal.toFixed(2)}</span>
             </div>
+            {freeMinutesCredit > 0 && (
+              <div className="flex items-center justify-between text-primary">
+                <span>Free {freeMinutesApplied > 0 ? `${freeMinutesApplied} ` : ""}mins (membership benefit)</span>
+                <span className="tabular-nums">−${freeMinutesCredit.toFixed(2)}</span>
+              </div>
+            )}
+            {membershipDiscountAmount > 0 && (
+              <div className="flex items-center justify-between text-primary">
+                <span>Membership discount{membershipDiscountPercent > 0 ? ` (${Math.round(membershipDiscountPercent)}% off)` : ""}</span>
+                <span className="tabular-nums">−${membershipDiscountAmount.toFixed(2)}</span>
+              </div>
+            )}
             {discountAmount > 0 && (
               <div className="flex items-center justify-between text-emerald-500">
                 <span>Discount{discountPercent > 0 ? ` (${Math.round(discountPercent)}%)` : ""}</span>
