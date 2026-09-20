@@ -24,11 +24,12 @@ interface CountValues {
   reason: string;
   overrideExpected: boolean;
   expectedOverride: string;
+  bypassPrerequisite: boolean;
 }
 
 const EMPTY_VALUES: CountValues = {
   shiftType: "morning", date: "", counted: "", cashAfterMidnight: "", reason: "",
-  overrideExpected: false, expectedOverride: "",
+  overrideExpected: false, expectedOverride: "", bypassPrerequisite: false,
 };
 
 function useCashCountContext(phase: Phase, shiftType: ShiftType, date: string, excludeId?: string) {
@@ -178,6 +179,7 @@ function CashCountForm({
   onChange,
   excludeId,
   allowOverride,
+  canBypassPrerequisite,
   onSubmit,
   submitLabel,
   isPending,
@@ -187,12 +189,13 @@ function CashCountForm({
   onChange: (v: CountValues) => void;
   excludeId?: string;
   allowOverride?: boolean;
+  canBypassPrerequisite?: boolean;
   onSubmit: (payload: Record<string, unknown>) => Promise<void>;
   submitLabel: string;
   isPending: boolean;
 }) {
   const { toast } = useToast();
-  const { shiftType, date, counted, cashAfterMidnight, reason, overrideExpected, expectedOverride } = values;
+  const { shiftType, date, counted, cashAfterMidnight, reason, overrideExpected, expectedOverride, bypassPrerequisite } = values;
   const isNightClosing = phase === "closing" && shiftType === "night";
 
   const { data: context, isLoading: contextLoading } = useCashCountContext(phase, shiftType, date, excludeId);
@@ -222,6 +225,10 @@ function CashCountForm({
       toast({ title: "There's a discrepancy — please write down the reason", variant: "destructive" });
       return;
     }
+    if (bypassPrerequisite && !reason.trim()) {
+      toast({ title: "Bypassing shift order requires a reason", description: "Note why the earlier entry is missing", variant: "destructive" });
+      return;
+    }
     await onSubmit({
       shiftType,
       countedAmount: countedNum,
@@ -229,6 +236,7 @@ function CashCountForm({
       ...(date ? { date } : {}),
       ...(isNightClosing && cashAfterMidnight.trim() !== "" ? { cashAfterMidnight: parseFloat(cashAfterMidnight) } : {}),
       ...(hasValidOverride ? { expectedAmountOverride: parseFloat(expectedOverride) } : {}),
+      ...(canBypassPrerequisite && bypassPrerequisite ? { bypassPrerequisite: true } : {}),
     });
   };
 
@@ -248,7 +256,7 @@ function CashCountForm({
         </div>
       </div>
 
-      {phase === "closing" && (
+      {(phase === "closing" || canBypassPrerequisite) && (
         <div className="space-y-1.5">
           <Label>Business Date <span className="text-muted-foreground text-xs">(the day this shift's sales count toward)</span></Label>
           <Input type="date" value={date || context?.date || ""} onChange={(e) => set({ date: e.target.value })} />
@@ -330,6 +338,21 @@ function CashCountForm({
         </div>
       )}
 
+      {canBypassPrerequisite && (
+        <div className="space-y-1.5 rounded-lg border border-amber-500/30 bg-amber-950/10 p-3">
+          <label className="flex items-center gap-2 text-xs">
+            <Checkbox checked={bypassPrerequisite} onCheckedChange={(v) => set({ bypassPrerequisite: v === true })} />
+            Bypass shift order (admin/master only)
+          </label>
+          <p className="text-[11px] text-muted-foreground">
+            Use this to backfill a missed entry out of order — e.g. staff forgot to log a morning closing and night shift is stuck. Requires a reason.
+          </p>
+          {bypassPrerequisite && (
+            <Input placeholder="Why is the earlier entry missing?" value={reason} onChange={(e) => set({ reason: e.target.value })} />
+          )}
+        </div>
+      )}
+
       <Button onClick={handleSubmit} disabled={isPending || !hasCounted} className="w-full">
         {isPending ? "Saving..." : submitLabel}
       </Button>
@@ -337,7 +360,7 @@ function CashCountForm({
   );
 }
 
-function CashCountCard({ phase }: { phase: Phase }) {
+function CashCountCard({ phase, canBypassPrerequisite }: { phase: Phase; canBypassPrerequisite: boolean }) {
   const { toast } = useToast();
   const [values, setValues] = useState<CountValues>(EMPTY_VALUES);
   const submit = useSubmitCashCount();
@@ -357,6 +380,7 @@ function CashCountCard({ phase }: { phase: Phase }) {
           phase={phase}
           values={values}
           onChange={setValues}
+          canBypassPrerequisite={canBypassPrerequisite}
           submitLabel="Submit"
           isPending={submit.isPending}
           onSubmit={async (payload) => {
@@ -393,6 +417,7 @@ function EditCashCountDialog({ entry, onClose }: { entry: any | null; onClose: (
         reason: entry.reason || "",
         overrideExpected: !!entry.isOverridden,
         expectedOverride: entry.isOverridden ? String(entry.expectedAmount) : "",
+        bypassPrerequisite: false,
       });
     }
   }, [entry]);
@@ -487,7 +512,14 @@ function CashCountHistory({ isMaster }: { isMaster: boolean }) {
                         )}
                       </td>
                       <td className="py-2 pr-4 capitalize">{e.shiftType}</td>
-                      <td className="py-2 pr-4 capitalize">{e.phase}</td>
+                      <td className="py-2 pr-4 capitalize">
+                        {e.phase}
+                        {e.prerequisiteBypassed && (
+                          <Badge variant="outline" className="ml-1.5 bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px] px-1 py-0" title="Submitted out of shift order">
+                            bypassed
+                          </Badge>
+                        )}
+                      </td>
                       <td className="py-2 pr-4 text-right font-mono">
                         ${e.countedAmount.toFixed(2)}
                         {e.cashAfterMidnight > 0 && (
@@ -573,13 +605,15 @@ function CashCountHistory({ isMaster }: { isMaster: boolean }) {
 export function CashCountTab() {
   const { user } = useAuth();
   const isMaster = (user as any)?.isMaster ?? false;
+  // Bypassing shift order is for master/admin accounts only — never staff.
+  const canBypassPrerequisite = (user as any)?.role === "admin";
 
   return (
     <div className="space-y-6">
       <CashCountChecklist />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <CashCountCard phase="opening" />
-        <CashCountCard phase="closing" />
+        <CashCountCard phase="opening" canBypassPrerequisite={canBypassPrerequisite} />
+        <CashCountCard phase="closing" canBypassPrerequisite={canBypassPrerequisite} />
       </div>
       <CashCountHistory isMaster={isMaster} />
     </div>
