@@ -31,7 +31,7 @@ const Index = () => {
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/30 bg-background backdrop-blur-xl" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold tracking-tight gold-gradient">Envo Pool</h1>
+          <Link to="/" className="text-xl font-bold tracking-tight gold-gradient">Envo Pool</Link>
           <div className="flex items-center gap-3">
             {user ? (
               <>
@@ -60,15 +60,21 @@ const Index = () => {
       {/* Hero */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroImage} alt="Premium pool hall" className="w-full h-full object-cover" loading="eager" />
+          <img src={heroImage} alt="Interior of Envo Pool, a premium pool hall in Singapore" className="w-full h-full object-cover" loading="eager" />
           <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/50 to-background" />
           <div className="absolute inset-0 bg-gradient-to-r from-background/60 to-transparent" />
         </div>
         <div className="relative z-10 mx-auto max-w-5xl px-6 text-center pt-20">
           <p className="text-accent uppercase tracking-[0.3em] text-sm font-medium mb-6">Made for pool players by pool players.</p>
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[0.9] mb-8">
-            <span className="gold-gradient">Elevate</span><br />
-            <span className="text-foreground">Your Game</span>
+            {/* Visually hidden but crawlable/accessible — keeps the bold
+                tagline as the visual design while giving search engines and
+                screen readers an actual keyword-bearing page heading. */}
+            <span className="sr-only">Envo Pool — Singapore's Premier Pool Hall & Billiards Club</span>
+            <span aria-hidden="true">
+              <span className="gold-gradient">Elevate</span><br />
+              <span className="text-foreground">Your Game</span>
+            </span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
             Singapore's most advanced pool hall. Competition-grade tables, tournament-quality balls, and a tech-integrated experience built for serious players.
@@ -238,6 +244,10 @@ const Index = () => {
                 <p className="text-foreground">Paya Lebar MRT (EW8/CC9) — 4 min walk</p>
               </div>
               <div>
+                <p className="text-xs text-accent uppercase tracking-widest mb-1">Phone</p>
+                <a href="tel:+6589007983" className="text-foreground font-medium hover:text-accent transition-colors">+65 8900 7983</a>
+              </div>
+              <div>
                 <p className="text-xs text-accent uppercase tracking-widest mb-2">Opening Hours</p>
                 <div className="flex justify-between text-sm border-b border-border/30 pb-2">
                   <span className="text-muted-foreground">Monday – Sunday</span>
@@ -294,7 +304,7 @@ const Index = () => {
             <Link to="/booking" className="hover:text-foreground transition-colors">Book Now</Link>
           </div>
           <div className="text-center md:text-right">
-            <p className="text-xs text-muted-foreground">511 Guillemard Road, #B1-02A, Singapore 399849</p>
+            <p className="text-xs text-muted-foreground">511 Guillemard Road, #B1-02A, Singapore 399849 · <a href="tel:+6589007983" className="hover:text-foreground transition-colors">+65 8900 7983</a></p>
             <p className="text-xs text-muted-foreground mt-1">© {new Date().getFullYear()} Envo Pool. All rights reserved.</p>
           </div>
         </div>
