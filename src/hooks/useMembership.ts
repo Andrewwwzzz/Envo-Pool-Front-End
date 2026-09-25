@@ -123,12 +123,28 @@ export function useAdminSubscriptions(filter: "default" | "deleted" | "all" = "d
 // Table dialog to preview/auto-apply the member discount before charging
 // their wallet. Returns null if the customer has no active membership.
 export function useCustomerActiveMembership(userId: string | null | undefined) {
-  return useQuery<{ planName: string; discountPercent: number; freeMinutesPerVisit: number } | null>({
+  return useQuery<{
+    planName: string;
+    discountPercent: number;
+    freeMinutesPerVisit: number;
+    unlimitedFreeMinutes: boolean;
+  } | null>({
     queryKey: ["membership", "customer-active", userId],
     queryFn: async () => {
-      const j = await getJson(`/api/membership/admin/subscriptions?filter=active&userId=${userId}`);
+      const [j, shift] = await Promise.all([
+        getJson(`/api/membership/admin/subscriptions?filter=active&userId=${userId}`),
+        getJson(`/api/shift/status/${userId}`).catch(() => ({ onShift: false })),
+      ]);
       const arr: any[] = Array.isArray(j) ? j : j.subscriptions ?? [];
-      const active = arr.filter((s) => s.status === "active" && s.planId?.benefits);
+      // Plans that only apply while the holder is on shift (e.g. Staff
+      // Membership) shouldn't surface here — or be auto-applied to a
+      // charge — unless they're actually clocked in right now.
+      const active = arr.filter(
+        (s) =>
+          s.status === "active" &&
+          s.planId?.benefits &&
+          (!s.planId.requiresActiveShift || shift.onShift)
+      );
       if (active.length === 0) return null;
       const best = active.reduce((a, b) =>
         (b.planId.benefits.bookingDiscount || 0) > (a.planId.benefits.bookingDiscount || 0) ? b : a
@@ -137,6 +153,7 @@ export function useCustomerActiveMembership(userId: string | null | undefined) {
         planName: best.planId.name,
         discountPercent: best.planId.benefits.bookingDiscount || 0,
         freeMinutesPerVisit: best.planId.benefits.freeMinutesPerVisit || 0,
+        unlimitedFreeMinutes: active.some((s) => s.planId.benefits.unlimitedFreeMinutes),
       };
     },
     enabled: !!userId,

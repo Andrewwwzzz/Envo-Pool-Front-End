@@ -896,6 +896,7 @@ function CloseTableDialog({
                         {activeMembership.planName} member
                         {activeMembership.discountPercent > 0 && ` — ${activeMembership.discountPercent}% off auto-applied`}
                         {activeMembership.freeMinutesPerVisit > 0 && ` + free minutes`}
+                        {activeMembership.unlimitedFreeMinutes && ` + free self-practice`}
                       </Badge>
                     )}
                   </div>
@@ -952,6 +953,12 @@ function CloseTableDialog({
                     <label className="flex items-center gap-2 text-sm">
                       <Checkbox checked={applyMembershipFreeMinutes} onCheckedChange={(v) => setApplyMembershipFreeMinutes(v === true)} />
                       Apply {activeMembership.freeMinutesPerVisit} free minutes
+                    </label>
+                  )}
+                  {activeMembership.unlimitedFreeMinutes && (
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox checked={applyMembershipFreeMinutes} onCheckedChange={(v) => setApplyMembershipFreeMinutes(v === true)} />
+                      Apply free self-practice (whole bill waived)
                     </label>
                   )}
                 </div>
@@ -1232,6 +1239,7 @@ function BookNowDialog({
                       {activeMembership.planName} member
                       {activeMembership.discountPercent > 0 && ` — ${activeMembership.discountPercent}% off auto-applied`}
                       {activeMembership.freeMinutesPerVisit > 0 && ` + free minutes`}
+                      {activeMembership.unlimitedFreeMinutes && ` + free self-practice`}
                     </Badge>
                   )}
                 </div>
@@ -1288,6 +1296,12 @@ function BookNowDialog({
                   <label className="flex items-center gap-2 text-sm">
                     <Checkbox checked={applyMembershipFreeMinutes} onCheckedChange={(v) => setApplyMembershipFreeMinutes(v === true)} />
                     Apply {activeMembership.freeMinutesPerVisit} free minutes
+                  </label>
+                )}
+                {activeMembership.unlimitedFreeMinutes && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={applyMembershipFreeMinutes} onCheckedChange={(v) => setApplyMembershipFreeMinutes(v === true)} />
+                    Apply free self-practice (whole bill waived)
                   </label>
                 )}
               </div>
