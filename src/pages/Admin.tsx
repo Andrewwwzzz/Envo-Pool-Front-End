@@ -73,6 +73,7 @@ import { Separator } from "@/components/ui/separator";
 import { getTableLabel } from "@/lib/tableLabel";
 import { useActiveWalkinSessions, useForceStopWalkin, useStoppedWalkinSessions } from "@/hooks/useWalkin";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ShiftClockWidget } from "@/components/admin/ShiftClockWidget";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -107,7 +108,10 @@ const Admin = () => {
             {isMaster ? "Master Dashboard" : isStaff ? "Staff Dashboard" : "Admin Dashboard"}
           </h1>
         </div>
-        <Button variant="ghost" size="sm" onClick={signOut}><LogOut className="mr-2 h-4 w-4" /> Sign Out</Button>
+        <div className="flex items-center gap-2">
+          {(isAdmin || isStaff) && <ShiftClockWidget />}
+          <Button variant="ghost" size="sm" onClick={signOut}><LogOut className="mr-2 h-4 w-4" /> Sign Out</Button>
+        </div>
       </header>
 
       <main className="mx-auto max-w-6xl p-4 sm:p-6">
