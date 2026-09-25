@@ -266,7 +266,13 @@ export default function DashboardFnb() {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {filteredMenu.map((product) => {
           const outOfStock = product.stock <= 0;
-          const canRedeem = redemption?.canRedeem && product.isRedeemable;
+          // Not just "has some free-drink benefit" — the item itself must be
+          // covered by the customer's own plan (by ID or category), or the
+          // button would show on items that fail as soon as they're confirmed.
+          const canRedeem = !!redemption?.canRedeem && !!product.isRedeemable && (
+            (redemption.eligibleProductIds || []).includes(product._id) ||
+            (redemption.eligibleCategories || []).includes(product.category)
+          );
 
           return (
             <Card key={product._id} className={`relative border-border/50 ${outOfStock ? "opacity-50" : ""}`}>

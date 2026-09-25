@@ -139,7 +139,7 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   const [tableId, setTableId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [payment, setPayment] = useState<"charge_to_table" | "cash" | "paynow" | "wallet">("charge_to_table");
+  const [payment, setPayment] = useState<"charge_to_table" | "cash" | "paynow" | "wallet" | "free">("charge_to_table");
   const [submitting, setSubmitting] = useState(false);
   const [sauceModalProduct, setSauceModalProduct] = useState<FnbProduct | null>(null);
   const [sauceChoice, setSauceChoice] = useState<"chilli" | "ketchup" | null>(null);
@@ -173,6 +173,14 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   useEffect(() => {
     if (!customerId && payment === "wallet") setPayment("cash");
   }, [customerId, payment]);
+
+  // Free redemption is a single membership-benefit item, not a general
+  // payment method — falls back to cash if the cart stops being exactly
+  // one item, or the customer (whose membership it checks) is cleared.
+  const canRedeemFree = !!customerId && cart.length === 1 && cart[0].qty === 1;
+  useEffect(() => {
+    if (payment === "free" && !canRedeemFree) setPayment("cash");
+  }, [payment, canRedeemFree]);
 
   const filteredProducts = search.trim()
     ? availableProducts.filter((p) => p.name.toLowerCase().includes(search.trim().toLowerCase()))
@@ -221,7 +229,9 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
             productId: line.product._id,
             ...(line.product.hasSauceOptions ? { selectedSauce: line.sauce ?? undefined, nachoCheeseAddOn: line.nacho } : {}),
             ...(customerId ? { userId: customerId } : {}),
-            ...(payment === "charge_to_table"
+            ...(payment === "free"
+              ? { isFreeRedemption: true, tableId: tableId || undefined, tableName: tableId ? `Table ${selectedTable?.table_number}` : undefined }
+              : payment === "charge_to_table"
               ? { chargeToTable: true, tableRefId: tableId, tableName: `Table ${selectedTable?.table_number}` }
               : { paymentMethod: payment, tableId: tableId || undefined, tableName: tableId ? `Table ${selectedTable?.table_number}` : undefined }),
           });
@@ -356,7 +366,7 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
 
           <div className="space-y-1.5">
             <Label className="text-xs">Payment</Label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-5 gap-2">
               <Button type="button" size="sm" variant={payment === "charge_to_table" ? "default" : "outline"} disabled={!tableId} onClick={() => setPayment("charge_to_table")}>
                 Table
               </Button>
@@ -365,12 +375,21 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
               </Button>
               <Button type="button" size="sm" variant={payment === "cash" ? "default" : "outline"} onClick={() => setPayment("cash")}>Cash</Button>
               <Button type="button" size="sm" variant={payment === "paynow" ? "default" : "outline"} onClick={() => setPayment("paynow")}>PayNow</Button>
+              <Button type="button" size="sm" variant={payment === "free" ? "default" : "outline"} disabled={!canRedeemFree} onClick={() => setPayment("free")}>
+                <Gift className="h-3.5 w-3.5 mr-1" />Free
+              </Button>
             </div>
             {payment === "charge_to_table" && (
               <p className="text-xs text-muted-foreground">Added to Table {selectedTable?.table_number}'s bill — settled together when the table closes.</p>
             )}
             {payment === "wallet" && selectedCustomer && total > Number(selectedCustomer.wallet_balance ?? 0) && !selectedCustomer.allow_negative_balance && (
               <p className="text-xs text-destructive">Exceeds {customerName}'s wallet balance — order will fail unless their account allows a negative balance.</p>
+            )}
+            {payment === "free" && (
+              <p className="text-xs text-muted-foreground">Redeems {customerName}'s membership free-item benefit for this item — fails if their plan doesn't cover it or they've already redeemed today.</p>
+            )}
+            {!canRedeemFree && customerId && cart.length > 1 && (
+              <p className="text-xs text-muted-foreground">Free redemption only applies to a single item — reduce the cart to one item to use it.</p>
             )}
           </div>
         </div>

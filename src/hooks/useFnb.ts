@@ -45,6 +45,8 @@ export interface FnbOrder {
 export interface RedemptionCheck {
   hasRedeemed: boolean;
   canRedeem: boolean;
+  eligibleProductIds: string[];
+  eligibleCategories: string[];
   operatingDay: string;
 }
 
