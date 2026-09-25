@@ -5,7 +5,13 @@ export function Toaster() {
   const { toasts } = useToast();
 
   return (
-    <ToastProvider duration={Infinity}>
+    // Default auto-dismiss for every toast — a toast can still opt out
+    // individually by passing duration: Infinity to toast({...}) (e.g. the
+    // low-stock alert in useSocket.ts, which should stay until staff
+    // actively dismisses it). Previously this was Infinity globally, so
+    // every toast — including routine login/signup feedback — required a
+    // manual close and piled up on screen.
+    <ToastProvider duration={1500}>
       {toasts.map(function ({ id, title, description, action, ...props }) {
         return (
           <Toast key={id} {...props}>

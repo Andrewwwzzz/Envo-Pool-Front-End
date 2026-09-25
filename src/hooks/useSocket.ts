@@ -135,6 +135,7 @@ export function useSocket() {
         title: "Low stock",
         description: `${payload?.productName} is down to ${payload?.stock} (alert at ${payload?.lowStockThreshold})`,
         variant: "destructive",
+        duration: Infinity, // stays until staff dismisses it — shouldn't auto-vanish unread
       });
       queryClient.invalidateQueries({ queryKey: ["fnb-menu-admin"] });
     });
