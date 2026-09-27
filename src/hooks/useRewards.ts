@@ -143,6 +143,33 @@ export function useRedeemCreditReward() {
   });
 }
 
+// Points-shop-claimed wallet_credit rewards redeem by reward id, not by
+// code — they were never issued a code to type in, unlike milestone-granted
+// store credit which uses /redeem-credit above.
+export function useRedeemStoreCredit() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (rewardId: string) => {
+      const res = await apiFetch(`/api/rewards/redeem-store-credit/${rewardId}`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.message || "Failed to redeem reward");
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: "Reward redeemed", description: "Wallet has been credited." });
+      queryClient.invalidateQueries({ queryKey: ["my-rewards"] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["transaction-history"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Redemption failed", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
 export async function validateRewardCode(code: string) {
   const res = await apiFetch(`/api/rewards/validate/${encodeURIComponent(code)}`);
   const data = await res.json().catch(() => ({}));

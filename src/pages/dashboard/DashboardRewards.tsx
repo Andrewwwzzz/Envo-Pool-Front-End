@@ -8,7 +8,7 @@ import { Gift, Copy, Sparkles, Zap, AlertTriangle, Check, Lock, Store, Trophy, H
 import { useToast } from "@/hooks/use-toast";
 import { fmtDateSG } from "@/lib/sgTime";
 import { useProfile } from "@/hooks/useProfile";
-import { useMyRewards, useRedeemCreditReward, Reward } from "@/hooks/useRewards";
+import { useMyRewards, useRedeemCreditReward, useRedeemStoreCredit, Reward } from "@/hooks/useRewards";
 import { usePlaceOrder } from "@/hooks/useFnb";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -61,6 +61,7 @@ export default function DashboardRewards() {
   const { data: history = [] } = usePointsHistory();
   const { data: multipliers = [] } = useMultiplierEvents();
   const redeemCredit = useRedeemCreditReward();
+  const redeemStoreCredit = useRedeemStoreCredit();
   const exchange = useExchangeReward();
   const claim = useClaimMilestone();
   const fulfilFnb = useFulfilFnbReward();
@@ -290,9 +291,14 @@ export default function DashboardRewards() {
                           {r.expiresAt && <span className="text-xs text-muted-foreground">Expires {fmtDateSG(r.expiresAt)}</span>}
                         </div>
                       </div>
-                      {/* Wallet credit — self-redeem button */}
+                      {/* Wallet credit — self-redeem button. Points-shop-claimed
+                          credit has no code to redeem by, so it uses the
+                          id-based route instead. */}
                       {isActive && r.type === "wallet_credit" && (r as any).source !== "points_exchange" && (
                         <Button size="sm" onClick={() => redeemCredit.mutate(r.code)} disabled={redeemCredit.isPending}>Redeem</Button>
+                      )}
+                      {isActive && r.type === "wallet_credit" && (r as any).source === "points_exchange" && (
+                        <Button size="sm" onClick={() => redeemStoreCredit.mutate(r._id || (r as any).id)} disabled={redeemStoreCredit.isPending}>Redeem</Button>
                       )}
                     </div>
 
