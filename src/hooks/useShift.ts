@@ -15,7 +15,7 @@ export interface ShiftStatus {
   maxShiftHours: number;
 }
 
-export function useShiftStatus() {
+export function useShiftStatus(enabled = true) {
   return useQuery({
     queryKey: ["shift-status"],
     queryFn: async () => {
@@ -24,6 +24,7 @@ export function useShiftStatus() {
       return res.json() as Promise<ShiftStatus>;
     },
     refetchInterval: 60000,
+    enabled,
   });
 }
 

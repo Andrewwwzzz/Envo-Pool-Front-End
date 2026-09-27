@@ -19,6 +19,7 @@ import { Link } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
 import { TimeSlotPicker } from "@/components/TimeSlotPicker";
 import { useOperatingHours } from "@/hooks/useOperatingHours";
+import { useShiftStatus } from "@/hooks/useShift";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiFetch, BASE_URL } from "@/lib/api";
@@ -263,6 +264,14 @@ const Booking = () => {
   const rewardPct = originalPrice > 0 ? (rewardDiscountAmt / originalPrice) * 100 : 0;
 
 
+  // Shift-gated plans (Staff Membership) only count while the holder is
+  // clocked in — only query shift status for users who actually hold one.
+  const holdsShiftGatedPlan = (myMembership?.memberships ?? []).some(
+    (m: any) => m?.status === "active" && m?.planId?.requiresActiveShift
+  );
+  const { data: shiftStatus } = useShiftStatus(holdsShiftGatedPlan);
+  const onShift = !!shiftStatus?.onShift;
+
   // Membership — highest active membership benefit
   const activeMembership = useMemo(() => {
     const list: any[] = myMembership?.memberships ?? [];
@@ -273,6 +282,7 @@ const Booking = () => {
     const actives = list.filter((m) => {
       const status = String(m?.status ?? (m?.active ? "active" : "")).toLowerCase();
       if (status !== "active") return false;
+      if (getPlan(m)?.requiresActiveShift && !onShift) return false;
       const endRaw =
         m?.endDate ??
         m?.end_date ??
@@ -299,7 +309,7 @@ const Booking = () => {
       (best, m) => (getPct(m) > getPct(best) ? m : best),
       actives[0]
     );
-  }, [myMembership, startDate]);
+  }, [myMembership, startDate, onShift]);
 
   const activeMembershipPlan =
     (activeMembership?.planId && typeof activeMembership.planId === "object"
@@ -349,6 +359,22 @@ const Booking = () => {
   }, [startDate, freeMinutesDays]);
   const freeMinutesPHAllowed = !freeMinutesExcludePH || !bookingIsPHOrPHEve;
 
+  // Mirrors the server's public-hours gate — free minutes never apply to a
+  // booking that starts after closing (overnight slots).
+  const bookingStartsAfterHours = useMemo(() => {
+    if (!startDate || !operatingHours) return false;
+    const sg = toSG(startDate);
+    const day = (operatingHours as any)[sg.getDay()];
+    if (!day || !day.open) return true;
+    const t = `${String(sg.getHours()).padStart(2, "0")}:${String(sg.getMinutes()).padStart(2, "0")}`;
+    const openTime = day.openTime || "10:00";
+    const closeTime = bookingIsPHOrPHEve ? (phCloseTime || "02:00") : (day.closeTime || "01:00");
+    const inWindow = closeTime <= openTime
+      ? t >= openTime || t < closeTime
+      : t >= openTime && t < closeTime;
+    return !inWindow;
+  }, [startDate, operatingHours, phCloseTime, bookingIsPHOrPHEve]);
+
   // Why free minutes aren't showing today, if the plan has the benefit but
   // today's date doesn't qualify (day-of-week or PH/PH-eve restriction).
   const freeMinutesUnavailableReason = useMemo(() => {
@@ -363,13 +389,16 @@ const Booking = () => {
     if (!freeMinutesPHAllowed) {
       return `Free ${freeMinutesPerVisit} mins doesn't apply on public holidays or the day before`;
     }
+    if (bookingStartsAfterHours) {
+      return `Free ${freeMinutesPerVisit} mins only applies during operating hours, not overnight`;
+    }
     return null;
-  }, [activeMembership, freeMinutesPerVisit, startDate, freeMinutesDayAllowed, freeMinutesPHAllowed, freeMinutesDays]);
+  }, [activeMembership, freeMinutesPerVisit, startDate, freeMinutesDayAllowed, freeMinutesPHAllowed, freeMinutesDays, bookingStartsAfterHours]);
 
   const lastVisitDateRaw = activeMembership?.lastVisitDate ?? activeMembership?.last_visit_date ?? null;
   const freeMinutesAvailable = useMemo(() => {
     if (!activeMembership || freeMinutesPerVisit <= 0) return 0;
-    if (!freeMinutesDayAllowed || !freeMinutesPHAllowed) return 0;
+    if (!freeMinutesDayAllowed || !freeMinutesPHAllowed || bookingStartsAfterHours) return 0;
     // Free minutes only apply when the booking START date is within the
     // CURRENT operating day (10am SGT to 4am SGT next day) — not calendar midnight.
     // This lets a 11:30pm-12:10am session count as "today".
@@ -378,7 +407,7 @@ const Booking = () => {
     const lastVisit = new Date(lastVisitDateRaw);
     if (isNaN(lastVisit.getTime())) return freeMinutesPerVisit;
     return isWithinCurrentOperatingDay(lastVisit) ? 0 : freeMinutesPerVisit;
-  }, [activeMembership, freeMinutesPerVisit, lastVisitDateRaw, freeMinutesDayAllowed, freeMinutesPHAllowed, startDate]);
+  }, [activeMembership, freeMinutesPerVisit, lastVisitDateRaw, freeMinutesDayAllowed, freeMinutesPHAllowed, startDate, bookingStartsAfterHours]);
 
   const { freeMinutesCredit, freeMinutesApplied } = useMemo(() => {
     if (freeMinutesAvailable <= 0 || originalPrice <= 0) {
