@@ -4,6 +4,7 @@ import { Target, Cpu, Trophy, ArrowRight, ChevronDown, Star } from "lucide-react
 import heroImage from "@/assets/hero-pool.jpg";
 import poolBalls from "@/assets/pool-balls.jpg";
 import poolTech from "@/assets/pool-tech.jpg";
+import envoEntrance from "@/assets/envo-entrance.jpg";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -60,7 +61,7 @@ const Index = () => {
       {/* Hero */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroImage} alt="Interior of Envo Pool, a premium pool hall in Singapore" className="w-full h-full object-cover" loading="eager" />
+          <img src={heroImage} alt="Envo Pool's main hall in Singapore, with competition pool tables under branded VIP table lights" className="w-full h-full object-cover" loading="eager" />
           <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/50 to-background" />
           <div className="absolute inset-0 bg-gradient-to-r from-background/60 to-transparent" />
         </div>
@@ -108,7 +109,7 @@ const Index = () => {
               </p>
             </div>
             <div className="relative">
-              <img src={poolBalls} alt="Competition-grade billiard balls" className="rounded-2xl w-full object-cover aspect-square" loading="lazy" />
+              <img src={poolBalls} alt="Racked set of Dynaspheres Palladium competition pool balls at Envo Pool" className="rounded-2xl w-full object-cover aspect-square" loading="lazy" />
               <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-accent/10" />
             </div>
           </div>
@@ -175,7 +176,7 @@ const Index = () => {
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid md:grid-cols-2 gap-16 items-center">
             <div className="relative order-2 md:order-1">
-              <img src={poolTech} alt="Technology-integrated modern pool hall" className="rounded-2xl w-full object-cover aspect-square" loading="lazy" />
+              <img src={poolTech} alt="Competition-grade 9-foot pool table at Envo Pool" className="rounded-2xl w-full object-cover aspect-square" loading="lazy" />
               <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-accent/10" />
             </div>
             <div className="order-1 md:order-2">
@@ -264,6 +265,13 @@ const Index = () => {
                 </Button>
               </a>
             </div>
+            <div className="space-y-4">
+            <figure className="relative rounded-2xl overflow-hidden ring-1 ring-accent/10">
+              <img src={envoEntrance} alt="Entrance of Envo Pool at 511 Guillemard Road, with the lit ENVO POOL sign" className="w-full object-cover aspect-video" loading="lazy" />
+              <figcaption className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-background/90 to-transparent px-4 pb-3 pt-8 text-sm text-foreground">
+                Look for the lit <span className="text-accent font-medium">ENVO POOL</span> sign at basement level
+              </figcaption>
+            </figure>
             <div className="rounded-2xl overflow-hidden ring-1 ring-accent/10" style={{ minHeight: "320px" }}>
               <iframe
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3988.8083782233!2d103.89068747460635!3d1.3162054986939!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31da181563e748a9%3A0xa4c80f429d4b7bcc!2s511+Guillemard+Rd%2C+Singapore+399849!5e0!3m2!1sen!2ssg!4v1"
@@ -274,6 +282,7 @@ const Index = () => {
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
               />
+            </div>
             </div>
           </div>
         </div>
