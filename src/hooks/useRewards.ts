@@ -170,6 +170,30 @@ export function useRedeemStoreCredit() {
   });
 }
 
+// Top-up promo's free 1-month membership — activates the membership
+// directly (or adds a month if already a member), no staff step needed.
+export function useRedeemMembershipReward() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (rewardId: string) => {
+      const res = await apiFetch(`/api/rewards/redeem-membership/${rewardId}`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.message || "Failed to redeem reward");
+      return data as { message: string };
+    },
+    onSuccess: (data) => {
+      toast({ title: "Membership activated", description: data.message });
+      queryClient.invalidateQueries({ queryKey: ["my-rewards"] });
+      queryClient.invalidateQueries({ queryKey: ["membership"] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Redemption failed", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
 export async function validateRewardCode(code: string) {
   const res = await apiFetch(`/api/rewards/validate/${encodeURIComponent(code)}`);
   const data = await res.json().catch(() => ({}));

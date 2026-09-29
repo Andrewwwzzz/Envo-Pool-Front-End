@@ -274,12 +274,13 @@ function AssignMembershipDialog({ open, onOpenChange }: { open: boolean; onOpenC
     }
     console.log("[AssignMembership] submitting", { userId, planId, startDate });
     try {
-      await assign.mutateAsync({
+      const res: any = await assign.mutateAsync({
         userId,
         planId,
         startDate: startDate || undefined,
       } as any);
-      toast({ title: "Membership assigned" });
+      const extended = typeof res?.message === "string" && res.message.includes("extended");
+      toast({ title: extended ? "Existing membership extended" : "Membership assigned", description: extended ? res.message : undefined });
       onOpenChange(false);
       setUserId(""); setPlanId(""); setStartDate(""); setSearch("");
     } catch (e: any) {

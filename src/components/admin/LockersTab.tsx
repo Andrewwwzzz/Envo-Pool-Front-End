@@ -18,6 +18,7 @@ import {
   useCancelLocker,
   useRegeneratePinLocker,
   useSeedLockerPins,
+  useSetLockerPin,
   type LockerUnit,
 } from "@/hooks/useLockers";
 import { useAdminCustomers } from "@/hooks/useAdmin";
@@ -154,6 +155,57 @@ function fmtDateOrDash(d?: string) {
   return d ? fmtDateSG(d) : "—";
 }
 
+// Click-to-edit PIN cell. Saving updates the locker AND the renter's
+// membership card, so both always show the same PIN.
+function EditablePin({ lockerId, lockerNum, pin }: { lockerId: string; lockerNum: string | number; pin?: string }) {
+  const { toast } = useToast();
+  const setPin = useSetLockerPin();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(pin ?? "");
+
+  const save = async () => {
+    const next = value.trim();
+    if (next === (pin ?? "")) { setEditing(false); return; }
+    try {
+      await setPin.mutateAsync({ id: lockerId, pin: next });
+      toast({ title: `PIN for Locker #${lockerNum} updated to ${next}` });
+      setEditing(false);
+    } catch (e: any) {
+      toast({ title: "Failed", description: e?.message, variant: "destructive" });
+    }
+  };
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => { setValue(pin ?? ""); setEditing(true); }}
+        className="font-mono text-sm hover:underline underline-offset-2"
+        title="Click to edit PIN"
+      >
+        {pin ? pin : <span className="text-muted-foreground text-xs">Not set — click to add</span>}
+      </button>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <Input
+        autoFocus
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => setValue(e.target.value.replace(/\D/g, "").slice(0, 8))}
+        onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
+        className="h-8 w-24 font-mono"
+        placeholder="4–8 digits"
+      />
+      <Button size="sm" className="h-8" onClick={save} disabled={setPin.isPending || value.trim().length < 4}>
+        {setPin.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+      </Button>
+      <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditing(false)}>Cancel</Button>
+    </div>
+  );
+}
+
 export default function LockersTab() {
   const { toast } = useToast();
   const { data: lockers = [] } = useLockerUnits();
@@ -240,7 +292,9 @@ export default function LockersTab() {
                           </Badge>
                         </TableCell>
                         <TableCell>${l.monthlyPrice ?? 0}</TableCell>
-                        <TableCell className="font-mono text-sm">{(anyL.pin) ? anyL.pin : <span className="text-muted-foreground text-xs">Not set</span>}</TableCell>
+                        <TableCell>
+                          <EditablePin lockerId={(anyL._id ?? l.id) as string} lockerNum={lockerNum} pin={anyL.pin} />
+                        </TableCell>
                         <TableCell>
                           {!isAvailable && renterName ? (
                             <>

@@ -158,6 +158,24 @@ export function useRegeneratePinLocker() {
   });
 }
 
+// Sets the locker's PIN — the server copies it to the renter's membership
+// card too, so the Lockers tab and the customer always show the same PIN.
+export function useSetLockerPin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, pin }: { id: string; pin: string }) => {
+      const r = await apiFetch(`/api/lockers/units/${id}/pin`, { method: "PATCH", body: JSON.stringify({ pin }) });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body.error || "Failed to update PIN");
+      return body;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lockers"] });
+      qc.invalidateQueries({ queryKey: ["membership", "subscriptions"] });
+    },
+  });
+}
+
 export function useSeedLockerPins() {
   const qc = useQueryClient();
   return useMutation({

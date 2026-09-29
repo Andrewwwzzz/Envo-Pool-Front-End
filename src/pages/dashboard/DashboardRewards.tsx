@@ -8,7 +8,7 @@ import { Gift, Copy, Sparkles, Zap, AlertTriangle, Check, Lock, Store, Trophy, H
 import { useToast } from "@/hooks/use-toast";
 import { fmtDateSG } from "@/lib/sgTime";
 import { useProfile } from "@/hooks/useProfile";
-import { useMyRewards, useRedeemCreditReward, useRedeemStoreCredit, Reward } from "@/hooks/useRewards";
+import { useMyRewards, useRedeemCreditReward, useRedeemStoreCredit, useRedeemMembershipReward, Reward } from "@/hooks/useRewards";
 import { usePlaceOrder } from "@/hooks/useFnb";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,8 @@ export default function DashboardRewards() {
   const { data: multipliers = [] } = useMultiplierEvents();
   const redeemCredit = useRedeemCreditReward();
   const redeemStoreCredit = useRedeemStoreCredit();
+  const redeemMembership = useRedeemMembershipReward();
+  const [confirmMembershipReward, setConfirmMembershipReward] = useState<Reward | null>(null);
   const exchange = useExchangeReward();
   const claim = useClaimMilestone();
   const fulfilFnb = useFulfilFnbReward();
@@ -99,6 +101,11 @@ export default function DashboardRewards() {
 
   /** True if reward is tangible merchandise — must be collected from staff at
    *  the counter, since there's no order/delivery flow for physical items. */
+  /** Top-up promo's free 1-month membership — self-redeemable. The
+   *  membership + locker tier still goes through the counter. */
+  const isMembershipReward = (r: Reward) =>
+    (r as any).source === "topup_promo" && r.description === "Free 1-Month Standard Membership";
+
   const isMerchandiseReward = (r: Reward) =>
     r.type === "free_item" &&
     ((r as any).tangible === true || (r as any).catalogId?.tangible === true) &&
@@ -271,7 +278,8 @@ export default function DashboardRewards() {
                 const multiExhausted = isMulti && Number.isFinite(remaining) && remaining <= 0;
                 const isActive = !r.redeemed && !expired && !multiExhausted;
                 const fnb = isFnbReward(r);
-                const merch = isMerchandiseReward(r);
+                const membershipReward = isMembershipReward(r);
+                const merch = !membershipReward && isMerchandiseReward(r);
                 const discount = r.type === "booking_discount";
 
                 return (
@@ -303,7 +311,24 @@ export default function DashboardRewards() {
                     </div>
 
                     {/* ── F&B tangible rewards: "Place Order Now" instead of code ── */}
-                    {fnb ? (
+                    {membershipReward ? (
+                      isActive ? (
+                        <div className="rounded-md bg-emerald-500/10 border border-emerald-500/30 px-3 py-2.5 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
+                            <p className="text-xs text-emerald-300">Activate your free 1-month membership instantly — no need to see staff.</p>
+                          </div>
+                          <Button size="sm" className="shrink-0" onClick={() => setConfirmMembershipReward(r)}>
+                            Redeem
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="rounded-md bg-muted/20 border border-border px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+                          <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                          {r.redeemed ? "Membership activated." : "This reward has expired."}
+                        </div>
+                      )
+                    ) : fnb ? (
                       isActive ? (
                         <div className="rounded-md bg-blue-500/10 border border-blue-500/30 px-3 py-2.5 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2 min-w-0">
@@ -458,6 +483,32 @@ export default function DashboardRewards() {
               }}
             >
               {confirmExchange?.category === "food_drinks" ? "Place Order" : "Confirm Redemption"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: confirm free membership redemption ── */}
+      <Dialog open={!!confirmMembershipReward} onOpenChange={(o) => { if (!o) setConfirmMembershipReward(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Activate Free Membership</DialogTitle>
+            <DialogDescription>
+              Your free 1-month Standard Membership starts right away. If you're already a member, we'll add one free month to your current membership instead.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmMembershipReward(null)}>Cancel</Button>
+            <Button
+              disabled={redeemMembership.isPending}
+              onClick={async () => {
+                if (!confirmMembershipReward) return;
+                const id = (confirmMembershipReward as any)._id || (confirmMembershipReward as any).id;
+                try { await redeemMembership.mutateAsync(id); } catch { /* toast already shown */ }
+                setConfirmMembershipReward(null);
+              }}
+            >
+              {redeemMembership.isPending ? "Activating..." : "Activate Now"}
             </Button>
           </DialogFooter>
         </DialogContent>
