@@ -147,6 +147,11 @@ export function useSocket() {
       if (n?.title) toast({ title: n.title, description: n.body || undefined });
     });
 
+    // An announcement was recalled — drop it from the Inbox and badge now.
+    socket.on("notifications_changed", () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    });
+
     socket.on("disconnect", (reason) => {
       console.log("Socket disconnected:", reason);
     });

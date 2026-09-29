@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Megaphone, Users, UserCheck, X, Loader2, Send, BellRing, ImagePlus, Eye, Smartphone, Inbox as InboxIcon } from "lucide-react";
+import { Megaphone, Users, UserCheck, X, Loader2, Send, BellRing, ImagePlus, Eye, Smartphone, Inbox as InboxIcon, Undo2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAdminCustomers } from "@/hooks/useAdmin";
 import { BASE_URL } from "@/lib/api";
 import {
-  useNoticeAudience, useSentNotices, useSendNotice, useAnnouncementRecipients,
+  useNoticeAudience, useSentNotices, useSendNotice, useAnnouncementRecipients, useRecallAnnouncement,
   type SentAnnouncement, type AnnouncementRecipient,
 } from "@/hooks/useNotifications";
 
@@ -152,6 +152,19 @@ export default function AnnouncementsTab() {
   const [picked, setPicked] = useState<{ id: string; name: string; email: string }[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [viewing, setViewing] = useState<SentAnnouncement | null>(null);
+  const [recalling, setRecalling] = useState<SentAnnouncement | null>(null);
+  const recall = useRecallAnnouncement();
+
+  const doRecall = async () => {
+    if (!recalling) return;
+    try {
+      const res = await recall.mutateAsync(recalling._id);
+      toast({ title: res.message });
+      setRecalling(null);
+    } catch (e: any) {
+      toast({ title: "Couldn't recall", description: e?.message, variant: "destructive" });
+    }
+  };
   const { data: customers = [] } = useAdminCustomers(search);
 
   const recipientCount = audience === "all" ? (audienceInfo?.allCustomers ?? 0) : picked.length;
@@ -373,13 +386,19 @@ export default function AnnouncementsTab() {
           ) : (
             <div className="space-y-3">
               {sent.map((n) => (
-                <div key={n._id} className="rounded-md border border-border px-3 py-2.5 flex gap-3">
+                <div key={n._id} className={`rounded-md border border-border px-3 py-2.5 flex gap-3 ${n.recalledAt ? "opacity-70" : ""}`}>
                   {n.imageUrl && <img src={`${BASE_URL}${n.imageUrl}`} alt="" className="h-16 w-16 rounded object-cover shrink-0" loading="lazy" />}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2 flex-wrap">
-                      <p className="font-medium text-sm">{n.title}</p>
+                      <p className="font-medium text-sm flex items-center gap-2">
+                        {n.title}
+                        {n.recalledAt && <Badge variant="outline" className="text-destructive border-destructive/40">Recalled</Badge>}
+                      </p>
                       <span className="text-xs text-muted-foreground">{fmtWhen(n.sentAt)} · by {n.sentBy}</span>
                     </div>
+                    {n.recalledAt && (
+                      <p className="text-xs text-destructive mt-0.5">Recalled {fmtWhen(n.recalledAt)}{n.recalledBy ? ` by ${n.recalledBy}` : ""} — removed from everyone's Inbox</p>
+                    )}
                     {n.body && <p className="text-xs text-muted-foreground mt-1 whitespace-pre-line line-clamp-2">{n.body}</p>}
 
                     <div className="mt-2 flex items-center gap-2 flex-wrap">
@@ -392,9 +411,16 @@ export default function AnnouncementsTab() {
                         <span className="flex items-center gap-1"><Smartphone className="h-3 w-3" /> {n.openedPush} from phone</span>
                         <span className="flex items-center gap-1"><InboxIcon className="h-3 w-3" /> {n.openedInbox} in Inbox</span>
                       </span>
-                      <Button size="sm" variant="ghost" className="h-7 ml-auto gap-1" onClick={() => setViewing(n)}>
-                        <Eye className="h-3.5 w-3.5" /> View
-                      </Button>
+                      <div className="ml-auto flex gap-1">
+                        <Button size="sm" variant="ghost" className="h-7 gap-1" onClick={() => setViewing(n)}>
+                          <Eye className="h-3.5 w-3.5" /> View
+                        </Button>
+                        {!n.recalledAt && (
+                          <Button size="sm" variant="ghost" className="h-7 gap-1 text-destructive hover:text-destructive" onClick={() => setRecalling(n)}>
+                            <Undo2 className="h-3.5 w-3.5" /> Recall
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden" title={`${pct(n.opened, n.recipients)}% opened`}>
                       <div className="h-full bg-emerald-500" style={{ width: `${pct(n.opened, n.recipients)}%` }} />
@@ -408,6 +434,27 @@ export default function AnnouncementsTab() {
       </Card>
 
       <RecipientsDialog announcement={viewing} onClose={() => setViewing(null)} />
+
+      <Dialog open={!!recalling} onOpenChange={(o) => { if (!o) setRecalling(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Recall this announcement?</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>"{recalling?.title}" will be removed from all {recalling?.recipients} recipients' Inboxes right away.</p>
+                <p>Phone notifications that already popped up can't be taken back — if someone taps one, they'll see "This message is no longer available".</p>
+                <p>Its stats stay here, marked as Recalled. This can't be undone.</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRecalling(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={doRecall} disabled={recall.isPending}>
+              {recall.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Recall"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>

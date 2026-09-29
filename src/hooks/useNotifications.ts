@@ -90,6 +90,24 @@ export interface SentAnnouncement {
   openedInbox: number;
   openedPush: number;
   dismissed: number;
+  recalledAt: string | null;
+  recalledBy: string | null;
+}
+
+export function useRecallAnnouncement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const r = await apiFetch(`/api/notifications/admin/announcements/${id}/recall`, { method: "POST" });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "Failed to recall announcement");
+      return data as { message: string };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["notices"] });
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
 }
 
 export interface AnnouncementRecipient {

@@ -153,6 +153,7 @@ function PushCard() {
 }
 
 export default function DashboardInbox() {
+  const { toast } = useToast();
   const { data, isLoading } = useInbox();
   const markRead = useMarkRead();
   const markAll = useMarkAllRead();
@@ -177,6 +178,7 @@ export default function DashboardInbox() {
     if (!openId || !data) return;
     const found = data.items.find((i) => i._id === openId);
     if (found) setSelected(found);
+    else toast({ title: "This message is no longer available", description: "It may have been withdrawn by Envo Pool." });
     setSearchParams((prev) => { prev.delete("open"); return prev; }, { replace: true });
   }, [openId, data]); // eslint-disable-line react-hooks/exhaustive-deps
 
