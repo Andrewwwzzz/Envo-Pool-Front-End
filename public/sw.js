@@ -10,7 +10,7 @@
  * filenames in Vite builds so they're safe to cache indefinitely).
  */
 
-const CACHE_NAME = "envo-pool-v2";
+const CACHE_NAME = "envo-pool-v4";
 
 // Assets to pre-cache on install (app shell)
 const PRECACHE_URLS = ["/", "/manifest.json", "/version.json"];
@@ -57,6 +57,51 @@ self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
+});
+
+// ── Push notifications ───────────────────────────────────────────
+// Shows the notification on the phone even when the app is closed, and
+// sets the unread count as the badge on the home-screen app icon.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = { title: "Envo Pool", body: event.data?.text() || "" }; }
+  const title = data.title || "Envo Pool";
+  const options = {
+    body: data.body || "",
+    icon: "/icons/icon-192x192.png",
+    badge: "/icons/icon-192x192.png",
+    tag: data.tag,
+    data: { url: data.url || "/dashboard/inbox", notificationId: data.notificationId || null },
+  };
+  // Big picture — shown by Android/Chrome/desktop; iOS ignores it (the
+  // image still shows in the Inbox).
+  if (data.image) options.image = data.image;
+  const tasks = [self.registration.showNotification(title, options)];
+  if (typeof data.unread === "number" && self.navigator && "setAppBadge" in self.navigator) {
+    tasks.push(data.unread > 0 ? self.navigator.setAppBadge(data.unread) : self.navigator.clearAppBadge());
+  }
+  event.waitUntil(Promise.all(tasks).catch(() => {}));
+});
+
+// Tapping a notification opens (or focuses) the app on the right page.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || "/dashboard/inbox", self.location.origin);
+  // ?n= lets the app record this as "opened from the phone notification"
+  // (the service worker has no login token to report it itself).
+  if (event.notification.data?.notificationId) url.searchParams.set("n", event.notification.data.notificationId);
+  const target = url.href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if (client.url.startsWith(self.location.origin) && "focus" in client) {
+          client.navigate(target).catch(() => {});
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
 });
 
 // ── Fetch ─────────────────────────────────────────────────────────

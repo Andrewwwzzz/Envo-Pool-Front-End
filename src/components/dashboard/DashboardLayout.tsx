@@ -4,6 +4,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, LogOut } from "lucide-react";
 import { CampaignPopup } from "@/components/CampaignPopup";
+import { InboxBell } from "@/components/InboxBell";
 
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard/bookings": "My Bookings",
@@ -12,6 +13,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/dashboard/rewards": "My Rewards",
   "/dashboard/membership": "Membership",
   "/dashboard/fnb": "F&B & Others",
+  "/dashboard/inbox": "Inbox",
 };
 
 export default function DashboardLayout() {
@@ -54,14 +56,17 @@ export default function DashboardLayout() {
           )}
         </div>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground hover:text-destructive"
-          onClick={signOut}
-        >
-          <LogOut className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <InboxBell />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={signOut}
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
       </header>
 
       <CampaignPopup />

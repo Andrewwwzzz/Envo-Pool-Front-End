@@ -19,12 +19,14 @@ import DashboardRewards from "./pages/dashboard/DashboardRewards";
 import DashboardMembership from "./pages/dashboard/DashboardMembership";
 import DashboardFnb from "./pages/dashboard/DashboardFnb";
 import DashboardBookings from "./pages/dashboard/DashboardBookings";
+import DashboardInbox from "./pages/dashboard/DashboardInbox";
 import Admin from "./pages/Admin";
 import Terms from "./pages/Terms";
 import Kyc from "./pages/Kyc";
 import NotFound from "./pages/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AppUpdateBanner from "./components/AppUpdateBanner";
+import { NotificationTapTracker } from "./components/NotificationTapTracker";
 
 // Legacy redirects â€” send old URLs to payment-verification (socket-driven)
 const LegacyRedirect = () => {
@@ -49,6 +51,7 @@ const App = () => (
           <Sonner />
           <AppUpdateBanner />
           <BrowserRouter>
+            <NotificationTapTracker />
             <ErrorBoundary label="this page">
               <Routes>
                 <Route path="/" element={<Index />} />
@@ -69,6 +72,7 @@ const App = () => (
                   <Route path="membership" element={<DashboardMembership />} />
                   <Route path="fnb" element={<DashboardFnb />} />
                   <Route path="bookings" element={<DashboardBookings />} />
+                  <Route path="inbox" element={<DashboardInbox />} />
                 </Route>
                 <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
                 <Route

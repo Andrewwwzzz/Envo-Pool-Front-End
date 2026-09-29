@@ -136,8 +136,23 @@ function AssignLockerDialog({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>Start Date (optional)</Label>
+            <Label>Start Date (optional — defaults to today)</Label>
             <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            {startDate && (() => {
+              // The picker's display order (DD/MM vs MM/DD) follows the
+              // device's locale, so spell the date out to catch a flip.
+              const d = new Date(`${startDate}T00:00:00+08:00`);
+              const renew = new Date(d); renew.setMonth(renew.getMonth() + 1);
+              const days = Math.round((d.getTime() - Date.now()) / 86400000);
+              const far = Math.abs(days) > 7;
+              const words = (x: Date) => x.toLocaleDateString("en-GB", { timeZone: "Asia/Singapore", day: "numeric", month: "short", year: "numeric" });
+              return (
+                <p className={`text-xs ${far ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                  Starts {words(d)} · renews {words(renew)}
+                  {far && ` — that's ${Math.abs(days)} days ${days < 0 ? "ago" : "away"}. Check the day and month aren't swapped.`}
+                </p>
+              );
+            })()}
           </div>
         </div>
         <DialogFooter>

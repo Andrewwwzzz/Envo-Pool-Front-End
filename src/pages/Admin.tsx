@@ -37,6 +37,7 @@ import {
 } from "@/hooks/useAdmin";
 import { PinDialog } from "@/components/admin/PinDialog";
 import LogsTab from "@/components/admin/LogsTab";
+import AnnouncementsTab from "@/components/admin/AnnouncementsTab";
 import StaffTab from "@/components/admin/StaffTab";
 import { AccountingTab } from "@/components/admin/AccountingTab";
 import { CashCountTab } from "@/components/admin/CashCountTab";
@@ -74,6 +75,7 @@ import { getTableLabel } from "@/lib/tableLabel";
 import { useActiveWalkinSessions, useForceStopWalkin, useStoppedWalkinSessions } from "@/hooks/useWalkin";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShiftClockWidget } from "@/components/admin/ShiftClockWidget";
+import { InboxBell } from "@/components/InboxBell";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -110,6 +112,7 @@ const Admin = () => {
         </div>
         <div className="flex items-center gap-2">
           {(isAdmin || isStaff) && <ShiftClockWidget />}
+          <InboxBell />
           <Button variant="ghost" size="sm" onClick={signOut}><LogOut className="mr-2 h-4 w-4" /> Sign Out</Button>
         </div>
       </header>
@@ -143,6 +146,7 @@ const Admin = () => {
               {can("cashcount") && <TabsTrigger value="cashcount">Cash Count</TabsTrigger>}
               {isMaster && <TabsTrigger value="staff">Staff</TabsTrigger>}
               {isMaster && <TabsTrigger value="accounting">Accounting</TabsTrigger>}
+              {isAdmin && <TabsTrigger value="announcements">Announcements</TabsTrigger>}
               {can("logs") && <TabsTrigger value="logs">Logs</TabsTrigger>}
             </TabsList>
           </div>
@@ -170,6 +174,7 @@ const Admin = () => {
           {can("cashcount") && <TabsContent value="cashcount"><CashCountTab /></TabsContent>}
           {isMaster && <TabsContent value="staff"><StaffTab /></TabsContent>}
           {isMaster && <TabsContent value="accounting"><AccountingTab /></TabsContent>}
+          {isAdmin && <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>}
           {can("logs") && <TabsContent value="logs"><LogsTab /></TabsContent>}
         </Tabs>
       </main>

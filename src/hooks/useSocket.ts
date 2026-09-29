@@ -140,6 +140,13 @@ export function useSocket() {
       queryClient.invalidateQueries({ queryKey: ["fnb-menu-admin"] });
     });
 
+    // New Inbox message for this user (sent only to their private channel)
+    socket.on("notification_new", (payload: any) => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      const n = payload?.notification;
+      if (n?.title) toast({ title: n.title, description: n.body || undefined });
+    });
+
     socket.on("disconnect", (reason) => {
       console.log("Socket disconnected:", reason);
     });
