@@ -979,7 +979,7 @@ function CloseTableDialog({
   );
 }
 
-const DURATION_PRESETS = [30, 60, 90, 120, 180, 300];
+const DURATION_PRESETS = [60, 120, 180, 300];
 
 function BookNowDialog({
   tables,
@@ -1236,7 +1236,7 @@ function BookNowDialog({
 
           <div className="space-y-2">
             <Label>Duration</Label>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {DURATION_PRESETS.map((m) => (
                 <Button
                   key={m}
