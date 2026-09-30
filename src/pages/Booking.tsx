@@ -60,6 +60,7 @@ const Booking = () => {
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<PromoValidation["promo"] | null>(null);
   const appliedPromoPriceRef = useRef<number>(0);
+  const appliedPromoStartRef = useRef<number>(0);
   const [rewardCodeInput, setRewardCodeInput] = useState("");
   const [appliedReward, setAppliedReward] = useState<Reward | null>(null);
   const [validatingReward, setValidatingReward] = useState(false);
@@ -198,11 +199,12 @@ const Booking = () => {
   const originalPrice = pricing?.totalPrice ?? 0;
 
   // Clear applied promo whenever the booking price changes (e.g. user shortens the session)
+  // or the time moves (package codes are only valid in their time window).
   useEffect(() => {
-    if (appliedPromo && originalPrice !== appliedPromoPriceRef.current) {
+    if (appliedPromo && (originalPrice !== appliedPromoPriceRef.current || (startDate?.getTime() ?? 0) !== appliedPromoStartRef.current)) {
       setAppliedPromo(null);
     }
-  }, [originalPrice]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [originalPrice, startDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- Discount candidates ----
   // Compare promo, reward, and membership; only the single highest applies (no stacking).
@@ -210,6 +212,10 @@ const Booking = () => {
   // Promo (percentage or fixed) — if the promo has a time window, discount only the overlapping portion
   const promoDiscountAmt = useMemo(() => {
     if (!appliedPromo || !originalPrice) return 0;
+    // Package / per-hour codes are priced by the server when applied.
+    if (appliedPromo.discount_type === "package_price" || appliedPromo.discount_type === "hourly_rate") {
+      return Math.min(originalPrice, appliedPromo.server_discount ?? 0);
+    }
     const timeStart = appliedPromo.valid_time_start;
     const timeEnd   = appliedPromo.valid_time_end;
     if (timeStart && timeEnd && pricing?.segments?.length && startDate && endDate) {
@@ -527,6 +533,7 @@ const Booking = () => {
     });
     if (result.valid && result.promo) {
       appliedPromoPriceRef.current = originalPrice;
+      appliedPromoStartRef.current = startDate?.getTime() ?? 0;
       setAppliedPromo(result.promo);
       toast({ title: "Promo applied!", description: `Code ${result.promo.code} applied successfully.` });
     } else {
@@ -1045,7 +1052,13 @@ const Booking = () => {
               {/* Single winning discount line (promo / reward / membership) */}
               {winningDiscount.source === "promo" && discountAmount > 0 && (
                 <div className="flex justify-between text-sm text-primary">
-                  <span>Promo discount ({Math.round(promoPct)}% off)</span>
+                  <span>
+                    {appliedPromo?.discount_type === "package_price"
+                      ? `${appliedPromo.code} package ($${appliedPromo.discount_value.toFixed(2)})`
+                      : appliedPromo?.discount_type === "hourly_rate"
+                        ? `${appliedPromo.code} ($${appliedPromo.discount_value.toFixed(2)}/hr)`
+                        : `Promo discount (${Math.round(promoPct)}% off)`}
+                  </span>
                   <span>-${discountAmount.toFixed(2)}</span>
                 </div>
               )}

@@ -178,7 +178,10 @@ export default function TopUpWalletDialog({
           {promo?.active && promo.tiers.length > 0 && (
             <div className="space-y-2">
               <p className="text-sm font-semibold flex items-center gap-1.5">
-                <Gift className="h-4 w-4 text-amber-400" /> Top Up More, Get More
+                <Gift className="h-4 w-4 text-amber-400" /> Top Up Bonus
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Top up exactly {promo.tiers.map((t) => `$${t.amount}`).join(", ").replace(/, ([^,]*)$/, " or $1")} and the extra credit is added automatically.
               </p>
               <div className="grid grid-cols-3 gap-2">
                 {promo.tiers.map((tier) => (

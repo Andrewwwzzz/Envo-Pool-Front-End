@@ -12,12 +12,14 @@ import {
   useBulkScheduleMaintenance,
   useBookTableNow,
   useSessionPreviewCost,
+  useAdminPromoCodes,
 } from "@/hooks/useAdmin";
 import { useActiveWalkinSessions } from "@/hooks/useWalkin";
 import { useTablePendingFnb } from "@/hooks/useFnb";
 import { usePricingRules, usePublicHolidaySet } from "@/hooks/usePricing";
 import { useCustomerActiveMembership } from "@/hooks/useMembership";
-import { getCurrentHourlyRate } from "@/lib/pricing";
+import { getCurrentHourlyRate, calculateDiscount } from "@/lib/pricing";
+import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
 import { roundCashAmount } from "@/lib/money";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -977,7 +979,7 @@ function CloseTableDialog({
   );
 }
 
-const DURATION_PRESETS = [30, 60, 90, 120, 180];
+const DURATION_PRESETS = [30, 60, 90, 120, 180, 300];
 
 function BookNowDialog({
   tables,
@@ -1003,6 +1005,14 @@ function BookNowDialog({
   const [allowNegative, setAllowNegative] = useState(false);
   const [applyMembershipDiscount, setApplyMembershipDiscount] = useState(true);
   const [applyMembershipFreeMinutes, setApplyMembershipFreeMinutes] = useState(true);
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<NonNullable<PromoValidation["promo"]> | null>(null);
+  const [autoApplied, setAutoApplied] = useState(false);
+  // Auto-apply bookkeeping: the duration/price a staff member removed an
+  // auto-applied code for (don't re-add it), and the last one checked.
+  const dismissedAutoKey = useRef<string | null>(null);
+  const autoTried = useRef<string | null>(null);
+  const validatePromo = useValidatePromo();
   const { data: customers = [] } = useAdminCustomers(customerSearch);
   // Membership discount only auto-applies for wallet charges to a known
   // customer — matches the backend's book-now logic exactly.
@@ -1026,9 +1036,20 @@ function BookNowDialog({
       setAllowNegative(false);
       setApplyMembershipDiscount(true);
       setApplyMembershipFreeMinutes(true);
+      setPromoInput("");
+      setAppliedPromo(null);
+      setAutoApplied(false);
+      dismissedAutoKey.current = null;
+      autoTried.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookTarget]);
+
+  // A code is checked against the duration/rate it was applied with — make
+  // staff re-apply it if either changes.
+  useEffect(() => {
+    setAppliedPromo(null);
+  }, [durationInput, rateInput]);
 
   const table = tables.find((tb) => tb.id === bookTarget);
   const durationMinutes = Math.max(0, parseInt(durationInput, 10) || 0);
@@ -1049,11 +1070,83 @@ function BookNowDialog({
     : Math.round((durationMinutes / 60) * rate * 100) / 100;
   // Preview only — the real amount (which also accounts for free minutes,
   // time-of-day gating, etc.) is computed server-side on confirm.
-  const membershipPct = applyMembershipDiscount ? (activeMembership?.discountPercent || 0) : 0;
-  const afterMembership = Math.max(0, Math.round(gross * (1 - membershipPct / 100) * 100) / 100);
+  const membershipPctRaw = applyMembershipDiscount ? (activeMembership?.discountPercent || 0) : 0;
+  const membershipSaving = Math.round(gross * (membershipPctRaw / 100) * 100) / 100;
+  // Promo and membership don't stack — the bigger saving wins (same as the server).
+  const promoSaving = !appliedPromo ? 0
+    : appliedPromo.server_discount != null ? Math.min(gross, appliedPromo.server_discount)
+    : Math.min(gross, calculateDiscount(gross, appliedPromo.discount_type as "percentage" | "fixed", appliedPromo.discount_value, appliedPromo.max_discount_amount));
+  const promoWins = !!appliedPromo && promoSaving > membershipSaving;
+  const membershipPct = promoWins ? 0 : membershipPctRaw;
+  const afterMembership = Math.max(0, Math.round((gross - (promoWins ? promoSaving : membershipSaving)) * 100) / 100);
   const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
   const discountAmt = Math.round(afterMembership * (discountPct / 100) * 100) / 100;
   const estimatedTotalExact = Math.max(0, Math.round((afterMembership - discountAmt) * 100) / 100);
+
+  const handleApplyPromo = async () => {
+    if (!promoInput.trim() || !bookTarget || durationMinutes < 15) return;
+    const startMs = Math.floor(Date.now() / 30000) * 30000;
+    const result = await validatePromo.mutateAsync({
+      code: promoInput.trim(),
+      originalPrice: gross,
+      tableId: table?.hardware_id || bookTarget,
+      bookingStartTime: new Date(startMs).toISOString(),
+      bookingEndTime: new Date(startMs + durationMinutes * 60000).toISOString(),
+      counter: true,
+    });
+    if (result.valid && result.promo) {
+      setAppliedPromo(result.promo);
+      setAutoApplied(false);
+    } else {
+      toast({ title: "Code not applied", description: result.error, variant: "destructive" });
+    }
+  };
+
+  // Auto-apply a package code (e.g. DAY2H) when the chosen duration matches
+  // one and the booking fits its time window. Candidates are picked by hours
+  // here; the server decides whether the window/day/limits actually allow it.
+  // Staff-only per-hour codes (SELF7) are never auto-applied — those are for
+  // self-practice only, so staff choose them by hand.
+  const { data: allPromos = [] } = useAdminPromoCodes("default");
+  const autoKey = `${bookTarget}|${durationMinutes}|${gross}`;
+  useEffect(() => {
+    if (!bookTarget || appliedPromo || rateInput !== "" || !preview || durationMinutes < 15) return;
+    if (dismissedAutoKey.current === autoKey || autoTried.current === autoKey) return;
+    autoTried.current = autoKey;
+    const candidates = (allPromos as any[])
+      .filter((p) => p.is_active && !p.deleted && p.discount_type === "package_price" && !p.staff_only
+        && p.exact_hours && Math.abs(p.exact_hours * 60 - durationMinutes) < 1)
+      .sort((a, b) => a.discount_value - b.discount_value);
+    if (!candidates.length) return;
+    (async () => {
+      const startMs = Math.floor(Date.now() / 30000) * 30000;
+      for (const p of candidates) {
+        const result = await validatePromo.mutateAsync({
+          code: p.code,
+          originalPrice: gross,
+          tableId: table?.hardware_id || bookTarget,
+          bookingStartTime: new Date(startMs).toISOString(),
+          bookingEndTime: new Date(startMs + durationMinutes * 60000).toISOString(),
+          counter: true,
+        });
+        // Staff may have changed the duration while this was checking.
+        if (autoTried.current !== autoKey) return;
+        if (result.valid && result.promo && (result.promo.server_discount ?? 0) > 0) {
+          setAppliedPromo(result.promo);
+          setAutoApplied(true);
+          return;
+        }
+      }
+    })().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoKey, appliedPromo, rateInput, preview, allPromos]);
+
+  const removePromo = () => {
+    if (autoApplied) dismissedAutoKey.current = autoKey;
+    setAppliedPromo(null);
+    setAutoApplied(false);
+    setPromoInput("");
+  };
   // Cash has no 1c/5c coins to give as change — round the bill to the
   // nearest 10c. Wallet/PayNow settle to the exact cent.
   const estimatedTotal = paymentMethod === "cash" ? roundCashAmount(estimatedTotalExact) : estimatedTotalExact;
@@ -1093,6 +1186,7 @@ function BookNowDialog({
         hourlyRate: rateInput === "" ? 0 : rate,
         applyMembershipDiscount,
         applyMembershipFreeMinutes,
+        promoCode: appliedPromo?.code || null,
       },
       {
         onSuccess: (data: any) => {
@@ -1142,7 +1236,7 @@ function BookNowDialog({
 
           <div className="space-y-2">
             <Label>Duration</Label>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
               {DURATION_PRESETS.map((m) => (
                 <Button
                   key={m}
@@ -1178,6 +1272,15 @@ function BookNowDialog({
                 <span>-${(gross - afterMembership).toFixed(2)}</span>
               </div>
             )}
+            {promoWins && appliedPromo && (
+              <div className="flex items-center justify-between text-emerald-500 text-xs mt-1">
+                <span>Promo {appliedPromo.code}</span>
+                <span>-${promoSaving.toFixed(2)}</span>
+              </div>
+            )}
+            {appliedPromo && !promoWins && (
+              <p className="text-xs text-muted-foreground mt-1">Membership saves more than {appliedPromo.code}, so the membership discount is used.</p>
+            )}
             {discountPct > 0 && (
               <div className="flex items-center justify-between text-emerald-500 text-xs mt-1">
                 <span>{discountPct}% discount</span>
@@ -1189,6 +1292,31 @@ function BookNowDialog({
               <span className="font-semibold">${estimatedTotal.toFixed(2)}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">Final price is computed at confirm — includes the customer's membership discount/free minutes if they have one active{rateInput === "" ? ", and correctly splits across any peak/off-peak boundary the booking crosses" : ""}.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Promo Code</Label>
+            {appliedPromo ? (
+              <div className="flex items-center justify-between rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-sm">
+                <span className="font-medium">
+                  {appliedPromo.code}
+                  {autoApplied && <span className="ml-2 text-xs font-normal text-muted-foreground">auto-applied</span>}
+                </span>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={removePromo}>Remove</Button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  placeholder="e.g. DAY2H"
+                  value={promoInput}
+                  onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleApplyPromo(); }}
+                />
+                <Button type="button" variant="outline" onClick={handleApplyPromo} disabled={!promoInput.trim() || validatePromo.isPending}>
+                  {validatePromo.isPending ? "Checking..." : "Apply"}
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

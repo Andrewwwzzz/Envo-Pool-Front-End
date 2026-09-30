@@ -3331,6 +3331,7 @@ function PromosTab() {
     code: "", discount_type: "percentage" as string, discount_value: "", minimum_spend: "",
     minimum_hours: "", max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
     valid_days: [] as number[], valid_time_start: "", valid_time_end: "",
+    exact_hours: "", staff_only: false,
   });
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailPromo, setDetailPromo] = useState<any | null>(null);
@@ -3342,6 +3343,7 @@ function PromosTab() {
     discount_type: "percentage", discount_value: "", minimum_spend: "",
     minimum_hours: "", max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
     valid_days: [] as number[], valid_time_start: "", valid_time_end: "",
+    exact_hours: "", staff_only: false,
   });
 
   const openEdit = (p: any) => {
@@ -3358,6 +3360,8 @@ function PromosTab() {
       valid_days: Array.isArray(p.valid_days) ? p.valid_days : [],
       valid_time_start: p.valid_time_start ?? "",
       valid_time_end: p.valid_time_end ?? "",
+      exact_hours: p.exact_hours != null ? String(p.exact_hours) : "",
+      staff_only: !!p.staff_only,
     });
   };
 
@@ -3377,6 +3381,8 @@ function PromosTab() {
         valid_days: editForm.valid_days,
         valid_time_start: editForm.valid_time_start || null,
         valid_time_end: editForm.valid_time_end || null,
+        exact_hours: editForm.exact_hours ? parseFloat(editForm.exact_hours) : null,
+        staff_only: editForm.staff_only,
       },
     });
     setEditTarget(null);
@@ -3397,8 +3403,10 @@ function PromosTab() {
       valid_days: form.valid_days,
       valid_time_start: form.valid_time_start || null,
       valid_time_end: form.valid_time_end || null,
+      exact_hours: form.exact_hours ? parseFloat(form.exact_hours) : null,
+      staff_only: form.staff_only,
     });
-    setForm({ code: "", discount_type: "percentage", discount_value: "", minimum_spend: "", minimum_hours: "", max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "", valid_days: [], valid_time_start: "", valid_time_end: "" });
+    setForm({ code: "", discount_type: "percentage", discount_value: "", minimum_spend: "", minimum_hours: "", max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "", valid_days: [], valid_time_start: "", valid_time_end: "", exact_hours: "", staff_only: false });
   };
 
   return (
@@ -3418,12 +3426,18 @@ function PromosTab() {
                 <SelectContent>
                   <SelectItem value="percentage">Percentage</SelectItem>
                   <SelectItem value="fixed">Fixed Amount</SelectItem>
+                  <SelectItem value="package_price">Package Price (whole booking)</SelectItem>
+                  <SelectItem value="hourly_rate">Hourly Rate ($/hr)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Discount Value</Label>
-              <Input type="number" value={form.discount_value} onChange={(e) => setForm({ ...form, discount_value: e.target.value })} placeholder={form.discount_type === "percentage" ? "20" : "5.00"} />
+              <Label>{promoValueFieldLabel(form.discount_type)}</Label>
+              <Input type="number" value={form.discount_value} onChange={(e) => setForm({ ...form, discount_value: e.target.value })} placeholder={form.discount_type === "percentage" ? "20" : form.discount_type === "package_price" ? "23.00" : form.discount_type === "hourly_rate" ? "7.00" : "5.00"} />
+            </div>
+            <div className="space-y-2">
+              <Label>Exact Hours (opt)</Label>
+              <Input type="number" value={form.exact_hours} onChange={(e) => setForm({ ...form, exact_hours: e.target.value })} placeholder="e.g. 2" />
             </div>
             <div className="space-y-2">
               <Label>Min Spend (opt)</Label>
@@ -3486,6 +3500,11 @@ function PromosTab() {
                 <Input type="time" value={form.valid_time_end} onChange={(e) => setForm({ ...form, valid_time_end: e.target.value })} />
               </div>
             </div>
+            <PromoTypeHint type={form.discount_type} />
+            <label className="flex items-center gap-2 text-sm">
+              <Switch checked={form.staff_only} onCheckedChange={(v) => setForm({ ...form, staff_only: v })} />
+              Staff only — can only be applied from the admin dashboard, not online
+            </label>
           </div>
 
           <Button onClick={handleCreate} disabled={!form.code || !form.discount_value || create.isPending}>Create Promo</Button>
@@ -3522,8 +3541,7 @@ function PromosTab() {
                 </thead>
                 <tbody>
                   {promos.map((p: any) => {
-                    const isPct = p.discount_type === "percentage";
-                    const valueLabel = isPct ? `${p.discount_value}%` : `$${Number(p.discount_value).toFixed(2)}`;
+                    const valueLabel = promoValueLabel(p);
                     const minSpend = p.minimum_spend ? `$${Number(p.minimum_spend).toFixed(2)}` : "—";
                     const usageLabel = `${p.usage_count ?? 0} / ${p.usage_limit ?? "unlimited"}`;
                     const expiryLabel = p.expiry_date ? fmtDateSG(p.expiry_date) : "No expiry";
@@ -3538,7 +3556,7 @@ function PromosTab() {
                         onClick={() => setDetailPromo(p)}
                       >
                         <td className={`py-3 pr-3 font-mono font-medium ${deleted ? "line-through" : ""}`}>{p.code}</td>
-                        <td className="py-3 pr-3">{isPct ? "Percentage" : "Fixed"}</td>
+                        <td className="py-3 pr-3">{promoTypeLabel(p)}</td>
                         <td className={`py-3 pr-3 ${deleted ? "line-through" : ""}`}>{valueLabel}</td>
                         <td className="py-3 pr-3">{minSpend}</td>
                         <td className="py-3 pr-3">{usageLabel}</td>
@@ -3618,12 +3636,18 @@ function PromosTab() {
                 <SelectContent>
                   <SelectItem value="percentage">Percentage</SelectItem>
                   <SelectItem value="fixed">Fixed Amount</SelectItem>
+                  <SelectItem value="package_price">Package Price (whole booking)</SelectItem>
+                  <SelectItem value="hourly_rate">Hourly Rate ($/hr)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Discount Value</Label>
+              <Label>{promoValueFieldLabel(editForm.discount_type)}</Label>
               <Input type="number" value={editForm.discount_value} onChange={(e) => setEditForm({ ...editForm, discount_value: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Exact Hours (opt)</Label>
+              <Input type="number" value={editForm.exact_hours} onChange={(e) => setEditForm({ ...editForm, exact_hours: e.target.value })} placeholder="e.g. 2" />
             </div>
             <div className="space-y-1.5">
               <Label>Min Spend (opt)</Label>
@@ -3686,6 +3710,11 @@ function PromosTab() {
                 <Input type="time" value={editForm.valid_time_end} onChange={(e) => setEditForm({ ...editForm, valid_time_end: e.target.value })} />
               </div>
             </div>
+            <PromoTypeHint type={editForm.discount_type} />
+            <label className="flex items-center gap-2 text-sm">
+              <Switch checked={editForm.staff_only} onCheckedChange={(v) => setEditForm({ ...editForm, staff_only: v })} />
+              Staff only — can only be applied from the admin dashboard, not online
+            </label>
           </div>
 
           <DialogFooter className="flex-shrink-0">
@@ -3742,6 +3771,29 @@ function PromosTab() {
 }
 
 
+function promoTypeLabel(p: any) {
+  const base = ({ percentage: "Percentage", fixed: "Fixed", package_price: "Package", hourly_rate: "Hourly Rate" } as Record<string, string>)[p.discount_type] || p.discount_type;
+  return p.staff_only ? `${base} · Staff only` : base;
+}
+
+function promoValueLabel(p: any) {
+  const v = Number(p.discount_value);
+  if (p.discount_type === "percentage") return `${v}%`;
+  if (p.discount_type === "package_price") return `$${v.toFixed(2)}${p.exact_hours ? ` for ${p.exact_hours}h` : ""}`;
+  if (p.discount_type === "hourly_rate") return `$${v.toFixed(2)}/hr`;
+  return `$${v.toFixed(2)}`;
+}
+
+function promoValueFieldLabel(type: string) {
+  return type === "package_price" ? "Package Price ($)" : type === "hourly_rate" ? "Rate ($/hr)" : "Discount Value";
+}
+
+function PromoTypeHint({ type }: { type: string }) {
+  if (type === "package_price") return <p className="text-xs text-muted-foreground">The whole booking costs the package price. Set Exact Hours; the booking must sit fully inside the time window (a window past midnight like 17:00–01:00 is fine).</p>;
+  if (type === "hourly_rate") return <p className="text-xs text-muted-foreground">Hours inside the time window are charged at this rate; any time outside it is charged normally.</p>;
+  return null;
+}
+
 function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () => void }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["promo-usage", promo?.code],
@@ -3758,8 +3810,7 @@ function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () 
 
   if (!promo) return null;
 
-  const isPct = promo.discount_type === "percentage";
-  const valueLabel = isPct ? `${promo.discount_value}%` : `$${Number(promo.discount_value).toFixed(2)}`;
+  const valueLabel = promoValueLabel(promo);
   const minSpend = promo.minimum_spend ? `$${Number(promo.minimum_spend).toFixed(2)}` : "—";
   const maxDisc = promo.max_discount_amount ? `$${Number(promo.max_discount_amount).toFixed(2)}` : "—";
   const perUser = promo.per_user_limit ?? "Unlimited";
@@ -3792,10 +3843,12 @@ function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () 
           {isRecordDeleted(promo) && <DeletedBanner info={getDeletedInfo(promo)} />}
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-            <div><div className="text-muted-foreground">Type</div><div>{isPct ? "Percentage" : "Fixed"}</div></div>
+            <div><div className="text-muted-foreground">Type</div><div>{promoTypeLabel(promo)}</div></div>
             <div><div className="text-muted-foreground">Value</div><div>{valueLabel}</div></div>
             <div><div className="text-muted-foreground">Min Spend</div><div>{minSpend}</div></div>
             <div><div className="text-muted-foreground">Min Hours</div><div>{promo.minimum_hours ?? "—"}</div></div>
+            <div><div className="text-muted-foreground">Exact Hours</div><div>{promo.exact_hours ?? "—"}</div></div>
+            <div><div className="text-muted-foreground">Time Window</div><div>{promo.valid_time_start && promo.valid_time_end ? `${promo.valid_time_start}–${promo.valid_time_end}` : "Any time"}</div></div>
             <div><div className="text-muted-foreground">Max Discount</div><div>{maxDisc}</div></div>
             <div><div className="text-muted-foreground">Per User Limit</div><div>{perUser}</div></div>
             <div><div className="text-muted-foreground">Expiry</div><div>{expiryLabel}</div></div>

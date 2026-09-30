@@ -104,6 +104,7 @@ export function useBookTableNow() {
       hourlyRate,
       applyMembershipDiscount,
       applyMembershipFreeMinutes,
+      promoCode,
     }: {
       tableId: string;
       durationMinutes: number;
@@ -114,6 +115,7 @@ export function useBookTableNow() {
       hourlyRate?: number;
       applyMembershipDiscount?: boolean;
       applyMembershipFreeMinutes?: boolean;
+      promoCode?: string | null;
     }) => {
       const res = await apiFetch(`/api/admin/tables/${tableId}/book-now`, {
         method: "POST",
@@ -126,6 +128,7 @@ export function useBookTableNow() {
           hourlyRate: hourlyRate || 0,
           applyMembershipDiscount: applyMembershipDiscount !== false,
           applyMembershipFreeMinutes: applyMembershipFreeMinutes !== false,
+          promoCode: promoCode || null,
         }),
       });
       if (!res.ok) {
@@ -665,6 +668,8 @@ export function useAdminPromoCodes(filter: "default" | "all" = "all") {
         valid_time_start: p.valid_time_start ?? null,
         valid_time_end: p.valid_time_end ?? null,
         minimum_hours: p.minimum_hours ?? null,
+        exact_hours: p.exact_hours ?? null,
+        staff_only: p.staff_only === true,
       }));
       setCache(cacheKey, data);
       return data;
@@ -688,6 +693,8 @@ export function useAdminPromoCodes(filter: "default" | "all" = "all") {
       valid_time_start?: string | null;
       valid_time_end?: string | null;
       minimum_hours?: number | null;
+      exact_hours?: number | null;
+      staff_only?: boolean;
     }) => {
       const res = await apiFetch("/api/admin/promo-codes", {
         method: "POST",
