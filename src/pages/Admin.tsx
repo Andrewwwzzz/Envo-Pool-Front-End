@@ -40,7 +40,6 @@ import LogsTab from "@/components/admin/LogsTab";
 import AnnouncementsTab from "@/components/admin/AnnouncementsTab";
 import IncentivesTab from "@/components/admin/IncentivesTab";
 import StaffTab from "@/components/admin/StaffTab";
-import { AccountingTab } from "@/components/admin/AccountingTab";
 import { CashCountTab } from "@/components/admin/CashCountTab";
 import MembershipTab from "@/components/admin/MembershipTab";
 import LockersTab from "@/components/admin/LockersTab";
@@ -77,6 +76,8 @@ import { useActiveWalkinSessions, useForceStopWalkin, useStoppedWalkinSessions }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShiftClockWidget } from "@/components/admin/ShiftClockWidget";
 import { InboxBell } from "@/components/InboxBell";
+import { AdminNav, type AdminSection } from "@/components/admin/AdminNav";
+import { LayoutDashboard, LayoutGrid, Coffee, Wallet, Crown, Gift, Tag, Lock, Calculator, Trophy, UserCog, Megaphone } from "lucide-react";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -85,6 +86,7 @@ const Admin = () => {
   const [tab, setTab] = useState("overview");
   const [pendingCustomerEmail, setPendingCustomerEmail] = useState<string | null>(null);
   const { data: pendingFnbOrders = [] } = useAdminFnbOrders("pending");
+  const { data: pendingTopUps = [] } = useAdminTopUps("pending", !!user?.isAdmin);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
@@ -102,56 +104,58 @@ const Admin = () => {
     setTab("customers");
   };
 
+  // Same order as before on desktop; grouped on phones (see AdminNav).
+  const sections: AdminSection[] = [
+    can("overview") && { value: "overview", label: "Overview", icon: LayoutDashboard, group: "Front desk" },
+    can("tables") && { value: "tables", label: "Tables", icon: LayoutGrid, group: "Front desk" },
+    can("fnb") && { value: "fnb", label: "F&B", icon: Coffee, group: "Front desk", badge: pendingFnbOrders.length },
+    can("topups") && { value: "topups", label: "Top Ups", icon: Wallet, group: "Front desk", badge: Array.isArray(pendingTopUps) ? pendingTopUps.length : 0 },
+    can("customers") && { value: "customers", label: "Customers", icon: Users, group: "Customers" },
+    can("invoices") && { value: "invoices", label: "Invoices", icon: FileText, group: "Customers" },
+    can("bookings") && { value: "bookings", label: "Bookings", icon: CalendarDays, group: "Customers" },
+    can("membership") && { value: "membership", label: "Membership", icon: Crown, group: "Customers" },
+    can("rewards") && { value: "rewards", label: "Rewards", icon: Gift, group: "Customers" },
+    can("pricing") && { value: "pricing", label: "Pricing", icon: DollarSign, group: "Sales & marketing" },
+    can("promos") && { value: "promos", label: "Promos", icon: Tag, group: "Sales & marketing" },
+    isAdmin && { value: "campaigns", label: "Campaigns", icon: TrendingUp, group: "Sales & marketing" },
+    can("lockers") && { value: "lockers", label: "Lockers", icon: Lock, group: "Customers" },
+    can("cashcount") && { value: "cashcount", label: "Cash Count", icon: Calculator, group: "Front desk" },
+    { value: "incentives", label: "Incentives", icon: Trophy, group: "Team" },
+    isMaster && { value: "staff", label: "Staff", icon: UserCog, group: "Team" },
+    isAdmin && { value: "announcements", label: "Announcements", icon: Megaphone, group: "Sales & marketing" },
+    can("logs") && { value: "logs", label: "Logs", icon: ScrollText, group: "Team" },
+  ].filter(Boolean) as AdminSection[];
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <Link to="/booking"><Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button></Link>
-          <h1 className="text-xl font-semibold text-foreground tracking-tight">
-            {isMaster ? "Master Dashboard" : isStaff ? "Staff Dashboard" : "Admin Dashboard"}
-          </h1>
+      <header className="md:border-b border-border px-3 sm:px-6 pt-2 md:py-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1 sm:gap-3 min-w-0">
+            <Link to="/booking">
+              <Button variant="ghost" size="sm" className="px-2 sm:px-3" aria-label="Back">
+                <ArrowLeft className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Back</span>
+              </Button>
+            </Link>
+            <h1 className="text-base sm:text-xl font-semibold text-foreground tracking-tight truncate">
+              {isMaster ? "Master Dashboard" : isStaff ? "Staff Dashboard" : "Admin Dashboard"}
+            </h1>
+          </div>
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {(isAdmin || isStaff) && <div className="hidden md:block"><ShiftClockWidget /></div>}
+            <InboxBell />
+            <Button variant="ghost" size="sm" className="px-2 sm:px-3" onClick={signOut} aria-label="Sign out">
+              <LogOut className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Sign Out</span>
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {(isAdmin || isStaff) && <ShiftClockWidget />}
-          <InboxBell />
-          <Button variant="ghost" size="sm" onClick={signOut}><LogOut className="mr-2 h-4 w-4" /> Sign Out</Button>
-        </div>
+        {/* Phones: shift controls get their own row instead of squeezing the header. */}
+        {(isAdmin || isStaff) && <div className="md:hidden mt-2"><ShiftClockWidget /></div>}
       </header>
 
-      <main className="mx-auto max-w-6xl p-4 sm:p-6">
-        <Tabs value={tab} onValueChange={setTab} className="space-y-6">
-          <div className="overflow-x-auto pb-1">
-            <TabsList className="inline-flex w-max gap-0.5 min-w-full">
-              {can("overview") && <TabsTrigger value="overview">Overview</TabsTrigger>}
-              {can("tables") && <TabsTrigger value="tables">Tables</TabsTrigger>}
-              {can("fnb") && (
-                <TabsTrigger value="fnb" className="relative">
-                  F&B
-                  {pendingFnbOrders.length > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
-                      {pendingFnbOrders.length > 9 ? "9+" : pendingFnbOrders.length}
-                    </span>
-                  )}
-                </TabsTrigger>
-              )}
-              {can("topups") && <TopUpsTabTrigger />}
-              {can("customers") && <TabsTrigger value="customers">Customers</TabsTrigger>}
-              {can("invoices") && <TabsTrigger value="invoices">Invoices</TabsTrigger>}
-              {can("bookings") && <TabsTrigger value="bookings">Bookings</TabsTrigger>}
-              {can("membership") && <TabsTrigger value="membership">Membership</TabsTrigger>}
-              {can("rewards") && <TabsTrigger value="rewards">Rewards</TabsTrigger>}
-              {can("pricing") && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
-              {can("promos") && <TabsTrigger value="promos">Promos</TabsTrigger>}
-              {isAdmin && <TabsTrigger value="campaigns">Campaigns</TabsTrigger>}
-              {can("lockers") && <TabsTrigger value="lockers">Lockers</TabsTrigger>}
-              {can("cashcount") && <TabsTrigger value="cashcount">Cash Count</TabsTrigger>}
-              <TabsTrigger value="incentives">Incentives</TabsTrigger>
-              {isMaster && <TabsTrigger value="staff">Staff</TabsTrigger>}
-              {isMaster && <TabsTrigger value="accounting">Accounting</TabsTrigger>}
-              {isAdmin && <TabsTrigger value="announcements">Announcements</TabsTrigger>}
-              {can("logs") && <TabsTrigger value="logs">Logs</TabsTrigger>}
-            </TabsList>
-          </div>
+      <main className="admin-main mx-auto max-w-6xl px-3 pb-6 sm:p-6">
+        <AutoLabelTables />
+        <Tabs value={tab} onValueChange={setTab} className="space-y-4 sm:space-y-6">
+          <AdminNav sections={sections} tab={tab} onChange={setTab} />
 
           {can("overview") && <TabsContent value="overview"><OverviewTab /></TabsContent>}
           {can("tables") && <TabsContent value="tables"><TablesTab /></TabsContent>}
@@ -177,7 +181,6 @@ const Admin = () => {
           {/* Every admin and staff account can see everyone's incentives. */}
           <TabsContent value="incentives"><IncentivesTab /></TabsContent>
           {isMaster && <TabsContent value="staff"><StaffTab /></TabsContent>}
-          {isMaster && <TabsContent value="accounting"><AccountingTab /></TabsContent>}
           {isAdmin && <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>}
           {can("logs") && <TabsContent value="logs"><LogsTab /></TabsContent>}
         </Tabs>
@@ -185,6 +188,49 @@ const Admin = () => {
     </div>
   );
 };
+
+// On phones, admin tables are shown as cards (see .admin-main rules in
+// index.css). Each value is labelled with its column heading — this copies
+// the <th> text onto every <td> as data-label, and keeps doing so as rows
+// change, so no table needs to be edited by hand.
+function AutoLabelTables() {
+  useEffect(() => {
+    const root = document.querySelector(".admin-main");
+    if (!root) return;
+    const label = () => {
+      root.querySelectorAll("table").forEach((table) => {
+        const headRow = table.querySelector("thead tr");
+        if (!headRow) return;
+        const labels: string[] = [];
+        headRow.querySelectorAll("th").forEach((th) => {
+          const span = Number(th.getAttribute("colspan")) || 1;
+          // Drop sort arrows (↕ ▲ ▼ etc.) from sortable headings.
+          const text = (th.textContent || "").replace(/[↕↑↓⇅▲▼△▽⬍]/g, "").trim();
+          for (let i = 0; i < span; i++) labels.push(text);
+        });
+        table.querySelectorAll("tbody tr").forEach((tr) => {
+          let col = 0;
+          Array.from(tr.children).forEach((td) => {
+            const span = Number(td.getAttribute("colspan")) || 1;
+            const text = span === 1 ? labels[col] ?? "" : "";
+            if (td.getAttribute("data-label") !== text) td.setAttribute("data-label", text);
+            col += span;
+          });
+        });
+      });
+    };
+    label();
+    let queued = false;
+    const observer = new MutationObserver(() => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => { queued = false; label(); });
+    });
+    observer.observe(root, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+  return null;
+}
 
 type PeriodKey = "today" | "this_week" | "this_month" | "last_month" | "this_year" | "all_time" | "custom";
 
@@ -1683,8 +1729,8 @@ function CustomersTab({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-2 items-center">
-          <div className="relative flex-1">
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="relative flex-1 basis-full sm:basis-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name, email or Short ID..."
@@ -4347,21 +4393,6 @@ function useAdminTopUps(status: string, enabled = true) {
   });
 }
 
-function TopUpsTabTrigger() {
-  const { data } = useAdminTopUps("pending");
-  const count = Array.isArray(data) ? data.length : 0;
-  return (
-    <TabsTrigger value="topups" className="relative">
-      Top Ups
-      {count > 0 && (
-        <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center shadow-md">
-          {count}
-        </span>
-      )}
-    </TabsTrigger>
-  );
-}
-
 function VerificationTabTrigger() {
   const { data } = useQuery({
     queryKey: ["admin-unverified-users"],
@@ -4561,7 +4592,7 @@ function TopUpsTab() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3 flex-wrap">
         <CardTitle>Top Up Requests</CardTitle>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={() => setCreateOpen(true)} className="gap-1.5">
             <Plus className="h-3.5 w-3.5" />
             Create Request

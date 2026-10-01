@@ -150,3 +150,60 @@
 
 
 
+
+/* Admin dashboard on phones: wide tables become a stack of cards — one card
+   per row, the first column as the card's title and every other value
+   labelled with its column heading (labels are copied onto the cells by
+   AutoLabelTables in pages/Admin.tsx). Add .keep-table to opt a table out. */
+@media (max-width: 767px) {
+  .admin-main table:not(.keep-table) { display: block; width: 100%; }
+  .admin-main table:not(.keep-table) thead { display: none; }
+  .admin-main table:not(.keep-table) tbody { display: flex; flex-direction: column; gap: 0.5rem; }
+  .admin-main table:not(.keep-table) tr {
+    display: block;
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: hsl(var(--card));
+  }
+  .admin-main table:not(.keep-table) td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.2rem 0 !important;
+    border: 0 !important;
+    text-align: right;
+    min-width: 0;
+    word-break: break-word;
+  }
+  .admin-main table:not(.keep-table) td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 45%;
+    text-align: left;
+    font-size: 0.75rem;
+    color: hsl(var(--muted-foreground));
+    padding-top: 0.1rem;
+  }
+  .admin-main table:not(.keep-table) td:not([data-label])::before,
+  .admin-main table:not(.keep-table) td[data-label=""]::before { content: none; }
+  /* First column = card title */
+  .admin-main table:not(.keep-table) td:first-child {
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding-bottom: 0.35rem !important;
+  }
+  .admin-main table:not(.keep-table) td:first-child::before { content: none; }
+  /* Full-width rows (empty states, expanded details) */
+  .admin-main table:not(.keep-table) td[colspan] { display: block; text-align: left; }
+  .admin-main table:not(.keep-table) td[colspan]::before { content: none; }
+  .admin-main table:not(.keep-table) td:empty { display: none; }
+  /* Less padding inside boxes so content gets the width (CardHeader/CardContent) */
+  .admin-main .p-6 { padding: 0.875rem; }
+  .admin-main .p-6.pt-0 { padding-top: 0; }
+  /* The card stack scrolls with the page, not sideways */
+  .admin-main .overflow-x-auto:has(> table:not(.keep-table)),
+  .admin-main .relative.w-full.overflow-auto:has(> table:not(.keep-table)) { overflow: visible; }
+}

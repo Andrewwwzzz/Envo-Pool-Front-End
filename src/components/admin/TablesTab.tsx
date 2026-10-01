@@ -508,19 +508,20 @@ export default function TablesTab() {
                     </div>
                   )}
 
-                  {/* Action buttons */}
-                  <div className="space-y-2">
+                  {/* Action buttons — 2×2 with short labels on phones, stacked
+                      with full labels on larger screens. */}
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-1">
                     {isRunning ? (
-                      <Button size="sm" variant="destructive" onClick={() => openCloseDialog(t.id)} className="w-full">
+                      <Button size="sm" variant="destructive" onClick={() => openCloseDialog(t.id)} className="w-full col-span-2 sm:col-span-1">
                         <Square className="mr-2 h-3 w-3" /> Close Table
                       </Button>
                     ) : (
                       <>
                         <Button size="sm" variant="default" onClick={() => openTable(t.id)} className="w-full" disabled={hasActiveBooking || hasUserWalkin} title={hasActiveBooking ? "Table has an active booking" : hasUserWalkin ? "Table has an active walk-in session" : isMaintenance ? "Table is under maintenance — public booking/walk-in is blocked, but staff can still open it (e.g. for a private event)" : "Pay-by-time — bill is calculated when the table is closed"}>
-                          <Play className="mr-2 h-3 w-3" /> Open Table (Pro-rate)
+                          <Play className="mr-2 h-3 w-3" /><span className="sm:hidden">Open Table</span><span className="hidden sm:inline">Open Table (Pro-rate)</span>
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => openBookDialog(t.id)} className="w-full" disabled={hasActiveBooking || hasUserWalkin} title={hasActiveBooking ? "Table has an active booking" : hasUserWalkin ? "Table has an active walk-in session" : "Set a fixed duration and pay upfront — like a customer booking"}>
-                          <CalendarClock className="mr-2 h-3 w-3" /> Book Now (Fixed Duration)
+                          <CalendarClock className="mr-2 h-3 w-3" /><span className="sm:hidden">Book Now</span><span className="hidden sm:inline">Book Now (Fixed Duration)</span>
                         </Button>
                       </>
                     )}
@@ -544,7 +545,7 @@ export default function TablesTab() {
                       {/* Distinct label from the timer's "Close Table" button
                           above (stop session) — this toggles the separate
                           indefinite maintenance flag, not the running session. */}
-                      {t.status === "maintenance" ? "Reopen Table" : "Mark Under Maintenance"}
+                      {t.status === "maintenance" ? "Reopen Table" : <><span className="sm:hidden">Maintenance</span><span className="hidden sm:inline">Mark Under Maintenance</span></>}
                     </Button>
                   </div>
 
@@ -1496,7 +1497,7 @@ function ScheduleMaintenanceButton({ tableId, tableNumber }: { tableId: string; 
   return (
     <>
       <Button size="sm" variant="default" onClick={() => setOpen(true)} className="w-full">
-        <Wrench className="mr-2 h-3 w-3" /> Schedule Maintenance
+        <Wrench className="mr-2 h-3 w-3" /><span className="sm:hidden">Schedule</span><span className="hidden sm:inline">Schedule Maintenance</span>
       </Button>
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
         <DialogContent>
@@ -1537,7 +1538,9 @@ function ScheduleMaintenanceButton({ tableId, tableNumber }: { tableId: string; 
 }
 
 function TableMaintenanceList({ tableId }: { tableId: string }) {
-  const [hideDeleted, setHideDeleted] = useState(false);
+  // Deleted windows are history, not something staff act on — hidden unless asked for.
+  const [hideDeleted, setHideDeleted] = useState(true);
+  const [showAll, setShowAll] = useState(false);
   const { data: windows } = useTableMaintenance(tableId, hideDeleted ? "default" : "all");
   const remove = useDeleteMaintenance();
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
@@ -1551,11 +1554,13 @@ function TableMaintenanceList({ tableId }: { tableId: string }) {
   );
 
   if (!list.length) return null;
+  // Only the next two windows by default, to keep each table card short.
+  const shown = showAll ? list : list.slice(0, 2);
 
   return (
     <div className="space-y-1.5 pt-1">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground">Scheduled Maintenance</p>
+        <p className="text-xs font-medium text-muted-foreground">Scheduled Maintenance ({list.length})</p>
         <Button
           size="sm"
           variant="ghost"
@@ -1566,7 +1571,7 @@ function TableMaintenanceList({ tableId }: { tableId: string }) {
           {hideDeleted ? "Show Deleted" : "Hide Deleted"}
         </Button>
       </div>
-      {list.map((w: any) => {
+      {shown.map((w: any) => {
         const id = w._id || w.id;
         const start = w.startTime || w.start_time;
         const end = w.endTime || w.end_time;
@@ -1598,6 +1603,11 @@ function TableMaintenanceList({ tableId }: { tableId: string }) {
           </div>
         );
       })}
+      {list.length > 2 && (
+        <button type="button" className="text-xs text-primary" onClick={() => setShowAll((v) => !v)}>
+          {showAll ? "Show less" : `+${list.length - 2} more`}
+        </button>
+      )}
 
       <ReasonDialog
         open={!!deleteTarget}
