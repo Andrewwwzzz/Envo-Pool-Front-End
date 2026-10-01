@@ -1172,6 +1172,7 @@ function BookNowDialog({
       return;
     }
 
+    const sentPromo = appliedPromo?.code || null;
     bookTableNow.mutate(
       {
         tableId: bookTarget,
@@ -1194,7 +1195,9 @@ function BookNowDialog({
           const methodLabel = paymentMethod === "wallet" ? `charged to ${customerName || "customer"}'s wallet` : `paid via ${paymentMethod === "paynow" ? "PayNow" : "cash"}`;
           toast({
             title: "Table booked",
-            description: `${durationMinutes} min · $${Number(amount).toFixed(2)} ${methodLabel}.`,
+            description: `${durationMinutes} min · $${Number(amount).toFixed(2)} ${methodLabel}.`
+              + (data?.booking?.promoCode ? ` Promo ${data.booking.promoCode} applied.`
+                : sentPromo ? ` ${sentPromo} not used — the customer's membership gave a better price.` : ""),
           });
         },
         onError: (err: Error) => {

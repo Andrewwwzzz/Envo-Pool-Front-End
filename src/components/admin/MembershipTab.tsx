@@ -266,23 +266,37 @@ function AssignMembershipDialog({ open, onOpenChange }: { open: boolean; onOpenC
   const [startDate, setStartDate] = useState("");
   const { data: plans = [] } = useMembershipPlans("all");
   const assign = useAssignMembership();
+  const { user } = useAuth();
+  const isAdminRole = user?.role === "admin";
+  // Payment is taken as part of assigning. Only paid ones count as a staff
+  // sale for incentives; complimentary is admin-only.
+  const [payment, setPayment] = useState<"" | "wallet" | "cash" | "paynow" | "complimentary">("");
+  const selectedPlan: any = plans.find((p: any) => ((p as any)._id ?? p.id) === planId);
+  const planPrice = Number(selectedPlan?.price ?? 0);
+  const needsPayment = planPrice > 0;
+  const selectedCustomer: any = customers.find((c: any) => (c._id ?? c.id ?? c.user_id) === userId);
+  const walletBalance = Number(selectedCustomer?.wallet_balance ?? selectedCustomer?.walletBalance ?? 0);
 
   const submit = async () => {
     if (!userId || !planId) {
       toast({ title: "Customer and plan are required", variant: "destructive" });
       return;
     }
-    console.log("[AssignMembership] submitting", { userId, planId, startDate });
+    if (needsPayment && !payment) {
+      toast({ title: "Choose how the customer paid", variant: "destructive" });
+      return;
+    }
     try {
       const res: any = await assign.mutateAsync({
         userId,
         planId,
         startDate: startDate || undefined,
-      } as any);
+        paymentMethod: needsPayment ? (payment as "wallet" | "cash" | "paynow" | "complimentary") : undefined,
+      });
       const extended = typeof res?.message === "string" && res.message.includes("extended");
       toast({ title: extended ? "Existing membership extended" : "Membership assigned", description: extended ? res.message : undefined });
       onOpenChange(false);
-      setUserId(""); setPlanId(""); setStartDate(""); setSearch("");
+      setUserId(""); setPlanId(""); setStartDate(""); setSearch(""); setPayment("");
     } catch (e: any) {
       toast({ title: "Failed", description: e?.message, variant: "destructive" });
     }
@@ -346,10 +360,39 @@ function AssignMembershipDialog({ open, onOpenChange }: { open: boolean; onOpenC
             <Label>Start Date (optional)</Label>
             <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           </div>
+          {needsPayment && (
+            <div className="space-y-1.5">
+              <Label>Payment — ${planPrice.toFixed(2)}</Label>
+              <div className={`grid gap-2 ${isAdminRole ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
+                {(["wallet", "cash", "paynow", ...(isAdminRole ? ["complimentary"] : [])] as const).map((m) => (
+                  <Button
+                    key={m}
+                    type="button"
+                    size="sm"
+                    variant={payment === m ? "default" : "outline"}
+                    onClick={() => setPayment(m as typeof payment)}
+                  >
+                    {m === "wallet" ? "Wallet" : m === "cash" ? "Cash" : m === "paynow" ? "PayNow" : "Free"}
+                  </Button>
+                ))}
+              </div>
+              {payment === "wallet" && selectedCustomer && (
+                <p className={`text-xs ${walletBalance < planPrice ? "text-destructive" : "text-muted-foreground"}`}>
+                  Wallet balance ${walletBalance.toFixed(2)}{walletBalance < planPrice ? " — not enough, choose another method" : ` → $${(walletBalance - planPrice).toFixed(2)} after`}
+                </p>
+              )}
+              {(payment === "cash" || payment === "paynow") && (
+                <p className="text-xs text-muted-foreground">Collect ${planPrice.toFixed(2)} at the counter — it's recorded as {payment === "cash" ? "cash" : "PayNow"} received.</p>
+              )}
+              {payment === "complimentary" && (
+                <p className="text-xs text-muted-foreground">No payment taken. Doesn't count as a staff sale.</p>
+              )}
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={submit} disabled={assign.isPending}>
+          <Button onClick={submit} disabled={assign.isPending || (needsPayment && !payment) || (payment === "wallet" && !!selectedCustomer && walletBalance < planPrice)}>
             {assign.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             Assign
           </Button>

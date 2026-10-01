@@ -38,6 +38,7 @@ import {
 import { PinDialog } from "@/components/admin/PinDialog";
 import LogsTab from "@/components/admin/LogsTab";
 import AnnouncementsTab from "@/components/admin/AnnouncementsTab";
+import IncentivesTab from "@/components/admin/IncentivesTab";
 import StaffTab from "@/components/admin/StaffTab";
 import { AccountingTab } from "@/components/admin/AccountingTab";
 import { CashCountTab } from "@/components/admin/CashCountTab";
@@ -144,6 +145,7 @@ const Admin = () => {
               {isAdmin && <TabsTrigger value="campaigns">Campaigns</TabsTrigger>}
               {can("lockers") && <TabsTrigger value="lockers">Lockers</TabsTrigger>}
               {can("cashcount") && <TabsTrigger value="cashcount">Cash Count</TabsTrigger>}
+              <TabsTrigger value="incentives">Incentives</TabsTrigger>
               {isMaster && <TabsTrigger value="staff">Staff</TabsTrigger>}
               {isMaster && <TabsTrigger value="accounting">Accounting</TabsTrigger>}
               {isAdmin && <TabsTrigger value="announcements">Announcements</TabsTrigger>}
@@ -172,6 +174,8 @@ const Admin = () => {
           {isAdmin && <TabsContent value="campaigns"><CampaignsTab /></TabsContent>}
           {can("lockers") && <TabsContent value="lockers"><LockersTab /></TabsContent>}
           {can("cashcount") && <TabsContent value="cashcount"><CashCountTab /></TabsContent>}
+          {/* Every admin and staff account can see everyone's incentives. */}
+          <TabsContent value="incentives"><IncentivesTab /></TabsContent>
           {isMaster && <TabsContent value="staff"><StaffTab /></TabsContent>}
           {isMaster && <TabsContent value="accounting"><AccountingTab /></TabsContent>}
           {isAdmin && <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>}

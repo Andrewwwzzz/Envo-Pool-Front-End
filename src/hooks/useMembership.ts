@@ -176,14 +176,19 @@ export function useAdminMembershipHours() {
 export function useAssignMembership() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { userId: string; planId: string; startDate?: string }) => {
+    mutationFn: async (data: { userId: string; planId: string; startDate?: string; paymentMethod?: "wallet" | "cash" | "paynow" | "complimentary" }) => {
       const r = await apiFetch("/api/membership/admin/assign", { method: "POST", body: JSON.stringify(data) });
-      if (!r.ok) throw new Error(await r.text());
+      if (!r.ok) {
+        const body = await r.json().catch(() => null);
+        throw new Error(body?.error || "Failed to assign membership");
+      }
       return r.json();
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["membership", "subscriptions"] });
       qc.invalidateQueries({ queryKey: ["lockers"] });
+      qc.invalidateQueries({ queryKey: ["admin-customers"] });
+      qc.invalidateQueries({ queryKey: ["staff-incentives"] });
     },
   });
 }
