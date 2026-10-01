@@ -76,14 +76,17 @@ import { useActiveWalkinSessions, useForceStopWalkin, useStoppedWalkinSessions }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShiftClockWidget } from "@/components/admin/ShiftClockWidget";
 import { InboxBell } from "@/components/InboxBell";
-import { AdminNav, type AdminSection } from "@/components/admin/AdminNav";
-import { LayoutDashboard, LayoutGrid, Coffee, Wallet, Crown, Gift, Tag, Lock, Calculator, Trophy, UserCog, Megaphone } from "lucide-react";
+import { AdminNav, type AdminSection, type AdminPage } from "@/components/admin/AdminNav";
+import { TodayPanel } from "@/components/admin/TodayPanel";
+import { LayoutDashboard, LayoutGrid, Coffee, Wallet, Crown, UserCog, Megaphone, Settings } from "lucide-react";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
-  const [tab, setTab] = useState("overview");
+  // null until the user picks something — then the home screen depends on
+  // the role (see homeTab below).
+  const [tabChoice, setTab] = useState<string | null>(null);
   const [pendingCustomerEmail, setPendingCustomerEmail] = useState<string | null>(null);
   const { data: pendingFnbOrders = [] } = useAdminFnbOrders("pending");
   const { data: pendingTopUps = [] } = useAdminTopUps("pending", !!user?.isAdmin);
@@ -104,27 +107,33 @@ const Admin = () => {
     setTab("customers");
   };
 
-  // Same order as before on desktop; grouped on phones (see AdminNav).
-  const sections: AdminSection[] = [
-    can("overview") && { value: "overview", label: "Overview", icon: LayoutDashboard, group: "Front desk" },
-    can("tables") && { value: "tables", label: "Tables", icon: LayoutGrid, group: "Front desk" },
-    can("fnb") && { value: "fnb", label: "F&B", icon: Coffee, group: "Front desk", badge: pendingFnbOrders.length },
-    can("topups") && { value: "topups", label: "Top Ups", icon: Wallet, group: "Front desk", badge: Array.isArray(pendingTopUps) ? pendingTopUps.length : 0 },
-    can("customers") && { value: "customers", label: "Customers", icon: Users, group: "Customers" },
-    can("invoices") && { value: "invoices", label: "Invoices", icon: FileText, group: "Customers" },
-    can("bookings") && { value: "bookings", label: "Bookings", icon: CalendarDays, group: "Customers" },
-    can("membership") && { value: "membership", label: "Membership", icon: Crown, group: "Customers" },
-    can("rewards") && { value: "rewards", label: "Rewards", icon: Gift, group: "Customers" },
-    can("pricing") && { value: "pricing", label: "Pricing", icon: DollarSign, group: "Sales & marketing" },
-    can("promos") && { value: "promos", label: "Promos", icon: Tag, group: "Sales & marketing" },
-    isAdmin && { value: "campaigns", label: "Campaigns", icon: TrendingUp, group: "Sales & marketing" },
-    can("lockers") && { value: "lockers", label: "Lockers", icon: Lock, group: "Customers" },
-    can("cashcount") && { value: "cashcount", label: "Cash Count", icon: Calculator, group: "Front desk" },
-    { value: "incentives", label: "Incentives", icon: Trophy, group: "Team" },
-    isMaster && { value: "staff", label: "Staff", icon: UserCog, group: "Team" },
-    isAdmin && { value: "announcements", label: "Announcements", icon: Megaphone, group: "Sales & marketing" },
-    can("logs") && { value: "logs", label: "Logs", icon: ScrollText, group: "Team" },
-  ].filter(Boolean) as AdminSection[];
+  const fnbPending = pendingFnbOrders.length;
+  const topupPending = Array.isArray(pendingTopUps) ? pendingTopUps.length : 0;
+
+  // Sections, each holding one or more pages (the page values match the
+  // <TabsContent> blocks below). Pages the account can't use are left out,
+  // and a section with no pages left disappears.
+  const page = (show: boolean, value: string, label: string, badge?: number): AdminPage | false => show && { value, label, badge };
+  const sections: AdminSection[] = ([
+    { key: "today", label: "Today", icon: LayoutDashboard, pages: [page(can("overview"), "overview", "Today")] },
+    { key: "tables", label: "Tables", icon: LayoutGrid, pages: [page(can("tables"), "tables", "Tables")] },
+    { key: "fnb", label: "F&B", icon: Coffee, pages: [page(can("fnb"), "fnb", "F&B", fnbPending)] },
+    { key: "payments", label: "Payments", icon: Wallet, pages: [page(can("topups"), "topups", "Top Ups", topupPending), page(can("cashcount"), "cashcount", "Cash Count")] },
+    { key: "bookings", label: "Bookings", icon: CalendarDays, pages: [page(can("bookings"), "bookings", "Bookings"), page(can("invoices"), "invoices", "Invoices")] },
+    { key: "customers", label: "Customers", icon: Users, pages: [page(can("customers"), "customers", "Customers")] },
+    { key: "members", label: "Members", icon: Crown, pages: [page(can("membership"), "membership", "Membership"), page(can("lockers"), "lockers", "Lockers"), page(can("rewards"), "rewards", "Rewards")] },
+    { key: "marketing", label: "Marketing", icon: Megaphone, pages: [page(can("promos"), "promos", "Promos"), page(isAdmin, "campaigns", "Campaigns"), page(isAdmin, "announcements", "Announcements")] },
+    { key: "settings", label: "Settings", icon: Settings, pages: [page(can("pricing"), "pricing", "Pricing")] },
+    { key: "team", label: "Team", icon: UserCog, pages: [page(isMaster, "staff", "Staff"), page(true, "incentives", "Incentives"), page(can("logs"), "logs", "Logs")] },
+  ] as { key: string; label: string; icon: AdminSection["icon"]; pages: (AdminPage | false)[] }[])
+    .map((s) => ({ ...s, pages: s.pages.filter(Boolean) as AdminPage[] }))
+    .filter((s) => s.pages.length > 0);
+
+  // Home screen: staff start on Tables (where they spend the day), admins
+  // on Today. Falls back to whatever the account can open.
+  const allPages = sections.flatMap((s) => s.pages.map((p) => p.value));
+  const homeTab = isStaff && allPages.includes("tables") ? "tables" : allPages.includes("overview") ? "overview" : allPages[0];
+  const tab = tabChoice && allPages.includes(tabChoice) ? tabChoice : homeTab;
 
   return (
     <div className="min-h-screen bg-background">
@@ -157,7 +166,12 @@ const Admin = () => {
         <Tabs value={tab} onValueChange={setTab} className="space-y-4 sm:space-y-6">
           <AdminNav sections={sections} tab={tab} onChange={setTab} />
 
-          {can("overview") && <TabsContent value="overview"><OverviewTab /></TabsContent>}
+          {can("overview") && (
+            <TabsContent value="overview" className="space-y-4 sm:space-y-6">
+              <TodayPanel can={can} fnbPending={fnbPending} topupPending={topupPending} onGo={(p) => { setTab(p); window.scrollTo({ top: 0 }); }} />
+              <OverviewTab />
+            </TabsContent>
+          )}
           {can("tables") && <TabsContent value="tables"><TablesTab /></TabsContent>}
           {can("fnb") && <TabsContent value="fnb"><FnbTab /></TabsContent>}
           {can("topups") && <TabsContent value="topups"><TopUpsTab /></TabsContent>}
@@ -4605,7 +4619,7 @@ function TopUpsTab() {
       </CardHeader>
       <CardContent className="space-y-4">
         <Tabs value={status} onValueChange={(v) => setStatus(v as any)}>
-          <TabsList>
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="pending">Pending</TabsTrigger>
             <TabsTrigger value="approved">Approved</TabsTrigger>
             <TabsTrigger value="rejected">Rejected</TabsTrigger>
