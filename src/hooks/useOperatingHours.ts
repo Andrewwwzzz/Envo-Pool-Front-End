@@ -15,7 +15,7 @@ export interface OperatingHoursData {
 }
 
 export const DEFAULT_SCHEDULE: WeekSchedule = {
-  "0": { open: true, openTime: "10:00", closeTime: "01:00" }, // Sunday
+  "0": { open: true, openTime: "10:00", closeTime: "02:00" }, // Sunday
   "1": { open: true, openTime: "10:00", closeTime: "01:00" },
   "2": { open: true, openTime: "10:00", closeTime: "01:00" },
   "3": { open: true, openTime: "10:00", closeTime: "01:00" },

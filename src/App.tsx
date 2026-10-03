@@ -5,26 +5,52 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { useSocket } from "@/hooks/useSocket";
+import { lazy, Suspense, type ComponentType } from "react";
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import Booking from "./pages/Booking";
-import PaymentVerification from "./pages/PaymentVerification";
-import BookingConfirmed from "./pages/BookingConfirmed";
-import BookingRefunded from "./pages/BookingRefunded";
-import DashboardLayout from "./components/dashboard/DashboardLayout";
-import DashboardHome from "./pages/dashboard/DashboardHome";
-import DashboardTransactions from "./pages/dashboard/DashboardTransactions";
-import DashboardSettings from "./pages/dashboard/DashboardSettings";
-import DashboardRewards from "./pages/dashboard/DashboardRewards";
-import DashboardMembership from "./pages/dashboard/DashboardMembership";
-import DashboardFnb from "./pages/dashboard/DashboardFnb";
-import DashboardBookings from "./pages/dashboard/DashboardBookings";
-import DashboardInbox from "./pages/dashboard/DashboardInbox";
-import Admin from "./pages/Admin";
-import Terms from "./pages/Terms";
-import Kyc from "./pages/Kyc";
-import NotFound from "./pages/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { RouteSeo } from "./components/RouteSeo";
+
+// Every page except the homepage is loaded on demand, so the homepage
+// doesn't download the admin dashboard, booking page etc. up front.
+// If a page's file has gone missing (a new version was deployed while this
+// tab was open), reload once to pick up the new version instead of erroring.
+function page<T extends ComponentType<any>>(load: () => Promise<{ default: T }>) {
+  return lazy(() =>
+    load().catch((err) => {
+      const key = "envo:chunk-reload";
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, "1");
+        window.location.reload();
+        return new Promise<{ default: T }>(() => {});
+      }
+      throw err;
+    }).then((m) => { sessionStorage.removeItem("envo:chunk-reload"); return m; })
+  );
+}
+const Auth = page(() => import("./pages/Auth"));
+const Booking = page(() => import("./pages/Booking"));
+const PaymentVerification = page(() => import("./pages/PaymentVerification"));
+const BookingConfirmed = page(() => import("./pages/BookingConfirmed"));
+const BookingRefunded = page(() => import("./pages/BookingRefunded"));
+const DashboardLayout = page(() => import("./components/dashboard/DashboardLayout"));
+const DashboardHome = page(() => import("./pages/dashboard/DashboardHome"));
+const DashboardTransactions = page(() => import("./pages/dashboard/DashboardTransactions"));
+const DashboardSettings = page(() => import("./pages/dashboard/DashboardSettings"));
+const DashboardRewards = page(() => import("./pages/dashboard/DashboardRewards"));
+const DashboardMembership = page(() => import("./pages/dashboard/DashboardMembership"));
+const DashboardFnb = page(() => import("./pages/dashboard/DashboardFnb"));
+const DashboardBookings = page(() => import("./pages/dashboard/DashboardBookings"));
+const DashboardInbox = page(() => import("./pages/dashboard/DashboardInbox"));
+const Admin = page(() => import("./pages/Admin"));
+const Terms = page(() => import("./pages/Terms"));
+const Kyc = page(() => import("./pages/Kyc"));
+const NotFound = page(() => import("./pages/NotFound"));
+
+const PageLoading = () => (
+  <div className="flex min-h-screen items-center justify-center bg-background">
+    <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" aria-label="Loading" />
+  </div>
+);
 import AppUpdateBanner from "./components/AppUpdateBanner";
 import { NotificationTapTracker } from "./components/NotificationTapTracker";
 
@@ -52,7 +78,9 @@ const App = () => (
           <AppUpdateBanner />
           <BrowserRouter>
             <NotificationTapTracker />
+            <RouteSeo />
             <ErrorBoundary label="this page">
+              <Suspense fallback={<PageLoading />}>
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
@@ -87,6 +115,7 @@ const App = () => (
                 <Route path="/kyc" element={<Kyc />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </Suspense>
             </ErrorBoundary>
           </BrowserRouter>
         </TooltipProvider>

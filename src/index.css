@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+/* Fonts (Inter, Playfair Display) load from index.html without blocking the first paint. */
 
 @tailwind base;
 @tailwind components;
@@ -75,7 +75,9 @@
     --secondary-foreground: 45 15% 80%;
 
     --muted: 220 20% 12%;
-    --muted-foreground: 220 10% 50%;
+    /* 56% (not 50%) keeps grey text readable on dark cards — meets the
+       4.5:1 contrast minimum. */
+    --muted-foreground: 220 10% 56%;
 
     --accent: 40 65% 48%;
     --accent-foreground: 40 90% 10%;

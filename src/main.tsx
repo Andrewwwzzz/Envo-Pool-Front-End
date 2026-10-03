@@ -35,9 +35,13 @@ if ("serviceWorker" in navigator) {
         console.warn("[SW] Registration failed:", err);
       });
 
-    // Listen for messages from the SW (e.g. SW_UPDATED after activation)
+    // Listen for messages from the SW (e.g. SW_UPDATED after activation).
+    // A first-time visitor has no service worker yet, so its very first
+    // activation isn't an "update" — only announce it when one was already
+    // running (otherwise every new visitor saw "Update available").
+    const hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener("message", (event) => {
-      if (event.data?.type === "SW_UPDATED") {
+      if (event.data?.type === "SW_UPDATED" && hadController) {
         // Dispatch a custom DOM event that the React app listens to
         window.dispatchEvent(new CustomEvent("sw-updated"));
       }
