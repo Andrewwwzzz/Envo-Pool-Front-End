@@ -20,6 +20,8 @@ import { usePricingRules, usePublicHolidaySet } from "@/hooks/usePricing";
 import { useCustomerActiveMembership } from "@/hooks/useMembership";
 import { getCurrentHourlyRate, calculateDiscount } from "@/lib/pricing";
 import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
+import { MoveBookingDialog } from "@/components/admin/MoveBookingDialog";
+import { ArrowRightLeft } from "lucide-react";
 import { roundCashAmount } from "@/lib/money";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -108,6 +110,7 @@ export default function TablesTab() {
   const [bulkSchedStart, setBulkSchedStart] = useState("");
   const [bulkSchedEnd, setBulkSchedEnd] = useState("");
   const [bulkSchedReason, setBulkSchedReason] = useState("");
+  const [moveTarget, setMoveTarget] = useState<any | null>(null);
   const { toast } = useToast();
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
   const [bookingCountdown, setBookingCountdown] = useState<Record<string, number>>({});
@@ -392,7 +395,7 @@ export default function TablesTab() {
               // Check if table has active bookings blocking timer open
               const now = new Date();
               const tableHwId = t.hardware_id;
-              const hasActiveBooking = !isRunning && (bookings || []).some((b) => {
+              const activeBooking = isRunning ? null : (bookings || []).find((b) => {
                 const bTableId = typeof b.tableId === "object" ? b.tableId?._id || b.tableId?.hardware_id : b.tableId;
                 const matchesId = bTableId === t.id || bTableId === tableHwId;
                 if (!matchesId) return false;
@@ -401,6 +404,7 @@ export default function TablesTab() {
                 const bEnd = new Date(b.endTime || b.end_time);
                 return bStart <= now && bEnd > now;
               });
+              const hasActiveBooking = !!activeBooking;
               // Check for user-initiated walk-in sessions
               const hasUserWalkin = !isRunning && (walkinSessions as any[]).some((s: any) => {
                 const sTableId = s.tableId || s.table_id;
@@ -525,6 +529,11 @@ export default function TablesTab() {
                         </Button>
                       </>
                     )}
+                    {activeBooking && (
+                      <Button size="sm" variant="secondary" className="w-full col-span-2 sm:col-span-1" onClick={() => setMoveTarget(activeBooking)} title="Move this booking to another table — same time, price and payment">
+                        <ArrowRightLeft className="mr-2 h-3 w-3" /> Move Booking
+                      </Button>
+                    )}
                     {!isRunning && <ScheduleMaintenanceButton tableId={t.id} tableNumber={t.table_number} />}
                     {/* Independent of isRunning — the maintenance flag is a
                         separate piece of state from whether a timer happens
@@ -629,6 +638,8 @@ export default function TablesTab() {
         onOpenChange={(o) => { if (!o) setCloseTarget(null); }}
         onClosed={onTableClosed}
       />
+
+      <MoveBookingDialog booking={moveTarget} onOpenChange={(o) => { if (!o) setMoveTarget(null); }} />
 
       <BookNowDialog
         tables={tables || []}

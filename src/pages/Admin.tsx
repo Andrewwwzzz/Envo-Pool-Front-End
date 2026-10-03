@@ -78,6 +78,8 @@ import { ShiftClockWidget } from "@/components/admin/ShiftClockWidget";
 import { InboxBell } from "@/components/InboxBell";
 import { AdminNav, type AdminSection, type AdminPage } from "@/components/admin/AdminNav";
 import { TodayPanel } from "@/components/admin/TodayPanel";
+import { MoveBookingDialog } from "@/components/admin/MoveBookingDialog";
+import { ArrowRightLeft } from "lucide-react";
 import { LayoutDashboard, LayoutGrid, Coffee, Wallet, Crown, UserCog, Megaphone, Settings } from "lucide-react";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -539,7 +541,9 @@ function BookingsTab() {
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
   const [cancelRefund, setCancelRefund] = useState(false);
+  const [cancelRefundTo, setCancelRefundTo] = useState<"original" | "wallet">("original");
   const [cancelReason, setCancelReason] = useState("");
+  const [moveTarget, setMoveTarget] = useState<any | null>(null);
 
   const now = new Date();
   const todayStart = new Date(now);
@@ -667,6 +671,17 @@ function BookingsTab() {
                     </td>
                     <td className="py-3">
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        {canCancel && new Date(getField(b, "endTime", "end_time")) > new Date() && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Move to another table (same time, price and payment)"
+                            onClick={() => setMoveTarget(b)}
+                            className="gap-1"
+                          >
+                            <ArrowRightLeft className="h-4 w-4" /> Move
+                          </Button>
+                        )}
                         {canCancel && (
                           <Button
                             variant="ghost"
@@ -695,6 +710,8 @@ function BookingsTab() {
       </CardContent>
     </Card>
 
+    <MoveBookingDialog booking={moveTarget} onOpenChange={(o) => { if (!o) setMoveTarget(null); }} />
+
     <AdminBookingDetailDialog
       booking={selectedBooking}
       open={!!selectedBooking}
@@ -706,12 +723,15 @@ function BookingsTab() {
       }}
     />
 
-    <Dialog open={!!cancelTargetId} onOpenChange={(o) => { if (!o) { setCancelTargetId(null); setCancelReason(""); setCancelRefund(false); } }}>
+    <Dialog open={!!cancelTargetId} onOpenChange={(o) => { if (!o) { setCancelTargetId(null); setCancelReason(""); setCancelRefund(false); setCancelRefundTo("original"); } }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Cancel Booking</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">Please provide a reason for cancelling this booking.</p>
+        <p className="text-xs rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-amber-600 dark:text-amber-400">
+          Customer just changing table? Use <span className="font-semibold">Move</span> instead — cancelling and rebooking records the payment twice.
+        </p>
         <Textarea
           value={cancelReason}
           onChange={(e) => setCancelReason(e.target.value)}
@@ -719,13 +739,44 @@ function BookingsTab() {
           rows={4}
           maxLength={500}
         />
-        <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
-          <div>
-            <p className="text-sm font-medium">Refund to wallet</p>
-            <p className="text-xs text-muted-foreground">Return booking amount to customer wallet</p>
-          </div>
-          <Switch checked={cancelRefund} onCheckedChange={setCancelRefund} />
-        </div>
+        {(() => {
+          // A booking paid by PayNow / cash is refunded the same way (the
+          // PayNow / cash figures go down with it); wallet bookings go back
+          // to the wallet.
+          const target = (bookings || []).find((b: any) => getBookingId(b) === cancelTargetId);
+          const method: string = target ? getField(target, "paymentMethod", "payment_method") ?? "" : "";
+          const amount = target ? Number(getField(target, "amount", "finalPrice", "final_price", "price") ?? 0) : 0;
+          const direct = method === "paynow" || method === "cash";
+          const label = method === "paynow" ? "PayNow" : "cash";
+          return (
+            <div className="rounded-lg border border-border/50 p-3 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">Refund ${amount.toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {direct
+                      ? `Paid by ${label}. Give the money back by ${label} — or turn this on if the customer never actually paid, so it's taken off the ${label} figures.`
+                      : "Return the booking amount to the customer's wallet."}
+                  </p>
+                </div>
+                <Switch checked={cancelRefund} onCheckedChange={setCancelRefund} />
+              </div>
+              {direct && cancelRefund && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Button type="button" size="sm" variant={cancelRefundTo === "original" ? "default" : "outline"} onClick={() => setCancelRefundTo("original")}>
+                    Refund by {label}
+                  </Button>
+                  <Button type="button" size="sm" variant={cancelRefundTo === "wallet" ? "default" : "outline"} onClick={() => setCancelRefundTo("wallet")}>
+                    Credit their wallet
+                  </Button>
+                  {cancelRefundTo === "wallet" && (
+                    <p className="col-span-2 text-xs text-muted-foreground">Keeps the {label} payment and gives the customer wallet credit instead. Not for the Guest Account.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         <DialogFooter>
           <Button variant="outline" onClick={() => { setCancelTargetId(null); setCancelReason(""); }}>Go Back</Button>
           <Button
@@ -734,8 +785,8 @@ function BookingsTab() {
             onClick={() => {
               if (!cancelTargetId) return;
               updateStatus.mutate(
-                { bookingId: cancelTargetId, status: "cancelled", reason: cancelReason.trim(), refund: cancelRefund },
-                { onSuccess: () => { setCancelTargetId(null); setCancelReason(""); setCancelRefund(false); } },
+                { bookingId: cancelTargetId, status: "cancelled", reason: cancelReason.trim(), refund: cancelRefund, refundTo: cancelRefundTo },
+                { onSuccess: () => { setCancelTargetId(null); setCancelReason(""); setCancelRefund(false); setCancelRefundTo("original"); } },
               );
             }}
           >

@@ -116,6 +116,7 @@ export function PayNowVerifyIcon({
           timestamp={timestamp}
           gmailPayments={gmailPayments}
           override={override}
+          allOverrides={overrides || []}
         />
       )}
     </>
@@ -131,6 +132,7 @@ function PayNowVerifyDialog({
   timestamp,
   gmailPayments,
   override,
+  allOverrides,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -140,18 +142,38 @@ function PayNowVerifyDialog({
   timestamp: string | Date | null | undefined;
   gmailPayments: any[] | undefined;
   override: any;
+  allOverrides: any[];
 }) {
   const setOverride = useSetPaynowOverride();
   const clearOverride = useClearPaynowOverride();
   const [note, setNote] = useState("");
   const [mode, setMode] = useState<"list" | "flag">("list");
 
+  // The transfer this charge is linked to (populated by the API).
+  const linked = override?.status === "linked" ? override.gmailPaymentId : null;
+  const linkedId = linked ? String(linked._id || linked) : null;
+  // Transfers already linked to some other charge — so one transfer isn't
+  // linked twice by mistake.
+  const usedElsewhere = new Set(
+    allOverrides
+      .filter((o) => o.status === "linked" && o.gmailPaymentId && !(o.refType === refType && String(o.refId) === String(refId)))
+      .map((o) => String(o.gmailPaymentId._id || o.gmailPaymentId))
+  );
+
   const t = timestamp ? new Date(timestamp).getTime() : null;
-  const candidates = (gmailPayments || [])
+  const nearest = (gmailPayments || [])
     .map((p) => ({ p, diff: t ? Math.abs(new Date(p.transactionTimestamp).getTime() - t) : Infinity }))
     .sort((a, b) => a.diff - b.diff)
     .slice(0, 15)
     .map((x) => x.p);
+  // Always show the linked transfer, first.
+  const linkedRow = linkedId ? (gmailPayments || []).find((p) => String(p._id) === linkedId) || (typeof linked === "object" ? linked : null) : null;
+  const candidates = linkedRow ? [linkedRow, ...nearest.filter((p) => String(p._id) !== linkedId)] : nearest;
+  const diffLabel = (paid: number) => {
+    const d = Math.round((paid - amount) * 100) / 100;
+    if (Math.abs(d) < 0.005) return "exact amount";
+    return d < 0 ? `$${Math.abs(d).toFixed(2)} short` : `$${d.toFixed(2)} over`;
+  };
 
   const linkTo = (gmailPaymentId: string) => {
     setOverride.mutate({ refType, refId, status: "linked", gmailPaymentId });
@@ -182,7 +204,14 @@ function PayNowVerifyDialog({
           {override && (
             <div className="rounded-md border border-border/50 p-2 text-xs text-muted-foreground">
               Current: <strong className="capitalize">{override.status.replace(/_/g, " ")}</strong>
+              {linked && typeof linked === "object" && (
+                <>
+                  {" "}to <strong className="text-foreground">${Number(linked.amount).toFixed(2)}</strong> from <strong className="text-foreground">{linked.senderName || "unknown"}</strong> at {fmtDateTimeSG(linked.transactionTimestamp)}
+                  {" "}<span className={Math.abs(Number(linked.amount) - amount) < 0.005 ? "text-emerald-500" : "text-amber-500"}>({diffLabel(Number(linked.amount))})</span>
+                </>
+              )}
               {override.note ? ` — ${override.note}` : ""}
+              {override.verifiedBy && <span className="block mt-0.5">by {override.verifiedBy.name || override.verifiedBy.email}</span>}
             </div>
           )}
 
@@ -193,21 +222,32 @@ function PayNowVerifyDialog({
                 {candidates.length === 0 && (
                   <p className="text-xs text-muted-foreground p-2">No Gmail transfers found nearby.</p>
                 )}
-                {candidates.map((p) => (
-                  <button
-                    key={p._id}
-                    type="button"
-                    onClick={() => linkTo(p._id)}
-                    disabled={busy}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center justify-between gap-2"
-                  >
-                    <span>
-                      ${Number(p.amount).toFixed(2)} — {p.senderName || "unknown"}
-                      <span className="block text-xs text-muted-foreground">{fmtDateTimeSG(p.transactionTimestamp)}</span>
-                    </span>
-                    <Link2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  </button>
-                ))}
+                {candidates.map((p) => {
+                  const isLinked = String(p._id) === linkedId;
+                  const elsewhere = usedElsewhere.has(String(p._id));
+                  return (
+                    <button
+                      key={p._id}
+                      type="button"
+                      onClick={() => !isLinked && linkTo(p._id)}
+                      disabled={busy || isLinked}
+                      className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2 ${isLinked ? "bg-emerald-500/10 border-l-2 border-emerald-500" : "hover:bg-muted"}`}
+                    >
+                      <span>
+                        ${Number(p.amount).toFixed(2)} — {p.senderName || "unknown"}
+                        <span className="block text-xs text-muted-foreground">
+                          {fmtDateTimeSG(p.transactionTimestamp)} · {diffLabel(Number(p.amount))}
+                          {elsewhere && <span className="text-amber-500"> · already linked to another charge</span>}
+                        </span>
+                      </span>
+                      {isLinked ? (
+                        <span className="text-xs font-medium text-emerald-500 shrink-0">Linked</span>
+                      ) : (
+                        <Link2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
               <div className="flex gap-2 pt-1">
                 <Button size="sm" variant="outline" className="flex-1" onClick={confirmPaid} disabled={busy}>
