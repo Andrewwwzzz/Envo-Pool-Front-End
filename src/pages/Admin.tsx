@@ -1379,11 +1379,14 @@ function InvoicesTab() {
           ? { name: s.userId?.name || s.userId?.username, email: s.userId?.email }
           : undefined,
     })),
-  ].sort(
-    (a, b) =>
-      new Date(b.startedAt || b.started_at || 0).getTime() -
-      new Date(a.startedAt || a.started_at || 0).getTime(),
-  );
+  ]
+    // "Show Deleted" lists only deleted invoices, not everything.
+    .filter((s) => !showDeleted || isRecordDeleted(s))
+    .sort(
+      (a, b) =>
+        new Date(b.startedAt || b.started_at || 0).getTime() -
+        new Date(a.startedAt || a.started_at || 0).getTime(),
+    );
   const { toast } = useToast();
   const qc = useQueryClient();
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -1442,7 +1445,7 @@ function InvoicesTab() {
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" /> Timer Session Invoices
+            <FileText className="h-5 w-5" /> {showDeleted ? "Deleted Invoices" : "Timer Session Invoices"}
           </CardTitle>
           <Button
             size="sm"
@@ -1450,7 +1453,7 @@ function InvoicesTab() {
             onClick={() => setShowDeleted((v) => !v)}
             className="text-xs h-7"
           >
-            {showDeleted ? "Hide Deleted" : "Show Deleted"}
+            {showDeleted ? "Back to Invoices" : "Show Deleted"}
           </Button>
         </div>
       </CardHeader>
@@ -1462,7 +1465,7 @@ function InvoicesTab() {
             ))}
           </div>
         ) : !sessions.length ? (
-          <p className="text-muted-foreground text-sm">No timer sessions yet.</p>
+          <p className="text-muted-foreground text-sm">{showDeleted ? "No deleted invoices." : "No timer sessions yet."}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -1696,7 +1699,12 @@ function CustomersTab({
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showDeleted, setShowDeleted] = useState(false);
-  const { data: customers, isLoading } = useAdminCustomers(debouncedSearch, showDeleted);
+  const { data: customersRaw, isLoading } = useAdminCustomers(debouncedSearch, showDeleted);
+  // "Show Deleted" lists only deleted customers; the normal view only active ones.
+  const customers = useMemo(
+    () => (customersRaw || []).filter((c: any) => (showDeleted ? isRecordDeleted(c) : !isRecordDeleted(c))),
+    [customersRaw, showDeleted]
+  );
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   const [sortCol, setSortCol] = useState<SortCol>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -1812,7 +1820,7 @@ function CustomersTab({
             onClick={() => setShowDeleted(v => !v)}
           >
             <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-            {showDeleted ? "Hide Deleted" : "Show Deleted"}
+            {showDeleted ? "Back to Customers" : "Show Deleted"}
           </Button>
           <Button size="sm" className="whitespace-nowrap" onClick={() => setCreateOpen(true)}>
             <UserPlus className="h-3.5 w-3.5 mr-1.5" />
@@ -2920,7 +2928,9 @@ function CampaignFormFields({ form, setForm, imagePreview, onImageChange }: {
 
 function CampaignsTab() {
   const [showDeleted, setShowDeleted] = useState(false);
-  const { data: campaigns = [], create, update, toggle, restore, remove } = useAdminCampaigns(showDeleted);
+  const { data: allCampaigns = [], create, update, toggle, restore, remove } = useAdminCampaigns(showDeleted);
+  // "Show deleted" lists only deleted campaigns; the normal view only active ones.
+  const campaigns = allCampaigns.filter((c: any) => (showDeleted ? isRecordDeleted(c) : !isRecordDeleted(c)));
 
   const [form, setForm] = useState({ title: "", body: "", buttonLabel: "", buttonUrl: "" });
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -2977,7 +2987,7 @@ function CampaignsTab() {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {campaigns.length === 0 && <p className="text-sm text-muted-foreground">No campaigns yet.</p>}
+          {campaigns.length === 0 && <p className="text-sm text-muted-foreground">{showDeleted ? "No deleted campaigns." : "No campaigns yet."}</p>}
           {campaigns.map((c: any) => (
             <div key={c._id} className={`rounded-lg border p-3 space-y-2 ${c.isDeleted ? "border-border/30 opacity-50" : c.isActive ? "border-accent/30 bg-accent/5" : "border-border/40"}`}>
               <div className="flex items-start justify-between gap-2">
@@ -3025,8 +3035,10 @@ function CampaignsTab() {
 }
 
 function PricingTab() {
-  const [hideDeleted, setHideDeleted] = useState(false);
-  const { data: rules, create, remove, toggle, update } = useAdminPricingRules(hideDeleted ? "default" : "all");
+  // Normal view: active rules only. "Show Deleted": deleted rules only.
+  const [showDeleted, setShowDeleted] = useState(false);
+  const { data: allRules, create, remove, toggle, update } = useAdminPricingRules(showDeleted ? "all" : "default");
+  const rules = (allRules || []).filter((r: any) => (showDeleted ? isRecordDeleted(r) : !isRecordDeleted(r)));
   const [showDeletedPH, setShowDeletedPH] = useState(false);
   const {
     data: holidays = [],
@@ -3277,15 +3289,15 @@ function PricingTab() {
           <CardTitle>Existing Rules</CardTitle>
           <Button
             size="sm"
-            variant={hideDeleted ? "secondary" : "outline"}
-            onClick={() => setHideDeleted((v) => !v)}
+            variant={showDeleted ? "secondary" : "outline"}
+            onClick={() => setShowDeleted((v) => !v)}
           >
-            {hideDeleted ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
-            {hideDeleted ? "Show Deleted" : "Hide Deleted"}
+            {showDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+            {showDeleted ? "Back" : "Show Deleted"}
           </Button>
         </CardHeader>
         <CardContent>
-          {!rules?.length ? <p className="text-muted-foreground text-sm">No pricing rules.</p> : (
+          {!rules?.length ? <p className="text-muted-foreground text-sm">{showDeleted ? "No deleted pricing rules." : "No pricing rules."}</p> : (
             <div className="space-y-3">
               {rules.map((r: any) => {
                 const deleted = isRecordDeleted(r);
@@ -3440,8 +3452,10 @@ function PromosTab() {
   const { user: authUser } = useAuth();
   const isMaster = authUser?.isMaster ?? false;
   const qc = useQueryClient();
-  const [hideDeleted, setHideDeleted] = useState(false);
-  const { data: promos, create, toggle, remove, update } = useAdminPromoCodes(hideDeleted ? "default" : "all");
+  // Normal view: active codes only. "Show Deleted": deleted codes only.
+  const [showDeleted, setShowDeleted] = useState(false);
+  const { data: allPromos, create, toggle, remove, update } = useAdminPromoCodes(showDeleted ? "all" : "default");
+  const promos = (allPromos || []).filter((p: any) => (showDeleted ? isRecordDeleted(p) : !isRecordDeleted(p)));
   const [form, setForm] = useState({
     code: "", discount_type: "percentage" as string, discount_value: "", minimum_spend: "",
     minimum_hours: "", max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "",
@@ -3631,15 +3645,15 @@ function PromosTab() {
           <CardTitle>Existing Promo Codes</CardTitle>
           <Button
             size="sm"
-            variant={hideDeleted ? "secondary" : "outline"}
-            onClick={() => setHideDeleted((v) => !v)}
+            variant={showDeleted ? "secondary" : "outline"}
+            onClick={() => setShowDeleted((v) => !v)}
           >
-            {hideDeleted ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
-            {hideDeleted ? "Show Deleted" : "Hide Deleted"}
+            {showDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+            {showDeleted ? "Back" : "Show Deleted"}
           </Button>
         </CardHeader>
         <CardContent>
-          {!promos?.length ? <p className="text-muted-foreground text-sm">No promo codes.</p> : (
+          {!promos?.length ? <p className="text-muted-foreground text-sm">{showDeleted ? "No deleted promo codes." : "No promo codes."}</p> : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>

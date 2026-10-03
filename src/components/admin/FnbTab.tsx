@@ -556,7 +556,8 @@ export function FnbTab() {
   const { data: gmailPayments } = useAdminGmailPayments(true);
   const { data: analytics } = useFnbAnalytics(viewDay);
   const { data: allProducts = [] } = useAdminMenu(!hideDeleted);
-  const products = (hideDeleted ? allProducts.filter((p) => !(p as any).isDeleted) : allProducts)
+  // "Show Deleted" (hideDeleted = false) lists only deleted products.
+  const products = allProducts.filter((p) => (hideDeleted ? !(p as any).isDeleted : (p as any).isDeleted))
     .filter((p) => categoryGroupFilter === "all" || getCategoryGroup(p.category) === categoryGroupFilter);
   const { data: stockLogs = [] } = useStockLogs(productDialog === "logs" ? selectedProduct?._id ?? null : null);
 
@@ -957,7 +958,7 @@ export function FnbTab() {
         {/* ── PRODUCTS & STOCK ── */}
         <TabsContent value="products" className="space-y-4 mt-4">
           <div className="flex justify-between items-center gap-2 flex-wrap">
-            <p className="text-sm text-muted-foreground">{products.length} products</p>
+            <p className="text-sm text-muted-foreground">{products.length} {hideDeleted ? "products" : "deleted products"}</p>
             <div className="flex gap-2">
               <Button
                 size="sm"
@@ -965,7 +966,7 @@ export function FnbTab() {
                 onClick={() => setHideDeleted((v) => !v)}
               >
                 {hideDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-                {hideDeleted ? "Show Deleted" : "Hide Deleted"}
+                {hideDeleted ? "Show Deleted" : "Back to Products"}
               </Button>
               <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={openCreate}>
                 <Plus className="h-4 w-4 mr-1" /> Add Product

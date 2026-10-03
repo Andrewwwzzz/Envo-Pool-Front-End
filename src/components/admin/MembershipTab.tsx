@@ -624,10 +624,11 @@ export default function MembershipTab() {
   const hardDelete = useHardDelete();
   const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
   const { data: plans = [] } = useMembershipPlans("all");
-  const [hideDeleted, setHideDeleted] = useState(false);
+  // Normal views list active records only; "Show Deleted" lists deleted ones only.
+  const [showDeleted, setShowDeleted] = useState(false);
   const [subSearch, setSubSearch] = useState("");
   const [planFilter, setPlanFilter] = useState("all");
-  const { data: subs = [] } = useAdminSubscriptions(hideDeleted ? "default" : "all");
+  const { data: subs = [] } = useAdminSubscriptions(showDeleted ? "all" : "default");
   const { data: customers = [] } = useAdminCustomers("");
   const del = useDeleteMembershipPlan();
   const toggleActive = useToggleMembershipPlanActive();
@@ -639,7 +640,7 @@ export default function MembershipTab() {
   const [detailRecord, setDetailRecord] = useState<any | null>(null);
   const [deletePlanTarget, setDeletePlanTarget] = useState<MembershipPlan | null>(null);
   const [detailPlan, setDetailPlan] = useState<MembershipPlan | null>(null);
-  const [hidePlanDeleted, setHidePlanDeleted] = useState(false);
+  const [showPlanDeleted, setShowPlanDeleted] = useState(false);
 
   const { data: hoursData = [] } = useAdminMembershipHours();
   const hoursMap = useMemo(() => {
@@ -649,7 +650,7 @@ export default function MembershipTab() {
   }, [hoursData]);
 
   const visibleSubs = useMemo(() => {
-    let list = subs || [];
+    let list = (subs || []).filter((s: any) => (showDeleted ? isDeleted(s) : !isDeleted(s)));
     if (planFilter !== "all") {
       list = list.filter((s: any) => {
         const plan = typeof s.planId === "object" && s.planId ? s.planId : null;
@@ -667,8 +668,8 @@ export default function MembershipTab() {
       });
     }
     return list;
-  }, [subs, subSearch, planFilter]);
-  const visiblePlans = hidePlanDeleted ? plans.filter((p: any) => !isDeleted(p)) : plans;
+  }, [subs, subSearch, planFilter, showDeleted]);
+  const visiblePlans = plans.filter((p: any) => (showPlanDeleted ? isDeleted(p) : !isDeleted(p)));
 
   const openCreate = () => { setEditPlan(null); setPlanDlgOpen(true); };
   const openEdit = (p: MembershipPlan) => {
@@ -687,11 +688,11 @@ export default function MembershipTab() {
           <div className="flex gap-2">
             <Button
               size="sm"
-              variant={hidePlanDeleted ? "outline" : "secondary"}
-              onClick={() => setHidePlanDeleted((v) => !v)}
+              variant={showPlanDeleted ? "secondary" : "outline"}
+              onClick={() => setShowPlanDeleted((v) => !v)}
             >
-              {hidePlanDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-              {hidePlanDeleted ? "Show Deleted" : "Hide Deleted"}
+              {showPlanDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+              {showPlanDeleted ? "Back to Plans" : "Show Deleted"}
             </Button>
             <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4" /> Create Plan</Button>
           </div>
@@ -802,11 +803,11 @@ export default function MembershipTab() {
             </Select>
             <Button
               size="sm"
-              variant={hideDeleted ? "secondary" : "outline"}
-              onClick={() => setHideDeleted((v) => !v)}
+              variant={showDeleted ? "secondary" : "outline"}
+              onClick={() => setShowDeleted((v) => !v)}
             >
-              {hideDeleted ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
-              {hideDeleted ? "Show Deleted" : "Hide Deleted"}
+              {showDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+              {showDeleted ? "Back to Subscriptions" : "Show Deleted"}
             </Button>
 
             <Button size="sm" onClick={() => setAssignOpen(true)}><Plus className="h-4 w-4" /> Assign Membership</Button>

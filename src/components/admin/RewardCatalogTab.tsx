@@ -197,6 +197,8 @@ export function RewardCatalogTab() {
 
   const activeCount = items.filter(i => !checkDeleted(i)).length;
   const deletedCount = items.filter(i => checkDeleted(i)).length;
+  // "Show Deleted" lists only deleted items; the normal view only active ones.
+  const visibleItems = items.filter((i) => (showDeleted ? checkDeleted(i) : !checkDeleted(i)));
 
   return (
     <div className="space-y-4">
@@ -208,7 +210,7 @@ export function RewardCatalogTab() {
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => setShowDeleted(v => !v)}>
             {showDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-            {showDeleted ? "Hide Deleted" : "Show Deleted"}
+            {showDeleted ? "Back to Rewards" : "Show Deleted"}
           </Button>
           <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={openCreate}>
             <Plus className="h-4 w-4 mr-1" /> Create Reward
@@ -217,7 +219,7 @@ export function RewardCatalogTab() {
       </div>
 
       <div className="space-y-2">
-        {items.map((item) => {
+        {visibleItems.map((item) => {
           const deleted = checkDeleted(item);
           const info = deleted ? getDeletedInfo(item) : null;
           return (
@@ -278,8 +280,8 @@ export function RewardCatalogTab() {
           </Card>
           );
         })}
-        {items.length === 0 && (
-          <p className="text-center text-muted-foreground text-sm py-10">No rewards yet. Create your first one.</p>
+        {visibleItems.length === 0 && (
+          <p className="text-center text-muted-foreground text-sm py-10">{showDeleted ? "No deleted rewards." : "No rewards yet. Create your first one."}</p>
         )}
       </div>
 

@@ -98,8 +98,9 @@ export default function RewardsTab({
   onCustomerClick?: (info: { id?: string; email: string; name: string }) => void;
 }) {
   const { toast } = useToast();
-  const [hideDeleted, setHideDeleted] = useState(false);
-  const { data: rewards, isLoading } = useAllAdminRewards(hideDeleted ? "default" : "all");
+  // Normal view: active rewards only. "Show Deleted": deleted rewards only.
+  const [showDeleted, setShowDeleted] = useState(false);
+  const { data: rewards, isLoading } = useAllAdminRewards(showDeleted ? "all" : "default");
   const markRedeemed = useMarkRedeemed();
   const { data: customers = [] } = useAdminCustomers("");
   const deleteReward = useDeleteReward();
@@ -116,7 +117,7 @@ export default function RewardsTab({
     const list = rewards || [];
     const q = search.trim().toLowerCase();
     return list.filter((r: any) => {
-      if (hideDeleted && isDeleted(r)) return false;
+      if (showDeleted ? !isDeleted(r) : isDeleted(r)) return false;
       if (typeFilter !== "all" && r.type !== typeFilter) return false;
       if (reasonFilter !== "all" && r.reason !== reasonFilter) return false;
       if (statusFilter === "active" && !isActive(r)) return false;
@@ -128,7 +129,7 @@ export default function RewardsTab({
       }
       return true;
     });
-  }, [rewards, typeFilter, statusFilter, reasonFilter, search, hideDeleted]);
+  }, [rewards, typeFilter, statusFilter, reasonFilter, search, showDeleted]);
 
 
   const summary = useMemo(() => {
@@ -170,11 +171,11 @@ export default function RewardsTab({
           </CardTitle>
           <Button
             size="sm"
-            variant={hideDeleted ? "secondary" : "outline"}
-            onClick={() => setHideDeleted((v) => !v)}
+            variant={showDeleted ? "secondary" : "outline"}
+            onClick={() => setShowDeleted((v) => !v)}
           >
-            {hideDeleted ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
-            {hideDeleted ? "Show Deleted" : "Hide Deleted"}
+            {showDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+            {showDeleted ? "Back to Rewards" : "Show Deleted"}
           </Button>
 
         </div>
@@ -232,7 +233,7 @@ export default function RewardsTab({
         {isLoading && !(rewards as any[] | undefined)?.length ? (
           <p className="text-muted-foreground text-sm">Loading rewards…</p>
         ) : !filtered.length ? (
-          <p className="text-muted-foreground text-sm">No rewards match these filters.</p>
+          <p className="text-muted-foreground text-sm">{showDeleted ? "No deleted rewards." : "No rewards match these filters."}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

@@ -1556,22 +1556,26 @@ function TableMaintenanceList({ tableId }: { tableId: string }) {
   const remove = useDeleteMaintenance();
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [detailRecord, setDetailRecord] = useState<any | null>(null);
+  // Normal view: upcoming windows only. "Show Deleted": deleted windows only.
   const list = (Array.isArray(windows) ? windows : []).filter((w: any) => {
-    if (isRecordDeleted(w)) return true;
+    if (!hideDeleted) return isRecordDeleted(w);
+    if (isRecordDeleted(w)) return false;
     const end = new Date(w.endTime || w.end_time);
     return !isNaN(end.getTime()) && end.getTime() > Date.now();
   }).sort((a: any, b: any) =>
     new Date(a.startTime || a.start_time).getTime() - new Date(b.startTime || b.start_time).getTime()
   );
 
-  if (!list.length) return null;
+  // Nothing upcoming → nothing to show on the card. (In the deleted view,
+  // keep the header so there's a way back.)
+  if (!list.length && hideDeleted) return null;
   // Only the next two windows by default, to keep each table card short.
   const shown = showAll ? list : list.slice(0, 2);
 
   return (
     <div className="space-y-1.5 pt-1">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground">Scheduled Maintenance ({list.length})</p>
+        <p className="text-xs font-medium text-muted-foreground">{hideDeleted ? "Scheduled Maintenance" : "Deleted Maintenance"} ({list.length})</p>
         <Button
           size="sm"
           variant="ghost"
@@ -1579,9 +1583,10 @@ function TableMaintenanceList({ tableId }: { tableId: string }) {
           onClick={() => setHideDeleted((v) => !v)}
         >
           {hideDeleted ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
-          {hideDeleted ? "Show Deleted" : "Hide Deleted"}
+          {hideDeleted ? "Show Deleted" : "Back"}
         </Button>
       </div>
+      {!list.length && <p className="text-xs text-muted-foreground">No deleted maintenance windows.</p>}
       {shown.map((w: any) => {
         const id = w._id || w.id;
         const start = w.startTime || w.start_time;

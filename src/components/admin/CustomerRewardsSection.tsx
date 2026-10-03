@@ -41,7 +41,8 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const [showDeleted, setShowDeleted] = useState(false);
 
   const visibleRewards = useMemo(
-    () => (rewards || []).filter((r: any) => showDeleted || !isDeleted(r)),
+    // "Show Deleted" lists only deleted rewards; the normal view only active ones.
+    () => (rewards || []).filter((r: any) => (showDeleted ? isDeleted(r) : !isDeleted(r))),
     [rewards, showDeleted],
   );
 
@@ -125,7 +126,7 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
               onClick={() => setShowDeleted((v) => !v)}
             >
               {showDeleted ? <EyeOff className="h-3 w-3 mr-1" /> : <Eye className="h-3 w-3 mr-1" />}
-              {showDeleted ? "Hide Deleted" : "Show Deleted"}
+              {showDeleted ? "Back to Rewards" : "Show Deleted"}
             </Button>
             <Button size="sm" onClick={() => setOpen(true)}>
               <Gift className="mr-1 h-3 w-3" /> Issue Reward

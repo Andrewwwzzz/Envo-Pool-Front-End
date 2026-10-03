@@ -473,7 +473,7 @@ function CashCountHistory({ isMaster }: { isMaster: boolean }) {
             onClick={() => setShowDeleted((v) => !v)}
           >
             <Trash2 className="h-3 w-3" />
-            {showDeleted ? "Hide Deleted" : "Show Deleted"}
+            {showDeleted ? "Back to History" : "Show Deleted"}
           </Button>
         )}
       </CardHeader>

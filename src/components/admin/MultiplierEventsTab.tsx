@@ -58,6 +58,8 @@ export function MultiplierEventsTab() {
   const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
   const { data: events = [] } = useAdminMultipliers(showDeleted);
+  // "Show Deleted" lists only deleted events; the normal view only active ones.
+  const visibleEvents = events.filter((e) => (showDeleted ? checkDeleted(e) : !checkDeleted(e)));
   const [dialog, setDialog] = useState<"create" | "edit" | null>(null);
   const [selected, setSelected] = useState<MultiplierEvent | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -144,7 +146,7 @@ export function MultiplierEventsTab() {
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => setShowDeleted(v => !v)}>
             {showDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-            {showDeleted ? "Hide Deleted" : "Show Deleted"}
+            {showDeleted ? "Back to Events" : "Show Deleted"}
           </Button>
           <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={openCreate}>
             <Plus className="h-4 w-4 mr-1" /> Create Event
@@ -153,7 +155,7 @@ export function MultiplierEventsTab() {
       </div>
 
       <div className="space-y-2">
-        {events.map((event) => {
+        {visibleEvents.map((event) => {
           const deleted = checkDeleted(event);
           return (
             <Card key={event._id} className={`border-border/50 ${deleted ? "opacity-60 border-destructive/30" : !event.isActive ? "opacity-60" : ""}`}>
@@ -204,8 +206,8 @@ export function MultiplierEventsTab() {
             </Card>
           );
         })}
-        {events.length === 0 && (
-          <p className="text-center text-muted-foreground text-sm py-10">No multiplier events yet.</p>
+        {visibleEvents.length === 0 && (
+          <p className="text-center text-muted-foreground text-sm py-10">{showDeleted ? "No deleted events." : "No multiplier events yet."}</p>
         )}
       </div>
 
