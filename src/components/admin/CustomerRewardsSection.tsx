@@ -14,6 +14,10 @@ import { fmtDateSG } from "@/lib/sgTime";
 import ReasonDialog from "./ReasonDialog";
 import DeletedBanner, { getDeletedInfo, isDeleted } from "./DeletedBanner";
 import { useAdminCustomers } from "@/hooks/useAdmin";
+import { useAuth } from "@/contexts/AuthContext";
+
+// Largest Wallet Credit a staff account may issue — the server enforces this too.
+const STAFF_WALLET_CREDIT_CAP = 50;
 
 const TYPE_LABELS: Record<RewardType, string> = {
   free_session: "Free Session (30 min)",
@@ -32,6 +36,8 @@ const REASON_LABELS: Record<RewardReason, string> = {
 
 export default function CustomerRewardsSection({ userId }: { userId: string }) {
   const { toast } = useToast();
+  const { user: authUser } = useAuth();
+  const creditCap = authUser?.role === "admin" ? null : STAFF_WALLET_CREDIT_CAP;
   const { data: rewards, isLoading } = useAdminRewards(userId);
   const issueReward = useIssueReward();
   const deleteReward = useDeleteReward();
@@ -95,6 +101,10 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
       const v = parseFloat(value);
       if (!Number.isFinite(v) || v <= 0) {
         toast({ title: "Invalid value", variant: "destructive" });
+        return;
+      }
+      if (isWalletCredit && creditCap !== null && v > creditCap) {
+        toast({ title: `Staff can issue Wallet Credit up to $${creditCap}`, description: "Ask an admin to issue a larger amount.", variant: "destructive" });
         return;
       }
       payload.value = v;
@@ -283,6 +293,9 @@ export default function CustomerRewardsSection({ userId }: { userId: string }) {
               <div className="space-y-2">
                 <Label>{valueLabel}</Label>
                 <Input type="number" step="0.01" min="0" value={value} onChange={(e) => setValue(e.target.value)} />
+                {type === "wallet_credit" && creditCap !== null && (
+                  <p className="text-xs text-muted-foreground">Up to ${creditCap} — ask an admin for more.</p>
+                )}
               </div>
             )}
             <div className="space-y-2">

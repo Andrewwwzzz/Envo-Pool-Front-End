@@ -1695,6 +1695,8 @@ function CustomersTab({
 } = {}) {
   const { user: authUser } = useAuth();
   const isMaster = authUser?.isMaster ?? false;
+  // Deleting/restoring accounts: admin and master only (the server enforces this too).
+  const canManageAccount = authUser?.role === "admin";
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -1941,7 +1943,7 @@ function CustomersTab({
                   <td className="py-3 pr-4">${(c.total_spent ?? 0).toFixed(2)}</td>
                   <td className="py-3 pr-4 text-muted-foreground">{c.created_at ? fmtDateSG(c.created_at) : "—"}</td>
                   <td className="py-3" onClick={(e) => e.stopPropagation()}>
-                    {c.isDeleted ? (
+                    {!canManageAccount ? null : c.isDeleted ? (
                       <div className="flex gap-1">
                         <Button
                           variant="outline"
@@ -2225,6 +2227,10 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const queryClient = useQueryClient();
   const { user: authUser } = useAuth();
   const isFullAdmin = authUser?.isAdmin ?? false;
+  // Wallet/points, email, password: admin and master only (the server enforces this too).
+  const canManageAccount = authUser?.role === "admin";
+  // Staff may edit a customer's details, but not a team (staff/admin) account's.
+  const isCustomerAccount = customer.role !== "admin" && customer.role !== "staff";
   const updateWallet = useUpdateCustomerWallet();
   const updateProfile = useUpdateCustomerProfile();
   const updateEmail = useUpdateCustomerEmail();
@@ -2458,10 +2464,16 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
             <div className="flex gap-2">
               {!editing && (
                 <>
-                  <Button size="sm" variant="outline" onClick={openEditDetails}><Pencil className="mr-1 h-3 w-3" /> Edit Details</Button>
-                  <Button size="sm" variant="outline" onClick={() => { setNewEmailInput(customer.email ?? ""); setEmailReason(""); setChangeEmailOpen(true); }}><Pencil className="mr-1 h-3 w-3" /> Change Email</Button>
-                  <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet & Points</Button>
-                  <Button size="sm" variant="outline" onClick={() => { setNewPassword(""); setConfirmPassword(""); setResetPasswordOpen(true); }}><Key className="mr-1 h-3 w-3" /> Reset Password</Button>
+                  {(canManageAccount || isCustomerAccount) && (
+                    <Button size="sm" variant="outline" onClick={openEditDetails}><Pencil className="mr-1 h-3 w-3" /> Edit Details</Button>
+                  )}
+                  {canManageAccount && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => { setNewEmailInput(customer.email ?? ""); setEmailReason(""); setChangeEmailOpen(true); }}><Pencil className="mr-1 h-3 w-3" /> Change Email</Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet & Points</Button>
+                      <Button size="sm" variant="outline" onClick={() => { setNewPassword(""); setConfirmPassword(""); setResetPasswordOpen(true); }}><Key className="mr-1 h-3 w-3" /> Reset Password</Button>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -2507,12 +2519,14 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                 <div className="flex items-center gap-2 pt-1">
                   <Switch
                     checked={!!customer.allow_negative_balance}
-                    disabled={updateProfile.isPending}
+                    disabled={updateProfile.isPending || !canManageAccount}
                     onCheckedChange={(checked) => {
                       updateProfile.mutate({ userId: customer.user_id, allowNegativeBalance: checked });
                     }}
                   />
-                  <span className="text-xs text-muted-foreground">For shared accounts (e.g. Guest Account Table N)</span>
+                  <span className="text-xs text-muted-foreground">
+                    For shared accounts (e.g. Guest Account Table N){!canManageAccount && " — only an admin can change this"}
+                  </span>
                 </div>
               </div>
             )}
@@ -4574,23 +4588,49 @@ function TopUpsTab() {
   const [inlineRejectMode, setInlineRejectMode] = useState(false);
   const [inlineRejectReason, setInlineRejectReason] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  // PayNow without a bank match: staff can't approve it; admin/master must
+  // give a reason (the server enforces both).
+  const { user: authUser } = useAuth();
+  const canManualPaynow = authUser?.role === "admin";
+  const [manualApprove, setManualApprove] = useState<{ id: string; amount: number } | null>(null);
+  const [manualReason, setManualReason] = useState("");
+  const isPaynowRequest = (r: any) => String(r?.method || "paynow").toLowerCase() !== "cash";
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["admin-topups"] });
   };
 
-  const approve = async (id: string) => {
+  const approve = async (id: string, adminNotes?: string) => {
     setBusyId(id);
     try {
-      const res = await apiFetch(`/api/transactions/topup/admin/requests/${id}/approve`, { method: "POST" });
-      if (!res.ok) throw new Error();
+      const res = await apiFetch(`/api/transactions/topup/admin/requests/${id}/approve`, {
+        method: "POST",
+        body: JSON.stringify(adminNotes ? { adminNotes } : {}),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error);
+      }
       toast({ title: "Wallet credited successfully" });
       refresh();
-    } catch {
-      toast({ title: "Failed to approve request", variant: "destructive" });
+      return true;
+    } catch (err: any) {
+      toast({ title: "Failed to approve request", description: err?.message, variant: "destructive" });
+      return false;
     } finally {
       setBusyId(null);
     }
+  };
+
+  // Cash approves straight away; PayNow without a bank match asks an admin for a reason.
+  const requestApprove = async (r: any) => {
+    const id = r._id || r.id;
+    if (isPaynowRequest(r)) {
+      setManualApprove({ id, amount: Number(r.amount || 0) });
+      setManualReason("");
+      return false;
+    }
+    return approve(id);
   };
 
   const reject = async () => {
@@ -4634,11 +4674,14 @@ function TopUpsTab() {
     setBusyId(id);
     try {
       const res = await apiFetch(`/api/transactions/topup/admin/requests/${id}/confirm-match`, { method: "POST" });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error);
+      }
       toast({ title: "Match confirmed — wallet credited" });
       refresh();
-    } catch {
-      toast({ title: "Failed to confirm match", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Failed to confirm match", description: err?.message, variant: "destructive" });
     } finally {
       setBusyId(null);
     }
@@ -4773,14 +4816,22 @@ function TopUpsTab() {
                                 <Mail className="h-4 w-4 mr-1" /> Confirm Match
                               </Button>
                             )}
-                            <Button
-                              size="sm"
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                              disabled={busyId === id}
-                              onClick={() => approve(id)}
-                            >
-                              <Check className="h-4 w-4 mr-1" /> Approve
-                            </Button>
+                            {!methodIsCash && !canManualPaynow ? (
+                              !hasSuggestedMatch && (
+                                <span className="self-center text-xs text-muted-foreground" title="PayNow top-ups are credited when the bank transfer is matched (automatically or with Confirm Match), or by an admin">
+                                  Needs bank match
+                                </span>
+                              )
+                            ) : (
+                              <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                                disabled={busyId === id}
+                                onClick={() => requestApprove(r)}
+                              >
+                                <Check className="h-4 w-4 mr-1" /> Approve
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="destructive"
@@ -4826,6 +4877,38 @@ function TopUpsTab() {
           </DialogContent>
         </Dialog>
 
+        <Dialog open={!!manualApprove} onOpenChange={(o) => !o && setManualApprove(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Approve PayNow without a bank match</DialogTitle>
+              <DialogDescription>
+                No matching bank transfer has been confirmed for this ${manualApprove?.amount.toFixed(2)} top-up. Only approve after checking the bank app. The reason is saved in the logs.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label>Reason</Label>
+              <Textarea
+                value={manualReason}
+                onChange={(e) => setManualReason(e.target.value)}
+                placeholder="e.g. Checked DBS app — $20 from TAN AH KOW at 14:05"
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setManualApprove(null)}>Cancel</Button>
+              <Button
+                className="bg-green-600 hover:bg-green-700 text-white"
+                disabled={manualReason.trim().length < 5 || busyId === manualApprove?.id}
+                onClick={async () => {
+                  if (!manualApprove) return;
+                  if (await approve(manualApprove.id, manualReason.trim())) setManualApprove(null);
+                }}
+              >
+                Approve — Credit ${manualApprove?.amount.toFixed(2)}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <CreateTopUpDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={refresh} />
 
         <TopUpDetailDialog
@@ -4838,9 +4921,15 @@ function TopUpsTab() {
           setInlineRejectMode={setInlineRejectMode}
           inlineRejectReason={inlineRejectReason}
           setInlineRejectReason={setInlineRejectReason}
+          approveBlocked={(() => {
+            const r = (requests || []).find((x: any) => (x._id || x.id) === detailId);
+            return !!r && isPaynowRequest(r) && !canManualPaynow;
+          })()}
           onApprove={async () => {
-            if (!detailId) return;
-            await approve(detailId);
+            const r = (requests || []).find((x: any) => (x._id || x.id) === detailId);
+            if (!r) return;
+            // PayNow opens the reason dialog instead, so close this one either way.
+            await requestApprove(r);
             setDetailId(null);
           }}
           onReject={async () => {
@@ -4921,7 +5010,7 @@ function CreateTopUpDialog({
         <DialogHeader>
           <DialogTitle>Create Top Up Request</DialogTitle>
           <DialogDescription>
-            For a customer paying at the counter or whose PayNow transfer wasn't auto-matched. Creates a pending request — approve it afterward (below) to actually credit the wallet.
+            For a customer paying at the counter. Creates a pending request. Cash top-ups can be approved after receiving payment. PayNow top-ups must be matched to the corresponding bank transfer before they can be credited.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
@@ -4990,9 +5079,11 @@ function TopUpDetailDialog({
   setInlineRejectMode,
   inlineRejectReason,
   setInlineRejectReason,
+  approveBlocked,
   onApprove,
   onReject,
 }: {
+  approveBlocked?: boolean;
   request: any;
   onClose: () => void;
   statusBadge: (s: string) => string;
@@ -5113,11 +5204,22 @@ function TopUpDetailDialog({
           {isPending && (
             <section className="space-y-1 rounded-md border border-yellow-500/30 bg-yellow-500/5 p-4">
               <h3 className="text-sm font-semibold text-yellow-500 uppercase tracking-wide">Instructions for Staff</h3>
-              <ul className="text-sm space-y-1 list-disc pl-5">
-                <li>Check PayNow for a transfer of <span className="font-semibold">${amount.toFixed(2)}</span></li>
-                <li>The customer's reference code is <span className="font-mono font-semibold">{c.shortId}</span></li>
-                <li>Verify the amount matches before approving</li>
-              </ul>
+              {String(r.method || "paynow").toLowerCase() === "cash" ? (
+                <ul className="text-sm space-y-1 list-disc pl-5">
+                  <li>Collect <span className="font-semibold">${amount.toFixed(2)}</span> in cash before approving</li>
+                  <li>The cash goes in the drawer — it's checked at the next cash count</li>
+                </ul>
+              ) : (
+                <ul className="text-sm space-y-1 list-disc pl-5">
+                  <li>PayNow requests must be matched to a bank transfer of <span className="font-semibold">${amount.toFixed(2)}</span> before they can be approved</li>
+                  <li>The customer's reference code is <span className="font-mono font-semibold">{c.shortId}</span></li>
+                  <li>
+                    {approveBlocked
+                      ? "Matches happen automatically, or use Confirm Match in the list. If there's no match, ask an admin."
+                      : "As an admin you can approve without a match — check the bank app first and give a reason."}
+                  </li>
+                </ul>
+              )}
             </section>
           )}
 
@@ -5126,14 +5228,20 @@ function TopUpDetailDialog({
             <section className="space-y-3">
               {!inlineRejectMode ? (
                 <div className="flex flex-col gap-2">
-                  <Button
-                    size="lg"
-                    className="bg-green-600 hover:bg-green-700 text-white w-full"
-                    disabled={busy}
-                    onClick={onApprove}
-                  >
-                    <Check className="h-4 w-4 mr-2" /> Approve — Credit ${amount.toFixed(2)} to wallet
-                  </Button>
+                  {approveBlocked ? (
+                    <p className="rounded-md border border-border px-3 py-2 text-sm text-muted-foreground">
+                      PayNow top-ups are credited once the bank transfer is matched — automatically, or with Confirm Match in the list. Otherwise ask an admin to approve it.
+                    </p>
+                  ) : (
+                    <Button
+                      size="lg"
+                      className="bg-green-600 hover:bg-green-700 text-white w-full"
+                      disabled={busy}
+                      onClick={onApprove}
+                    >
+                      <Check className="h-4 w-4 mr-2" /> Approve — Credit ${amount.toFixed(2)} to wallet
+                    </Button>
+                  )}
                   <Button
                     variant="destructive"
                     disabled={busy}
