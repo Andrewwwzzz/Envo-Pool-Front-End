@@ -193,6 +193,26 @@ function MembershipPerks({ membership, selfPractice, applyDiscount, onApplyDisco
 type TableRow = NonNullable<ReturnType<typeof useAdminTables>["data"]>[number];
 type ActiveMembership = NonNullable<ReturnType<typeof useCustomerActiveMembership>["data"]>;
 type AffectedBooking = { id: string; customer: string; startTime: string; endTime: string; status: string };
+// Customers appear only once something is typed (D26) — opening the selector
+// must not put a list of customers, their emails and balances on screen.
+const MIN_CUSTOMER_SEARCH = 2;
+function CustomerResults({ search, customers, loading, onPick }: { search: string; customers: any[]; loading: boolean; onPick: (c: any) => void }) {
+  if (search.trim().length < MIN_CUSTOMER_SEARCH) {
+    return <p className="px-1 text-xs text-muted-foreground">Type the customer's name or email to find them.</p>;
+  }
+  if (loading && customers.length === 0) return <p className="px-1 text-xs text-muted-foreground">Searching…</p>;
+  return (
+    <div className="max-h-36 overflow-y-auto rounded-md border border-border">
+      {customers.slice(0, 20).map((c) => (
+        <button key={c.id} type="button" onClick={() => onPick(c)} className="w-full text-left px-3 py-2 text-sm hover:bg-muted">
+          <div className="font-medium">{c.name || c.legal_name || "—"}</div>
+          <div className="text-xs text-muted-foreground">{c.email} · ${Number(c.wallet_balance ?? 0).toFixed(2)}</div>
+        </button>
+      ))}
+      {customers.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">No customers found</div>}
+    </div>
+  );
+}
 type AffectedGroup = { label: string; bookings: AffectedBooking[]; inUseNow?: boolean };
 
 /** Lists the bookings a maintenance change would affect; continues only once staff confirm. */
@@ -966,7 +986,7 @@ function CloseTableDialog({
   const [allowNegative, setAllowNegative] = useState(false);
   const [applyMembershipDiscount, setApplyMembershipDiscount] = useState(true);
   const [applyMembershipFreeMinutes, setApplyMembershipFreeMinutes] = useState(true);
-  const { data: customers = [] } = useAdminCustomers(customerSearch);
+  const { data: customers = [], isFetching: customersLoading } = useAdminCustomers(customerSearch.trim().length >= MIN_CUSTOMER_SEARCH ? customerSearch : "");
   const { data: pendingFnb = [] } = useTablePendingFnb(closeTarget);
   const fnbTotal = Math.round(pendingFnb.reduce((s, o: any) => s + o.totalPrice, 0) * 100) / 100;
   // Membership discount only auto-applies for wallet charges to a known
@@ -1210,22 +1230,7 @@ function CloseTableDialog({
               ) : (
                 <>
                   <Input placeholder="Search name or email" value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} />
-                  <div className="max-h-36 overflow-y-auto rounded-md border border-border">
-                    {customers.slice(0, 20).map((c: any) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => { setCustomerId(c.id); setCustomerName(c.name || c.legal_name || c.email); }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-                      >
-                        <div className="font-medium">{c.name || c.legal_name || "—"}</div>
-                        <div className="text-xs text-muted-foreground">{c.email} · ${Number(c.wallet_balance ?? 0).toFixed(2)}</div>
-                      </button>
-                    ))}
-                    {customerSearch && customers.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-muted-foreground">No customers found</div>
-                    )}
-                  </div>
+                  <CustomerResults search={customerSearch} customers={customers} loading={customersLoading} onPick={(c) => { setCustomerId(c.id); setCustomerName(c.name || c.legal_name || c.email); }} />
                 </>
               )}
               <NegativeBalanceNotice
@@ -1293,7 +1298,7 @@ function BookNowDialog({
   const dismissedAutoKey = useRef<string | null>(null);
   const autoTried = useRef<string | null>(null);
   const validatePromo = useValidatePromo();
-  const { data: customers = [] } = useAdminCustomers(customerSearch);
+  const { data: customers = [], isFetching: customersLoading } = useAdminCustomers(customerSearch.trim().length >= MIN_CUSTOMER_SEARCH ? customerSearch : "");
   // Membership discount only auto-applies for wallet charges to a known
   // customer — matches the backend's book-now logic exactly.
   const { data: activeMembership } = useCustomerActiveMembership(
@@ -1672,22 +1677,7 @@ function BookNowDialog({
             ) : (
               <>
                 <Input placeholder="Search name or email" value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} />
-                <div className="max-h-36 overflow-y-auto rounded-md border border-border">
-                  {customers.slice(0, 20).map((c: any) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => { setCustomerId(c.id); setCustomerName(c.name || c.legal_name || c.email); }}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-                    >
-                      <div className="font-medium">{c.name || c.legal_name || "—"}</div>
-                      <div className="text-xs text-muted-foreground">{c.email} · ${Number(c.wallet_balance ?? 0).toFixed(2)}</div>
-                    </button>
-                  ))}
-                  {customerSearch && customers.length === 0 && (
-                    <div className="px-3 py-2 text-xs text-muted-foreground">No customers found</div>
-                  )}
-                </div>
+                <CustomerResults search={customerSearch} customers={customers} loading={customersLoading} onPick={(c) => { setCustomerId(c.id); setCustomerName(c.name || c.legal_name || c.email); }} />
               </>
             )}
             <NegativeBalanceNotice

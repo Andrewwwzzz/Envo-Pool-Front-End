@@ -1011,10 +1011,12 @@ export function useAdminCustomers(searchTerm: string, includeDeleted = false) {
         deleteReason: c.deleteReason ?? null,
       }));
       mapped.sort((a, b) => a.name.localeCompare(b.name));
-      if (!includeDeleted) setCache("admin-customers", mapped);
+      // The cache holds the full list only — a search must never show it
+      // (D26: no customer list on screen before the search results arrive).
+      if (!includeDeleted && !searchTerm.trim()) setCache("admin-customers", mapped);
       return mapped;
     },
-    initialData: () => includeDeleted ? undefined : (getCached("admin-customers") ?? []),
+    initialData: () => includeDeleted || searchTerm.trim() ? undefined : (getCached("admin-customers") ?? []),
     refetchOnWindowFocus: true,
     staleTime: 0,
   });
