@@ -12,6 +12,7 @@ import {
   useBulkScheduleMaintenance,
   useBookTableNow,
   useSessionPreviewCost,
+  useClosePreview,
   useAdminPromoCodes,
   isBookingsAffected,
   PricingMode,
@@ -1025,31 +1026,27 @@ function CloseTableDialog({
   const startedAtISO = closeTarget
     ? (table?.timer_started_at ? new Date(table.timer_started_at).toISOString() : new Date(Date.now() - seconds * 1000).toISOString())
     : null;
-  // Time-of-day and self-practice are priced by the server live (the same
-  // calculation as the real bill), so a session that crossed a price change
-  // is shown correctly. A custom rate is one flat rate.
-  const useLivePreview = pricingMode !== "custom";
-  const { data: preview } = useSessionPreviewCost(startedAtISO, seconds, !!closeTarget && useLivePreview, pricingMode === "self_practice" ? "self_practice" : "time_of_day");
-  const gross = useLivePreview
-    ? (typeof preview?.total === "number" ? preview.total : 0)
-    : Math.round((seconds / 3600) * customRate * 100) / 100;
+  // The bill comes from the server, worked out by the same function as the
+  // real close: time (split at every price change), member free minutes then
+  // discount (wallet only, never self-practice), staff discount, F&B, cash
+  // rounding. So the total and the balance warning match the actual charge.
   const selfPractice = pricingMode === "self_practice";
-  // Preview only — the real amount (which also accounts for free minutes,
-  // time-of-day gating, etc.) is computed server-side on confirm. No member
-  // perks with self-practice (D2).
-  const membershipPct = applyMembershipDiscount && !selfPractice ? (activeMembership?.discountPercent || 0) : 0;
-  const afterMembership = Math.max(0, Math.round(gross * (1 - membershipPct / 100) * 100) / 100);
   const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
-  const discountAmt = Math.round(afterMembership * (discountPct / 100) * 100) / 100;
-  const timeChargeExact = Math.max(0, Math.round((afterMembership - discountAmt) * 100) / 100);
-  const finalCostExact = Math.round((timeChargeExact + fnbTotal) * 100) / 100;
-  // Cash has no 1c/5c coins to give as change — round the bill to the
-  // nearest 10c. Wallet/PayNow settle to the exact cent.
-  const finalCost = paymentMethod === "cash" ? roundCashAmount(finalCostExact) : finalCostExact;
+  const { data: bill } = useClosePreview(closeTarget, seconds, {
+    pricingMode, hourlyRate: pricingMode === "custom" ? customRate : 0, paymentMethod, customerId,
+    discountPercent: discountPct, applyMembershipDiscount, applyMembershipFreeMinutes,
+  }, !!closeTarget && (pricingMode !== "custom" || customRate > 0));
+  const priceLoading = !bill;
+  const gross = bill?.grossAmount ?? 0;
+  const freeMinutesCredit = bill?.freeMinutesCredit ?? 0;
+  const membershipPct = bill?.membershipDiscountPercent ?? 0;
+  const afterMembership = bill?.afterMembership ?? 0;
+  const timeChargeExact = bill?.timeCharge ?? 0;
+  const finalCost = bill?.amountCharged ?? 0;
 
   const selectedCustomer = customers.find((c: any) => c.id === customerId);
   const walletBalance = selectedCustomer?.wallet_balance ?? 0;
-  const willGoNegative = paymentMethod === "wallet" && !!selectedCustomer && finalCost > walletBalance;
+  const willGoNegative = paymentMethod === "wallet" && !!selectedCustomer && !priceLoading && finalCost > walletBalance;
   // Shared/utility accounts (e.g. "Guest Account Table N") are flagged to always
   // allow a negative balance — no need for staff to tick the checkbox each time.
   const accountAllowsNegative = !!selectedCustomer?.allow_negative_balance;
@@ -1138,11 +1135,15 @@ function CloseTableDialog({
             {closeTarget && (
               <>
                 Table {table?.table_number} · {formatDuration(seconds)} · {pricingMode === "custom" ? `custom $${customRate.toFixed(2)}/hr` : PRICING_LABELS[pricingMode]}
-                {useLivePreview && !preview ? " (working out the price…)" : <> — ${gross.toFixed(2)}</>}
-                {membershipPct > 0 && <> · member {membershipPct}% off: ${afterMembership.toFixed(2)}</>}
-                {discountPct > 0 && <> · after {discountPct}% off: ${timeChargeExact.toFixed(2)}</>}
-                {fnbTotal > 0 && <> + F&B ${fnbTotal.toFixed(2)}</>}
-                {(discountPct > 0 || fnbTotal > 0) && <> — total: <strong>${finalCost.toFixed(2)}</strong></>}
+                {priceLoading ? " (working out the price…)" : <>
+                  {" "}— ${gross.toFixed(2)}
+                  {freeMinutesCredit > 0 && <> · {bill!.freeMinutesApplied} free min −${freeMinutesCredit.toFixed(2)}</>}
+                  {membershipPct > 0 && <> · member {membershipPct}% off</>}
+                  {(freeMinutesCredit > 0 || membershipPct > 0) && <>: ${afterMembership.toFixed(2)}</>}
+                  {discountPct > 0 && <> · after {discountPct}% off: ${timeChargeExact.toFixed(2)}</>}
+                  {fnbTotal > 0 && <> + F&B ${fnbTotal.toFixed(2)}</>}
+                  {(discountPct > 0 || fnbTotal > 0 || freeMinutesCredit > 0 || membershipPct > 0 || paymentMethod === "cash") && <> — total: <strong>${finalCost.toFixed(2)}</strong></>}
+                </>}
               </>
             )}
           </DialogDescription>
@@ -1167,8 +1168,8 @@ function CloseTableDialog({
             <Label>Pricing</Label>
             <PricingModePicker value={pricingMode} onChange={setPricingMode} allowCustom={allowCustom} />
             <p className="text-xs text-muted-foreground">{PRICING_HELP[pricingMode]}</p>
-            {selfPractice && (preview?.uncoveredMinutes ?? 0) > 0 && (
-              <p className="text-xs text-amber-500">{preview!.uncoveredMinutes} min of this session had no self-practice rate set — charged at the normal price.</p>
+            {selfPractice && (bill?.uncoveredMinutes ?? 0) > 0 && (
+              <p className="text-xs text-amber-500">{bill!.uncoveredMinutes} min of this session had no self-practice rate set — charged at the normal price.</p>
             )}
             {pricingMode === "custom" && (
               isAdminUser
@@ -1253,7 +1254,7 @@ function CloseTableDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button variant="destructive" onClick={handleConfirm} disabled={stopTimer.isPending}>
+          <Button variant="destructive" onClick={handleConfirm} disabled={stopTimer.isPending || priceLoading}>
             {stopTimer.isPending ? "Closing..." : "Confirm & Close"}
           </Button>
         </DialogFooter>

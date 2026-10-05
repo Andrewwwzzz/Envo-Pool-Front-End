@@ -198,6 +198,50 @@ export function useDeleteBooking() {
 // (normal price wherever none applies) — uncoveredMinutes says how much.
 export type PricingMode = "time_of_day" | "self_practice" | "custom";
 
+export interface ClosePreview {
+  mode: PricingMode;
+  grossAmount: number;
+  uncoveredMinutes: number;
+  membershipDiscountPercent: number;
+  membershipDiscountAmount: number;
+  freeMinutesCredit: number;
+  freeMinutesApplied: number;
+  afterMembership: number;
+  discountPct: number;
+  discountAmount: number;
+  timeCharge: number;
+  fnbTotal: number;
+  amountCharged: number;
+}
+
+// The exact bill Close Table would charge right now — the server works it out with the same
+// function as the real close (member free minutes, then discount; staff discount; F&B; cash
+// rounding), without charging anything. While the timer ticks the last bill stays on screen;
+// any other change (customer, payment, discount, pricing) waits for the new figure.
+export function useClosePreview(
+  tableId: string | null,
+  durationSeconds: number,
+  params: { pricingMode: PricingMode; hourlyRate: number; paymentMethod: string; customerId: string; discountPercent: number; applyMembershipDiscount: boolean; applyMembershipFreeMinutes: boolean },
+  enabled: boolean,
+) {
+  const bucket = Math.floor(durationSeconds / 5);
+  const paramsKey = JSON.stringify(params);
+  return useQuery({
+    queryKey: ["close-preview", tableId, bucket, paramsKey],
+    queryFn: async () => {
+      const qs = new URLSearchParams({ durationSeconds: String(durationSeconds), ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])) });
+      const res = await apiFetch(`/api/admin/tables/${tableId}/close-preview?${qs}`);
+      if (!res.ok) return null;
+      return res.json() as Promise<ClosePreview>;
+    },
+    enabled: enabled && !!tableId && durationSeconds > 0,
+    placeholderData: (prev, prevQuery) => {
+      const [, prevTable, prevBucket, prevParams] = (prevQuery?.queryKey ?? []) as [unknown, unknown, number, unknown];
+      return prevTable === tableId && prevParams === paramsKey && Math.abs(bucket - prevBucket) <= 2 ? prev : undefined;
+    },
+  });
+}
+
 export function useSessionPreviewCost(startedAt: string | null, durationSeconds: number, enabled: boolean, mode: "time_of_day" | "self_practice" = "time_of_day") {
   const bucket = Math.floor(durationSeconds / 5);
   return useQuery({
