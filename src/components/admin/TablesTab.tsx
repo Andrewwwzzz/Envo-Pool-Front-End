@@ -608,7 +608,7 @@ export default function TablesTab() {
               const badgeClass =
                 displayState === "running"     ? "bg-primary/10 text-primary border-primary/20"
                 : displayState === "walkin"    ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                : displayState === "booked"    ? "bg-accent/20 text-accent-foreground border-accent/30"
+                : displayState === "booked"    ? "bg-sky-500/10 text-sky-400 border-sky-500/30"
                 : displayState === "maintenance" ? "bg-destructive/10 text-destructive border-destructive/20"
                 : "bg-muted/30 text-muted-foreground border-border";
 
@@ -623,7 +623,7 @@ export default function TablesTab() {
                 <div key={t.id} className={`rounded-xl border p-4 space-y-3 ${
                   displayState === "running"     ? "border-primary/30 bg-primary/5"
                   : displayState === "walkin"    ? "border-amber-500/30 bg-amber-500/5"
-                  : displayState === "booked"    ? "border-accent/30 bg-accent/5"
+                  : displayState === "booked"    ? "border-sky-500/30 bg-sky-500/5"
                   : displayState === "maintenance" ? "border-destructive/30 bg-destructive/5"
                   : "border-border"
                 }`}>
@@ -650,8 +650,8 @@ export default function TablesTab() {
 
                   {/* Timer display */}
                   <div className="flex items-center gap-2">
-                    <Timer className={`h-4 w-4 ${displayState === "booked" ? "text-accent-foreground" : displayState === "walkin" ? "text-amber-400" : "text-muted-foreground"}`} />
-                    <span className={`font-mono text-xl ${isRunning ? "text-primary" : displayState === "booked" ? "text-accent-foreground" : displayState === "walkin" ? "text-amber-400" : "text-muted-foreground"}`}>
+                    <Timer className={`h-4 w-4 ${displayState === "booked" ? "text-sky-400" : displayState === "walkin" ? "text-amber-400" : "text-muted-foreground"}`} />
+                    <span className={`font-mono text-xl ${isRunning ? "text-primary" : displayState === "booked" ? "text-sky-400" : displayState === "walkin" ? "text-amber-400" : "text-muted-foreground"}`}>
                       {displayState === "booked" ? formatTime(bookingCountdown[t.id] ?? 0)
                         : displayState === "walkin" ? formatTime(walkinElapsed[t.id] ?? 0)
                         : formatTime(isRunning ? seconds : (session?.seconds ?? 0))}
