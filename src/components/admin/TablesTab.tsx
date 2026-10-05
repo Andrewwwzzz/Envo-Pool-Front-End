@@ -13,12 +13,14 @@ import {
   useBookTableNow,
   useSessionPreviewCost,
   useAdminPromoCodes,
+  isBookingsAffected,
+  PricingMode,
 } from "@/hooks/useAdmin";
+import { useAuth } from "@/contexts/AuthContext";
 import { useActiveWalkinSessions } from "@/hooks/useWalkin";
 import { useTablePendingFnb } from "@/hooks/useFnb";
-import { usePricingRules, usePublicHolidaySet } from "@/hooks/usePricing";
 import { useCustomerActiveMembership } from "@/hooks/useMembership";
-import { getCurrentHourlyRate, calculateDiscount } from "@/lib/pricing";
+import { calculateDiscount } from "@/lib/pricing";
 import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
 import { MoveBookingDialog } from "@/components/admin/MoveBookingDialog";
 import { ArrowRightLeft } from "lucide-react";
@@ -52,6 +54,182 @@ function ChipStatus({ lastSeen }: { lastSeen: string | null }) {
     return <span className="flex items-center gap-1 text-xs text-yellow-400"><span className="h-2 w-2 rounded-full bg-yellow-400 inline-block" />Delayed</span>;
   }
   return <span className="flex items-center gap-1 text-xs text-red-400"><span className="h-2 w-2 rounded-full bg-red-400 inline-block" />Offline</span>;
+}
+
+// Approved staff limits (D9) — the server enforces the same.
+const STAFF_MAX_DISCOUNT = 20;
+
+/** 3725 → "1:02:05" */
+const formatDuration = (totalSeconds: number) => {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = Math.floor(totalSeconds % 60);
+  return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+};
+
+const PRICING_LABELS: Record<PricingMode, string> = {
+  time_of_day: "Time-of-day pricing",
+  self_practice: "Self-practice",
+  custom: "Custom rate",
+};
+
+/** Time-of-day / Self-practice for everyone; Custom rate only when `allowCustom`. */
+function PricingModePicker({ value, onChange, allowCustom }: { value: PricingMode; onChange: (m: PricingMode) => void; allowCustom: boolean }) {
+  const modes: PricingMode[] = allowCustom ? ["time_of_day", "self_practice", "custom"] : ["time_of_day", "self_practice"];
+  return (
+    <div className={`grid gap-2 ${allowCustom ? "grid-cols-3" : "grid-cols-2"}`}>
+      {modes.map((m) => (
+        <Button key={m} type="button" size="sm" variant={value === m ? "default" : "outline"} onClick={() => onChange(m)}>
+          {PRICING_LABELS[m]}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+const PRICING_HELP: Record<PricingMode, string> = {
+  time_of_day: "Charged at the rates set in Settings → Pricing, split correctly wherever the price changes.",
+  self_practice: "Charged at the self-practice rate set in Marketing → Promos. No member perks. Any time no self-practice rate covers is charged at the normal price.",
+  custom: "One flat hourly rate for the whole session — admin only.",
+};
+
+/** Staff are capped at 20%; nobody can go over 100%. */
+function discountLimitError(pct: number, isAdminUser: boolean): string | null {
+  if (pct > 100) return "A discount can't be more than 100%.";
+  if (pct > STAFF_MAX_DISCOUNT && !isAdminUser) return `Staff can give up to ${STAFF_MAX_DISCOUNT}% — a bigger discount needs an admin.`;
+  return null;
+}
+
+/** Discount (%) with its required reason. Returns the error, if any. */
+function discountProblem(pct: number, reason: string, isAdminUser: boolean): string | null {
+  if (pct <= 0) return null;
+  return discountLimitError(pct, isAdminUser) ?? (reason.trim() ? null : "Give a reason for the discount.");
+}
+
+/** Discount (%) plus its reason. Staff see the 20% limit. */
+function DiscountField({ value, onChange, reason, onReasonChange, isAdminUser, note }: {
+  value: string; onChange: (v: string) => void; reason: string; onReasonChange: (v: string) => void; isAdminUser: boolean; note?: string;
+}) {
+  const pct = Math.max(0, parseFloat(value) || 0);
+  // Over the limit shows straight away; a missing reason is checked on confirm.
+  const limitError = discountLimitError(pct, isAdminUser);
+  return (
+    <div className="space-y-2">
+      <Label>Discount (%)</Label>
+      <Input type="number" step="1" min="0" max={isAdminUser ? 100 : STAFF_MAX_DISCOUNT} value={value} onChange={(e) => onChange(e.target.value)} placeholder="0" />
+      {pct > 0 && (
+        <Input placeholder="Reason for the discount (required)" value={reason} onChange={(e) => onReasonChange(e.target.value)} />
+      )}
+      {limitError
+        ? <p className="text-xs text-destructive">{limitError}</p>
+        : <p className="text-xs text-muted-foreground">Leave at 0 for no discount.{!isAdminUser && ` Up to ${STAFF_MAX_DISCOUNT}% — more needs an admin.`}{note ? ` ${note}` : ""}</p>}
+    </div>
+  );
+}
+
+/** What happens when a wallet charge is more than the balance (D9). */
+function NegativeBalanceNotice({ willGoNegative, accountAllowsNegative, isAdminUser, allowNegative, onAllowNegative }: {
+  willGoNegative: boolean; accountAllowsNegative: boolean; isAdminUser: boolean; allowNegative: boolean; onAllowNegative: (v: boolean) => void;
+}) {
+  if (!willGoNegative) return null;
+  if (accountAllowsNegative) {
+    return (
+      <div className="flex items-start gap-2 rounded-md border border-border px-3 py-2 text-sm">
+        <AlertTriangle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+        <p className="text-muted-foreground">Charge exceeds wallet balance — this is a shared account that allows a negative balance, so it'll proceed automatically.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
+      <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
+      <div className="space-y-2">
+        <p className="text-destructive">Charge exceeds this customer's wallet balance.</p>
+        {isAdminUser ? (
+          <label className="flex items-center gap-2 text-xs">
+            <Checkbox checked={allowNegative} onCheckedChange={(v) => onAllowNegative(v === true)} />
+            Allow negative balance
+          </label>
+        ) : (
+          <p className="text-xs text-muted-foreground">Ask the customer to top up, take Cash or PayNow instead, or ask an admin.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Member badge tick-boxes — wallet payments only (D11); none with self-practice (D2). */
+function MembershipPerks({ membership, selfPractice, applyDiscount, onApplyDiscount, applyFreeMinutes, onApplyFreeMinutes }: {
+  membership: ActiveMembership | null | undefined; selfPractice: boolean; applyDiscount: boolean; onApplyDiscount: (v: boolean) => void; applyFreeMinutes: boolean; onApplyFreeMinutes: (v: boolean) => void;
+}) {
+  if (!membership) return null;
+  if (selfPractice) {
+    return <p className="rounded-md border border-border px-3 py-2 text-xs text-muted-foreground">Self-practice pricing — member perks don't apply.</p>;
+  }
+  return (
+    <div className="space-y-1.5 rounded-md border border-border px-3 py-2">
+      {membership.discountPercent > 0 && (
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox checked={applyDiscount} onCheckedChange={(v) => onApplyDiscount(v === true)} />
+          Apply {membership.discountPercent}% membership discount
+        </label>
+      )}
+      {membership.freeMinutesPerVisit > 0 && (
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox checked={applyFreeMinutes} onCheckedChange={(v) => onApplyFreeMinutes(v === true)} />
+          Apply {membership.freeMinutesPerVisit} free minutes
+        </label>
+      )}
+      {membership.unlimitedFreeMinutes && (
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox checked={applyFreeMinutes} onCheckedChange={(v) => onApplyFreeMinutes(v === true)} />
+          Apply free self-practice (whole bill waived)
+        </label>
+      )}
+    </div>
+  );
+}
+
+type TableRow = NonNullable<ReturnType<typeof useAdminTables>["data"]>[number];
+type ActiveMembership = NonNullable<ReturnType<typeof useCustomerActiveMembership>["data"]>;
+type AffectedBooking = { id: string; customer: string; startTime: string; endTime: string; status: string };
+type AffectedGroup = { label: string; bookings: AffectedBooking[]; inUseNow?: boolean };
+
+/** Lists the bookings a maintenance change would affect; continues only once staff confirm. */
+function BookingsAffectedDialog({ groups, onCancel, onConfirm, loading }: { groups: AffectedGroup[] | null; onCancel: () => void; onConfirm: () => void; loading?: boolean }) {
+  return (
+    <Dialog open={!!groups} onOpenChange={(o) => { if (!o && !loading) onCancel(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Bookings affected</DialogTitle>
+          <DialogDescription>
+            Move these bookings to another table or contact the customers before closing the table. Continue only once that's done.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-72 space-y-3 overflow-y-auto">
+          {(groups || []).map((g) => (
+            <div key={g.label} className="space-y-1">
+              <p className="text-sm font-medium">{g.label}</p>
+              {g.inUseNow && <p className="text-xs text-amber-500">In use right now.</p>}
+              {g.bookings.map((b) => (
+                <div key={b.id} className="flex justify-between gap-3 rounded-md border border-border px-3 py-1.5 text-xs">
+                  <span>{b.customer}</span>
+                  <span className="text-muted-foreground">{fmtDateSG(b.startTime)} · {fmtTimeSG(b.startTime)}–{fmtTimeSG(b.endTime)}{b.status === "pending_payment" ? " · awaiting payment" : ""}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel} disabled={loading}>Go back</Button>
+          <Button variant="destructive" onClick={onConfirm} disabled={loading}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            I've dealt with them — continue
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function DeviceControlPanel({ hardwareId }: { hardwareId: string | null }) {
@@ -116,22 +294,39 @@ export default function TablesTab() {
   const [bookingCountdown, setBookingCountdown] = useState<Record<string, number>>({});
   const [walkinElapsed, setWalkinElapsed] = useState<Record<string, number>>({});
   const [completedSessions, setCompletedSessions] = useState<Record<string, { seconds: number; cost: number; grossCost?: number; discountPercent?: number; paymentMethod?: "cash" | "paynow" | "wallet"; customerName?: string; fnbTotal?: number }>>({});
-  const { data: pricingRules = [] } = usePricingRules();
-  const phDates = usePublicHolidaySet();
-  const [hourlyRate, setHourlyRate] = useState("");
-  const [rateTouched, setRateTouched] = useState(false);
+  const { user } = useAuth();
+  const isAdminUser = user?.role === "admin";
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bookingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Prefill the rate preset with whatever's actually in effect right now
-  // (per the active pricing rules), instead of a stale hardcoded default —
-  // stops updating once staff manually edits the field.
-  useEffect(() => {
-    if (rateTouched || pricingRules.length === 0) return;
-    setHourlyRate(String(getCurrentHourlyRate(pricingRules, phDates)));
-  }, [pricingRules, phDates, rateTouched]);
+  // Status changes (single or bulk) need a reason; tables with bookings are
+  // listed for staff to deal with before they continue (D22/D23).
+  const [statusTarget, setStatusTarget] = useState<{ tableIds: string[]; maintenance: boolean; title: string } | null>(null);
+  const [affected, setAffected] = useState<{ groups: AffectedGroup[]; retry: () => Promise<void> } | null>(null);
+  const [affectedLoading, setAffectedLoading] = useState(false);
+  const tableLabel = (id: string) => `Table ${(tables || []).find((t) => t.id === id)?.table_number ?? ""}`;
 
-  const rate = parseFloat(hourlyRate) || 0;
+  const changeStatus = async (tableIds: string[], maintenance: boolean, reason: string, acknowledgeBookings = false) => {
+    if (tableIds.length === 1) {
+      try {
+        await setMaintenance.mutateAsync({ tableId: tableIds[0], maintenance, reason, acknowledgeBookings });
+        setSelectedTables(new Set());
+      } catch (e) {
+        if (isBookingsAffected(e)) {
+          setAffected({ groups: [{ label: tableLabel(tableIds[0]), bookings: e.data.bookings || [] }], retry: () => changeStatus(tableIds, maintenance, reason, true) });
+        }
+      }
+      return;
+    }
+    const result = await setBulkMaintenance.mutateAsync({ tableIds, maintenance, reason, acknowledgeBookings });
+    setSelectedTables(new Set());
+    if (result.blocked.length) {
+      setAffected({
+        groups: result.blocked.map((b) => ({ label: tableLabel(b.tableId), bookings: b.bookings })),
+        retry: () => changeStatus(result.blocked.map((b) => b.tableId), maintenance, reason, true),
+      });
+    }
+  };
 
   // Compute elapsed from DB-persisted timer_started_at
   useEffect(() => {
@@ -216,13 +411,16 @@ export default function TablesTab() {
     };
   }, [tables, bookings, walkinSessions]);
 
-  const openTable = (tableId: string) => {
+  // Open-table dialog — pricing is chosen per table, every time (D15): it
+  // starts on time-of-day, and a custom rate is offered to admins only.
+  const [openTarget, setOpenTarget] = useState<string | null>(null);
+  const openTable = (tableId: string, pricingMode: PricingMode, hourlyRate?: number) => {
     setCompletedSessions((prev) => {
       const copy = { ...prev };
       delete copy[tableId];
       return copy;
     });
-    startTimer.mutate({ tableId, hourlyRate: rate, isManualRate: rateTouched });
+    startTimer.mutate({ tableId, pricingMode, hourlyRate }, { onSuccess: () => setOpenTarget(null) });
   };
 
   // Close-table dialog — table id currently being closed (dialog owns its own state)
@@ -250,33 +448,8 @@ export default function TablesTab() {
     return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const calculateLiveCost = (seconds: number, tableRate: number) => {
-    return Math.round((seconds / 3600) * tableRate * 100) / 100;
-  };
-
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle>Hourly Rate Preset</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-3">
-            <Label>Rate ($/hr)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={hourlyRate}
-              onChange={(e) => { setRateTouched(true); setHourlyRate(e.target.value); }}
-              className="w-[120px]"
-            />
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Auto-filled with the current active pricing rate — edit to override. Discount (if any) is entered when closing the table.
-          </p>
-        </CardContent>
-      </Card>
-
       {/* Bulk maintenance action bar */}
       {(tables || []).length > 0 && (
         <Card>
@@ -302,11 +475,7 @@ export default function TablesTab() {
                   <Button
                     size="sm"
                     variant="destructive"
-                    onClick={() => {
-                      setBulkMaintenance.mutate({ tableIds: [...selectedTables], maintenance: true }, {
-                        onSuccess: () => setSelectedTables(new Set()),
-                      });
-                    }}
+                    onClick={() => setStatusTarget({ tableIds: [...selectedTables], maintenance: true, title: `Put ${selectedTables.size} table${selectedTables.size > 1 ? "s" : ""} under maintenance?` })}
                     disabled={setBulkMaintenance.isPending}
                   >
                     {setBulkMaintenance.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Wrench className="mr-2 h-3 w-3" />}
@@ -315,11 +484,7 @@ export default function TablesTab() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => {
-                      setBulkMaintenance.mutate({ tableIds: [...selectedTables], maintenance: false }, {
-                        onSuccess: () => setSelectedTables(new Set()),
-                      });
-                    }}
+                    onClick={() => setStatusTarget({ tableIds: [...selectedTables], maintenance: false, title: `Make ${selectedTables.size} table${selectedTables.size > 1 ? "s" : ""} available?` })}
                     disabled={setBulkMaintenance.isPending}
                   >
                     <Check className="mr-2 h-3 w-3" /> Set Available
@@ -390,7 +555,6 @@ export default function TablesTab() {
               const isRunning = !!t.timer_started_at;
               const seconds = elapsed[t.id] ?? 0;
               const session = completedSessions[t.id];
-              const tableRate = isRunning ? Number(t.hourly_rate ?? rate) : rate;
 
               // Check if table has active bookings blocking timer open
               const now = new Date();
@@ -480,14 +644,8 @@ export default function TablesTab() {
                     )}
                   </div>
 
-                  {/* Live cost */}
-                  {isRunning && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <DollarSign className="h-4 w-4 text-primary" />
-                      <span className="font-medium text-primary">${calculateLiveCost(seconds, tableRate).toFixed(2)}</span>
-                      <span className="text-muted-foreground">@ ${tableRate}/hr</span>
-                    </div>
-                  )}
+                  {/* Running cost — an estimate; the bill is worked out at close (D25) */}
+                  {isRunning && <RunningCost table={t} seconds={seconds} />}
 
                   {/* Completed session summary */}
                   {!isRunning && session && (
@@ -521,7 +679,7 @@ export default function TablesTab() {
                       </Button>
                     ) : (
                       <>
-                        <Button size="sm" variant="default" onClick={() => openTable(t.id)} className="w-full" disabled={hasActiveBooking || hasUserWalkin} title={hasActiveBooking ? "Table has an active booking" : hasUserWalkin ? "Table has an active walk-in session" : isMaintenance ? "Table is under maintenance — public booking/walk-in is blocked, but staff can still open it (e.g. for a private event)" : "Pay-by-time — bill is calculated when the table is closed"}>
+                        <Button size="sm" variant="default" onClick={() => setOpenTarget(t.id)} className="w-full" disabled={hasActiveBooking || hasUserWalkin} title={hasActiveBooking ? "Table has an active booking" : hasUserWalkin ? "Table has an active walk-in session" : isMaintenance ? "Table is under maintenance — public booking/walk-in is blocked, but staff can still open it (e.g. for a private event)" : "Pay-by-time — bill is calculated when the table is closed"}>
                           <Play className="mr-2 h-3 w-3" /><span className="sm:hidden">Open Table</span><span className="hidden sm:inline">Open Table (Pro-rate)</span>
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => openBookDialog(t.id)} className="w-full" disabled={hasActiveBooking || hasUserWalkin} title={hasActiveBooking ? "Table has an active booking" : hasUserWalkin ? "Table has an active walk-in session" : "Set a fixed duration and pay upfront — like a customer booking"}>
@@ -546,7 +704,9 @@ export default function TablesTab() {
                     <Button
                       size="sm"
                       variant={t.status === "maintenance" ? "outline" : "secondary"}
-                      onClick={() => setMaintenance.mutate({ tableId: t.id, maintenance: t.status !== "maintenance" })}
+                      onClick={() => setStatusTarget(t.status === "maintenance"
+                        ? { tableIds: [t.id], maintenance: false, title: `Reopen Table ${t.table_number}?` }
+                        : { tableIds: [t.id], maintenance: true, title: `Put Table ${t.table_number} under maintenance?` })}
                       className="w-full"
                       title={t.status === "maintenance" ? "Clear the maintenance flag — allows public booking/walk-in again" : "Block public booking/walk-in on this table indefinitely"}
                     >
@@ -610,16 +770,24 @@ export default function TablesTab() {
                   toast({ title: "Invalid time range", description: "End time must be after start time.", variant: "destructive" });
                   return;
                 }
-                try {
-                  await bulkSchedule.mutateAsync({
-                    tableIds: [...selectedTables],
+                const run = async (tableIds: string[], acknowledgeBookings: boolean) => {
+                  const result = await bulkSchedule.mutateAsync({
+                    tableIds,
                     startTime: startUTC.toISOString(),
                     endTime:   endUTC.toISOString(),
                     reason:    bulkSchedReason.trim(),
+                    acknowledgeBookings,
                   });
                   setBulkScheduleOpen(false);
                   setSelectedTables(new Set());
-                } catch {}
+                  if (result.blocked.length) {
+                    setAffected({
+                      groups: result.blocked.map((b) => ({ label: tableLabel(b.tableId), bookings: b.bookings, inUseNow: b.inUseNow })),
+                      retry: () => run(result.blocked.map((b) => b.tableId), true),
+                    });
+                  }
+                };
+                try { await run([...selectedTables], false); } catch { /* the hook shows the error */ }
               }}
             >
               {bulkSchedule.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
@@ -629,10 +797,51 @@ export default function TablesTab() {
         </DialogContent>
       </Dialog>
 
+      <OpenTableDialog
+        table={(tables || []).find((tb) => tb.id === openTarget) || null}
+        isAdminUser={isAdminUser}
+        pending={startTimer.isPending}
+        onOpen={openTable}
+        onOpenChange={(o) => { if (!o) setOpenTarget(null); }}
+      />
+
+      <ReasonDialog
+        open={!!statusTarget}
+        onOpenChange={(o) => { if (!o) setStatusTarget(null); }}
+        title={statusTarget?.title || ""}
+        description={statusTarget?.maintenance
+          ? "Customers can't book or start a walk-in on a table under maintenance. The reason is saved in Logs."
+          : "Customers can book and start walk-ins on this table again. The reason is saved in Logs."}
+        label="Reason"
+        placeholder={statusTarget?.maintenance ? "e.g. Cloth torn, waiting for repair" : "e.g. Repair finished"}
+        confirmLabel={statusTarget?.maintenance ? "Set Maintenance" : "Make Available"}
+        destructive={!!statusTarget?.maintenance}
+        loading={setMaintenance.isPending || setBulkMaintenance.isPending}
+        onConfirm={async (reason) => {
+          if (!statusTarget) return;
+          const { tableIds, maintenance } = statusTarget;
+          setStatusTarget(null);
+          try { await changeStatus(tableIds, maintenance, reason); } catch { /* the hook shows the error */ }
+        }}
+      />
+
+      <BookingsAffectedDialog
+        groups={affected?.groups || null}
+        loading={affectedLoading}
+        onCancel={() => setAffected(null)}
+        onConfirm={async () => {
+          if (!affected) return;
+          const retry = affected.retry;
+          setAffectedLoading(true);
+          setAffected(null);
+          try { await retry(); } catch { /* the hook shows the error */ } finally { setAffectedLoading(false); }
+        }}
+      />
+
       <CloseTableDialog
         tables={tables || []}
         elapsed={elapsed}
-        rate={rate}
+        isAdminUser={isAdminUser}
         closeTarget={closeTarget}
         stopTimer={stopTimer}
         onOpenChange={(o) => { if (!o) setCloseTarget(null); }}
@@ -644,8 +853,86 @@ export default function TablesTab() {
       <BookNowDialog
         tables={tables || []}
         bookTarget={bookTarget}
+        isAdminUser={isAdminUser}
         onOpenChange={(o) => { if (!o) setBookTarget(null); }}
       />
+    </div>
+  );
+}
+
+// "Now", to the minute — keeps the price previews below from refetching every render.
+const minuteNowISO = () => new Date(Math.floor(Date.now() / 60000) * 60000).toISOString();
+
+function OpenTableDialog({ table, isAdminUser, pending, onOpen, onOpenChange }: {
+  table: TableRow | null;
+  isAdminUser: boolean;
+  pending: boolean;
+  onOpen: (tableId: string, mode: PricingMode, hourlyRate?: number) => void;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [mode, setMode] = useState<PricingMode>("time_of_day");
+  const [rateInput, setRateInput] = useState("");
+  const tableId = table?.id;
+  useEffect(() => {
+    if (tableId) { setMode("time_of_day"); setRateInput(""); }
+  }, [tableId]);
+  const { data: preview } = useSessionPreviewCost(minuteNowISO(), 60, !!table && mode !== "custom", mode === "self_practice" ? "self_practice" : "time_of_day");
+  const rateNow = preview?.segments?.[0]?.hourlyRate;
+  const noSelfPracticeRate = mode === "self_practice" && (preview?.uncoveredMinutes ?? 0) > 0;
+  const customRate = parseFloat(rateInput) || 0;
+
+  return (
+    <Dialog open={!!table} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Open Table {table?.table_number}</DialogTitle>
+          <DialogDescription>Pay by time — the bill is worked out when the table is closed.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2 py-2">
+          <Label>Pricing</Label>
+          <PricingModePicker value={mode} onChange={setMode} allowCustom={isAdminUser} />
+          <p className="text-xs text-muted-foreground">{PRICING_HELP[mode]}</p>
+          {mode !== "custom" && typeof rateNow === "number" && (
+            <p className="text-sm">Rate right now: <strong>${rateNow.toFixed(2)}/hr</strong></p>
+          )}
+          {noSelfPracticeRate && (
+            <p className="text-xs text-amber-500">No self-practice rate is set for right now — this time will be charged at the normal price.</p>
+          )}
+          {mode === "custom" && (
+            <Input type="number" step="0.01" min="0" placeholder="Hourly rate" value={rateInput} onChange={(e) => setRateInput(e.target.value)} />
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            onClick={() => table && onOpen(table.id, mode, mode === "custom" ? customRate : undefined)}
+            disabled={pending || (mode === "custom" && !(customRate > 0))}
+          >
+            {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+            Open Table
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Running table's cost so far — an estimate from the real pricing, to the last whole minute (D25). */
+function RunningCost({ table, seconds }: { table: TableRow; seconds: number }) {
+  const mode: PricingMode = table.pricing_mode || "time_of_day";
+  const minute = Math.floor(seconds / 60) * 60;
+  const startedISO = table.timer_started_at ? new Date(table.timer_started_at).toISOString() : null;
+  const { data: preview } = useSessionPreviewCost(startedISO, minute, mode !== "custom" && minute > 0, mode === "self_practice" ? "self_practice" : "time_of_day");
+  const flat = (rate: number) => Math.round((seconds / 3600) * rate * 100) / 100;
+  const estimate = mode === "custom" ? flat(Number(table.hourly_rate) || 0) : (minute === 0 ? 0 : preview?.total ?? flat(Number(table.hourly_rate) || 0));
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center gap-2 text-sm">
+        <DollarSign className="h-4 w-4 text-primary" />
+        <span className="font-medium text-primary">≈ ${estimate.toFixed(2)} so far</span>
+        <span className="text-muted-foreground">· {mode === "custom" ? `custom $${Number(table.hourly_rate || 0).toFixed(2)}/hr` : PRICING_LABELS[mode]}</span>
+      </div>
+      <p className="text-xs text-muted-foreground">Estimate — the bill is worked out when the table is closed.</p>
     </div>
   );
 }
@@ -653,7 +940,7 @@ export default function TablesTab() {
 function CloseTableDialog({
   tables,
   elapsed,
-  rate,
+  isAdminUser,
   closeTarget,
   stopTimer,
   onOpenChange,
@@ -661,7 +948,7 @@ function CloseTableDialog({
 }: {
   tables: any[];
   elapsed: Record<string, number>;
-  rate: number;
+  isAdminUser: boolean;
   closeTarget: string | null;
   stopTimer: ReturnType<typeof useAdminTables>["stopTimer"];
   onOpenChange: (open: boolean) => void;
@@ -669,6 +956,8 @@ function CloseTableDialog({
 }) {
   const { toast } = useToast();
   const [discountInput, setDiscountInput] = useState("0");
+  const [discountReason, setDiscountReason] = useState("");
+  const [pricingMode, setPricingMode] = useState<PricingMode>("time_of_day");
   const [rateInput, setRateInput] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"wallet" | "cash" | "paynow">("wallet");
   const [customerId, setCustomerId] = useState("");
@@ -689,15 +978,13 @@ function CloseTableDialog({
   useEffect(() => {
     if (closeTarget) {
       setDiscountInput("0");
+      setDiscountReason("");
       const openedTable = tables.find((tb) => tb.id === closeTarget);
-      // Empty = bill via the actual time-of-day pricing across the whole
-      // session (correctly split across any peak/off-peak boundary the
-      // session crossed). But if this table was opened with a deliberate
-      // manual rate override (e.g. a $9/hr comp rate that doesn't match any
-      // real pricing rule), pre-fill it here — otherwise leaving this blank
-      // silently re-prices the whole session at today's live rate instead
-      // of the rate staff actually opened it at.
-      setRateInput(openedTable?.is_manual_rate && openedTable.hourly_rate > 0 ? String(openedTable.hourly_rate) : "");
+      // Starts on the pricing the table was opened with. A custom rate an
+      // admin opened it at is pre-filled so it holds for the whole session.
+      const openedMode: PricingMode = openedTable?.pricing_mode || "time_of_day";
+      setPricingMode(openedMode);
+      setRateInput(openedMode === "custom" && openedTable?.hourly_rate > 0 ? String(openedTable.hourly_rate) : "");
       setPaymentMethod("wallet");
       setCustomerId("");
       setCustomerSearch("");
@@ -710,25 +997,27 @@ function CloseTableDialog({
   }, [closeTarget]);
 
   const table = tables.find((tb) => tb.id === closeTarget);
-  const defaultRate = table?.hourly_rate ?? rate;
-  const tableRate = rateInput === "" ? defaultRate : (Number(rateInput) || 0);
+  // Staff can't pick a custom rate — only keep one an admin opened the table at.
+  const openedCustom = table?.pricing_mode === "custom";
+  const allowCustom = isAdminUser || openedCustom;
+  const customRate = Number(rateInput) || 0;
   const seconds = closeTarget ? (elapsed[closeTarget] ?? 0) : 0;
   const startedAtISO = closeTarget
     ? (table?.timer_started_at ? new Date(table.timer_started_at).toISOString() : new Date(Date.now() - seconds * 1000).toISOString())
     : null;
-  // When billing via time-of-day pricing (no manual rate override), fetch
-  // the exact segmented total live instead of guessing with a flat rate for
-  // the whole session — a flat guess silently diverges once the session
-  // crosses a peak/off-peak boundary, which was causing staff to
-  // quote/collect the wrong PayNow amount from customers before this fix.
-  const useLivePreview = rateInput === "";
-  const { data: preview } = useSessionPreviewCost(startedAtISO, seconds, !!closeTarget && useLivePreview);
-  const gross = useLivePreview && typeof preview?.total === "number"
-    ? preview.total
-    : Math.round((seconds / 3600) * Number(tableRate) * 100) / 100;
+  // Time-of-day and self-practice are priced by the server live (the same
+  // calculation as the real bill), so a session that crossed a price change
+  // is shown correctly. A custom rate is one flat rate.
+  const useLivePreview = pricingMode !== "custom";
+  const { data: preview } = useSessionPreviewCost(startedAtISO, seconds, !!closeTarget && useLivePreview, pricingMode === "self_practice" ? "self_practice" : "time_of_day");
+  const gross = useLivePreview
+    ? (typeof preview?.total === "number" ? preview.total : 0)
+    : Math.round((seconds / 3600) * customRate * 100) / 100;
+  const selfPractice = pricingMode === "self_practice";
   // Preview only — the real amount (which also accounts for free minutes,
-  // time-of-day gating, etc.) is computed server-side on confirm.
-  const membershipPct = applyMembershipDiscount ? (activeMembership?.discountPercent || 0) : 0;
+  // time-of-day gating, etc.) is computed server-side on confirm. No member
+  // perks with self-practice (D2).
+  const membershipPct = applyMembershipDiscount && !selfPractice ? (activeMembership?.discountPercent || 0) : 0;
   const afterMembership = Math.max(0, Math.round(gross * (1 - membershipPct / 100) * 100) / 100);
   const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
   const discountAmt = Math.round(afterMembership * (discountPct / 100) * 100) / 100;
@@ -744,7 +1033,9 @@ function CloseTableDialog({
   // Shared/utility accounts (e.g. "Guest Account Table N") are flagged to always
   // allow a negative balance — no need for staff to tick the checkbox each time.
   const accountAllowsNegative = !!selectedCustomer?.allow_negative_balance;
-  const effectiveAllowNegative = allowNegative || accountAllowsNegative;
+  // Only an admin can take a normal account below zero (D9).
+  const effectiveAllowNegative = (isAdminUser && allowNegative) || accountAllowsNegative;
+  const discountErr = discountProblem(discountPct, discountReason, isAdminUser);
 
   const handleConfirm = () => {
     if (!closeTarget) return;
@@ -753,7 +1044,19 @@ function CloseTableDialog({
       return;
     }
     if (paymentMethod === "wallet" && willGoNegative && !effectiveAllowNegative) {
-      toast({ title: "Insufficient wallet balance", description: "Check 'Allow negative balance' to proceed anyway.", variant: "destructive" });
+      toast({
+        title: "Insufficient wallet balance",
+        description: isAdminUser ? "Check 'Allow negative balance' to proceed anyway." : "Ask an admin, or take Cash or PayNow instead.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (discountErr) {
+      toast({ title: "Check the discount", description: discountErr, variant: "destructive" });
+      return;
+    }
+    if (pricingMode === "custom" && !(customRate > 0)) {
+      toast({ title: "Enter the custom rate", variant: "destructive" });
       return;
     }
     const tableId = closeTarget;
@@ -765,11 +1068,10 @@ function CloseTableDialog({
       {
         tableId,
         durationSeconds: seconds,
-        // 0/omitted tells the backend to price via actual time-of-day
-        // segments instead of one flat rate — only send a real number when
-        // staff explicitly typed an override.
-        hourlyRate: rateInput === "" ? 0 : Number(rateInput),
+        pricingMode,
+        hourlyRate: pricingMode === "custom" ? customRate : 0,
         discountPercent: discountPct,
+        discountReason,
         startedAt,
         customerId: customerId || null,
         paymentMethod,
@@ -815,12 +1117,12 @@ function CloseTableDialog({
           <DialogDescription>
             {closeTarget && (
               <>
-                Table {table?.table_number} · {seconds}s @ ${tableRate}/hr{useLivePreview && !preview ? " (fetching exact price...)" : ""} — gross ${gross.toFixed(2)}
+                Table {table?.table_number} · {formatDuration(seconds)} · {pricingMode === "custom" ? `custom $${customRate.toFixed(2)}/hr` : PRICING_LABELS[pricingMode]}
+                {useLivePreview && !preview ? " (working out the price…)" : <> — ${gross.toFixed(2)}</>}
                 {membershipPct > 0 && <> · member {membershipPct}% off: ${afterMembership.toFixed(2)}</>}
                 {discountPct > 0 && <> · after {discountPct}% off: ${timeChargeExact.toFixed(2)}</>}
                 {fnbTotal > 0 && <> + F&B ${fnbTotal.toFixed(2)}</>}
                 {(discountPct > 0 || fnbTotal > 0) && <> — total: <strong>${finalCost.toFixed(2)}</strong></>}
-                {useLivePreview && preview && <> · billed at exact time-of-day pricing, correctly split across any peak/off-peak boundary this session crossed</>}
               </>
             )}
           </DialogDescription>
@@ -842,38 +1144,27 @@ function CloseTableDialog({
             </div>
           )}
           <div className="space-y-2">
-            <Label>Rate Override ($/hr)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={rateInput}
-              onChange={(e) => setRateInput(e.target.value)}
-              placeholder={`Auto (${defaultRate}/hr right now)`}
-            />
-            <p className="text-xs text-muted-foreground">
-              {table?.is_manual_rate
-                ? `This table was opened at a custom $${table.hourly_rate.toFixed(2)}/hr rate — pre-filled so it's honored for the whole session. Clear it to bill time-of-day pricing instead.`
-                : "Leave blank to bill the actual time-of-day pricing for the whole session (correctly split if it crossed a peak/off-peak boundary). Only set a number to force one flat rate for the entire session instead."}
-            </p>
+            <Label>Pricing</Label>
+            <PricingModePicker value={pricingMode} onChange={setPricingMode} allowCustom={allowCustom} />
+            <p className="text-xs text-muted-foreground">{PRICING_HELP[pricingMode]}</p>
+            {selfPractice && (preview?.uncoveredMinutes ?? 0) > 0 && (
+              <p className="text-xs text-amber-500">{preview!.uncoveredMinutes} min of this session had no self-practice rate set — charged at the normal price.</p>
+            )}
+            {pricingMode === "custom" && (
+              isAdminUser
+                ? <Input type="number" step="0.01" min="0" placeholder="Hourly rate" value={rateInput} onChange={(e) => setRateInput(e.target.value)} />
+                : <p className="text-xs">Opened by an admin at <strong>${customRate.toFixed(2)}/hr</strong> — kept for the whole session.</p>
+            )}
           </div>
 
-          <div className="space-y-2">
-            <Label>Discount (%)</Label>
-            <Input
-              type="number"
-              step="1"
-              min="0"
-              max="100"
-              value={discountInput}
-              onChange={(e) => setDiscountInput(e.target.value)}
-              placeholder="0"
-            />
-            <p className="text-xs text-muted-foreground">
-              Leave at 0 for no discount.
-              {membershipPct > 0 && " Applied on top of the customer's membership discount."}
-            </p>
-          </div>
+          <DiscountField
+            value={discountInput}
+            onChange={setDiscountInput}
+            reason={discountReason}
+            onReasonChange={setDiscountReason}
+            isAdminUser={isAdminUser}
+            note={membershipPct > 0 ? "Applied on top of the customer's membership discount." : undefined}
+          />
 
           <div className="space-y-2">
             <Label>Payment Method</Label>
@@ -937,46 +1228,21 @@ function CloseTableDialog({
                   </div>
                 </>
               )}
-              {willGoNegative && accountAllowsNegative && (
-                <div className="flex items-start gap-2 rounded-md border border-border px-3 py-2 text-sm">
-                  <AlertTriangle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                  <p className="text-muted-foreground">Charge exceeds wallet balance — this account allows a negative balance, so it'll proceed automatically.</p>
-                </div>
-              )}
-              {willGoNegative && !accountAllowsNegative && (
-                <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
-                  <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
-                  <div className="space-y-2">
-                    <p className="text-destructive">Charge exceeds this customer's wallet balance.</p>
-                    <label className="flex items-center gap-2 text-xs">
-                      <Checkbox checked={allowNegative} onCheckedChange={(v) => setAllowNegative(v === true)} />
-                      Allow negative balance
-                    </label>
-                  </div>
-                </div>
-              )}
-              {activeMembership && (
-                <div className="space-y-1.5 rounded-md border border-border px-3 py-2">
-                  {activeMembership.discountPercent > 0 && (
-                    <label className="flex items-center gap-2 text-sm">
-                      <Checkbox checked={applyMembershipDiscount} onCheckedChange={(v) => setApplyMembershipDiscount(v === true)} />
-                      Apply {activeMembership.discountPercent}% membership discount
-                    </label>
-                  )}
-                  {activeMembership.freeMinutesPerVisit > 0 && (
-                    <label className="flex items-center gap-2 text-sm">
-                      <Checkbox checked={applyMembershipFreeMinutes} onCheckedChange={(v) => setApplyMembershipFreeMinutes(v === true)} />
-                      Apply {activeMembership.freeMinutesPerVisit} free minutes
-                    </label>
-                  )}
-                  {activeMembership.unlimitedFreeMinutes && (
-                    <label className="flex items-center gap-2 text-sm">
-                      <Checkbox checked={applyMembershipFreeMinutes} onCheckedChange={(v) => setApplyMembershipFreeMinutes(v === true)} />
-                      Apply free self-practice (whole bill waived)
-                    </label>
-                  )}
-                </div>
-              )}
+              <NegativeBalanceNotice
+                willGoNegative={willGoNegative}
+                accountAllowsNegative={accountAllowsNegative}
+                isAdminUser={isAdminUser}
+                allowNegative={allowNegative}
+                onAllowNegative={setAllowNegative}
+              />
+              <MembershipPerks
+                membership={activeMembership}
+                selfPractice={selfPractice}
+                applyDiscount={applyMembershipDiscount}
+                onApplyDiscount={setApplyMembershipDiscount}
+                applyFreeMinutes={applyMembershipFreeMinutes}
+                onApplyFreeMinutes={setApplyMembershipFreeMinutes}
+              />
             </div>
           )}
         </div>
@@ -996,20 +1262,22 @@ const DURATION_PRESETS = [60, 120, 180, 300];
 function BookNowDialog({
   tables,
   bookTarget,
+  isAdminUser,
   onOpenChange,
 }: {
   tables: any[];
   bookTarget: string | null;
+  isAdminUser: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const { toast } = useToast();
   const bookTableNow = useBookTableNow();
-  const { data: pricingRules = [] } = usePricingRules();
-  const phDates = usePublicHolidaySet();
 
   const [durationInput, setDurationInput] = useState("60");
+  const [pricingMode, setPricingMode] = useState<PricingMode>("time_of_day");
   const [rateInput, setRateInput] = useState("");
   const [discountInput, setDiscountInput] = useState("0");
+  const [discountReason, setDiscountReason] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"wallet" | "cash" | "paynow">("wallet");
   const [customerId, setCustomerId] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
@@ -1035,12 +1303,12 @@ function BookNowDialog({
   useEffect(() => {
     if (bookTarget) {
       setDurationInput("60");
-      // Empty = bill via actual time-of-day pricing across the whole
-      // booking window (correctly split across any peak/off-peak boundary
-      // it crosses) — only set a number here to override with one flat
-      // rate for the entire duration instead.
+      // Every booking starts on time-of-day pricing (split correctly across
+      // any price change in the window); custom rates are admin-only.
+      setPricingMode("time_of_day");
       setRateInput("");
       setDiscountInput("0");
+      setDiscountReason("");
       setPaymentMethod("wallet");
       setCustomerId("");
       setCustomerSearch("");
@@ -1057,38 +1325,42 @@ function BookNowDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookTarget]);
 
-  // A code is checked against the duration/rate it was applied with — make
-  // staff re-apply it if either changes.
+  // A code is checked against the duration/pricing it was applied with —
+  // make staff re-apply it if either changes. Self-practice can't be
+  // combined with a code.
   useEffect(() => {
     setAppliedPromo(null);
-  }, [durationInput, rateInput]);
+  }, [durationInput, rateInput, pricingMode]);
 
   const table = tables.find((tb) => tb.id === bookTarget);
   const durationMinutes = Math.max(0, parseInt(durationInput, 10) || 0);
-  // Preview only — falls back to the current live rate when no override is
-  // set, same as CloseTableDialog. The real amount is computed server-side
-  // via actual time-of-day segments.
-  const currentRate = getCurrentHourlyRate(pricingRules, phDates);
-  const rate = rateInput === "" ? currentRate : Math.max(0, parseFloat(rateInput) || 0);
+  const customRate = Math.max(0, parseFloat(rateInput) || 0);
+  const selfPracticeMode = pricingMode === "self_practice";
 
   // Bucketed to the nearest 30s so this doesn't refetch on every render —
   // "now" only needs to be roughly right for a preview of a booking that's
-  // about to start.
+  // about to start. Priced by the server, exactly as the real booking is.
   const previewStart = new Date(Math.floor(Date.now() / 30000) * 30000).toISOString();
-  const useLivePreview = rateInput === "";
-  const { data: preview } = useSessionPreviewCost(previewStart, durationMinutes * 60, !!bookTarget && useLivePreview && durationMinutes > 0);
-  const gross = useLivePreview && typeof preview?.total === "number"
-    ? preview.total
-    : Math.round((durationMinutes / 60) * rate * 100) / 100;
+  const useLivePreview = pricingMode !== "custom";
+  const { data: preview } = useSessionPreviewCost(previewStart, durationMinutes * 60, !!bookTarget && useLivePreview && durationMinutes > 0, selfPracticeMode ? "self_practice" : "time_of_day");
+  const gross = useLivePreview
+    ? (typeof preview?.total === "number" ? preview.total : 0)
+    : Math.round((durationMinutes / 60) * customRate * 100) / 100;
+  // Show "…" until the server's price arrives, not $0.00.
+  const priceLoading = useLivePreview && durationMinutes > 0 && typeof preview?.total !== "number";
+  // A typed self-practice code (staff-only, per hour) counts as self-practice too.
+  const selfPractice = selfPracticeMode || (!!appliedPromo && appliedPromo.discount_type === "hourly_rate" && !!appliedPromo.staff_only);
   // Preview only — the real amount (which also accounts for free minutes,
-  // time-of-day gating, etc.) is computed server-side on confirm.
-  const membershipPctRaw = applyMembershipDiscount ? (activeMembership?.discountPercent || 0) : 0;
+  // time-of-day gating, etc.) is computed server-side on confirm. Member
+  // perks: wallet only (D11), never with self-practice (D2).
+  const membershipPctRaw = applyMembershipDiscount && !selfPractice ? (activeMembership?.discountPercent || 0) : 0;
   const membershipSaving = Math.round(gross * (membershipPctRaw / 100) * 100) / 100;
-  // Promo and membership don't stack — the bigger saving wins (same as the server).
+  // Promo and membership don't stack — the bigger saving wins (same as the
+  // server), except a self-practice code always applies.
   const promoSaving = !appliedPromo ? 0
     : appliedPromo.server_discount != null ? Math.min(gross, appliedPromo.server_discount)
     : Math.min(gross, calculateDiscount(gross, appliedPromo.discount_type as "percentage" | "fixed", appliedPromo.discount_value, appliedPromo.max_discount_amount));
-  const promoWins = !!appliedPromo && promoSaving > membershipSaving;
+  const promoWins = !!appliedPromo && (selfPractice || promoSaving > membershipSaving);
   const membershipPct = promoWins ? 0 : membershipPctRaw;
   const afterMembership = Math.max(0, Math.round((gross - (promoWins ? promoSaving : membershipSaving)) * 100) / 100);
   const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
@@ -1122,7 +1394,7 @@ function BookNowDialog({
   const { data: allPromos = [] } = useAdminPromoCodes("default");
   const autoKey = `${bookTarget}|${durationMinutes}|${gross}`;
   useEffect(() => {
-    if (!bookTarget || appliedPromo || rateInput !== "" || !preview || durationMinutes < 15) return;
+    if (!bookTarget || appliedPromo || pricingMode !== "time_of_day" || !preview || durationMinutes < 15) return;
     if (dismissedAutoKey.current === autoKey || autoTried.current === autoKey) return;
     autoTried.current = autoKey;
     const candidates = (allPromos as any[])
@@ -1151,7 +1423,7 @@ function BookNowDialog({
       }
     })().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoKey, appliedPromo, rateInput, preview, allPromos]);
+  }, [autoKey, appliedPromo, pricingMode, preview, allPromos]);
 
   const removePromo = () => {
     if (autoApplied) dismissedAutoKey.current = autoKey;
@@ -1167,7 +1439,8 @@ function BookNowDialog({
   const walletBalance = selectedCustomer?.wallet_balance ?? 0;
   const willGoNegative = paymentMethod === "wallet" && !!selectedCustomer && estimatedTotal > walletBalance;
   const accountAllowsNegative = !!selectedCustomer?.allow_negative_balance;
-  const effectiveAllowNegative = allowNegative || accountAllowsNegative;
+  // Only an admin can take a normal account below zero (D9).
+  const effectiveAllowNegative = (isAdminUser && allowNegative) || accountAllowsNegative;
 
   const handleConfirm = () => {
     if (!bookTarget) return;
@@ -1180,7 +1453,20 @@ function BookNowDialog({
       return;
     }
     if (paymentMethod === "wallet" && willGoNegative && !effectiveAllowNegative) {
-      toast({ title: "Insufficient wallet balance", description: "Check 'Allow negative balance' to proceed anyway.", variant: "destructive" });
+      toast({
+        title: "Insufficient wallet balance",
+        description: isAdminUser ? "Check 'Allow negative balance' to proceed anyway." : "Ask an admin, or take Cash or PayNow instead.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const discountErr = discountProblem(discountPct, discountReason, isAdminUser);
+    if (discountErr) {
+      toast({ title: "Check the discount", description: discountErr, variant: "destructive" });
+      return;
+    }
+    if (pricingMode === "custom" && !(customRate > 0)) {
+      toast({ title: "Enter the custom rate", variant: "destructive" });
       return;
     }
 
@@ -1193,10 +1479,9 @@ function BookNowDialog({
         paymentMethod,
         allowNegative: effectiveAllowNegative,
         discountPercent: discountPct,
-        // 0 tells the backend to price via actual time-of-day segments
-        // instead of one flat rate — only send a real number when staff
-        // explicitly typed an override.
-        hourlyRate: rateInput === "" ? 0 : rate,
+        discountReason,
+        pricingMode,
+        hourlyRate: pricingMode === "custom" ? customRate : 0,
         applyMembershipDiscount,
         applyMembershipFreeMinutes,
         promoCode: appliedPromo?.code || null,
@@ -1235,18 +1520,15 @@ function BookNowDialog({
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label>Rate Override ($/hr)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={rateInput}
-              onChange={(e) => setRateInput(e.target.value)}
-              placeholder={`Auto (${currentRate}/hr right now)`}
-            />
-            <p className="text-xs text-muted-foreground">
-              Leave blank to bill actual time-of-day pricing for the whole window (correctly split if it crosses a peak/off-peak boundary). Only set a number to force one flat rate for the entire booking instead.
-            </p>
+            <Label>Pricing</Label>
+            <PricingModePicker value={pricingMode} onChange={setPricingMode} allowCustom={isAdminUser} />
+            <p className="text-xs text-muted-foreground">{PRICING_HELP[pricingMode]}</p>
+            {selfPracticeMode && (preview?.uncoveredMinutes ?? 0) > 0 && (
+              <p className="text-xs text-amber-500">{preview!.uncoveredMinutes} min of this booking has no self-practice rate set — charged at the normal price.</p>
+            )}
+            {pricingMode === "custom" && (
+              <Input type="number" step="0.01" min="0" placeholder="Hourly rate" value={rateInput} onChange={(e) => setRateInput(e.target.value)} />
+            )}
           </div>
 
           <div className="space-y-2">
@@ -1278,8 +1560,8 @@ function BookNowDialog({
 
           <div className="rounded-md border border-border px-3 py-2 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">{useLivePreview ? (preview ? "Exact price" : "Price (fetching exact...)") : "Price"}</span>
-              <span className="font-medium">${gross.toFixed(2)}</span>
+              <span className="text-muted-foreground">{useLivePreview ? (preview ? "Exact price" : "Price (working it out…)") : "Price"}</span>
+              <span className="font-medium">{priceLoading ? "…" : `$${gross.toFixed(2)}`}</span>
             </div>
             {membershipPct > 0 && (
               <div className="flex items-center justify-between text-emerald-500 text-xs mt-1">
@@ -1296,6 +1578,9 @@ function BookNowDialog({
             {appliedPromo && !promoWins && (
               <p className="text-xs text-muted-foreground mt-1">Membership saves more than {appliedPromo.code}, so the membership discount is used.</p>
             )}
+            {selfPractice && activeMembership && (
+              <p className="text-xs text-muted-foreground mt-1">Self-practice — member perks don't apply.</p>
+            )}
             {discountPct > 0 && (
               <div className="flex items-center justify-between text-emerald-500 text-xs mt-1">
                 <span>{discountPct}% discount</span>
@@ -1304,14 +1589,16 @@ function BookNowDialog({
             )}
             <div className="flex items-center justify-between mt-1 border-t border-border pt-1">
               <span className="text-muted-foreground">Est. total</span>
-              <span className="font-semibold">${estimatedTotal.toFixed(2)}</span>
+              <span className="font-semibold">{priceLoading ? "…" : `$${estimatedTotal.toFixed(2)}`}</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Final price is computed at confirm — includes the customer's membership discount/free minutes if they have one active{rateInput === "" ? ", and correctly splits across any peak/off-peak boundary the booking crosses" : ""}.</p>
+            <p className="text-xs text-muted-foreground mt-1">Final price is computed at confirm{selfPractice ? "" : " — includes the customer's membership discount/free minutes if they have one active and pay by wallet"}.</p>
           </div>
 
           <div className="space-y-2">
             <Label>Promo Code</Label>
-            {appliedPromo ? (
+            {selfPracticeMode ? (
+              <p className="text-xs text-muted-foreground">Not used with self-practice pricing.</p>
+            ) : appliedPromo ? (
               <div className="flex items-center justify-between rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-sm">
                 <span className="font-medium">
                   {appliedPromo.code}
@@ -1334,19 +1621,13 @@ function BookNowDialog({
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label>Discount (%)</Label>
-            <Input
-              type="number"
-              step="1"
-              min="0"
-              max="100"
-              value={discountInput}
-              onChange={(e) => setDiscountInput(e.target.value)}
-              placeholder="0"
-            />
-            <p className="text-xs text-muted-foreground">Leave at 0 for no extra discount.</p>
-          </div>
+          <DiscountField
+            value={discountInput}
+            onChange={setDiscountInput}
+            reason={discountReason}
+            onReasonChange={setDiscountReason}
+            isAdminUser={isAdminUser}
+          />
 
           <div className="space-y-2">
             <Label>Payment Method</Label>
@@ -1409,46 +1690,21 @@ function BookNowDialog({
                 </div>
               </>
             )}
-            {willGoNegative && accountAllowsNegative && (
-              <div className="flex items-start gap-2 rounded-md border border-border px-3 py-2 text-sm">
-                <AlertTriangle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                <p className="text-muted-foreground">Charge exceeds wallet balance — this account allows a negative balance, so it'll proceed automatically.</p>
-              </div>
-            )}
-            {willGoNegative && !accountAllowsNegative && (
-              <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
-                <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
-                <div className="space-y-2">
-                  <p className="text-destructive">Charge exceeds this customer's wallet balance.</p>
-                  <label className="flex items-center gap-2 text-xs">
-                    <Checkbox checked={allowNegative} onCheckedChange={(v) => setAllowNegative(v === true)} />
-                    Allow negative balance
-                  </label>
-                </div>
-              </div>
-            )}
-            {activeMembership && (
-              <div className="space-y-1.5 rounded-md border border-border px-3 py-2">
-                {activeMembership.discountPercent > 0 && (
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={applyMembershipDiscount} onCheckedChange={(v) => setApplyMembershipDiscount(v === true)} />
-                    Apply {activeMembership.discountPercent}% membership discount
-                  </label>
-                )}
-                {activeMembership.freeMinutesPerVisit > 0 && (
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={applyMembershipFreeMinutes} onCheckedChange={(v) => setApplyMembershipFreeMinutes(v === true)} />
-                    Apply {activeMembership.freeMinutesPerVisit} free minutes
-                  </label>
-                )}
-                {activeMembership.unlimitedFreeMinutes && (
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={applyMembershipFreeMinutes} onCheckedChange={(v) => setApplyMembershipFreeMinutes(v === true)} />
-                    Apply free self-practice (whole bill waived)
-                  </label>
-                )}
-              </div>
-            )}
+            <NegativeBalanceNotice
+              willGoNegative={willGoNegative}
+              accountAllowsNegative={accountAllowsNegative}
+              isAdminUser={isAdminUser}
+              allowNegative={allowNegative}
+              onAllowNegative={setAllowNegative}
+            />
+            <MembershipPerks
+              membership={activeMembership}
+              selfPractice={selfPractice}
+              applyDiscount={applyMembershipDiscount}
+              onApplyDiscount={setApplyMembershipDiscount}
+              applyFreeMinutes={applyMembershipFreeMinutes}
+              onApplyFreeMinutes={setApplyMembershipFreeMinutes}
+            />
           </div>
         </div>
         <DialogFooter>

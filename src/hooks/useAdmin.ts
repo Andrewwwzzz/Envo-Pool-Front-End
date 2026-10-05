@@ -105,6 +105,8 @@ export function useBookTableNow() {
       applyMembershipDiscount,
       applyMembershipFreeMinutes,
       promoCode,
+      pricingMode,
+      discountReason,
     }: {
       tableId: string;
       durationMinutes: number;
@@ -116,6 +118,8 @@ export function useBookTableNow() {
       applyMembershipDiscount?: boolean;
       applyMembershipFreeMinutes?: boolean;
       promoCode?: string | null;
+      pricingMode: PricingMode;
+      discountReason?: string;
     }) => {
       const res = await apiFetch(`/api/admin/tables/${tableId}/book-now`, {
         method: "POST",
@@ -125,7 +129,9 @@ export function useBookTableNow() {
           paymentMethod,
           allowNegative: !!allowNegative,
           discountPercent: discountPercent || 0,
-          hourlyRate: hourlyRate || 0,
+          discountReason: discountReason?.trim() || null,
+          pricingMode,
+          hourlyRate: pricingMode === "custom" ? hourlyRate || 0 : 0,
           applyMembershipDiscount: applyMembershipDiscount !== false,
           applyMembershipFreeMinutes: applyMembershipFreeMinutes !== false,
           promoCode: promoCode || null,
@@ -188,18 +194,38 @@ export function useDeleteBooking() {
 // crosses a peak/off-peak boundary. Query key buckets durationSeconds to
 // the nearest 5s so the live elapsed-seconds ticker doesn't refetch every
 // single second.
-export function useSessionPreviewCost(startedAt: string | null, durationSeconds: number, enabled: boolean) {
+// mode "self_practice" prices with the configured self-practice codes
+// (normal price wherever none applies) — uncoveredMinutes says how much.
+export type PricingMode = "time_of_day" | "self_practice" | "custom";
+
+export function useSessionPreviewCost(startedAt: string | null, durationSeconds: number, enabled: boolean, mode: "time_of_day" | "self_practice" = "time_of_day") {
   const bucket = Math.floor(durationSeconds / 5);
   return useQuery({
-    queryKey: ["session-preview-cost", startedAt, bucket],
+    queryKey: ["session-preview-cost", startedAt, bucket, mode],
     queryFn: async () => {
-      const res = await apiFetch(`/api/sessions/preview-cost?startedAt=${encodeURIComponent(startedAt!)}&durationSeconds=${durationSeconds}`);
+      const res = await apiFetch(`/api/sessions/preview-cost?startedAt=${encodeURIComponent(startedAt!)}&durationSeconds=${durationSeconds}&mode=${mode}`);
       if (!res.ok) return null;
-      return res.json() as Promise<{ segments: any[]; total: number }>;
+      return res.json() as Promise<{ segments: any[]; total: number; uncoveredMinutes?: number; codes?: string[] }>;
     },
     enabled: enabled && !!startedAt && durationSeconds > 0,
   });
 }
+
+// An Error that keeps the server's JSON body — e.g. the list of bookings a
+// maintenance change would affect (code "BOOKINGS_AFFECTED").
+export class ApiError extends Error {
+  data: any;
+  constructor(message: string, data: any) {
+    super(message);
+    this.data = data;
+  }
+}
+async function apiError(res: Response, fallback: string) {
+  const data = await res.json().catch(() => ({}));
+  return new ApiError(data.error || data.message || fallback, data);
+}
+export const isBookingsAffected = (e: unknown): e is ApiError =>
+  e instanceof ApiError && e.data?.code === "BOOKINGS_AFFECTED";
 
 export function useAdminTables() {
   const queryClient = useQueryClient();
@@ -217,6 +243,8 @@ export function useAdminTables() {
         hardware_id: t.hardwareId ?? t.hardware_id ?? null,
         hourly_rate: t.timerHourlyRate ?? t.hourlyRate ?? t.hourly_rate ?? t.basePrice ?? 0,
         is_manual_rate: t.timerHourlyRateManual ?? false,
+        // How a running session will be billed (older sessions: custom if a manual rate was typed)
+        pricing_mode: (t.timerPricingMode ?? (t.timerHourlyRateManual ? "custom" : "time_of_day")) as PricingMode,
         status: t.liveStatus ?? t.status ?? "available",
         timer_started_at: t.timerStartedAt ?? t.timer_started_at ?? null,
         last_seen: t.lastSeen ?? t.last_seen ?? null,
@@ -247,10 +275,11 @@ export function useAdminTables() {
   });
 
   const startTimer = useMutation({
-    mutationFn: async ({ tableId, hourlyRate, isManualRate }: { tableId: string; hourlyRate: number; isManualRate?: boolean }) => {
+    // pricingMode "custom" (with hourlyRate) is admin-only — the server refuses it from staff.
+    mutationFn: async ({ tableId, pricingMode, hourlyRate }: { tableId: string; pricingMode: PricingMode; hourlyRate?: number }) => {
       const res = await apiFetch(`/api/admin/tables/${tableId}/start-timer`, {
         method: "POST",
-        body: JSON.stringify({ hourlyRate, isManualRate: !!isManualRate }),
+        body: JSON.stringify({ pricingMode, hourlyRate: pricingMode === "custom" ? hourlyRate || 0 : 0 }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -278,6 +307,8 @@ export function useAdminTables() {
       allowNegative,
       applyMembershipDiscount,
       applyMembershipFreeMinutes,
+      pricingMode,
+      discountReason,
     }: {
       tableId: string;
       durationSeconds: number;
@@ -289,12 +320,16 @@ export function useAdminTables() {
       allowNegative?: boolean;
       applyMembershipDiscount?: boolean;
       applyMembershipFreeMinutes?: boolean;
+      pricingMode: PricingMode;
+      discountReason?: string;
     }) => {
       const res = await apiFetch(`/api/admin/tables/${tableId}/stop-timer`, {
         method: "POST",
         body: JSON.stringify({
           durationSeconds,
-          hourlyRate,
+          hourlyRate: pricingMode === "custom" ? hourlyRate : 0,
+          pricingMode,
+          discountReason: discountReason?.trim() || null,
           discountPercent: discountPercent || 0,
           startedAt,
           customerId: customerId || null,
@@ -328,37 +363,51 @@ export function useAdminTables() {
     },
   });
 
+  // Every status change needs a reason (logged). Putting a table with
+  // upcoming bookings under maintenance fails with BOOKINGS_AFFECTED until
+  // it's resent with acknowledgeBookings once staff have dealt with them.
   const setMaintenance = useMutation({
-    mutationFn: async ({ tableId, maintenance }: { tableId: string; maintenance: boolean }) => {
+    mutationFn: async ({ tableId, maintenance, reason, acknowledgeBookings }: { tableId: string; maintenance: boolean; reason: string; acknowledgeBookings?: boolean }) => {
       const res = await apiFetch(`/api/admin/tables/${tableId}/status`, {
         method: "POST",
-        body: JSON.stringify({ status: maintenance ? "maintenance" : "available" }),
+        body: JSON.stringify({ status: maintenance ? "maintenance" : "available", reason, acknowledgeBookings: !!acknowledgeBookings }),
       });
-      if (!res.ok) throw new Error("Failed to update table status");
+      if (!res.ok) throw await apiError(res, "Failed to update table status");
     },
     onSuccess: () => {
       toast({ title: "Table status updated" });
       queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
     },
+    onError: (e: Error) => {
+      if (!isBookingsAffected(e)) toast({ title: "Couldn't change the table", description: e.message, variant: "destructive" });
+    },
   });
 
+  // One table at a time, so each result is known: tables with bookings come
+  // back in `blocked` (with their bookings) to confirm separately.
   const setBulkMaintenance = useMutation({
-    mutationFn: async ({ tableIds, maintenance }: { tableIds: string[]; maintenance: boolean }) => {
+    mutationFn: async ({ tableIds, maintenance, reason, acknowledgeBookings }: { tableIds: string[]; maintenance: boolean; reason: string; acknowledgeBookings?: boolean }) => {
       const status = maintenance ? "maintenance" : "available";
-      await Promise.all(
-        tableIds.map(async (tableId) => {
-          const res = await apiFetch(`/api/admin/tables/${tableId}/status`, {
-            method: "POST",
-            body: JSON.stringify({ status }),
-          });
-          if (!res.ok) throw new Error(`Failed to update table ${tableId}`);
-        })
-      );
+      const updated: string[] = [];
+      const blocked: { tableId: string; bookings: any[] }[] = [];
+      const failed: { tableId: string; error: string }[] = [];
+      for (const tableId of tableIds) {
+        const res = await apiFetch(`/api/admin/tables/${tableId}/status`, {
+          method: "POST",
+          body: JSON.stringify({ status, reason, acknowledgeBookings: !!acknowledgeBookings }),
+        });
+        if (res.ok) { updated.push(tableId); continue; }
+        const e = await apiError(res, `Failed to update table ${tableId}`);
+        if (e.data?.code === "BOOKINGS_AFFECTED") blocked.push({ tableId, bookings: e.data.bookings || [] });
+        else failed.push({ tableId, error: e.message });
+      }
+      return { updated, blocked, failed };
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (result, variables) => {
       const label = variables.maintenance ? "maintenance" : "available";
-      toast({ title: `${variables.tableIds.length} table${variables.tableIds.length > 1 ? "s" : ""} set to ${label}` });
+      if (result.updated.length) toast({ title: `${result.updated.length} table${result.updated.length > 1 ? "s" : ""} set to ${label}` });
+      if (result.failed.length) toast({ title: `${result.failed.length} table${result.failed.length > 1 ? "s" : ""} not changed`, description: result.failed[0].error, variant: "destructive" });
       queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
     },
@@ -389,7 +438,8 @@ export function useScheduleMaintenance() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async ({ tableId, startTime, endTime, reason }: { tableId: string; startTime: string; endTime: string; reason: string }) => {
+    // Bookings inside the window → BOOKINGS_AFFECTED; resend with acknowledgeBookings once handled.
+    mutationFn: async ({ tableId, startTime, endTime, reason, acknowledgeBookings }: { tableId: string; startTime: string; endTime: string; reason: string; acknowledgeBookings?: boolean }) => {
       const trimmedReason = reason.trim();
       if (!trimmedReason) {
         throw new Error("Reason is required.");
@@ -399,13 +449,10 @@ export function useScheduleMaintenance() {
       try {
         const res = await apiFetch(`/api/admin/maintenance`, {
           method: "POST",
-          body: JSON.stringify({ tableId, startTime, endTime, reason: trimmedReason }),
+          body: JSON.stringify({ tableId, startTime, endTime, reason: trimmedReason, acknowledgeBookings: !!acknowledgeBookings }),
           signal: controller.signal,
         });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || err.message || "Failed to schedule maintenance");
-        }
+        if (!res.ok) throw await apiError(res, "Failed to schedule maintenance");
         return await res.json().catch(() => ({}));
       } catch (e: any) {
         if (e?.name === "AbortError") {
@@ -422,7 +469,7 @@ export function useScheduleMaintenance() {
       queryClient.invalidateQueries({ queryKey: ["table-maintenance"] });
     },
     onError: (e: any) => {
-      toast({ title: "Failed to schedule", description: e.message, variant: "destructive" });
+      if (!isBookingsAffected(e)) toast({ title: "Failed to schedule", description: e.message, variant: "destructive" });
     },
   });
 }
@@ -457,22 +504,27 @@ export function useBulkScheduleMaintenance() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async ({ tableIds, startTime, endTime, reason }: { tableIds: string[]; startTime: string; endTime: string; reason: string }) => {
-      await Promise.all(
-        tableIds.map(async (tableId) => {
-          const res = await apiFetch("/api/admin/maintenance", {
-            method: "POST",
-            body: JSON.stringify({ tableId, startTime, endTime, reason }),
-          });
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || `Failed to schedule table ${tableId}`);
-          }
-        })
-      );
+    // One table at a time: tables with bookings in the window come back in
+    // `blocked` (with their bookings) to confirm separately.
+    mutationFn: async ({ tableIds, startTime, endTime, reason, acknowledgeBookings }: { tableIds: string[]; startTime: string; endTime: string; reason: string; acknowledgeBookings?: boolean }) => {
+      const scheduled: string[] = [];
+      const blocked: { tableId: string; bookings: any[]; inUseNow?: boolean }[] = [];
+      const failed: { tableId: string; error: string }[] = [];
+      for (const tableId of tableIds) {
+        const res = await apiFetch("/api/admin/maintenance", {
+          method: "POST",
+          body: JSON.stringify({ tableId, startTime, endTime, reason, acknowledgeBookings: !!acknowledgeBookings }),
+        });
+        if (res.ok) { scheduled.push(tableId); continue; }
+        const e = await apiError(res, `Failed to schedule table ${tableId}`);
+        if (e.data?.code === "BOOKINGS_AFFECTED") blocked.push({ tableId, bookings: e.data.bookings || [], inUseNow: !!e.data.inUseNow });
+        else failed.push({ tableId, error: e.message });
+      }
+      return { scheduled, blocked, failed };
     },
-    onSuccess: (_data, vars) => {
-      toast({ title: `Maintenance scheduled for ${vars.tableIds.length} table${vars.tableIds.length > 1 ? "s" : ""}` });
+    onSuccess: (result) => {
+      if (result.scheduled.length) toast({ title: `Maintenance scheduled for ${result.scheduled.length} table${result.scheduled.length > 1 ? "s" : ""}` });
+      if (result.failed.length) toast({ title: `${result.failed.length} table${result.failed.length > 1 ? "s" : ""} not scheduled`, description: result.failed[0].error, variant: "destructive" });
       queryClient.invalidateQueries({ queryKey: ["table-maintenance"] });
     },
     onError: (e: any) => {

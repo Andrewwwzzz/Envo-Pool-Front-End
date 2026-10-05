@@ -802,7 +802,7 @@ function BookingsTab() {
   );
 }
 
-function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | null; onClose: () => void; onDelete: () => void }) {
+function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | null; onClose: () => void; onDelete?: () => void }) {
   const { toast } = useToast();
   const [nowTick, setNowTick] = useState(Date.now());
   const propWalkin = !!session?._walkin || !!session?.userId;
@@ -1338,7 +1338,7 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
           </section>
         </div>
 
-        {!isDeleted && !isActive && (
+        {!isDeleted && !isActive && onDelete && (
           <DialogFooter className="pt-2">
             <Button variant="destructive" onClick={onDelete}>
               <Trash2 className="h-4 w-4 mr-1" /> Delete Invoice
@@ -1355,6 +1355,8 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
 function InvoicesTab() {
   const { user: authUser } = useAuth();
   const isMaster = authUser?.isMaster ?? false;
+  // Deleting (voiding) an invoice is admin-only (D9).
+  const canVoid = authUser?.role === "admin";
   const [showDeleted, setShowDeleted] = useState(false);
   const { data, isLoading } = useAdminTimerSessions(showDeleted);
   const timerSessions: any[] = Array.isArray(data) ? data : (data?.sessions || data?.timerSessions || []);
@@ -1600,7 +1602,7 @@ function InvoicesTab() {
                               </Button>
                             )}
                           </div>
-                        ) : (
+                        ) : canVoid && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -1625,7 +1627,7 @@ function InvoicesTab() {
     <InvoiceDetailDialog
       session={selectedSession}
       onClose={() => setSelectedSession(null)}
-      onDelete={() => {
+      onDelete={!canVoid ? undefined : () => {
         if (selectedSession) {
           setDeleteTargetId(selectedSession._id || selectedSession.id);
           setDeleteTargetIsWalkin(!!selectedSession._walkin);
