@@ -312,6 +312,9 @@ function OverviewTab() {
 
   // Average booking value — booking amounts only (from the server, not all revenue).
   const avgBookingValue = Number(stats?.avgBookingValue ?? 0);
+  // Cards show "…" until the figures for the selected period arrive (not $0.00 / 0).
+  const money = (v: unknown) => (v === undefined || v === null || v === false ? "…" : `$${Number(v).toFixed(2)}`);
+  const count = (v: unknown) => (v === undefined || v === null ? "…" : String(v));
 
   // Most booked table (client-side from bookings in range)
   const mostBookedTable = (() => {
@@ -447,52 +450,52 @@ function OverviewTab() {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
         <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">${(stats?.totalRevenue ?? 0).toFixed(2)}</p>
+          <p className="text-2xl font-bold">{money(stats?.totalRevenue)}</p>
           <p className="text-sm text-muted-foreground">Total Revenue</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <Users className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">{stats?.totalUsers ?? 0}</p>
+          <p className="text-2xl font-bold">{count(stats?.totalUsers)}</p>
           <p className="text-sm text-muted-foreground">Total Users</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <Calendar className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">{stats?.totalBookings ?? 0}</p>
+          <p className="text-2xl font-bold">{count(stats?.totalBookings)}</p>
           <p className="text-sm text-muted-foreground">Total Bookings</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <BarChart3 className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">{stats?.totalTransactions ?? 0}</p>
+          <p className="text-2xl font-bold">{count(stats?.totalTransactions)}</p>
           <p className="text-sm text-muted-foreground">Total Transactions</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <TrendingUp className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">${avgBookingValue.toFixed(2)}</p>
+          <p className="text-2xl font-bold">{money(stats && avgBookingValue)}</p>
           <p className="text-sm text-muted-foreground">Avg Booking Value</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <Calendar className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-lg font-bold truncate">{mostBookedTable}</p>
+          <p className="text-lg font-bold truncate">{stats ? mostBookedTable : "…"}</p>
           <p className="text-sm text-muted-foreground">Most Booked Table</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">${walletTopups.toFixed(2)}</p>
+          <p className="text-2xl font-bold">{money(stats && walletTopups)}</p>
           <p className="text-sm text-muted-foreground">Cash + PayNow received</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">${paynowTopups.toFixed(2)}</p>
+          <p className="text-2xl font-bold">{money(stats && paynowTopups)}</p>
           <p className="text-sm text-muted-foreground">PayNow received (recorded)</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">${cashTopups.toFixed(2)}</p>
+          <p className="text-2xl font-bold">{money(stats && cashTopups)}</p>
           <p className="text-sm text-muted-foreground">Cash received</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <Mail className="h-6 w-6 mx-auto text-primary mb-2" />
-          <p className="text-2xl font-bold">${(stats?.bankPaynowReceived ?? 0).toFixed(2)}</p>
+          <p className="text-2xl font-bold">{money(stats?.bankPaynowReceived)}</p>
           <p className="text-sm text-muted-foreground">Bank PayNow Received</p>
         </CardContent></Card>
       </div>
