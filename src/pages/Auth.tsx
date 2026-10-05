@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,10 +19,15 @@ const Auth = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, setAuth } = useAuth();
+  // ?next=/some/page sends the user back there after signing in (e.g. the
+  // tournament they tapped Register on). Only same-site paths are allowed.
+  const [searchParams] = useSearchParams();
+  const nextParam = searchParams.get("next");
+  const next = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : null;
 
   useEffect(() => {
-    if (user) navigate("/dashboard", { replace: true });
-  }, [user, navigate]);
+    if (user) navigate(next || "/dashboard", { replace: true });
+  }, [user, navigate, next]);
 
   const handleSingpass = async () => {
     setSingpassLoading(true);
@@ -58,7 +63,7 @@ const Auth = () => {
       }
       setAuth(data.token, data.user);
       toast({ title: "Login successful" });
-      navigate("/booking");
+      navigate(next || "/booking");
     } catch (err: any) {
       toast({ title: "Login failed", description: err.message, variant: "destructive" });
     } finally {

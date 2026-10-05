@@ -35,6 +35,7 @@ const Index = () => {
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <Link to="/" className="text-xl font-bold tracking-tight gold-gradient">Envo Pool</Link>
           <div className="flex items-center gap-3">
+            <Link to="/tournaments" className="hidden sm:inline text-sm text-muted-foreground hover:text-foreground transition-colors">Tournaments</Link>
             {user ? (
               <>
                 {user.isAdmin && (
@@ -385,6 +386,7 @@ const Index = () => {
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <Link to="/terms" className="hover:text-foreground transition-colors">Terms & Conditions</Link>
             <Link to="/auth" className="hover:text-foreground transition-colors">Sign In</Link>
+            <Link to="/tournaments" className="hover:text-foreground transition-colors">Tournaments</Link>
             <Link to="/booking" className="hover:text-foreground transition-colors">Book Now</Link>
           </div>
           <div className="text-center md:text-right">

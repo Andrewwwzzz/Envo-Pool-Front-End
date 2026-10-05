@@ -88,6 +88,7 @@ const HOME_DESCRIPTION =
 export const PAGES: Record<string, PageMeta> = {
   "/": { title: "Pool Hall in Singapore | Envo Pool, Paya Lebar", description: HOME_DESCRIPTION, index: true },
   "/terms": { title: "Terms & Conditions | Envo Pool", description: "Terms and conditions for bookings, memberships, wallet top-ups and rewards at Envo Pool, a pool hall in Singapore near Paya Lebar MRT.", index: true },
+  "/tournaments": { title: "Pool Tournaments in Singapore | Envo Pool", description: "Upcoming pool tournaments at Envo Pool, Paya Lebar. See who has signed up and register online.", index: true },
   "/booking": { title: "Book a Pool Table | Envo Pool", description: "Book a pool table online at Envo Pool, Paya Lebar.", index: false },
   "/auth": { title: "Sign In | Envo Pool", description: "Sign in to your Envo Pool account.", index: false },
 };

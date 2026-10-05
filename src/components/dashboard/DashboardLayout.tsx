@@ -14,6 +14,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/dashboard/membership": "Membership",
   "/dashboard/fnb": "F&B & Others",
   "/dashboard/inbox": "Inbox",
+  "/dashboard/tournaments": "My Tournaments",
 };
 
 export default function DashboardLayout() {

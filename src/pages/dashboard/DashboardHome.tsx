@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Wallet, Calendar, History, Settings, Gift, Crown,
-  ShoppingBag, ArrowRight, TrendingUp, Star
+  ShoppingBag, ArrowRight, TrendingUp, Star, Trophy
 } from "lucide-react";
 import BookingDetailDialog from "@/components/BookingDetailDialog";
 import TopUpWalletDialog from "@/components/dashboard/TopUpWalletDialog";
@@ -44,6 +44,7 @@ const navBlocks = [
   { to: "/dashboard/rewards", label: "My Rewards", icon: Gift, desc: "Points & reward codes", color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20" },
   { to: "/dashboard/membership", label: "Membership", icon: Crown, desc: "Plans & benefits", color: "text-yellow-400", bg: "bg-yellow-500/10 border-yellow-500/20" },
   { to: "/dashboard/fnb", label: "F&B & Others", icon: ShoppingBag, desc: "Order food, drinks & more", color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20" },
+  { to: "/dashboard/tournaments", label: "Tournaments", icon: Trophy, desc: "Your tournament sign-ups", color: "text-rose-400", bg: "bg-rose-500/10 border-rose-500/20" },
   { to: "/dashboard/settings", label: "Account", icon: Settings, desc: "Profile & settings", color: "text-green-400", bg: "bg-green-500/10 border-green-500/20" },
 ];
 

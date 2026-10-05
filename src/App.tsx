@@ -43,6 +43,9 @@ const DashboardBookings = page(() => import("./pages/dashboard/DashboardBookings
 const DashboardInbox = page(() => import("./pages/dashboard/DashboardInbox"));
 const Admin = page(() => import("./pages/Admin"));
 const Terms = page(() => import("./pages/Terms"));
+const Tournaments = page(() => import("./pages/Tournaments"));
+const TournamentDetail = page(() => import("./pages/TournamentDetail"));
+const DashboardTournaments = page(() => import("./pages/dashboard/DashboardTournaments"));
 const Kyc = page(() => import("./pages/Kyc"));
 const NotFound = page(() => import("./pages/NotFound"));
 
@@ -101,6 +104,7 @@ const App = () => (
                   <Route path="fnb" element={<DashboardFnb />} />
                   <Route path="bookings" element={<DashboardBookings />} />
                   <Route path="inbox" element={<DashboardInbox />} />
+                  <Route path="tournaments" element={<DashboardTournaments />} />
                 </Route>
                 <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
                 <Route
@@ -112,6 +116,8 @@ const App = () => (
                   }
                 />
                 <Route path="/terms" element={<Terms />} />
+                <Route path="/tournaments" element={<Tournaments />} />
+                <Route path="/tournaments/:id" element={<TournamentDetail />} />
                 <Route path="/kyc" element={<Kyc />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

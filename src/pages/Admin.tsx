@@ -37,6 +37,7 @@ import {
 } from "@/hooks/useAdmin";
 import { PinDialog } from "@/components/admin/PinDialog";
 import LogsTab from "@/components/admin/LogsTab";
+import TournamentsTab from "@/components/admin/TournamentsTab";
 import AnnouncementsTab from "@/components/admin/AnnouncementsTab";
 import IncentivesTab from "@/components/admin/IncentivesTab";
 import StaffTab from "@/components/admin/StaffTab";
@@ -80,7 +81,7 @@ import { AdminNav, type AdminSection, type AdminPage } from "@/components/admin/
 import { TodayPanel } from "@/components/admin/TodayPanel";
 import { MoveBookingDialog } from "@/components/admin/MoveBookingDialog";
 import { ArrowRightLeft } from "lucide-react";
-import { LayoutDashboard, LayoutGrid, Coffee, Wallet, Crown, UserCog, Megaphone, Settings } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, Coffee, Wallet, Crown, UserCog, Megaphone, Settings, Trophy } from "lucide-react";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -124,6 +125,7 @@ const Admin = () => {
     { key: "bookings", label: "Bookings", icon: CalendarDays, pages: [page(can("bookings"), "bookings", "Bookings"), page(can("invoices"), "invoices", "Invoices")] },
     { key: "customers", label: "Customers", icon: Users, pages: [page(can("customers"), "customers", "Customers")] },
     { key: "members", label: "Members", icon: Crown, pages: [page(can("membership"), "membership", "Membership"), page(can("lockers"), "lockers", "Lockers"), page(can("rewards"), "rewards", "Rewards")] },
+    { key: "tournaments", label: "Tournaments", icon: Trophy, pages: [page(can("tournaments"), "tournaments", "Tournaments")] },
     { key: "marketing", label: "Marketing", icon: Megaphone, pages: [page(can("promos"), "promos", "Promos"), page(isAdmin, "campaigns", "Campaigns"), page(isAdmin, "announcements", "Announcements")] },
     { key: "settings", label: "Settings", icon: Settings, pages: [page(can("pricing"), "pricing", "Pricing")] },
     { key: "team", label: "Team", icon: UserCog, pages: [page(isMaster, "staff", "Staff"), page(true, "incentives", "Incentives"), page(can("logs"), "logs", "Logs")] },
@@ -193,6 +195,7 @@ const Admin = () => {
           {can("promos") && <TabsContent value="promos"><PromosTab /></TabsContent>}
           {isAdmin && <TabsContent value="campaigns"><CampaignsTab /></TabsContent>}
           {can("lockers") && <TabsContent value="lockers"><LockersTab /></TabsContent>}
+          {can("tournaments") && <TabsContent value="tournaments"><TournamentsTab /></TabsContent>}
           {can("cashcount") && <TabsContent value="cashcount"><CashCountTab /></TabsContent>}
           {/* Every admin and staff account can see everyone's incentives. */}
           <TabsContent value="incentives"><IncentivesTab /></TabsContent>
