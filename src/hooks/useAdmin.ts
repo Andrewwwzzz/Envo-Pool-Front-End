@@ -818,7 +818,9 @@ export function useAdminStats(from?: string, to?: string) {
         paynowTopups: data.paynowTopups ?? null,
         cashCollected: data.cashCollected ?? data.totalCash ?? null,
         bankPaynowReceived: data.bankPaynowReceived ?? 0,
+        avgBookingValue: data.avgBookingValue ?? 0,
         mostBookedTable: data.mostBookedTable ?? null,
+        mostBookedTableCount: data.mostBookedTableCount ?? 0,
       };
       setCache(cacheKey, stats);
       return stats;
