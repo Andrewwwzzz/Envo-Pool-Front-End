@@ -623,12 +623,12 @@ export default function MembershipTab() {
   const restore = useRestoreRecord();
   const hardDelete = useHardDelete();
   const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
-  const { data: plans = [] } = useMembershipPlans("all");
+  const { data: plans = [], isLoading: plansLoading } = useMembershipPlans("all");
   // Normal views list active records only; "Show Deleted" lists deleted ones only.
   const [showDeleted, setShowDeleted] = useState(false);
   const [subSearch, setSubSearch] = useState("");
   const [planFilter, setPlanFilter] = useState("all");
-  const { data: subs = [] } = useAdminSubscriptions(showDeleted ? "all" : "default");
+  const { data: subs = [], isLoading: subsLoading } = useAdminSubscriptions(showDeleted ? "all" : "default");
   const { data: customers = [] } = useAdminCustomers("");
   const del = useDeleteMembershipPlan();
   const toggleActive = useToggleMembershipPlanActive();
@@ -699,7 +699,7 @@ export default function MembershipTab() {
         </CardHeader>
         <CardContent>
           {visiblePlans.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No plans yet.</p>
+            <p className="text-sm text-muted-foreground">{plansLoading ? "Loading plans…" : "No plans yet."}</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {visiblePlans.map((p) => {
@@ -773,7 +773,7 @@ export default function MembershipTab() {
           <CardTitle className="text-base flex items-center gap-2">
             Subscriptions
             <Badge variant="secondary" className="font-normal">
-              {visibleSubs.length} {visibleSubs.length === 1 ? "member" : "members"}
+              {subsLoading ? "Loading…" : <>{visibleSubs.length} {visibleSubs.length === 1 ? "member" : "members"}</>}
               {planFilter !== "all" && (() => {
                 const p = plans.find((pl: any) => String(pl.id ?? pl._id) === planFilter);
                 return p ? ` — ${p.name} (${p.billingCycle})` : "";
@@ -816,7 +816,7 @@ export default function MembershipTab() {
         <CardContent>
           {visibleSubs.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              {subSearch.trim() || planFilter !== "all" ? "No subscriptions match your search/filter." : "No subscriptions."}
+              {subsLoading ? "Loading subscriptions…" : subSearch.trim() || planFilter !== "all" ? "No subscriptions match your search/filter." : "No subscriptions."}
             </p>
           ) : (
             <div className="overflow-x-auto">

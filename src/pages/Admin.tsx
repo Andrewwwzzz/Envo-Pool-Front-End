@@ -4510,7 +4510,7 @@ function VerificationTabTrigger() {
   );
 }
 
-function GmailTransactionsTable({ payments }: { payments: any[] | undefined }) {
+function GmailTransactionsTable({ payments, loading }: { payments: any[] | undefined; loading?: boolean }) {
   const matchBadge = (status: string) => {
     if (status === "auto_matched") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
     if (status === "suggested_match") return "bg-amber-500/10 text-amber-400 border-amber-500/30";
@@ -4525,7 +4525,7 @@ function GmailTransactionsTable({ payments }: { payments: any[] | undefined }) {
   };
 
   if (!payments?.length) {
-    return <p className="text-muted-foreground text-sm">No PayNow transactions found.</p>;
+    return <p className="text-muted-foreground text-sm">{loading ? "Loading bank transactions…" : "No PayNow transactions found."}</p>;
   }
 
   return (
@@ -4579,8 +4579,8 @@ function TopUpsTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [status, setStatus] = useState<"pending" | "approved" | "rejected" | "all" | "transactions">("pending");
-  const { data: requests } = useAdminTopUps(status, status !== "transactions");
-  const { data: gmailPayments } = useAdminGmailPayments(status === "transactions");
+  const { data: requests, isLoading: requestsLoading } = useAdminTopUps(status, status !== "transactions");
+  const { data: gmailPayments, isLoading: gmailLoading } = useAdminGmailPayments(status === "transactions");
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -4741,10 +4741,10 @@ function TopUpsTab() {
             <p className="text-xs text-muted-foreground mb-2">
               "Top-Up Match Status" only checks whether a transfer was linked to a top-up request — a transfer that directly paid for a booking, invoice, or F&B order will always show "No Top-Up Match" here even though it's fully accounted for. Check the PayNow icon next to that charge instead.
             </p>
-            <GmailTransactionsTable payments={gmailPayments} />
+            <GmailTransactionsTable payments={gmailPayments} loading={gmailLoading} />
           </>
         ) : !requests?.length ? (
-          <p className="text-muted-foreground text-sm">No requests.</p>
+          <p className="text-muted-foreground text-sm">{requestsLoading ? "Loading requests…" : "No requests."}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

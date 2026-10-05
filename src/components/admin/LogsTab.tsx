@@ -85,6 +85,18 @@ const DETAIL_LABELS: Record<string, string> = {
   bookingId: "Booking ID",
 };
 
+// Transaction.type as stored — every cash row used to be shown as "Timer
+// Session" regardless of what it was (a leftover from when cash only came
+// from table sessions); this shows the real type for every method.
+const TRANSACTION_TYPE_LABELS: Record<string, string> = {
+  payment: "Payment",
+  booking_payment: "Payment",
+  wallet_deduct: "Payment",
+  refund: "Refund",
+  topup: "Top-up",
+  admin_charge: "Wallet Charge",
+};
+
 const HIDDEN_DETAIL_KEYS = new Set(["pointsChange", "points", "pointsDelta", "userName", "name"]);
 
 function actionLabel(action: string): string {
@@ -139,7 +151,7 @@ export default function LogsTab() {
 }
 
 function TransactionsView() {
-  const { data, refetch } = useAdminTransactions();
+  const { data, refetch, isLoading } = useAdminTransactions();
   const transactions = Array.isArray(data) ? data : data?.transactions || [];
   const nameMap = useUserNameMap();
   const { data: plans } = useMembershipPlans();
@@ -177,8 +189,7 @@ function TransactionsView() {
                 const rawMethod = String(t.paymentMethod || t.payment_method || t.method || "").toLowerCase();
                 const methodLabel = rawMethod === "stripe" ? "paynow" : rawMethod;
                 const rawType = String(t.type || t.transactionType || "").toLowerCase();
-                let typeLabel = rawType === "booking_payment" || rawType === "wallet_deduct" ? "payment" : rawType;
-                if (rawMethod === "cash") typeLabel = "timer session";
+                const typeLabel = TRANSACTION_TYPE_LABELS[rawType] || rawType;
                 const description = deriveTransactionDescription(t, membershipPrices);
                 const methodColorClass =
                   methodLabel === "cash"
@@ -215,7 +226,7 @@ function TransactionsView() {
                 );
               })}
               {transactions.length === 0 && (
-                <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">No transactions found</td></tr>
+                <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">{isLoading ? "Loading transactions…" : "No transactions found"}</td></tr>
               )}
             </tbody>
           </table>
@@ -241,7 +252,7 @@ function TransactionsView() {
 }
 
 function BookingLogsView() {
-  const { data, refetch } = useAdminBookingLogs();
+  const { data, refetch, isLoading } = useAdminBookingLogs();
   const logs = Array.isArray(data) ? data : data?.logs || [];
   const { data: bookingsData } = useAdminBookings(true) as { data: any };
   const bookings = Array.isArray(bookingsData) ? bookingsData : bookingsData?.bookings || [];
@@ -300,7 +311,7 @@ function BookingLogsView() {
                 );
               })}
               {logs.length === 0 && (
-                <tr><td colSpan={3} className="py-8 text-center text-muted-foreground">No booking logs found</td></tr>
+                <tr><td colSpan={3} className="py-8 text-center text-muted-foreground">{isLoading ? "Loading booking logs…" : "No booking logs found"}</td></tr>
               )}
             </tbody>
           </table>
@@ -316,7 +327,7 @@ function BookingLogsView() {
 }
 
 function AdminLogsView() {
-  const { data, refetch } = useAdminActivityLogs();
+  const { data, refetch, isLoading } = useAdminActivityLogs();
   const logs = Array.isArray(data) ? data : data?.logs || [];
   const nameMap = useUserNameMap();
   const [selected, setSelected] = useState<any | null>(null);
@@ -363,7 +374,7 @@ function AdminLogsView() {
                 );
               })}
               {logs.length === 0 && (
-                <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No admin logs found</td></tr>
+                <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">{isLoading ? "Loading admin logs…" : "No admin logs found"}</td></tr>
               )}
             </tbody>
           </table>

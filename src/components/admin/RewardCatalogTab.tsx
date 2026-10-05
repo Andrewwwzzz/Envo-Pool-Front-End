@@ -101,7 +101,7 @@ export function RewardCatalogTab() {
   const hardDelete = useHardDelete();
   const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
-  const { data: items = [] } = useAdminCatalog(showDeleted);
+  const { data: items = [], isLoading } = useAdminCatalog(showDeleted);
   const { data: fnbProducts = [] } = useFnbProducts();
   const [dialog, setDialog] = useState<"create" | "edit" | null>(null);
   const [selected, setSelected] = useState<CatalogItem | null>(null);
@@ -281,7 +281,7 @@ export function RewardCatalogTab() {
           );
         })}
         {visibleItems.length === 0 && (
-          <p className="text-center text-muted-foreground text-sm py-10">{showDeleted ? "No deleted rewards." : "No rewards yet. Create your first one."}</p>
+          <p className="text-center text-muted-foreground text-sm py-10">{isLoading ? "Loading rewards…" : showDeleted ? "No deleted rewards." : "No rewards yet. Create your first one."}</p>
         )}
       </div>
 

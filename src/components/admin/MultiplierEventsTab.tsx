@@ -57,7 +57,7 @@ export function MultiplierEventsTab() {
   const hardDelete = useHardDelete();
   const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
-  const { data: events = [] } = useAdminMultipliers(showDeleted);
+  const { data: events = [], isLoading } = useAdminMultipliers(showDeleted);
   // "Show Deleted" lists only deleted events; the normal view only active ones.
   const visibleEvents = events.filter((e) => (showDeleted ? checkDeleted(e) : !checkDeleted(e)));
   const [dialog, setDialog] = useState<"create" | "edit" | null>(null);
@@ -207,7 +207,7 @@ export function MultiplierEventsTab() {
           );
         })}
         {visibleEvents.length === 0 && (
-          <p className="text-center text-muted-foreground text-sm py-10">{showDeleted ? "No deleted events." : "No multiplier events yet."}</p>
+          <p className="text-center text-muted-foreground text-sm py-10">{isLoading ? "Loading events…" : showDeleted ? "No deleted events." : "No multiplier events yet."}</p>
         )}
       </div>
 

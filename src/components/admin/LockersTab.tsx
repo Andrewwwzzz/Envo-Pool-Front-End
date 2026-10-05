@@ -223,8 +223,8 @@ function EditablePin({ lockerId, lockerNum, pin }: { lockerId: string; lockerNum
 
 export default function LockersTab() {
   const { toast } = useToast();
-  const { data: lockers = [] } = useLockerUnits();
-  const { data: rentals = [] } = useLockerRentals();
+  const { data: lockers = [], isLoading: lockersLoading } = useLockerUnits();
+  const { data: rentals = [], isLoading: rentalsLoading } = useLockerRentals();
   const renew = useRenewLocker();
   const cancel = useCancelLocker();
   const regenPin = useRegeneratePinLocker();
@@ -269,7 +269,7 @@ export default function LockersTab() {
         </CardHeader>
         <CardContent>
           {lockers.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No lockers yet.</p>
+            <p className="text-sm text-muted-foreground">{lockersLoading ? "Loading lockers…" : "No lockers yet."}</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -359,7 +359,7 @@ export default function LockersTab() {
         </CardHeader>
         <CardContent>
           {rentals.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No rentals yet.</p>
+            <p className="text-sm text-muted-foreground">{rentalsLoading ? "Loading rentals…" : "No rentals yet."}</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
