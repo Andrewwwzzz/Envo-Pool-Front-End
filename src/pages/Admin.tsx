@@ -289,7 +289,11 @@ function OverviewTab() {
 
   const { data: stats } = useAdminStats(from, to) as { data: any };
   const { data: bookings } = useAdminBookings() as { data: any };
-  const { data: transactions } = useAdminTransactions() as { data: any };
+  // The full transaction list is only a fallback for older stats responses
+  // without the top-up totals — the stats endpoint returns them, so it isn't
+  // downloaded (it's every transaction ever, re-fetched every 10 s).
+  const statsLackTopups = !!stats && typeof stats.walletTopups !== "number";
+  const { data: transactions } = useAdminTransactions(statsLackTopups) as { data: any };
   const { data: tablesList } = useAdminTables();
 
   const [reportFrom, setReportFrom] = useState(from);
@@ -306,19 +310,20 @@ function OverviewTab() {
     return d >= startD && d <= endD;
   };
 
-  // Average booking value
-  const avgBookingValue = stats && stats.totalBookings > 0
-    ? stats.totalRevenue / stats.totalBookings
-    : 0;
+  // Average booking value — booking amounts only (from the server, not all revenue).
+  const avgBookingValue = Number(stats?.avgBookingValue ?? 0);
 
   // Most booked table (client-side from bookings in range)
   const mostBookedTable = (() => {
     // If backend returns a raw ObjectId/string, resolve it through tablesList
-    if (stats?.mostBookedTable) {
+    // The server works this out from the same bookings as Total Bookings (paid,
+    // not cancelled) — use its answer, including "none", whenever it's given.
+    if (stats && "mostBookedTable" in stats) {
       const raw = stats.mostBookedTable;
+      if (!raw) return "—";
       // If it already looks like a friendly label, keep it
-      if (typeof raw === "string" && /^Table\s/i.test(raw)) return raw;
-      return getTableLabel(raw, tablesList as any);
+      const label = typeof raw === "string" && /^Table\s/i.test(raw) ? raw : getTableLabel(raw, tablesList as any);
+      return stats.mostBookedTableCount ? `${label} (${stats.mostBookedTableCount})` : label;
     }
     const counts: Record<string, number> = {};
     for (const b of bookings || []) {
@@ -377,13 +382,8 @@ function OverviewTab() {
   const handleDownload = async () => {
     setGenerating(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`https://api.envopoolsg.com/api/admin/report/sales?from=${reportFrom}&to=${reportTo}`, {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
+      // Same server as every other request (was hard-wired to production).
+      const res = await apiFetch(`/api/admin/report/sales?from=${reportFrom}&to=${reportTo}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Failed to generate report");
@@ -478,17 +478,17 @@ function OverviewTab() {
         <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
           <p className="text-2xl font-bold">${walletTopups.toFixed(2)}</p>
-          <p className="text-sm text-muted-foreground">Cash & PayNow Top-Ups</p>
+          <p className="text-sm text-muted-foreground">Cash + PayNow received</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
           <p className="text-2xl font-bold">${paynowTopups.toFixed(2)}</p>
-          <p className="text-sm text-muted-foreground">PayNow Top-Ups</p>
+          <p className="text-sm text-muted-foreground">PayNow received (recorded)</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <DollarSign className="h-6 w-6 mx-auto text-primary mb-2" />
           <p className="text-2xl font-bold">${cashTopups.toFixed(2)}</p>
-          <p className="text-sm text-muted-foreground">Cash Top-Ups</p>
+          <p className="text-sm text-muted-foreground">Cash received</p>
         </CardContent></Card>
         <Card><CardContent className="pt-6 text-center">
           <Mail className="h-6 w-6 mx-auto text-primary mb-2" />

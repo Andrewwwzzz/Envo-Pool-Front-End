@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useAdminTransactions, useAdminBookingLogs, useAdminActivityLogs } from "@/hooks/useAdminLogs";
+import { usePagedTransactions, usePagedBookingLogs, usePagedActivityLogs } from "@/hooks/useAdminLogs";
 import { useAdminCustomers, useAdminBookings } from "@/hooks/useAdmin";
 import { useMembershipPlans } from "@/hooks/useMembership";
 import { deriveTransactionDescription } from "@/lib/transactionLabel";
@@ -128,6 +128,18 @@ function formatDetailsSummary(details: any): string {
   return parts.length ? parts.join(", ") : "—";
 }
 
+// Older entries are fetched a page at a time (newest first).
+function LoadMore({ paged }: { paged: { hasNextPage: boolean; isFetchingNextPage: boolean; fetchNextPage: () => unknown } }) {
+  if (!paged.hasNextPage) return null;
+  return (
+    <div className="flex justify-center pt-3">
+      <Button variant="outline" size="sm" onClick={() => paged.fetchNextPage()} disabled={paged.isFetchingNextPage}>
+        {paged.isFetchingNextPage ? "Loading…" : "Load more"}
+      </Button>
+    </div>
+  );
+}
+
 export default function LogsTab() {
   return (
     <Tabs defaultValue="transactions" className="space-y-4">
@@ -151,8 +163,9 @@ export default function LogsTab() {
 }
 
 function TransactionsView() {
-  const { data, refetch, isLoading } = useAdminTransactions();
-  const transactions = Array.isArray(data) ? data : data?.transactions || [];
+  const paged = usePagedTransactions();
+  const { refetch, isLoading } = paged;
+  const transactions = useMemo(() => (paged.data?.pages ?? []).flatMap((p) => p.rows), [paged.data]);
   const nameMap = useUserNameMap();
   const { data: plans } = useMembershipPlans();
   const membershipPrices = useMemo(
@@ -230,6 +243,7 @@ function TransactionsView() {
               )}
             </tbody>
           </table>
+          <LoadMore paged={paged} />
         </div>
       </CardContent>
       <DetailsDialog
@@ -252,8 +266,9 @@ function TransactionsView() {
 }
 
 function BookingLogsView() {
-  const { data, refetch, isLoading } = useAdminBookingLogs();
-  const logs = Array.isArray(data) ? data : data?.logs || [];
+  const paged = usePagedBookingLogs();
+  const { refetch, isLoading } = paged;
+  const logs = useMemo(() => (paged.data?.pages ?? []).flatMap((p) => p.rows), [paged.data]);
   const { data: bookingsData } = useAdminBookings(true) as { data: any };
   const bookings = Array.isArray(bookingsData) ? bookingsData : bookingsData?.bookings || [];
   const bookingMap = useMemo(() => {
@@ -315,6 +330,7 @@ function BookingLogsView() {
               )}
             </tbody>
           </table>
+          <LoadMore paged={paged} />
         </div>
       </CardContent>
       <AdminBookingDetailDialog
@@ -327,8 +343,9 @@ function BookingLogsView() {
 }
 
 function AdminLogsView() {
-  const { data, refetch, isLoading } = useAdminActivityLogs();
-  const logs = Array.isArray(data) ? data : data?.logs || [];
+  const paged = usePagedActivityLogs();
+  const { refetch, isLoading } = paged;
+  const logs = useMemo(() => (paged.data?.pages ?? []).flatMap((p) => p.rows), [paged.data]);
   const nameMap = useUserNameMap();
   const [selected, setSelected] = useState<any | null>(null);
 
@@ -378,6 +395,7 @@ function AdminLogsView() {
               )}
             </tbody>
           </table>
+          <LoadMore paged={paged} />
         </div>
       </CardContent>
       <DetailsDialog
