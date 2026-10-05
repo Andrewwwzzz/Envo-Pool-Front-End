@@ -208,6 +208,16 @@ export function useSessionPreviewCost(startedAt: string | null, durationSeconds:
       return res.json() as Promise<{ segments: any[]; total: number; uncoveredMinutes?: number; codes?: string[] }>;
     },
     enabled: enabled && !!startedAt && durationSeconds > 0,
+    // Keep showing the last price while the next one loads — the key changes every
+    // few seconds as a session's timer ticks (or a booking's start moves), and an
+    // empty price in between read as a $0 time charge. Only for the same pricing
+    // mode: the same session a few seconds on, or the same duration from a moved
+    // start — never a different booking length.
+    placeholderData: (prev, prevQuery) => {
+      const [, prevStart, prevBucket, prevMode] = (prevQuery?.queryKey ?? []) as [unknown, unknown, number, unknown];
+      const ticked = prevStart === startedAt && Math.abs(bucket - prevBucket) <= 2;
+      return prevMode === mode && (ticked || prevBucket === bucket) ? prev : undefined;
+    },
   });
 }
 
