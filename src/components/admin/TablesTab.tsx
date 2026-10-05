@@ -1294,6 +1294,10 @@ function BookNowDialog({
   const [promoInput, setPromoInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<NonNullable<PromoValidation["promo"]> | null>(null);
   const [autoApplied, setAutoApplied] = useState(false);
+  // A package code matched the duration but the server turned it down (e.g.
+  // the booking runs past the code's time window) — shown so staff know why
+  // the bundle price isn't there instead of it silently not applying.
+  const [autoSkipped, setAutoSkipped] = useState<{ code: string; reason: string } | null>(null);
   // Auto-apply bookkeeping: the duration/price a staff member removed an
   // auto-applied code for (don't re-add it), and the last one checked.
   const dismissedAutoKey = useRef<string | null>(null);
@@ -1325,6 +1329,7 @@ function BookNowDialog({
       setPromoInput("");
       setAppliedPromo(null);
       setAutoApplied(false);
+      setAutoSkipped(null);
       dismissedAutoKey.current = null;
       autoTried.current = null;
     }
@@ -1400,6 +1405,9 @@ function BookNowDialog({
   const { data: allPromos = [] } = useAdminPromoCodes("default");
   const autoKey = `${bookTarget}|${durationMinutes}|${gross}`;
   useEffect(() => {
+    setAutoSkipped(null);
+  }, [autoKey, pricingMode]);
+  useEffect(() => {
     if (!bookTarget || appliedPromo || pricingMode !== "time_of_day" || !preview || durationMinutes < 15) return;
     if (dismissedAutoKey.current === autoKey || autoTried.current === autoKey) return;
     autoTried.current = autoKey;
@@ -1410,6 +1418,7 @@ function BookNowDialog({
     if (!candidates.length) return;
     (async () => {
       const startMs = Math.floor(Date.now() / 30000) * 30000;
+      let firstRejection: { code: string; reason: string } | null = null;
       for (const p of candidates) {
         const result = await validatePromo.mutateAsync({
           code: p.code,
@@ -1426,7 +1435,9 @@ function BookNowDialog({
           setAutoApplied(true);
           return;
         }
+        if (!firstRejection && !result.valid) firstRejection = { code: p.code, reason: result.error || "Not valid for this booking" };
       }
+      if (firstRejection) setAutoSkipped(firstRejection);
     })().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoKey, appliedPromo, pricingMode, preview, allPromos]);
@@ -1624,6 +1635,11 @@ function BookNowDialog({
                   {validatePromo.isPending ? "Checking..." : "Apply"}
                 </Button>
               </div>
+            )}
+            {!appliedPromo && autoSkipped && (
+              <p className="text-xs text-amber-500">
+                {autoSkipped.code} not applied — {autoSkipped.reason}. This booking is charged at normal pricing.
+              </p>
             )}
           </div>
 
