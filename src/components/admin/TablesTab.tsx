@@ -1292,6 +1292,7 @@ function BookNowDialog({
   const [applyMembershipFreeMinutes, setApplyMembershipFreeMinutes] = useState(true);
   const [promoInput, setPromoInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<NonNullable<PromoValidation["promo"]> | null>(null);
+  const [promoAppliedFor, setPromoAppliedFor] = useState<string | null>(null);
   const [autoApplied, setAutoApplied] = useState(false);
   // A package code matched the duration but the server turned it down (e.g.
   // the booking runs past the code's time window) — shown so staff know why
@@ -1348,12 +1349,16 @@ function BookNowDialog({
   const selfPracticeMode = pricingMode === "self_practice";
 
   const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
+  // The duration/pricing a code was applied for. The effect above clears the code one render after
+  // either changes — until then it isn't sent, so the server never prices a code against the wrong booking.
+  const promoKey = `${durationMinutes}|${pricingMode}|${customRate}`;
+  const promoForPreview = appliedPromo && promoAppliedFor === promoKey ? appliedPromo.code : "";
   // The exact bill, worked out by the server with the same function as the real booking — member
   // free minutes, then the % discount (wallet only, never with self-practice — D11/D2), or the promo
   // code when it saves more, then the staff discount and cash rounding. Nothing is used up by it.
   const { data: bill } = useBookNowPreview(bookTarget, {
     durationMinutes, pricingMode, hourlyRate: pricingMode === "custom" ? customRate : 0, paymentMethod, customerId,
-    promoCode: appliedPromo?.code || "", discountPercent: discountPct, applyMembershipDiscount, applyMembershipFreeMinutes,
+    promoCode: promoForPreview, discountPercent: discountPct, applyMembershipDiscount, applyMembershipFreeMinutes,
   }, !!bookTarget && durationMinutes >= 15 && (pricingMode !== "custom" || customRate > 0));
   // Show "…" until the server's price arrives, not $0.00.
   const priceLoading = !bill || !!bill.error;
@@ -1374,6 +1379,7 @@ function BookNowDialog({
     });
     if (result.valid && result.promo) {
       setAppliedPromo(result.promo);
+      setPromoAppliedFor(promoKey);
       setAutoApplied(false);
     } else {
       toast({ title: "Code not applied", description: result.error, variant: "destructive" });
@@ -1421,6 +1427,7 @@ function BookNowDialog({
         if (autoTried.current !== autoKey) return;
         if (result.valid && result.promo && (result.promo.server_discount ?? 0) > 0) {
           setAppliedPromo(result.promo);
+          setPromoAppliedFor(promoKey);
           setAutoApplied(true);
           return;
         }
