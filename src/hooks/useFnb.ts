@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, BASE_URL } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 export interface FnbProduct {
@@ -17,9 +17,33 @@ export interface FnbProduct {
   hasSauceOptions: boolean;
   isActive: boolean;
   sortOrder: number;
+  imageUrl: string | null;
 }
 
 export const NACHO_CHEESE_PRICE = 1;
+
+export function productImageSrc(p: Pick<FnbProduct, "imageUrl">): string | null {
+  return p.imageUrl ? `${BASE_URL}${p.imageUrl}` : null;
+}
+
+// Center-crops to a square and re-encodes as ~600px WebP, so a multi-MB phone
+// photo uploads as ~50 KB and the menu stays fast.
+export async function shrinkProductPhoto(file: File, size = 600): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const side = Math.min(bitmap.width, bitmap.height);
+  const out = Math.min(size, side);
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = out;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, out, out);
+  bitmap.close();
+  const blob = await new Promise<Blob | null>(r => canvas.toBlob(r, "image/webp", 0.82));
+  // Older Safari can't encode WebP and silently returns PNG — fall back to JPEG
+  if (blob && blob.type === "image/webp") return blob;
+  const jpeg = await new Promise<Blob | null>(r => canvas.toBlob(r, "image/jpeg", 0.85));
+  if (!jpeg) throw new Error("Couldn't process that image");
+  return jpeg;
+}
 
 export interface FnbOrder {
   _id: string;
@@ -350,6 +374,35 @@ export function useUpdateProduct() {
     },
     onSuccess: () => {
       toast({ title: "Product updated" });
+      qc.invalidateQueries({ queryKey: ["fnb-menu-admin"] });
+      qc.invalidateQueries({ queryKey: ["fnb-menu"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useSetProductImage() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ id, file }: { id: string; file: File | null }) => {
+      let res: Response;
+      if (file) {
+        const blob = await shrinkProductPhoto(file);
+        const form = new FormData();
+        form.append("image", blob, blob.type === "image/webp" ? "photo.webp" : "photo.jpg");
+        res = await apiFetch(`/api/fnb/products/${id}/image`, { method: "POST", body: form });
+      } else {
+        res = await apiFetch(`/api/fnb/products/${id}/image`, { method: "DELETE" });
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update photo");
+      return data.product as FnbProduct;
+    },
+    onSuccess: (_data, { file }) => {
+      toast({ title: file ? "Photo updated" : "Photo removed" });
       qc.invalidateQueries({ queryKey: ["fnb-menu-admin"] });
       qc.invalidateQueries({ queryKey: ["fnb-menu"] });
     },

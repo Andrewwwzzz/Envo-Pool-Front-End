@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,13 +12,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CheckCircle2, XCircle, Clock, Plus, Pencil, RotateCcw, AlertTriangle,
   Gift, TrendingUp, Package, History, ChevronDown, ChevronUp, DollarSign,
-  ShoppingBag, BarChart3, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, Trash2, Minus, X, Star,
+  ShoppingBag, BarChart3, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, Trash2, Minus, X, Star, ImageIcon,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import {
   useAdminFnbOrders, useAdminMenu, useServeOrder, useCancelFnbOrder,
-  useCreateProduct, useUpdateProduct, useRestockProduct, useDeleteProduct,
+  useCreateProduct, useUpdateProduct, useRestockProduct, useDeleteProduct, useSetProductImage, productImageSrc,
   useFnbStatus, useSetFnbStatus, usePlaceStaffOrder, useEditFnbOrderPaymentMethod,
   FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, getCategoryGroup, CategoryGroup, NACHO_CHEESE_PRICE,
 } from "@/hooks/useFnb";
@@ -79,6 +79,55 @@ function useAdjustStock() {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
+}
+
+// Photo picker for the product dialog. Nothing uploads until Save:
+// file = new photo chosen, removed = existing photo cleared.
+function ProductPhotoField({ currentSrc, file, removed, onPick, onRemove }: {
+  currentSrc: string | null;
+  file: File | null;
+  removed: boolean;
+  onPick: (f: File) => void;
+  onRemove: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file) { setPreview(null); return; }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  const shown = preview ?? (removed ? null : currentSrc);
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">Photo</Label>
+      <div className="flex items-center gap-3">
+        <div className="h-20 w-20 rounded-md border border-border/50 bg-muted/30 overflow-hidden flex items-center justify-center shrink-0">
+          {shown ? <img src={shown} alt="" className="h-full w-full object-cover" /> : <ImageIcon className="h-6 w-6 text-muted-foreground" />}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Button type="button" size="sm" variant="outline" onClick={() => inputRef.current?.click()}>
+            {shown ? "Replace photo" : "Choose photo"}
+          </Button>
+          {shown && (
+            <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={onRemove}>
+              Remove
+            </Button>
+          )}
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.target.value = ""; }}
+        />
+      </div>
+      <p className="text-[11px] text-muted-foreground">Cropped to a square and shrunk automatically. Plain background, item centred looks best.</p>
+    </div>
+  );
 }
 
 const EMPTY_FORM = {
@@ -570,9 +619,15 @@ export function FnbTab() {
   const [deleteProductTarget, setDeleteProductTarget] = useState<FnbProduct | null>(null);
   const adjustStock = useAdjustStock();
 
-  const openCreate = () => { setForm(EMPTY_FORM); setSelectedProduct(null); setProductDialog("create"); };
+  const setProductImage = useSetProductImage();
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
+
+  const openCreate = () => { setForm(EMPTY_FORM); setSelectedProduct(null); setPhotoFile(null); setPhotoRemoved(false); setProductDialog("create"); };
   const openEdit = (p: FnbProduct) => {
     setSelectedProduct(p);
+    setPhotoFile(null);
+    setPhotoRemoved(false);
     setForm({
       name: p.name, category: p.category,
       costPrice: String(p.costPrice), sellingPrice: String(p.sellingPrice),
@@ -594,10 +649,20 @@ export function FnbTab() {
       piecesPerUnit: Math.max(1, Number(form.piecesPerUnit) || 1),
       isRedeemable: form.isRedeemable, isAlcohol: form.isAlcohol, isSignature: form.isSignature, hasSauceOptions: form.hasSauceOptions, isActive: form.isActive, sortOrder: Number(form.sortOrder),
     };
+    // Photo goes up after the product itself saves (a new product needs its id first)
+    const savePhoto = (id: string, hadPhoto: boolean) => {
+      if (photoFile) setProductImage.mutate({ id, file: photoFile });
+      else if (photoRemoved && hadPhoto) setProductImage.mutate({ id, file: null });
+    };
     if (productDialog === "create") {
-      createProduct.mutate(payload, { onSuccess: () => setProductDialog(null) });
+      createProduct.mutate(payload, {
+        onSuccess: (data) => { if (data?.product?._id) savePhoto(data.product._id, false); setProductDialog(null); },
+      });
     } else if (productDialog === "edit" && selectedProduct) {
-      updateProduct.mutate({ id: selectedProduct._id, ...payload }, { onSuccess: () => setProductDialog(null) });
+      const { _id, imageUrl } = selectedProduct;
+      updateProduct.mutate({ id: _id, ...payload }, {
+        onSuccess: () => { savePhoto(_id, !!imageUrl); setProductDialog(null); },
+      });
     }
   };
 
@@ -997,6 +1062,11 @@ export function FnbTab() {
                 <Card key={p._id} className={`border-border/50 ${deleted ? "opacity-50" : lowStock ? "border-red-500/30" : ""}`}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
+                      <div className="h-12 w-12 rounded-md border border-border/50 bg-muted/30 overflow-hidden flex items-center justify-center shrink-0">
+                        {p.imageUrl
+                          ? <img src={productImageSrc(p)!} alt="" className="h-full w-full object-cover" loading="lazy" />
+                          : <ImageIcon className="h-4 w-4 text-muted-foreground/60" />}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           {!deleted && p.isSignature && <Star className="h-4 w-4 text-amber-400 fill-amber-400 shrink-0" />}
@@ -1146,6 +1216,13 @@ export function FnbTab() {
               <Label className="text-xs">Name</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Coca Cola" />
             </div>
+            <ProductPhotoField
+              currentSrc={productDialog === "edit" && selectedProduct ? productImageSrc(selectedProduct) : null}
+              file={photoFile}
+              removed={photoRemoved}
+              onPick={(f) => { setPhotoFile(f); setPhotoRemoved(false); }}
+              onRemove={() => { setPhotoFile(null); setPhotoRemoved(true); }}
+            />
             <div className="space-y-1.5">
               <Label className="text-xs">Category</Label>
               <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as any })}>

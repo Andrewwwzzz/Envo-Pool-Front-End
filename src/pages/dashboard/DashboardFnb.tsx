@@ -4,13 +4,39 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ShoppingBag, Clock, CheckCircle2, XCircle, Gift, Minus, Plus, X, Star } from "lucide-react";
+import {
+  ShoppingBag, Clock, CheckCircle2, XCircle, Gift, Minus, Plus, X, Star,
+  CupSoda, Beer, Drumstick, Cookie, UtensilsCrossed, LucideIcon,
+} from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import {
   useMenu, useMyFnbOrders, useRedemptionCheck, usePlaceOrder,
-  useFnbStatus,
+  useFnbStatus, productImageSrc,
   FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, NACHO_CHEESE_PRICE,
 } from "@/hooks/useFnb";
+
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  soft_drinks: CupSoda,
+  beer: Beer,
+  finger_food: Drumstick,
+  snacks: Cookie,
+  others: UtensilsCrossed,
+};
+
+// Square photo at the top of a menu card; items without one get their
+// category icon so the grid stays even while photos are added over time.
+function ProductPhoto({ product }: { product: FnbProduct }) {
+  const [failed, setFailed] = useState(false);
+  const src = productImageSrc(product);
+  const Icon = CATEGORY_ICONS[product.category] ?? UtensilsCrossed;
+  return (
+    <div className="aspect-square w-full overflow-hidden rounded-t-lg bg-muted/30 flex items-center justify-center">
+      {src && !failed
+        ? <img src={src} alt={product.name} className="h-full w-full object-cover" loading="lazy" onError={() => setFailed(true)} />
+        : <Icon className="h-10 w-10 text-muted-foreground/40" />}
+    </div>
+  );
+}
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -281,6 +307,7 @@ export default function DashboardFnb() {
                   <Star className="h-5 w-5 text-amber-950 fill-amber-950" />
                 </div>
               )}
+              <ProductPhoto product={product} />
               <CardContent className="p-4 space-y-3">
                 <div>
                   <p className="font-semibold text-sm text-foreground">{product.name}</p>
