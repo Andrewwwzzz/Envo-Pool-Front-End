@@ -308,16 +308,18 @@ export function useEditFnbOrderPaymentMethod() {
       tableRefId,
       tableName,
       allowNegative,
+      reason,
     }: {
       orderId: string;
       paymentMethod: "wallet" | "cash" | "paynow" | "charge_to_table";
       tableRefId?: string;
       tableName?: string;
       allowNegative?: boolean;
+      reason: string;
     }) => {
       const res = await apiFetch(`/api/fnb/orders/${orderId}/payment-method`, {
         method: "PATCH",
-        body: JSON.stringify({ paymentMethod, tableRefId, tableName, allowNegative }),
+        body: JSON.stringify({ paymentMethod, tableRefId, tableName, allowNegative, reason }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw Object.assign(new Error(data.error || "Failed to update payment method"), { data });

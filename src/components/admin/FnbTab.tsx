@@ -502,9 +502,11 @@ function EditPaymentMethodDialog({
 
   const [method, setMethod] = useState<EditablePaymentMethod>("cash");
   const [tableId, setTableId] = useState("");
+  const [reason, setReason] = useState("");
 
   useEffect(() => {
     if (open && order) {
+      setReason("");
       setMethod((EDITABLE_PAYMENT_METHODS as readonly string[]).includes(order.paymentMethod) ? (order.paymentMethod as EditablePaymentMethod) : "cash");
       setTableId("");
     }
@@ -514,11 +516,12 @@ function EditPaymentMethodDialog({
   const selectedTable = runningTables.find((t: any) => t.id === tableId);
 
   const submit = () => {
-    if (method === order.paymentMethod || (method === "charge_to_table" && !tableId)) return;
+    if (method === order.paymentMethod || (method === "charge_to_table" && !tableId) || !reason.trim()) return;
     editPayment.mutate(
       {
         orderId: order._id,
         paymentMethod: method,
+        reason: reason.trim(),
         ...(method === "charge_to_table" ? { tableRefId: tableId, tableName: `Table ${selectedTable?.table_number}` } : {}),
       },
       { onSuccess: () => onOpenChange(false) }
@@ -559,10 +562,14 @@ function EditPaymentMethodDialog({
           {method !== order.paymentMethod && method !== "charge_to_table" && order.paymentMethod !== "charge_to_table" && (
             <p className="text-xs text-muted-foreground">This reverses the original charge and applies a new one — both are logged so revenue totals stay accurate.</p>
           )}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Reason (required)</Label>
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Customer paid cash instead" />
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={submit} disabled={method === order.paymentMethod || (method === "charge_to_table" && !tableId) || editPayment.isPending}>
+          <Button onClick={submit} disabled={method === order.paymentMethod || (method === "charge_to_table" && !tableId) || !reason.trim() || editPayment.isPending}>
             {editPayment.isPending ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
@@ -574,6 +581,8 @@ function EditPaymentMethodDialog({
 export function FnbTab() {
   const { user } = useAuth();
   const isMaster = (user as any)?.isMaster === true;
+  // Adding, editing or removing products (and their photos and prices) is admin-only (P3).
+  const canManageProducts = user?.role === "admin";
   const restore = useRestoreRecord();
   const hardDelete = useHardDelete();
   const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
@@ -674,7 +683,7 @@ export function FnbTab() {
   const handleAdjust = () => {
     if (!selectedProduct) return;
     adjustStock.mutate(
-      { id: selectedProduct._id, quantity: Number(adjustQty), description: adjustNote || undefined },
+      { id: selectedProduct._id, quantity: Number(adjustQty), description: adjustNote.trim() },
       { onSuccess: () => setProductDialog(null) }
     );
   };
@@ -1023,7 +1032,12 @@ export function FnbTab() {
         {/* ── PRODUCTS & STOCK ── */}
         <TabsContent value="products" className="space-y-4 mt-4">
           <div className="flex justify-between items-center gap-2 flex-wrap">
-            <p className="text-sm text-muted-foreground">{products.length} {hideDeleted ? "products" : "deleted products"}</p>
+            <div>
+              <p className="text-sm text-muted-foreground">{products.length} {hideDeleted ? "products" : "deleted products"}</p>
+              {!canManageProducts && (
+                <p className="text-xs text-muted-foreground">Adding, editing or removing products is admin only — ask an admin.</p>
+              )}
+            </div>
             <div className="flex gap-2">
               <Button
                 size="sm"
@@ -1033,9 +1047,11 @@ export function FnbTab() {
                 {hideDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
                 {hideDeleted ? "Show Deleted" : "Back to Products"}
               </Button>
-              <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={openCreate}>
-                <Plus className="h-4 w-4 mr-1" /> Add Product
-              </Button>
+              {canManageProducts && (
+                <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={openCreate}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Product
+                </Button>
+              )}
             </div>
           </div>
 
@@ -1121,12 +1137,16 @@ export function FnbTab() {
                           <Button size="sm" variant="outline" title="Adjust stock" onClick={() => openAdjust(p)}>
                             <BarChart3 className="h-3.5 w-3.5" />
                           </Button>
-                          <Button size="sm" variant="outline" title="Edit" onClick={() => openEdit(p)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button size="sm" variant="outline" title="Delete" onClick={() => setDeleteProductTarget(p)}>
-                            <XCircle className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
+                          {canManageProducts && (
+                            <>
+                              <Button size="sm" variant="outline" title="Edit" onClick={() => openEdit(p)}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button size="sm" variant="outline" title="Delete" onClick={() => setDeleteProductTarget(p)}>
+                                <XCircle className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1379,7 +1399,7 @@ export function FnbTab() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Note (optional)</Label>
+              <Label className="text-xs">Note (required)</Label>
               <Input value={adjustNote} onChange={(e) => setAdjustNote(e.target.value)} placeholder="e.g. Damaged, stock count correction..." />
             </div>
           </div>
@@ -1388,7 +1408,7 @@ export function FnbTab() {
             <Button
               className="bg-accent text-accent-foreground hover:bg-accent/90"
               onClick={handleAdjust}
-              disabled={adjustStock.isPending || adjustQty === "" || adjustQty === "0"}
+              disabled={adjustStock.isPending || adjustQty === "" || adjustQty === "0" || !adjustNote.trim()}
             >
               {adjustStock.isPending ? "Saving..." : "Save Adjustment"}
             </Button>
