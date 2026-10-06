@@ -1735,6 +1735,7 @@ function ScheduleMaintenanceButton({ tableId, tableNumber }: { tableId: string; 
   const [reason, setReason] = useState("");
   const schedule = useScheduleMaintenance();
   const { toast } = useToast();
+  const [affected, setAffected] = useState<{ groups: AffectedGroup[]; retry: () => Promise<void> } | null>(null);
 
   const reset = () => { setDate(""); setStartTime(""); setEndTime(""); setReason(""); };
 
@@ -1756,22 +1757,37 @@ function ScheduleMaintenanceButton({ tableId, tableNumber }: { tableId: string; 
       toast({ title: "Invalid time range", description: "End time must be after start time.", variant: "destructive" });
       return;
     }
-    try {
+    const submit = async (acknowledgeBookings: boolean) => {
       await schedule.mutateAsync({
         tableId,
         startTime: startUTC.toISOString(),
         endTime: endUTC.toISOString(),
         reason: trimmedReason,
+        acknowledgeBookings,
       });
+      setAffected(null);
       reset();
       setOpen(false);
-    } catch {
-      // toast handled in hook
+    };
+    try {
+      await submit(false);
+    } catch (e) {
+      // Bookings in the window (D23): list them, as bulk scheduling does; the hook shows any other error.
+      if (isBookingsAffected(e)) {
+        setOpen(false);   // keeps the entered details for "Go back"
+        setAffected({ groups: [{ label: `Table ${tableNumber}`, bookings: e.data.bookings || [], inUseNow: e.data.inUseNow }], retry: () => submit(true) });
+      }
     }
   };
 
   return (
     <>
+      <BookingsAffectedDialog
+        groups={affected?.groups || null}
+        loading={schedule.isPending}
+        onCancel={() => { setAffected(null); setOpen(true); }}
+        onConfirm={() => { affected?.retry().catch(() => {}); }}
+      />
       <Button size="sm" variant="default" onClick={() => setOpen(true)} className="w-full">
         <Wrench className="mr-2 h-3 w-3" /><span className="sm:hidden">Schedule</span><span className="hidden sm:inline">Schedule Maintenance</span>
       </Button>
