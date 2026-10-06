@@ -1093,7 +1093,7 @@ export function FnbTab() {
                             Stock: {p.stock}
                           </span>
                           <span className="text-muted-foreground">Alert at ≤{p.lowStockThreshold}</span>
-                          <span className="text-muted-foreground">On-hand value: <span className="text-foreground">${(p.stock * p.costPrice).toFixed(2)}</span></span>
+                          <span className="text-muted-foreground">On-hand value: <span className="text-foreground">${((p.stock / Math.max(1, p.piecesPerUnit || 1)) * p.costPrice).toFixed(2)}</span></span>
                           {p.piecesPerUnit > 1 && (
                             <span className="text-muted-foreground">−{p.piecesPerUnit} pcs/sale</span>
                           )}
@@ -1260,11 +1260,14 @@ export function FnbTab() {
               </p>
             )}
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Opening Stock</Label>
-                <Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
+              {/* Opening stock is set once, when the product is created; after that stock only moves via Restock / Adjust Stock. */}
+              {productDialog === "create" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Opening Stock</Label>
+                  <Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
+                </div>
+              )}
+              <div className={productDialog === "create" ? "space-y-1.5" : "col-span-2 space-y-1.5"}>
                 <Label className="text-xs">Low Stock Alert At</Label>
                 <Input type="number" value={form.lowStockThreshold} onChange={(e) => setForm({ ...form, lowStockThreshold: e.target.value })} />
               </div>
