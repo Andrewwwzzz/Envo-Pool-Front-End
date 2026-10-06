@@ -253,7 +253,7 @@ function BookingsAffectedDialog({ groups, onCancel, onConfirm, loading }: { grou
 }
 
 function DeviceControlPanel({ hardwareId }: { hardwareId: string | null }) {
-  const { state, lastSeen, loading, error } = useDeviceState(hardwareId);
+  const { state, lastSeen, mode, loading, error } = useDeviceState(hardwareId);
   const { controlDevice, clearOverride, pending } = useDeviceControl(hardwareId);
 
   if (!hardwareId) {
@@ -277,6 +277,12 @@ function DeviceControlPanel({ hardwareId }: { hardwareId: string | null }) {
           <Badge variant="outline" className={state === "ON" ? "bg-primary/10 text-primary border-primary/20" : ""}>
             {state ?? "Unknown"}
           </Badge>
+          {/* Whether the light follows AUTO or a manual ON/OFF set by staff (D3). */}
+          {mode && (
+            <span className={`text-xs ${mode === "AUTO" ? "text-muted-foreground" : "font-medium text-amber-500"}`}>
+              {mode === "AUTO" ? "AUTO" : mode === "MANUAL_ON" ? "Manual ON" : "Manual OFF"}
+            </span>
+          )}
         </div>
         <ChipStatus lastSeen={lastSeen} />
       </div>

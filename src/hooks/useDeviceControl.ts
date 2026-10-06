@@ -2,16 +2,19 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { apiFetch } from "@/lib/api";
 
 type DeviceState = "ON" | "OFF" | null;
+// AUTO, or a manual ON/OFF set by staff (Open Table's own ON counts as AUTO). null from an older server.
+export type LightMode = "AUTO" | "MANUAL_ON" | "MANUAL_OFF" | null;
 
 interface DeviceStatus {
   state: DeviceState;
   lastSeen: string | null;
+  mode: LightMode;
   loading: boolean;
   error: string | null;
 }
 
 export function useDeviceState(hardwareId: string | null | undefined, pollInterval = 3000) {
-  const [status, setStatus] = useState<DeviceStatus>({ state: null, lastSeen: null, loading: false, error: null });
+  const [status, setStatus] = useState<DeviceStatus>({ state: null, lastSeen: null, mode: null, loading: false, error: null });
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -25,7 +28,7 @@ export function useDeviceState(hardwareId: string | null | undefined, pollInterv
       const res = await apiFetch(`/api/device/admin-status/${hardwareId}`);
       const data = await res.json();
       if (mountedRef.current) {
-        setStatus({ state: (data?.state ?? null) as DeviceState, lastSeen: data?.lastSeen ?? null, loading: false, error: null });
+        setStatus({ state: (data?.state ?? null) as DeviceState, lastSeen: data?.lastSeen ?? null, mode: (data?.mode ?? null) as LightMode, loading: false, error: null });
       }
     } catch (err: any) {
       if (mountedRef.current) {
@@ -36,7 +39,7 @@ export function useDeviceState(hardwareId: string | null | undefined, pollInterv
 
   useEffect(() => {
     if (!hardwareId) {
-      setStatus({ state: null, lastSeen: null, loading: false, error: null });
+      setStatus({ state: null, lastSeen: null, mode: null, loading: false, error: null });
       return;
     }
     setStatus((prev) => ({ ...prev, loading: true }));
