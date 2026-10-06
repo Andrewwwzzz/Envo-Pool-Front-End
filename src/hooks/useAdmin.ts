@@ -242,6 +242,35 @@ export function useClosePreview(
   });
 }
 
+export interface BookNowPreview extends ClosePreview {
+  promoCode: string | null;
+  promoDiscount: number;
+  promoNotUsed: string | null;
+  error?: string;
+}
+
+// The exact bill Book Now would charge for a booking starting now — worked out by the server with
+// the same function as the real booking (member free minutes, then discount, or a promo code when
+// it saves more; staff discount; cash rounding), without booking anything or using free minutes.
+// Refreshed every 30s since the booking starts "now"; any change to the inputs waits for the new figure.
+export function useBookNowPreview(
+  tableId: string | null,
+  params: { durationMinutes: number; pricingMode: PricingMode; hourlyRate: number; paymentMethod: string; customerId: string; promoCode: string; discountPercent: number; applyMembershipDiscount: boolean; applyMembershipFreeMinutes: boolean },
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ["book-now-preview", tableId, JSON.stringify(params)],
+    queryFn: async () => {
+      const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])));
+      const res = await apiFetch(`/api/admin/tables/${tableId}/book-now-preview?${qs}`);
+      const data = await res.json().catch(() => ({}));
+      return (res.ok ? data : { error: data.error || "Couldn't work out the price" }) as BookNowPreview;
+    },
+    enabled: enabled && !!tableId && params.durationMinutes >= 15,
+    refetchInterval: 30000,
+  });
+}
+
 export function useSessionPreviewCost(startedAt: string | null, durationSeconds: number, enabled: boolean, mode: "time_of_day" | "self_practice" = "time_of_day") {
   const bucket = Math.floor(durationSeconds / 5);
   return useQuery({

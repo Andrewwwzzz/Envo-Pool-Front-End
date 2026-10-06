@@ -13,6 +13,7 @@ import {
   useBookTableNow,
   useSessionPreviewCost,
   useClosePreview,
+  useBookNowPreview,
   useAdminPromoCodes,
   isBookingsAffected,
   PricingMode,
@@ -21,11 +22,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useActiveWalkinSessions } from "@/hooks/useWalkin";
 import { useTablePendingFnb } from "@/hooks/useFnb";
 import { useCustomerActiveMembership } from "@/hooks/useMembership";
-import { calculateDiscount } from "@/lib/pricing";
 import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
 import { MoveBookingDialog } from "@/components/admin/MoveBookingDialog";
 import { ArrowRightLeft } from "lucide-react";
-import { roundCashAmount } from "@/lib/money";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1348,35 +1347,19 @@ function BookNowDialog({
   const customRate = Math.max(0, parseFloat(rateInput) || 0);
   const selfPracticeMode = pricingMode === "self_practice";
 
-  // Bucketed to the nearest 30s so this doesn't refetch on every render —
-  // "now" only needs to be roughly right for a preview of a booking that's
-  // about to start. Priced by the server, exactly as the real booking is.
-  const previewStart = new Date(Math.floor(Date.now() / 30000) * 30000).toISOString();
-  const useLivePreview = pricingMode !== "custom";
-  const { data: preview } = useSessionPreviewCost(previewStart, durationMinutes * 60, !!bookTarget && useLivePreview && durationMinutes > 0, selfPracticeMode ? "self_practice" : "time_of_day");
-  const gross = useLivePreview
-    ? (typeof preview?.total === "number" ? preview.total : 0)
-    : Math.round((durationMinutes / 60) * customRate * 100) / 100;
+  const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
+  // The exact bill, worked out by the server with the same function as the real booking — member
+  // free minutes, then the % discount (wallet only, never with self-practice — D11/D2), or the promo
+  // code when it saves more, then the staff discount and cash rounding. Nothing is used up by it.
+  const { data: bill } = useBookNowPreview(bookTarget, {
+    durationMinutes, pricingMode, hourlyRate: pricingMode === "custom" ? customRate : 0, paymentMethod, customerId,
+    promoCode: appliedPromo?.code || "", discountPercent: discountPct, applyMembershipDiscount, applyMembershipFreeMinutes,
+  }, !!bookTarget && durationMinutes >= 15 && (pricingMode !== "custom" || customRate > 0));
   // Show "…" until the server's price arrives, not $0.00.
-  const priceLoading = useLivePreview && durationMinutes > 0 && typeof preview?.total !== "number";
+  const priceLoading = !bill || !!bill.error;
+  const gross = bill?.grossAmount ?? 0;
   // A typed self-practice code (staff-only, per hour) counts as self-practice too.
   const selfPractice = selfPracticeMode || (!!appliedPromo && appliedPromo.discount_type === "hourly_rate" && !!appliedPromo.staff_only);
-  // Preview only — the real amount (which also accounts for free minutes,
-  // time-of-day gating, etc.) is computed server-side on confirm. Member
-  // perks: wallet only (D11), never with self-practice (D2).
-  const membershipPctRaw = applyMembershipDiscount && !selfPractice ? (activeMembership?.discountPercent || 0) : 0;
-  const membershipSaving = Math.round(gross * (membershipPctRaw / 100) * 100) / 100;
-  // Promo and membership don't stack — the bigger saving wins (same as the
-  // server), except a self-practice code always applies.
-  const promoSaving = !appliedPromo ? 0
-    : appliedPromo.server_discount != null ? Math.min(gross, appliedPromo.server_discount)
-    : Math.min(gross, calculateDiscount(gross, appliedPromo.discount_type as "percentage" | "fixed", appliedPromo.discount_value, appliedPromo.max_discount_amount));
-  const promoWins = !!appliedPromo && (selfPractice || promoSaving > membershipSaving);
-  const membershipPct = promoWins ? 0 : membershipPctRaw;
-  const afterMembership = Math.max(0, Math.round((gross - (promoWins ? promoSaving : membershipSaving)) * 100) / 100);
-  const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
-  const discountAmt = Math.round(afterMembership * (discountPct / 100) * 100) / 100;
-  const estimatedTotalExact = Math.max(0, Math.round((afterMembership - discountAmt) * 100) / 100);
 
   const handleApplyPromo = async () => {
     if (!promoInput.trim() || !bookTarget || durationMinutes < 15) return;
@@ -1403,12 +1386,18 @@ function BookNowDialog({
   // Staff-only per-hour codes (SELF7) are never auto-applied — those are for
   // self-practice only, so staff choose them by hand.
   const { data: allPromos = [] } = useAdminPromoCodes("default");
-  const autoKey = `${bookTarget}|${durationMinutes}|${gross}`;
+  // Keyed on the last loaded price, so a bill reloading for another reason (payment method,
+  // customer, discount) doesn't count as a change and clear the "not applied" note.
+  const [stableGross, setStableGross] = useState<number | null>(null);
+  useEffect(() => {
+    if (bill && !bill.error) setStableGross(bill.grossAmount);
+  }, [bill]);
+  const autoKey = `${bookTarget}|${durationMinutes}|${stableGross}`;
   useEffect(() => {
     setAutoSkipped(null);
   }, [autoKey, pricingMode]);
   useEffect(() => {
-    if (!bookTarget || appliedPromo || pricingMode !== "time_of_day" || !preview || durationMinutes < 15) return;
+    if (!bookTarget || appliedPromo || pricingMode !== "time_of_day" || priceLoading || durationMinutes < 15) return;
     if (dismissedAutoKey.current === autoKey || autoTried.current === autoKey) return;
     autoTried.current = autoKey;
     const candidates = (allPromos as any[])
@@ -1440,7 +1429,7 @@ function BookNowDialog({
       if (firstRejection) setAutoSkipped(firstRejection);
     })().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoKey, appliedPromo, pricingMode, preview, allPromos]);
+  }, [autoKey, appliedPromo, pricingMode, priceLoading, allPromos]);
 
   const removePromo = () => {
     if (autoApplied) dismissedAutoKey.current = autoKey;
@@ -1448,13 +1437,12 @@ function BookNowDialog({
     setAutoApplied(false);
     setPromoInput("");
   };
-  // Cash has no 1c/5c coins to give as change — round the bill to the
-  // nearest 10c. Wallet/PayNow settle to the exact cent.
-  const estimatedTotal = paymentMethod === "cash" ? roundCashAmount(estimatedTotalExact) : estimatedTotalExact;
+  // Already rounded to 10c by the server for cash; wallet/PayNow settle to the exact cent.
+  const estimatedTotal = bill?.amountCharged ?? 0;
 
   const selectedCustomer = customers.find((c: any) => c.id === customerId);
   const walletBalance = selectedCustomer?.wallet_balance ?? 0;
-  const willGoNegative = paymentMethod === "wallet" && !!selectedCustomer && estimatedTotal > walletBalance;
+  const willGoNegative = paymentMethod === "wallet" && !!selectedCustomer && !priceLoading && estimatedTotal > walletBalance;
   const accountAllowsNegative = !!selectedCustomer?.allow_negative_balance;
   // Only an admin can take a normal account below zero (D9).
   const effectiveAllowNegative = (isAdminUser && allowNegative) || accountAllowsNegative;
@@ -1540,8 +1528,8 @@ function BookNowDialog({
             <Label>Pricing</Label>
             <PricingModePicker value={pricingMode} onChange={setPricingMode} allowCustom={isAdminUser} />
             <p className="text-xs text-muted-foreground">{PRICING_HELP[pricingMode]}</p>
-            {selfPracticeMode && (preview?.uncoveredMinutes ?? 0) > 0 && (
-              <p className="text-xs text-amber-500">{preview!.uncoveredMinutes} min of this booking has no self-practice rate set — charged at the normal price.</p>
+            {selfPracticeMode && (bill?.uncoveredMinutes ?? 0) > 0 && (
+              <p className="text-xs text-amber-500">{bill!.uncoveredMinutes} min of this booking has no self-practice rate set — charged at the normal price.</p>
             )}
             {pricingMode === "custom" && (
               <Input type="number" step="0.01" min="0" placeholder="Hourly rate" value={rateInput} onChange={(e) => setRateInput(e.target.value)} />
@@ -1577,38 +1565,45 @@ function BookNowDialog({
 
           <div className="rounded-md border border-border px-3 py-2 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">{useLivePreview ? (preview ? "Exact price" : "Price (working it out…)") : "Price"}</span>
+              <span className="text-muted-foreground">{bill && !bill.error ? "Price" : "Price (working it out…)"}</span>
               <span className="font-medium">{priceLoading ? "…" : `$${gross.toFixed(2)}`}</span>
             </div>
-            {membershipPct > 0 && (
+            {!priceLoading && bill!.freeMinutesApplied > 0 && (
               <div className="flex items-center justify-between text-emerald-500 text-xs mt-1">
-                <span>Member {membershipPct}% discount</span>
-                <span>-${(gross - afterMembership).toFixed(2)}</span>
+                <span>{bill!.freeMinutesApplied} free min</span>
+                <span>-${bill!.freeMinutesCredit.toFixed(2)}</span>
               </div>
             )}
-            {promoWins && appliedPromo && (
+            {!priceLoading && bill!.membershipDiscountPercent > 0 && (
               <div className="flex items-center justify-between text-emerald-500 text-xs mt-1">
-                <span>Promo {appliedPromo.code}</span>
-                <span>-${promoSaving.toFixed(2)}</span>
+                <span>Member {bill!.membershipDiscountPercent}% discount</span>
+                <span>-${bill!.membershipDiscountAmount.toFixed(2)}</span>
               </div>
             )}
-            {appliedPromo && !promoWins && (
-              <p className="text-xs text-muted-foreground mt-1">Membership saves more than {appliedPromo.code}, so the membership discount is used.</p>
+            {!priceLoading && bill!.promoCode && (
+              <div className="flex items-center justify-between text-emerald-500 text-xs mt-1">
+                <span>Promo {bill!.promoCode}</span>
+                <span>-${bill!.promoDiscount.toFixed(2)}</span>
+              </div>
+            )}
+            {!priceLoading && bill!.promoNotUsed && (
+              <p className="text-xs text-muted-foreground mt-1">Membership saves more than {bill!.promoNotUsed}, so the membership perks are used.</p>
             )}
             {selfPractice && activeMembership && (
               <p className="text-xs text-muted-foreground mt-1">Self-practice — member perks don't apply.</p>
             )}
-            {discountPct > 0 && (
+            {!priceLoading && bill!.discountPct > 0 && (
               <div className="flex items-center justify-between text-emerald-500 text-xs mt-1">
-                <span>{discountPct}% discount</span>
-                <span>-${discountAmt.toFixed(2)}</span>
+                <span>{bill!.discountPct}% discount</span>
+                <span>-${bill!.discountAmount.toFixed(2)}</span>
               </div>
             )}
             <div className="flex items-center justify-between mt-1 border-t border-border pt-1">
-              <span className="text-muted-foreground">Est. total</span>
+              <span className="text-muted-foreground">Total</span>
               <span className="font-semibold">{priceLoading ? "…" : `$${estimatedTotal.toFixed(2)}`}</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Final price is computed at confirm{selfPractice ? "" : " — includes the customer's membership discount/free minutes if they have one active and pay by wallet"}.</p>
+            {bill?.error && <p className="text-xs text-destructive mt-1">{bill.error}</p>}
+            <p className="text-xs text-muted-foreground mt-1">The amount charged when you confirm{selfPractice ? "" : " — member free minutes and discount included when paid by wallet"}.</p>
           </div>
 
           <div className="space-y-2">
@@ -1716,7 +1711,7 @@ function BookNowDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleConfirm} disabled={bookTableNow.isPending}>
+          <Button onClick={handleConfirm} disabled={bookTableNow.isPending || priceLoading}>
             {bookTableNow.isPending ? "Booking..." : "Confirm & Book"}
           </Button>
         </DialogFooter>
