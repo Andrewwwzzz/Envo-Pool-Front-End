@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -37,12 +37,16 @@ export default function ReasonDialog({
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!open) {
+  // Cleared as the dialog opens (during render, so the last reason never shows), not when it closes — so the
+  // typed reason stays on screen while it fades out.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
       setReason("");
       setError(null);
     }
-  }, [open]);
+  }
 
   const submit = async () => {
     const trimmed = reason.trim();

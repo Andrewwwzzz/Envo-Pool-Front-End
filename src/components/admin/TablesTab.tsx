@@ -322,6 +322,10 @@ export default function TablesTab() {
   // Status changes (single or bulk) need a reason; tables with bookings are
   // listed for staff to deal with before they continue (D22/D23).
   const [statusTarget, setStatusTarget] = useState<{ tableIds: string[]; maintenance: boolean; title: string } | null>(null);
+  // The dialog keeps the last target's wording while it closes, so it doesn't flip to the other wording mid-fade.
+  const [lastStatusTarget, setLastStatusTarget] = useState(statusTarget);
+  if (statusTarget && statusTarget !== lastStatusTarget) setLastStatusTarget(statusTarget);
+  const shownStatus = statusTarget ?? lastStatusTarget;
   const [affected, setAffected] = useState<{ groups: AffectedGroup[]; retry: () => Promise<void> } | null>(null);
   const [affectedLoading, setAffectedLoading] = useState(false);
   const tableLabel = (id: string) => `Table ${(tables || []).find((t) => t.id === id)?.table_number ?? ""}`;
@@ -828,14 +832,14 @@ export default function TablesTab() {
       <ReasonDialog
         open={!!statusTarget}
         onOpenChange={(o) => { if (!o) setStatusTarget(null); }}
-        title={statusTarget?.title || ""}
-        description={statusTarget?.maintenance
+        title={shownStatus?.title || ""}
+        description={shownStatus?.maintenance
           ? "Customers can't book or start a walk-in on a table under maintenance. The reason is saved in Logs."
           : "Customers can book and start walk-ins on this table again. The reason is saved in Logs."}
         label="Reason"
-        placeholder={statusTarget?.maintenance ? "e.g. Cloth torn, waiting for repair" : "e.g. Repair finished"}
-        confirmLabel={statusTarget?.maintenance ? "Set Maintenance" : "Make Available"}
-        destructive={!!statusTarget?.maintenance}
+        placeholder={shownStatus?.maintenance ? "e.g. Cloth torn, waiting for repair" : "e.g. Repair finished"}
+        confirmLabel={shownStatus?.maintenance ? "Set Maintenance" : "Make Available"}
+        destructive={!!shownStatus?.maintenance}
         loading={setMaintenance.isPending || setBulkMaintenance.isPending}
         onConfirm={async (reason) => {
           if (!statusTarget) return;
