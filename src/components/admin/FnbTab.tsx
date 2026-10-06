@@ -1201,7 +1201,13 @@ export function FnbTab() {
               <Label className="text-xs">Reason <span className="text-red-400">*</span></Label>
               <Input placeholder="e.g. Out of stock" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
             </div>
-            {cancelDialog && (cancelDialog.price > 0 || (cancelDialog.paymentMethod === "free_reward" && cancelDialog.pointsSpent > 0)) && (
+            {/* A Table order hasn't been paid yet — cancelling takes it off the table's bill, so there is nothing to refund. */}
+            {cancelDialog?.paymentMethod === "charge_to_table" && (
+              <p className="rounded-lg border border-border/50 p-3 text-xs text-muted-foreground">
+                This order is on the table's bill and hasn't been paid yet. Cancelling takes it off the bill — there's nothing to refund.
+              </p>
+            )}
+            {cancelDialog && cancelDialog.paymentMethod !== "charge_to_table" && (cancelDialog.price > 0 || (cancelDialog.paymentMethod === "free_reward" && cancelDialog.pointsSpent > 0)) && (
               <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
                 <div>
                   <p className="text-sm font-medium">
