@@ -333,6 +333,8 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
                   <span className="flex items-center gap-1.5">
                     {p.isSignature && <Star className="h-3 w-3 text-amber-400 fill-amber-400 shrink-0" />}
                     {p.name}
+                    {/* Age-restricted: staff check the customer's ID at the counter (B7) — a marker only, nothing is blocked. */}
+                    {p.isAlcohol && <Badge className="bg-red-500/20 text-red-400 text-xs">18+ Alcohol</Badge>}
                   </span>
                   <span className="text-muted-foreground">${p.sellingPrice.toFixed(2)}</span>
                 </button>
@@ -353,7 +355,10 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
                   return (
                     <div key={key} className="flex items-center justify-between px-3 py-2 text-sm">
                       <div className="flex-1 min-w-0">
-                        <p className="truncate">{l.product.name}</p>
+                        <p className="truncate">
+                          {l.product.name}
+                          {l.product.isAlcohol && <Badge className="ml-1.5 bg-red-500/20 text-red-400 text-xs">18+ Alcohol</Badge>}
+                        </p>
                         {l.sauce && (
                           <p className="text-xs text-muted-foreground capitalize">
                             {l.sauce} sauce{l.nacho ? " + nacho cheese" : ""}
