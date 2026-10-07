@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 import { fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
-import { Wallet, CheckCircle2, AlertTriangle, History, Pencil, Trash2, RotateCcw } from "lucide-react";
+import { Wallet, CheckCircle2, AlertTriangle, History, Pencil, Trash2, RotateCcw, HandCoins } from "lucide-react";
 
 type Phase = "opening" | "closing";
 type ShiftType = "morning" | "night";
@@ -102,6 +102,36 @@ function useCashCountHistory(showDeleted: boolean) {
       const r = await apiFetch(`/api/cashcount?limit=100${showDeleted ? "&deleted=true" : ""}`);
       if (!r.ok) throw new Error(await r.text());
       return r.json();
+    },
+  });
+}
+
+function useCashPayouts(showDeleted: boolean) {
+  return useQuery<any[]>({
+    queryKey: ["cashcount-payouts", showDeleted],
+    queryFn: async () => {
+      const r = await apiFetch(`/api/cashcount/payouts?limit=100${showDeleted ? "&deleted=true" : ""}`);
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+  });
+}
+
+// Cash paid out (D6): recording, deleting or restoring a payout changes what the
+// drawer should hold, so the counting previews and the history refresh too.
+function usePayoutMutation(path: (id: string) => string, method: "POST" | "DELETE") {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, body }: { id?: string; body?: Record<string, unknown> }) => {
+      const r = await apiFetch(path(id || ""), { method, ...(body ? { body: JSON.stringify(body) } : {}) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw Object.assign(new Error(data.error || "Failed"), { data });
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cashcount-context"] });
+      qc.invalidateQueries({ queryKey: ["cashcount-payouts"] });
+      qc.invalidateQueries({ queryKey: ["cashcount-history"] });
     },
   });
 }
@@ -281,6 +311,12 @@ function CashCountForm({
               <span className="font-medium">${context.topUpsToday.toFixed(2)}</span>
             </div>
           )}
+          {context.paidOut > 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">− Cash paid out{phase === "closing" ? ` for ${context.date}` : " since then"}</span>
+              <span className="font-medium">${context.paidOut.toFixed(2)}</span>
+            </div>
+          )}
           <div className="flex justify-between font-semibold pt-1 border-t border-border/40 mt-1">
             <span>Expected Amount</span>
             <span>${context.expectedAmount.toFixed(2)}</span>
@@ -402,6 +438,72 @@ function CashCountCard({ phase, canBypassPrerequisite }: { phase: Phase; canBypa
   );
 }
 
+// Cash taken out of the drawer on purpose (a prize, petty cash). Recorded here
+// so the cash count expects it to be gone instead of showing a shortage.
+function CashPayoutCard() {
+  const { toast } = useToast();
+  const [shiftType, setShiftType] = useState<ShiftType>("morning");
+  const [date, setDate] = useState("");
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const { data: context } = useCashCountContext("closing", shiftType, "");
+  const record = usePayoutMutation(() => "/api/cashcount/payouts", "POST");
+  const amountNum = parseFloat(amount);
+  const canSave = amountNum > 0 && !!reason.trim() && !record.isPending;
+
+  return (
+    <Card className="card-premium">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <HandCoins className="h-4 w-4 text-accent" /> Cash Paid Out
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Paid cash out of the drawer — a prize, petty cash? Record it here so the cash count expects it to be gone. It's recorded in Logs.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="space-y-1.5">
+            <Label>Shift</Label>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" variant={shiftType === "morning" ? "default" : "outline"} className="flex-1" onClick={() => { setShiftType("morning"); setDate(""); }}>Morning</Button>
+              <Button type="button" size="sm" variant={shiftType === "night" ? "default" : "outline"} className="flex-1" onClick={() => { setShiftType("night"); setDate(""); }}>Night</Button>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Amount Paid Out (SGD)</Label>
+            <Input type="number" min="0" step="0.01" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Business Date</Label>
+            <Input type="date" value={date || context?.date || ""} onChange={(e) => setDate(e.target.value)} />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Reason (required)</Label>
+          <Input placeholder="e.g. Tournament prize — 1st place" value={reason} onChange={(e) => setReason(e.target.value)} />
+        </div>
+        <Button
+          className="w-full"
+          disabled={!canSave}
+          onClick={() => record.mutate(
+            { body: { shiftType, amount: amountNum, reason: reason.trim(), ...(date ? { date } : {}) } },
+            {
+              onSuccess: () => {
+                toast({ title: "Cash paid out recorded", description: `${amountNum.toFixed(2)} — the cash count now expects it to be gone.` });
+                setAmount(""); setReason(""); setDate("");
+              },
+              onError: (e: any) => toast({ title: "Couldn't record it", description: e?.data?.error || e.message, variant: "destructive" }),
+            },
+          )}
+        >
+          {record.isPending ? "Saving..." : "Record Cash Paid Out"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 function EditCashCountDialog({ entry, onClose }: { entry: any | null; onClose: () => void }) {
   const { toast } = useToast();
   const editMutation = useEditCashCount();
@@ -456,7 +558,14 @@ function EditCashCountDialog({ entry, onClose }: { entry: any | null; onClose: (
 function CashCountHistory({ isMaster }: { isMaster: boolean }) {
   const { toast } = useToast();
   const [showDeleted, setShowDeleted] = useState(false);
-  const { data: entries = [], isLoading } = useCashCountHistory(showDeleted);
+  const { data: counts = [], isLoading: countsLoading } = useCashCountHistory(showDeleted);
+  const { data: payouts = [], isLoading: payoutsLoading } = useCashPayouts(showDeleted);
+  const isLoading = countsLoading || payoutsLoading;
+  // Counts and cash paid out in one timeline, newest first.
+  const entries = [...counts, ...payouts.map((p: any) => ({ ...p, _payout: true }))]
+    .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const deletePayout = usePayoutMutation((id) => `/api/cashcount/payouts/${id}`, "DELETE");
+  const restorePayout = usePayoutMutation((id) => `/api/cashcount/payouts/${id}/restore`, "POST");
   const [editing, setEditing] = useState<any | null>(null);
   const deleteMutation = useDeleteCashCount();
   const restoreMutation = useRestoreCashCount();
@@ -482,7 +591,7 @@ function CashCountHistory({ isMaster }: { isMaster: boolean }) {
           <p className="text-sm text-muted-foreground py-6 text-center">Loading…</p>
         ) : entries.length === 0 ? (
           <p className="text-sm text-muted-foreground py-6 text-center">
-            {showDeleted ? "No deleted cash counts." : "No cash counts logged yet."}
+            {showDeleted ? "No deleted entries." : "No cash counts logged yet."}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -502,6 +611,48 @@ function CashCountHistory({ isMaster }: { isMaster: boolean }) {
               </thead>
               <tbody className="divide-y divide-border/50">
                 {entries.map((e: any) => {
+                  if (e._payout) {
+                    return (
+                      <tr key={e._id}>
+                        <td className="py-2 pr-4 whitespace-nowrap">
+                          {e.date}
+                          {e.createdAt && <div className="text-[10px] text-muted-foreground">{fmtTimeSG(e.createdAt)}</div>}
+                        </td>
+                        <td className="py-2 pr-4 capitalize">{e.shiftType}</td>
+                        <td className="py-2 pr-4">
+                          <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30">Cash paid out</Badge>
+                        </td>
+                        <td className="py-2 pr-4 text-right font-mono">−${Number(e.amount).toFixed(2)}</td>
+                        <td className="py-2 pr-4 text-right text-muted-foreground">—</td>
+                        <td className="py-2 pr-4 text-muted-foreground">—</td>
+                        <td className="py-2 pr-4 text-muted-foreground max-w-[200px] truncate" title={e.reason}>{e.reason}</td>
+                        <td className="py-2 pr-4 text-muted-foreground whitespace-nowrap">{e.recordedBy?.name || e.recordedBy?.username || "—"}</td>
+                        {isMaster && (
+                          <td className="py-2">
+                            {showDeleted ? (
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-green-500 hover:text-green-400" title="Restore"
+                                disabled={restorePayout.isPending}
+                                onClick={() => restorePayout.mutate({ id: e._id }, {
+                                  onSuccess: () => toast({ title: "Cash paid out restored" }),
+                                  onError: (err: any) => toast({ title: "Couldn't restore", description: err.message, variant: "destructive" }),
+                                })}>
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              </Button>
+                            ) : (
+                              <Button size="icon" variant="ghost" className="h-7 w-7" title="Delete"
+                                disabled={deletePayout.isPending}
+                                onClick={() => deletePayout.mutate({ id: e._id }, {
+                                  onSuccess: () => toast({ title: "Cash paid out deleted" }),
+                                  onError: (err: any) => toast({ title: "Couldn't delete", description: err.message, variant: "destructive" }),
+                                })}>
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  }
                   const tallies = Math.abs(e.discrepancy) < 0.01;
                   return (
                     <tr key={e._id}>
@@ -530,6 +681,9 @@ function CashCountHistory({ isMaster }: { isMaster: boolean }) {
                       </td>
                       <td className="py-2 pr-4 text-right font-mono text-muted-foreground">
                         ${e.expectedAmount.toFixed(2)}
+                        {e.paidOut > 0 && (
+                          <div className="text-[10px] font-sans">after −${e.paidOut.toFixed(2)} paid out</div>
+                        )}
                         {e.isOverridden && (
                           <div className="text-[10px] font-sans" title={`System calculated $${e.systemExpectedAmount?.toFixed(2)}`}>
                             overridden
@@ -615,6 +769,7 @@ export function CashCountTab() {
         <CashCountCard phase="opening" canBypassPrerequisite={canBypassPrerequisite} />
         <CashCountCard phase="closing" canBypassPrerequisite={canBypassPrerequisite} />
       </div>
+      <CashPayoutCard />
       <CashCountHistory isMaster={isMaster} />
     </div>
   );
