@@ -210,6 +210,7 @@ function CashCountForm({
   excludeId,
   allowOverride,
   canBypassPrerequisite,
+  prefillAfterMidnight,
   onSubmit,
   submitLabel,
   isPending,
@@ -220,6 +221,7 @@ function CashCountForm({
   excludeId?: string;
   allowOverride?: boolean;
   canBypassPrerequisite?: boolean;
+  prefillAfterMidnight?: boolean;
   onSubmit: (payload: Record<string, unknown>) => Promise<void>;
   submitLabel: string;
   isPending: boolean;
@@ -245,6 +247,20 @@ function CashCountForm({
   const hasMismatch = previewDiscrepancy !== null && Math.abs(previewDiscrepancy) >= 0.01;
 
   const set = (patch: Partial<CountValues>) => onChange({ ...values, ...patch });
+
+  // Night closing after midnight (D5): pre-fill "collected after midnight" from the cash recorded since 00:00,
+  // until staff type their own figure. A fresh form (after submitting) starts pre-filling again.
+  const [afterMidnightTouched, setAfterMidnightTouched] = useState(false);
+  const [afterMidnightPrefilled, setAfterMidnightPrefilled] = useState(false);
+  const suggestedAfterMidnight = isNightClosing ? Number(context?.suggestedAfterMidnight || 0) : 0;
+  useEffect(() => {
+    if (counted === "" && cashAfterMidnight === "") { setAfterMidnightTouched(false); setAfterMidnightPrefilled(false); }
+  }, [counted, cashAfterMidnight]);
+  useEffect(() => {
+    if (!prefillAfterMidnight || !isNightClosing || afterMidnightTouched || suggestedAfterMidnight <= 0) return;
+    const v = suggestedAfterMidnight.toFixed(2);
+    if (cashAfterMidnight !== v) { onChange({ ...values, cashAfterMidnight: v }); setAfterMidnightPrefilled(true); }
+  }, [prefillAfterMidnight, isNightClosing, afterMidnightTouched, suggestedAfterMidnight, cashAfterMidnight]);
 
   const handleSubmit = async () => {
     if (!hasCounted || countedNum < 0) {
@@ -344,7 +360,12 @@ function CashCountForm({
       {isNightClosing && (
         <div className="space-y-1.5">
           <Label>Of that, collected after midnight <span className="text-muted-foreground text-xs">(optional)</span></Label>
-          <Input type="number" min="0" step="0.01" placeholder="0.00" value={cashAfterMidnight} onChange={(e) => set({ cashAfterMidnight: e.target.value })} />
+          <Input type="number" min="0" step="0.01" placeholder="0.00" value={cashAfterMidnight} onChange={(e) => { setAfterMidnightTouched(true); setAfterMidnightPrefilled(false); set({ cashAfterMidnight: e.target.value }); }} />
+          {afterMidnightPrefilled && (
+            <p className="text-xs text-amber-400">
+              Pre-filled from cash recorded after midnight — check it against the drawer and correct it if it's different.
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
             It's already in the drawer total above, but it belongs to the next day's Cash Top-Ups — this excludes it from this shift's tally so a late top-up doesn't look like an unexplained gain.
           </p>
@@ -417,6 +438,7 @@ function CashCountCard({ phase, canBypassPrerequisite }: { phase: Phase; canBypa
           values={values}
           onChange={setValues}
           canBypassPrerequisite={canBypassPrerequisite}
+          prefillAfterMidnight
           submitLabel="Submit"
           isPending={submit.isPending}
           onSubmit={async (payload) => {
