@@ -200,8 +200,11 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
-  const { data: customers = [] } = useAdminCustomers(customerSearch);
-  const selectedCustomer = customers.find((c: any) => c.id === customerId);
+  // Customers appear only once 2+ letters are typed (D26).
+  const searchReady = customerSearch.trim().length >= 2;
+  const { data: customers = [], isFetching: customersLoading } = useAdminCustomers(searchReady ? customerSearch : "");
+  const [pickedCustomer, setPickedCustomer] = useState<any | null>(null);
+  const selectedCustomer = pickedCustomer && pickedCustomer.id === customerId ? pickedCustomer : customers.find((c: any) => c.id === customerId);
 
   useEffect(() => {
     if (open) {
@@ -396,13 +399,19 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
             ) : (
               <>
                 <Input placeholder="Search name or email..." value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} />
-                {customerSearch.trim() && (
+                {customerSearch.trim() && !searchReady && (
+                  <p className="px-1 text-xs text-muted-foreground">Type the customer's name or email to find them.</p>
+                )}
+                {searchReady && customersLoading && customers.length === 0 && (
+                  <p className="px-1 text-xs text-muted-foreground">Searching…</p>
+                )}
+                {searchReady && !(customersLoading && customers.length === 0) && (
                   <div className="max-h-32 overflow-y-auto rounded-md border border-border">
                     {customers.slice(0, 20).map((c: any) => (
                       <button
                         key={c.id}
                         type="button"
-                        onClick={() => { setCustomerId(c.id); setCustomerName(c.name || c.legal_name || c.email); setCustomerSearch(""); }}
+                        onClick={() => { setCustomerId(c.id); setPickedCustomer(c); setCustomerName(c.name || c.legal_name || c.email); setCustomerSearch(""); }}
                         className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
                       >
                         <div className="font-medium">{c.name || c.legal_name || "—"}</div>

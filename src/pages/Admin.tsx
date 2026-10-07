@@ -4981,13 +4981,17 @@ function CreateTopUpDialog({
   const [customerId, setCustomerId] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const { data: customers = [] } = useAdminCustomers(customerSearch);
+  // Customers appear only once 2+ letters are typed (D26) — opening the dialog must not list customers,
+  // their emails and balances on screen.
+  const searchReady = customerSearch.trim().length >= 2;
+  const { data: customers = [], isFetching: customersLoading } = useAdminCustomers(searchReady ? customerSearch : "");
+  const [pickedCustomer, setPickedCustomer] = useState<any | null>(null);
 
   const reset = () => {
-    setAmount(""); setMethod("cash"); setCustomerId(""); setCustomerSearch("");
+    setAmount(""); setMethod("cash"); setCustomerId(""); setCustomerSearch(""); setPickedCustomer(null);
   };
 
-  const selectedCustomer = customers.find((c: any) => c.id === customerId);
+  const selectedCustomer = pickedCustomer && pickedCustomer.id === customerId ? pickedCustomer : customers.find((c: any) => c.id === customerId);
   const amountNum = parseFloat(amount) || 0;
   const canSubmit = !!customerId && amountNum > 0 && amountNum <= 500;
 
@@ -5035,17 +5039,23 @@ function CreateTopUpDialog({
             ) : (
               <>
                 <Input placeholder="Search name or email" value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} />
-                <div className="max-h-36 overflow-y-auto rounded-md border border-border">
-                  {customers.slice(0, 20).map((c: any) => (
-                    <button key={c.id} type="button" onClick={() => setCustomerId(c.id)} className="w-full text-left px-3 py-2 text-sm hover:bg-muted">
-                      <div className="font-medium">{c.name || c.legal_name || "—"}</div>
-                      <div className="text-xs text-muted-foreground">{c.email} · ${Number(c.wallet_balance ?? 0).toFixed(2)}</div>
-                    </button>
-                  ))}
-                  {customerSearch && customers.length === 0 && (
-                    <div className="px-3 py-2 text-xs text-muted-foreground">No customers found</div>
-                  )}
-                </div>
+                {!searchReady ? (
+                  <p className="px-1 text-xs text-muted-foreground">Type the customer's name or email to find them.</p>
+                ) : customersLoading && customers.length === 0 ? (
+                  <p className="px-1 text-xs text-muted-foreground">Searching…</p>
+                ) : (
+                  <div className="max-h-36 overflow-y-auto rounded-md border border-border">
+                    {customers.slice(0, 20).map((c: any) => (
+                      <button key={c.id} type="button" onClick={() => { setCustomerId(c.id); setPickedCustomer(c); }} className="w-full text-left px-3 py-2 text-sm hover:bg-muted">
+                        <div className="font-medium">{c.name || c.legal_name || "—"}</div>
+                        <div className="text-xs text-muted-foreground">{c.email} · ${Number(c.wallet_balance ?? 0).toFixed(2)}</div>
+                      </button>
+                    ))}
+                    {customers.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">No customers found</div>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
