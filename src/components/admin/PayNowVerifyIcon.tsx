@@ -16,21 +16,34 @@ type RefType = "Booking" | "TimerSession" | "FnbOrder";
 const PAYNOW_MATCH_WINDOW_MINUTES = 20;
 const PAYNOW_MATCH_TOLERANCE = 0.005;
 
+// A transfer counts for one thing only (D106). The server marks each transfer
+// with usedFor (credited to a top-up, or linked to a charge by staff) and
+// candidateCharges (PayNow charges of the same amount within the window that
+// nobody has resolved by hand). A charge is verified automatically only by a
+// free transfer, and only when there are at least as many free transfers as
+// charges competing for them — otherwise it's "contested" and staff link the
+// right one by hand.
 export function findMatchingGmailPayment(
   amount: number,
   timestamp: string | Date | null | undefined,
-  payments: any[] | undefined
-) {
+  payments: any[] | undefined,
+  chargeKey?: string
+): { payment: any; contested: boolean } | null {
   if (!timestamp || !payments?.length || !(Number(amount) > 0)) return null;
   const t = new Date(timestamp).getTime();
   if (Number.isNaN(t)) return null;
   const windowMs = PAYNOW_MATCH_WINDOW_MINUTES * 60 * 1000;
-  return (
-    payments.find((p) => {
+  const mine = payments
+    .filter((p) => !p.usedFor)
+    .filter((p) => {
       const pt = new Date(p.transactionTimestamp).getTime();
       return Math.abs(pt - t) <= windowMs && Math.abs(Number(p.amount) - Number(amount)) <= PAYNOW_MATCH_TOLERANCE;
-    }) || null
-  );
+    })
+    .sort((a, b) => Math.abs(new Date(a.transactionTimestamp).getTime() - t) - Math.abs(new Date(b.transactionTimestamp).getTime() - t));
+  if (!mine.length) return null;
+  const rivals = new Set<string>(chargeKey ? [chargeKey] : []);
+  for (const p of mine) for (const k of p.candidateCharges || []) rivals.add(k);
+  return { payment: mine[0], contested: mine.length < rivals.size };
 }
 
 // Small inline indicator for a paynow row — shown next to the payment
@@ -67,9 +80,12 @@ export function PayNowVerifyIcon({
   if (String(paymentMethod || "").toLowerCase() !== "paynow") return null;
 
   const override = refId ? overrides?.find((o: any) => o.refType === refType && String(o.refId) === String(refId)) : null;
-  const soloMatch = findMatchingGmailPayment(amount, timestamp, gmailPayments);
-  const groupMatch = !soloMatch && groupAmount && groupAmount !== amount ? findMatchingGmailPayment(groupAmount, timestamp, gmailPayments) : null;
-  const autoMatch = soloMatch || groupMatch;
+  const chargeKey = refId ? `${refType}:${refId}` : undefined;
+  const soloMatch = findMatchingGmailPayment(amount, timestamp, gmailPayments, chargeKey);
+  const groupMatch = !soloMatch && groupAmount && groupAmount !== amount ? findMatchingGmailPayment(groupAmount, timestamp, gmailPayments, chargeKey) : null;
+  const found = soloMatch || groupMatch;
+  const autoMatch = found && !found.contested ? found.payment : null;
+  const contested = found?.contested ? found.payment : null;
 
   let icon: React.ReactNode;
   let title: string;
@@ -88,6 +104,9 @@ export function PayNowVerifyIcon({
     const groupNote = !soloMatch ? " — matched as part of a combined payment with other orders on this table" : "";
     icon = <Mail className="h-3.5 w-3.5 text-emerald-400" />;
     title = `PayNow transfer verified — $${Number(autoMatch.amount).toFixed(2)} from "${autoMatch.senderName || "unknown"}" at ${fmtTimeSG(autoMatch.transactionTimestamp)}${groupNote}`;
+  } else if (contested) {
+    icon = <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />;
+    title = `Possible duplicate — more than one PayNow charge could match the $${Number(contested.amount).toFixed(2)} transfer from "${contested.senderName || "unknown"}" at ${fmtTimeSG(contested.transactionTimestamp)}. Click to link the right one`;
   } else {
     icon = <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />;
     title = "No matching PayNow transfer found in Gmail within ±20 min — click to resolve manually";
@@ -241,6 +260,7 @@ function PayNowVerifyDialog({
                         <span className="block text-xs text-muted-foreground">
                           {fmtDateTimeSG(p.transactionTimestamp)} · {diffLabel(Number(p.amount))}
                           {elsewhere && <span className="text-amber-500"> · already linked to another charge</span>}
+                          {!elsewhere && p.usedFor?.kind === "topup" && <span className="text-amber-500"> · already credited to a wallet top-up</span>}
                         </span>
                       </span>
                       {isLinked ? (
