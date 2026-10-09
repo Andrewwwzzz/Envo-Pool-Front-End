@@ -260,7 +260,12 @@ function PayNowVerifyDialog({
                         <span className="block text-xs text-muted-foreground">
                           {fmtDateTimeSG(p.transactionTimestamp)} · {diffLabel(Number(p.amount))}
                           {elsewhere && <span className="text-amber-500"> · already linked to another charge</span>}
-                          {!elsewhere && p.usedFor?.kind === "topup" && <span className="text-amber-500"> · already credited to a wallet top-up</span>}
+                          {!elsewhere && p.usedFor?.kind === "topup" && (
+                            <span className="text-amber-500"> · already credited to {p.usedFor.customer ? `${p.usedFor.customer}'s` : "a"} wallet top-up</span>
+                          )}
+                          {!elsewhere && !p.usedFor && p.suggestedFor && (
+                            <span className="text-muted-foreground"> · amount matched {p.suggestedFor.customer ? `${p.suggestedFor.customer}'s` : "a"} top-up, name didn't — not counted as used</span>
+                          )}
                         </span>
                       </span>
                       {isLinked ? (
