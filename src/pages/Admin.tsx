@@ -569,7 +569,7 @@ function BookingsTab() {
     const endDate = new Date(getField(b, "endTime", "end_time"));
     switch (filter) {
       case "today": if (!(startDate >= todayStart && startDate <= todayEnd)) return false; break;
-      case "upcoming": if (!(startDate > now && (b.status === "confirmed" || b.status === "pending"))) return false; break;
+      case "upcoming": if (!(startDate > now && (b.status === "confirmed" || b.status === "pending_payment"))) return false; break;
       case "completed": if (!(b.status === "completed" || (b.status === "confirmed" && endDate < now))) return false; break;
       case "cancelled": if (b.status !== "cancelled") return false; break;
     }
@@ -673,7 +673,7 @@ function BookingsTab() {
                         b.status === "refunded" ? "text-orange-600 border-orange-300" :
                         b.status === "no_show" ? "text-red-600 border-red-300" :
                         b.status === "cancelled" ? "text-destructive border-destructive/30" : ""
-                      }`}>{b.status === "no_show" ? "No Show" : b.status}</Badge>
+                      }`}>{b.status === "no_show" ? "No Show" : b.status === "pending_payment" ? "Pending Payment" : b.status}</Badge>
                     </td>
                     <td className="py-3">
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
