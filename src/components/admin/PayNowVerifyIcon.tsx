@@ -147,7 +147,9 @@ function PayNowVerifyDialog({
   const setOverride = useSetPaynowOverride();
   const clearOverride = useClearPaynowOverride();
   const [note, setNote] = useState("");
-  const [mode, setMode] = useState<"list" | "flag">("list");
+  // "confirm" = Confirm Paid with no bank record — needs a reason (D105, server enforces it too).
+  const [mode, setMode] = useState<"list" | "flag" | "confirm">("list");
+  const reasonOk = note.trim().length >= 5;
 
   // The transfer this charge is linked to (populated by the API).
   const linked = override?.status === "linked" ? override.gmailPaymentId : null;
@@ -180,7 +182,8 @@ function PayNowVerifyDialog({
     onOpenChange(false);
   };
   const confirmPaid = () => {
-    setOverride.mutate({ refType, refId, status: "confirmed_paid", note: note || undefined });
+    if (!reasonOk) return;
+    setOverride.mutate({ refType, refId, status: "confirmed_paid", note: note.trim() });
     onOpenChange(false);
   };
   const flagUnpaid = () => {
@@ -250,11 +253,27 @@ function PayNowVerifyDialog({
                 })}
               </div>
               <div className="flex gap-2 pt-1">
-                <Button size="sm" variant="outline" className="flex-1" onClick={confirmPaid} disabled={busy}>
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => { setNote(""); setMode("confirm"); }} disabled={busy}>
                   Confirm Paid (no record)
                 </Button>
-                <Button size="sm" variant="outline" className="flex-1 text-destructive hover:text-destructive" onClick={() => setMode("flag")} disabled={busy}>
+                <Button size="sm" variant="outline" className="flex-1 text-destructive hover:text-destructive" onClick={() => { setNote(""); setMode("flag"); }} disabled={busy}>
                   Flag Not Paid
+                </Button>
+              </div>
+            </>
+          ) : mode === "confirm" ? (
+            <>
+              <p className="text-xs text-muted-foreground">
+                No bank transfer is linked to this charge. Only confirm it was paid after checking the bank app. The reason is saved in the logs.
+              </p>
+              <p className="text-xs text-muted-foreground">Reason (required):</p>
+              <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. checked bank app — transfer from TAN AH KOW at 14:05" rows={3} />
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => setMode("list")} disabled={busy}>
+                  Back
+                </Button>
+                <Button size="sm" className="flex-1" onClick={confirmPaid} disabled={busy || !reasonOk}>
+                  {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null} Confirm Paid
                 </Button>
               </div>
             </>
