@@ -549,6 +549,10 @@ function BookingsTab() {
   const [cancelRefund, setCancelRefund] = useState(false);
   const [cancelRefundTo, setCancelRefundTo] = useState<"original" | "wallet">("original");
   const [cancelReason, setCancelReason] = useState("");
+  // D109: refunding a session that has already ended — admins only, with a reason (the server enforces both).
+  const [cancelOverrideReason, setCancelOverrideReason] = useState("");
+  const { user: bookingsAuthUser } = useAuth();
+  const canOverrideEndedRefund = bookingsAuthUser?.role === "admin";
   const [moveTarget, setMoveTarget] = useState<any | null>(null);
 
   const now = new Date();
@@ -729,7 +733,7 @@ function BookingsTab() {
       }}
     />
 
-    <Dialog open={!!cancelTargetId} onOpenChange={(o) => { if (!o) { setCancelTargetId(null); setCancelReason(""); setCancelRefund(false); setCancelRefundTo("original"); } }}>
+    <Dialog open={!!cancelTargetId} onOpenChange={(o) => { if (!o) { setCancelTargetId(null); setCancelReason(""); setCancelRefund(false); setCancelRefundTo("original"); setCancelOverrideReason(""); } }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Cancel Booking</DialogTitle>
@@ -748,24 +752,36 @@ function BookingsTab() {
         {(() => {
           // A booking paid by PayNow / cash is refunded the same way (the
           // PayNow / cash figures go down with it); wallet bookings go back
-          // to the wallet.
+          // to the wallet. D109: never-paid bookings have nothing to refund;
+          // a session that has ended is refunded only by an admin, with a reason.
           const target = (bookings || []).find((b: any) => getBookingId(b) === cancelTargetId);
           const method: string = target ? getField(target, "paymentMethod", "payment_method") ?? "" : "";
           const amount = target ? Number(getField(target, "amount", "finalPrice", "final_price", "price") ?? 0) : 0;
           const direct = method === "paynow" || method === "cash";
           const label = method === "paynow" ? "PayNow" : "cash";
+          const unpaid = !target || target.status === "pending_payment";
+          const ended = !!target && new Date(getField(target, "endTime", "end_time")) <= new Date();
+          if (unpaid) {
+            return (
+              <p className="rounded-lg border border-border/50 p-3 text-xs text-muted-foreground">
+                This booking hasn't been paid, so there's nothing to refund — cancelling just frees the slot.
+              </p>
+            );
+          }
           return (
             <div className="rounded-lg border border-border/50 p-3 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium">Refund ${amount.toFixed(2)}</p>
                   <p className="text-xs text-muted-foreground">
-                    {direct
-                      ? `Paid by ${label}. Give the money back by ${label} — or turn this on if the customer never actually paid, so it's taken off the ${label} figures.`
-                      : "Return the booking amount to the customer's wallet."}
+                    {ended && !canOverrideEndedRefund
+                      ? "This session has already ended — only an admin can refund it."
+                      : direct
+                        ? `Paid by ${label}. Give the money back by ${label} — or turn this on if the customer never actually paid, so it's taken off the ${label} figures.`
+                        : "Return the booking amount to the customer's wallet."}
                   </p>
                 </div>
-                <Switch checked={cancelRefund} onCheckedChange={setCancelRefund} />
+                <Switch checked={cancelRefund} onCheckedChange={setCancelRefund} disabled={ended && !canOverrideEndedRefund} />
               </div>
               {direct && cancelRefund && (
                 <div className="grid grid-cols-2 gap-2">
@@ -780,19 +796,42 @@ function BookingsTab() {
                   )}
                 </div>
               )}
+              {ended && canOverrideEndedRefund && cancelRefund && (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-amber-600 dark:text-amber-400">This session has already ended. Refunding it needs a reason — it's saved in the logs.</p>
+                  <Textarea
+                    value={cancelOverrideReason}
+                    onChange={(e) => setCancelOverrideReason(e.target.value)}
+                    placeholder="Why refund a session that has already been played? (min 5 characters)"
+                    rows={2}
+                    maxLength={300}
+                  />
+                </div>
+              )}
             </div>
           );
         })()}
         <DialogFooter>
-          <Button variant="outline" onClick={() => { setCancelTargetId(null); setCancelReason(""); }}>Go Back</Button>
+          <Button variant="outline" onClick={() => { setCancelTargetId(null); setCancelReason(""); setCancelOverrideReason(""); }}>Go Back</Button>
           <Button
             variant="destructive"
-            disabled={cancelReason.trim().length < 5 || updateStatus.isPending}
+            disabled={(() => {
+              const target = (bookings || []).find((b: any) => getBookingId(b) === cancelTargetId);
+              const unpaid = !target || target.status === "pending_payment";
+              const ended = !!target && new Date(getField(target, "endTime", "end_time")) <= new Date();
+              const needsOverride = !unpaid && ended && cancelRefund;
+              return cancelReason.trim().length < 5 || updateStatus.isPending || (needsOverride && cancelOverrideReason.trim().length < 5);
+            })()}
             onClick={() => {
               if (!cancelTargetId) return;
+              const target = (bookings || []).find((b: any) => getBookingId(b) === cancelTargetId);
+              const unpaid = !target || target.status === "pending_payment";
+              const ended = !!target && new Date(getField(target, "endTime", "end_time")) <= new Date();
+              const refund = !unpaid && cancelRefund;
               updateStatus.mutate(
-                { bookingId: cancelTargetId, status: "cancelled", reason: cancelReason.trim(), refund: cancelRefund, refundTo: cancelRefundTo },
-                { onSuccess: () => { setCancelTargetId(null); setCancelReason(""); setCancelRefund(false); setCancelRefundTo("original"); } },
+                { bookingId: cancelTargetId, status: "cancelled", reason: cancelReason.trim(), refund, refundTo: cancelRefundTo,
+                  ...(refund && ended ? { overrideReason: cancelOverrideReason.trim() } : {}) },
+                { onSuccess: () => { setCancelTargetId(null); setCancelReason(""); setCancelRefund(false); setCancelRefundTo("original"); setCancelOverrideReason(""); } },
               );
             }}
           >

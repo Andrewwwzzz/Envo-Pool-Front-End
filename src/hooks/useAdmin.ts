@@ -900,7 +900,7 @@ export function useUpdateBookingStatus() {
   const allowedStatuses = new Set(["confirmed", "cancelled", "completed", "expired"]);
 
   return useMutation({
-    mutationFn: async ({ bookingId, status, reason, refund, refundTo }: { bookingId: string; status: string; reason?: string; refund?: boolean; refundTo?: "original" | "wallet" }) => {
+    mutationFn: async ({ bookingId, status, reason, refund, refundTo, overrideReason }: { bookingId: string; status: string; reason?: string; refund?: boolean; refundTo?: "original" | "wallet"; overrideReason?: string }) => {
       if (!bookingId) throw new Error("Missing booking ID");
       if (!allowedStatuses.has(status)) throw new Error("Invalid booking status");
       const endpoint = `/api/admin/bookings/${bookingId}/status`;
@@ -908,17 +908,20 @@ export function useUpdateBookingStatus() {
       if (reason) body.reason = reason;
       if (refund !== undefined) body.refund = refund;
       if (refundTo) body.refundTo = refundTo;
+      if (overrideReason) body.overrideReason = overrideReason;
       const res = await apiFetch(endpoint, {
         method: "POST",
         body: JSON.stringify(body),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || err.error || "Failed to update booking status");
+        throw new Error(data.message || data.error || "Failed to update booking status");
       }
+      return data as { message?: string };
     },
-    onSuccess: (_data, variables) => {
-      toast({ title: `Booking marked as ${variables.status}` });
+    onSuccess: (data, variables) => {
+      // The server says exactly what happened, e.g. "Booking cancelled — $12.00 refunded to their wallet" (D109).
+      toast({ title: data?.message || `Booking marked as ${variables.status}` });
       queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
