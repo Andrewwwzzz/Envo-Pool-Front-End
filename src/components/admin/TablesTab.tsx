@@ -677,6 +677,16 @@ export default function TablesTab() {
                   {/* Running cost — an estimate; the bill is worked out at close (D25) */}
                   {isRunning && <RunningCost table={t} seconds={seconds} />}
 
+                  {/* D107: a booking coming up on this table within 6 hours */}
+                  {!hasActiveBooking && (() => {
+                    const nb = nextBookingWithin(t, bookings);
+                    return nb ? (
+                      <p className="text-xs text-amber-400 flex items-center gap-1.5">
+                        <CalendarClock className="h-3.5 w-3.5 shrink-0" /> Booked at {fmtTimeSG(nb.start)} · free for {fmtFree(nb.freeMinutes)}
+                      </p>
+                    ) : null;
+                  })()}
+
                   {/* Completed session summary */}
                   {!isRunning && session && (
                     <div className="rounded-lg bg-muted/50 p-3 space-y-1">
@@ -829,6 +839,7 @@ export default function TablesTab() {
 
       <OpenTableDialog
         table={(tables || []).find((tb) => tb.id === openTarget) || null}
+        nextBooking={nextBookingWithin((tables || []).find((tb) => tb.id === openTarget), bookings)}
         isAdminUser={isAdminUser}
         pending={startTimer.isPending}
         onOpen={openTable}
@@ -883,6 +894,7 @@ export default function TablesTab() {
       <BookNowDialog
         tables={tables || []}
         bookTarget={bookTarget}
+        nextBooking={nextBookingWithin((tables || []).find((tb) => tb.id === bookTarget), bookings)}
         isAdminUser={isAdminUser}
         onOpenChange={(o) => { if (!o) setBookTarget(null); }}
       />
@@ -893,8 +905,43 @@ export default function TablesTab() {
 // "Now", to the minute — keeps the price previews below from refetching every render.
 const minuteNowISO = () => new Date(Math.floor(Date.now() / 60000) * 60000).toISOString();
 
-function OpenTableDialog({ table, isAdminUser, pending, onOpen, onOpenChange }: {
+// D107: a booking starting within this many hours is shown wherever staff open a table, with how long the
+// table is free until then — so they can sell a bundle that ends in time (the server still blocks < 15 min).
+const UPCOMING_BOOKING_HOURS = 6;
+type UpcomingBooking = { start: Date; freeMinutes: number };
+function nextBookingWithin(table: { id: string; hardware_id?: string | null } | null | undefined, bookings: any[] | undefined): UpcomingBooking | null {
+  if (!table) return null;
+  const now = Date.now();
+  let best: number | null = null;
+  for (const b of bookings || []) {
+    const bTableId = typeof b.tableId === "object" ? b.tableId?._id || b.tableId?.hardware_id : b.tableId;
+    if (bTableId !== table.id && bTableId !== table.hardware_id) continue;
+    if (!["pending_payment", "confirmed"].includes(b.status) || b.isDeleted) continue;
+    const start = new Date(b.startTime || b.start_time).getTime();
+    if (start > now && start - now <= UPCOMING_BOOKING_HOURS * 3600e3 && (best === null || start < best)) best = start;
+  }
+  return best === null ? null : { start: new Date(best), freeMinutes: Math.floor((best - now) / 60000) };
+}
+const fmtFree = (mins: number) => (mins >= 60 ? `${Math.floor(mins / 60)} h${mins % 60 ? ` ${mins % 60} min` : ""}` : `${mins} min`);
+
+function UpcomingBookingNote({ booking, durationMinutes }: { booking: UpcomingBooking | null; durationMinutes?: number }) {
+  if (!booking) return null;
+  const tooLong = durationMinutes !== undefined && durationMinutes > booking.freeMinutes;
+  return (
+    <div className={`rounded-md border p-3 text-sm ${tooLong ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-amber-500/40 bg-amber-500/10 text-amber-400"}`}>
+      <p className="font-medium flex items-center gap-1.5"><CalendarClock className="h-4 w-4 shrink-0" /> Booked at {fmtTimeSG(booking.start)} — free for {fmtFree(booking.freeMinutes)}</p>
+      <p className="text-xs mt-1">
+        {tooLong
+          ? "This runs past the booking. Choose a shorter time, or use another table."
+          : "Tell the customer how long they can play, and offer a bundle that ends before then — or use another table."}
+      </p>
+    </div>
+  );
+}
+
+function OpenTableDialog({ table, nextBooking, isAdminUser, pending, onOpen, onOpenChange }: {
   table: TableRow | null;
+  nextBooking: UpcomingBooking | null;
   isAdminUser: boolean;
   pending: boolean;
   onOpen: (tableId: string, mode: PricingMode, hourlyRate?: number) => void;
@@ -919,6 +966,7 @@ function OpenTableDialog({ table, isAdminUser, pending, onOpen, onOpenChange }: 
           <DialogDescription>Pay by time — the bill is worked out when the table is closed.</DialogDescription>
         </DialogHeader>
         <div className="space-y-2 py-2">
+          <UpcomingBookingNote booking={nextBooking} />
           <Label>Pricing</Label>
           <PricingModePicker value={mode} onChange={setMode} allowCustom={isAdminUser} />
           <p className="text-xs text-muted-foreground">{PRICING_HELP[mode]}</p>
@@ -1277,11 +1325,13 @@ const DURATION_PRESETS = [60, 120, 180, 300];
 function BookNowDialog({
   tables,
   bookTarget,
+  nextBooking,
   isAdminUser,
   onOpenChange,
 }: {
   tables: any[];
   bookTarget: string | null;
+  nextBooking: UpcomingBooking | null;
   isAdminUser: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -1541,6 +1591,7 @@ function BookNowDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
+          <UpcomingBookingNote booking={nextBooking} durationMinutes={durationMinutes} />
           <div className="space-y-2">
             <Label>Pricing</Label>
             <PricingModePicker value={pricingMode} onChange={setPricingMode} allowCustom={isAdminUser} />
