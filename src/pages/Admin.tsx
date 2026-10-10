@@ -2838,10 +2838,10 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                   const direction = t.direction || (txType === "payment" ? "debit" : "credit");
                   const isCredit = direction === "credit";
                   const method = t.method || "—";
-                  const typeLabel = txType === "topup" ? "Top Up" : txType === "payment" ? "Payment" : txType === "refund" ? "Refund" : txType;
+                  const typeLabel = txType === "topup" ? "Top Up" : txType === "payment" ? "Payment" : txType === "refund" ? "Refund" : txType === "admin_charge" ? "Wallet Charge" : String(txType).replace(/_/g, " ");
                   const badgeClass = txType === "topup"
                     ? "bg-green-500/15 text-green-600 border-green-500/30"
-                    : txType === "payment"
+                    : txType === "payment" || txType === "admin_charge"
                     ? "bg-destructive/15 text-destructive border-destructive/30"
                     : "bg-amber-500/15 text-amber-600 border-amber-500/30";
                   return (
