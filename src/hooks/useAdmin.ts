@@ -1010,6 +1010,49 @@ export function useChangeInvoicePaymentMethod() {
   });
 }
 
+// Correct a paid booking's payment method (e.g. a staff booking entered as
+// PayNow that was paid in cash). Backend corrects the booking's payment line
+// in place and gives back / takes any wallet charge; a reason is required.
+export function useChangeBookingPaymentMethod() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      bookingId,
+      newMethod,
+      customerId,
+      allowNegative,
+      reason,
+    }: {
+      bookingId: string;
+      newMethod: "cash" | "paynow" | "wallet";
+      customerId?: string | null;
+      allowNegative?: boolean;
+      reason: string;
+    }) => {
+      const res = await apiFetch(`/api/admin/bookings/${bookingId}/payment-method`, {
+        method: "PATCH",
+        body: JSON.stringify({ newMethod, customerId: customerId || null, allowNegative: !!allowNegative, reason }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.message || "Failed to change payment method");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-booking-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-paynow-overrides"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-gmail-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-activity-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["walletHistory"] });
+    },
+  });
+}
+
 // Staff-assisted account creation for walk-in guests who can't/won't use
 // Singpass — created pre-verified since staff do the ID check in person.
 export function useAdminCreateCustomer() {

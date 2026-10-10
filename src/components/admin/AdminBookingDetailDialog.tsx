@@ -10,11 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Pencil, AlertTriangle } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG } from "@/lib/sgTime";
 import { getTableLabel } from "@/lib/tableLabel";
-import { useAdminTables } from "@/hooks/useAdmin";
+import { useAdminTables, useAdminCustomers, useChangeBookingPaymentMethod } from "@/hooks/useAdmin";
 
 interface Props {
   booking: any | null;
@@ -73,6 +78,8 @@ const fmtDur = (mins: number) => {
 
 const AdminBookingDetailDialog = ({ booking, open, onOpenChange, onCancel }: Props) => {
   const { data: tablesList } = useAdminTables();
+  const [editingMethod, setEditingMethod] = useState(false);
+  const [changedMethod, setChangedMethod] = useState<{ id: string; method: string } | null>(null);
 
   const segments = useMemo(() => {
     if (!booking) return [];
@@ -163,9 +170,16 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange, onCancel }: Pro
   const paidAt = b.paidAt || b.paid_at;
 
   const canCancel = (status === "confirmed" || status === "pending" || status === "pending_payment") && !b.isDeleted;
+  // The booking prop is a snapshot from the list — show a just-saved method straight away.
+  const shownKey = changedMethod?.id === id ? changedMethod.method : paymentKey;
+  // Correct the payment method on a paid cash / PayNow / wallet booking (not refunded — the server checks too).
+  const canEditMethod =
+    (status === "confirmed" || status === "completed") && !b.isDeleted &&
+    !(Number(b.refundedAmount) > 0) &&
+    (shownKey === "cash" || shownKey === "paynow" || shownKey === "wallet");
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) setEditingMethod(false); onOpenChange(o); }}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-card border-border">
         <DialogHeader>
           <DialogTitle className="text-lg gold-gradient">Booking Details</DialogTitle>
@@ -340,9 +354,16 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange, onCancel }: Pro
             <div className="grid grid-cols-2 gap-3 text-sm pt-1">
               <div>
                 <div className="text-muted-foreground">Method</div>
-                <Badge variant="outline" className={paymentKey ? (paymentStyles[paymentKey] || "bg-muted text-muted-foreground border-border") : "bg-muted text-muted-foreground border-border"}>
-                  {paymentKey ? (paymentLabel[paymentKey] || paymentKey) : "—"}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={shownKey ? (paymentStyles[shownKey] || "bg-muted text-muted-foreground border-border") : "bg-muted text-muted-foreground border-border"}>
+                    {shownKey ? (paymentLabel[shownKey] || shownKey) : "—"}
+                  </Badge>
+                  {canEditMethod && !editingMethod && (
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingMethod(true)} aria-label="Change payment method">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
               </div>
               {paidAt && (
                 <div>
@@ -351,6 +372,15 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange, onCancel }: Pro
                 </div>
               )}
             </div>
+            {editingMethod && canEditMethod && (
+              <BookingPaymentMethodEditor
+                key={id}
+                bookingId={id}
+                currentMethod={shownKey as "cash" | "paynow" | "wallet"}
+                amount={finalAmount}
+                onDone={(m) => { if (m) setChangedMethod({ id, method: m }); setEditingMethod(false); }}
+              />
+            )}
           </section>
 
           {status === "cancelled" && (
@@ -372,6 +402,138 @@ const AdminBookingDetailDialog = ({ booking, open, onOpenChange, onCancel }: Pro
         )}
       </DialogContent>
     </Dialog>
+  );
+};
+
+// Same correction form as an invoice's: pick the method, a customer for
+// wallet, and say why. Calls onDone(newMethod) after saving, onDone() on cancel.
+const BookingPaymentMethodEditor = ({
+  bookingId,
+  currentMethod,
+  amount,
+  onDone,
+}: {
+  bookingId: string;
+  currentMethod: "cash" | "paynow" | "wallet";
+  amount: number;
+  onDone: (newMethod?: string) => void;
+}) => {
+  const { toast } = useToast();
+  const changeMethod = useChangeBookingPaymentMethod();
+  const [draft, setDraft] = useState<"cash" | "paynow" | "wallet">(currentMethod === "paynow" ? "cash" : currentMethod);
+  const [customerId, setCustomerId] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [allowNegative, setAllowNegative] = useState(false);
+  const [reason, setReason] = useState("");
+  const { data: customers = [] } = useAdminCustomers(customerSearch);
+  const label = (m: string) => (m === "wallet" ? "Wallet" : m === "paynow" ? "PayNow" : "Cash");
+
+  const selected = (customers as any[]).find((c: any) => c.id === customerId);
+  const balance = selected?.wallet_balance ?? 0;
+  const willGoNegative = draft === "wallet" && !!selected && amount > balance;
+  const accountAllowsNegative = !!selected?.allow_negative_balance;
+  const effectiveAllowNegative = allowNegative || accountAllowsNegative;
+
+  const save = () => {
+    if (draft === currentMethod) { onDone(); return; }
+    if (reason.trim().length < 5) {
+      toast({ title: "Reason required", description: "Say why the payment method is changing (at least 5 characters).", variant: "destructive" });
+      return;
+    }
+    if (draft === "wallet" && !customerId) {
+      toast({ title: "Select a customer", description: "A customer must be selected to charge the wallet.", variant: "destructive" });
+      return;
+    }
+    if (willGoNegative && !effectiveAllowNegative) {
+      toast({ title: "Insufficient wallet balance", description: "Check 'Allow negative balance' to proceed anyway.", variant: "destructive" });
+      return;
+    }
+    changeMethod.mutate(
+      { bookingId, newMethod: draft, customerId: draft === "wallet" ? customerId : undefined, allowNegative: effectiveAllowNegative, reason: reason.trim() },
+      {
+        onSuccess: () => {
+          toast({ title: "Payment method updated", description: `Changed from ${label(currentMethod)} to ${label(draft)}.` });
+          onDone(draft);
+        },
+        onError: (err: Error) => toast({ title: "Failed to change payment method", description: err.message, variant: "destructive" }),
+      }
+    );
+  };
+
+  return (
+    <div className="rounded-md border border-border/50 p-3 space-y-3">
+      <div className="grid grid-cols-3 gap-2">
+        {(["cash", "paynow", "wallet"] as const).map((m) => (
+          <Button key={m} type="button" size="sm" variant={draft === m ? "default" : "outline"} onClick={() => setDraft(m)}>
+            {label(m)}
+          </Button>
+        ))}
+      </div>
+
+      {draft === "wallet" && (
+        <div className="space-y-2">
+          <Label className="text-xs">Customer</Label>
+          {selected ? (
+            <div className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+              <div>
+                <p className="font-medium">{selected.name || selected.legal_name || selected.email}</p>
+                <p className="text-xs text-muted-foreground">Balance: ${Number(balance).toFixed(2)}</p>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => setCustomerId("")}>Change</Button>
+            </div>
+          ) : (
+            <>
+              <Input placeholder="Search name or email" value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} className="h-8 text-sm" />
+              <div className="max-h-32 overflow-y-auto rounded-md border border-border">
+                {(customers as any[]).slice(0, 20).map((c: any) => (
+                  <button key={c.id} type="button" onClick={() => setCustomerId(c.id)} className="w-full text-left px-3 py-2 text-sm hover:bg-muted">
+                    <div className="font-medium">{c.name || c.legal_name || "—"}</div>
+                    <div className="text-xs text-muted-foreground">{c.email} · ${Number(c.wallet_balance ?? 0).toFixed(2)}</div>
+                  </button>
+                ))}
+                {customerSearch && customers.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">No customers found</div>
+                )}
+              </div>
+            </>
+          )}
+          {willGoNegative && accountAllowsNegative && (
+            <div className="flex items-start gap-2 rounded-md border border-border px-3 py-2 text-xs">
+              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+              <p className="text-muted-foreground">Charge exceeds wallet balance — this account allows a negative balance, so it'll proceed automatically.</p>
+            </div>
+          )}
+          {willGoNegative && !accountAllowsNegative && (
+            <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2">
+              <p className="text-xs text-destructive">Charge exceeds this customer's wallet balance.</p>
+              <label className="flex items-center gap-2 text-xs">
+                <Checkbox checked={allowNegative} onCheckedChange={(v) => setAllowNegative(v === true)} />
+                Allow negative balance
+              </label>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-1">
+        <Label className="text-xs">Reason for the change</Label>
+        <Textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="e.g. Customer paid cash, not PayNow (min 5 characters)"
+          rows={2}
+          maxLength={300}
+          className="text-sm"
+        />
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={() => onDone()} disabled={changeMethod.isPending}>Cancel</Button>
+        <Button size="sm" onClick={save} disabled={changeMethod.isPending || (draft !== currentMethod && reason.trim().length < 5)}>
+          {changeMethod.isPending ? "Saving..." : "Save"}
+        </Button>
+      </div>
+    </div>
   );
 };
 
