@@ -982,15 +982,17 @@ export function useChangeInvoicePaymentMethod() {
       newMethod,
       customerId,
       allowNegative,
+      reason,
     }: {
       sessionId: string;
       newMethod: "cash" | "paynow" | "wallet";
       customerId?: string | null;
       allowNegative?: boolean;
+      reason: string;
     }) => {
       const res = await apiFetch(`/api/admin/timer-sessions/${sessionId}/payment-method`, {
         method: "PATCH",
-        body: JSON.stringify({ newMethod, customerId: customerId || null, allowNegative: !!allowNegative }),
+        body: JSON.stringify({ newMethod, customerId: customerId || null, allowNegative: !!allowNegative, reason }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || data.message || "Failed to change payment method");

@@ -857,6 +857,7 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
   const [methodCustomerId, setMethodCustomerId] = useState("");
   const [methodCustomerSearch, setMethodCustomerSearch] = useState("");
   const [methodAllowNegative, setMethodAllowNegative] = useState(false);
+  const [methodReason, setMethodReason] = useState("");
   const { data: methodCustomers = [] } = useAdminCustomers(methodCustomerSearch);
 
   // Re-fetch latest session details (especially for walk-in sessions) so that when
@@ -953,6 +954,11 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
   const fnbTotal = Number(s.fnbTotal ?? s.fnb_total ?? 0);
   const fnbOrders: any[] = Array.isArray(s.fnbOrderIds) ? s.fnbOrderIds.filter((o: any) => o && typeof o === "object") : [];
   const hasDiscountBreakdown = !isActive && (membershipDiscountAmount > 0 || freeMinutesCredit > 0 || hasManualDiscount);
+  // Before discounts. Walk-ins store baseTotal; staff-opened invoices store grossAmount (Subtotal showed $0.00 for them).
+  const subtotal = hasManualDiscount ? manualGrossAmount
+    : baseTotal > 0 ? baseTotal
+    : manualGrossAmount > 0 ? manualGrossAmount
+    : amount + membershipDiscountAmount + freeMinutesCredit;
   const staff = s.startedBy?.name || s.startedBy?.email || "—";
   // Who the charge belongs to — walk-in sessions are always a real logged-in
   // customer; admin-opened sessions are only tied to a customer if one was
@@ -1122,7 +1128,7 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                   <>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Subtotal</span>
-                      <span className="tabular-nums">${(hasManualDiscount ? manualGrossAmount : baseTotal).toFixed(2)}</span>
+                      <span className="tabular-nums">${subtotal.toFixed(2)}</span>
                     </div>
                     {membershipDiscountAmount > 0 && (
                       <div className="flex justify-between text-primary">
@@ -1171,7 +1177,7 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                   <>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Subtotal</span>
-                      <span className="tabular-nums">${(hasManualDiscount ? manualGrossAmount : baseTotal).toFixed(2)}</span>
+                      <span className="tabular-nums">${subtotal.toFixed(2)}</span>
                     </div>
                     {membershipDiscountAmount > 0 && (
                       <div className="flex justify-between text-primary">
@@ -1222,6 +1228,10 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
 
               const handleSaveMethod = () => {
                 if (methodDraft === realMethod) { setEditingMethod(false); return; }
+                if (methodReason.trim().length < 5) {
+                  toast({ title: "Reason required", description: "Say why the payment method is changing (at least 5 characters).", variant: "destructive" });
+                  return;
+                }
                 if (methodDraft === "wallet" && !methodCustomerId) {
                   toast({ title: "Select a customer", description: "A customer must be selected to charge the wallet.", variant: "destructive" });
                   return;
@@ -1231,11 +1241,12 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                   return;
                 }
                 changePaymentMethod.mutate(
-                  { sessionId: id, newMethod: methodDraft, customerId: methodDraft === "wallet" ? methodCustomerId : undefined, allowNegative: methodEffectiveAllowNegative },
+                  { sessionId: id, newMethod: methodDraft, customerId: methodDraft === "wallet" ? methodCustomerId : undefined, allowNegative: methodEffectiveAllowNegative, reason: methodReason.trim() },
                   {
                     onSuccess: () => {
                       toast({ title: "Payment method updated", description: `Changed from ${methodLabel} to ${methodDraft === "wallet" ? "Wallet" : methodDraft === "paynow" ? "PayNow" : "Cash"}.` });
                       setEditingMethod(false);
+                      setMethodReason("");
                     },
                     onError: (err: Error) => {
                       toast({ title: "Failed to change payment method", description: err.message, variant: "destructive" });
@@ -1252,7 +1263,7 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className={methodBadgeClass}>{methodLabel}</Badge>
                         {canEditMethod && !editingMethod && (
-                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingMethod(true)} aria-label="Change payment method">
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setMethodReason(""); setEditingMethod(true); }} aria-label="Change payment method">
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
                         )}
@@ -1319,9 +1330,21 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                         </div>
                       )}
 
+                      <div className="space-y-1">
+                        <Label className="text-xs">Reason for the change</Label>
+                        <Textarea
+                          value={methodReason}
+                          onChange={(e) => setMethodReason(e.target.value)}
+                          placeholder="e.g. Customer paid cash, not wallet (min 5 characters)"
+                          rows={2}
+                          maxLength={300}
+                          className="text-sm"
+                        />
+                      </div>
+
                       <div className="flex justify-end gap-2">
                         <Button variant="outline" size="sm" onClick={() => setEditingMethod(false)} disabled={changePaymentMethod.isPending}>Cancel</Button>
-                        <Button size="sm" onClick={handleSaveMethod} disabled={changePaymentMethod.isPending}>
+                        <Button size="sm" onClick={handleSaveMethod} disabled={changePaymentMethod.isPending || (methodDraft !== realMethod && methodReason.trim().length < 5)}>
                           {changePaymentMethod.isPending ? "Saving..." : "Save"}
                         </Button>
                       </div>
@@ -1452,7 +1475,10 @@ function InvoicesTab() {
         method: "DELETE",
         body: JSON.stringify({ reason }),
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to delete invoice");
+      }
       toast({ title: "Invoice deleted" });
       qc.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
       qc.invalidateQueries({ queryKey: ["admin-timer-sessions", true] });
@@ -1460,8 +1486,8 @@ function InvoicesTab() {
       setDeleteTargetId(null);
       setDeleteTargetIsWalkin(false);
       setDeleteReason("");
-    } catch {
-      toast({ title: "Failed to delete invoice", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Failed to delete invoice", description: err?.message, variant: "destructive" });
     } finally {
       setDeletingId(null);
     }
@@ -1624,7 +1650,8 @@ function InvoicesTab() {
                       <td className="py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         {isDeleted ? (
                           <div className="flex items-center justify-end gap-1">
-                            <Button
+                            {/* Restoring an invoice is admin-only, like deleting it (D113). */}
+                            {canVoid && <Button
                               variant="outline"
                               size="sm"
                               className="h-7 text-xs"
@@ -1632,7 +1659,7 @@ function InvoicesTab() {
                               onClick={() => restore.mutate({ type: s._walkin ? "walkin-session" : "timer-session", id: s._id || s.id })}
                             >
                               <RotateCcw className="h-3 w-3 mr-1" /> Restore
-                            </Button>
+                            </Button>}
                             {isMaster && (
                               <Button
                                 variant="outline"
@@ -1684,7 +1711,7 @@ function InvoicesTab() {
         <DialogHeader>
           <DialogTitle>Delete Invoice</DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-muted-foreground">Please provide a reason for deleting this invoice. This action cannot be undone.</p>
+        <p className="text-sm text-muted-foreground">This removes the invoice from the list and reports. It doesn't refund anyone — to correct a payment, use Change payment method. An admin can restore it from Show Deleted.</p>
         <Textarea
           value={deleteReason}
           onChange={(e) => setDeleteReason(e.target.value)}
