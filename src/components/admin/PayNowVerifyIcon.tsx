@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAdminPaynowOverrides, useSetPaynowOverride, useClearPaynowOverride } from "@/hooks/useAdmin";
+import { useToast } from "@/hooks/use-toast";
 
 type RefType = "Booking" | "TimerSession" | "FnbOrder";
 
@@ -46,6 +47,20 @@ export function findMatchingGmailPayment(
   return { payment: mine[0], contested: mine.length < rivals.size };
 }
 
+// Mixed bill: one transfer paying several charges at once (e.g. a table session
+// and its drinks). The server marks a free transfer with mixedBill — the one set
+// of PayNow charges that adds up exactly to it. Contested if two transfers both
+// claim this charge that way.
+export function findMixedBillMatch(
+  chargeKey: string | undefined,
+  payments: any[] | undefined
+): { payment: any; contested: boolean; others: number } | null {
+  if (!chargeKey || !payments?.length) return null;
+  const mine = payments.filter((p) => !p.usedFor && Array.isArray(p.mixedBill) && p.mixedBill.includes(chargeKey));
+  if (!mine.length) return null;
+  return { payment: mine[0], contested: mine.length > 1, others: mine[0].mixedBill.length - 1 };
+}
+
 // Small inline indicator for a paynow row — shown next to the payment
 // method badge on Bookings/Invoices/F&B orders. Silent (renders nothing)
 // for any other payment method. Clickable — opens an editor so staff can
@@ -83,7 +98,8 @@ export function PayNowVerifyIcon({
   const chargeKey = refId ? `${refType}:${refId}` : undefined;
   const soloMatch = findMatchingGmailPayment(amount, timestamp, gmailPayments, chargeKey);
   const groupMatch = !soloMatch && groupAmount && groupAmount !== amount ? findMatchingGmailPayment(groupAmount, timestamp, gmailPayments, chargeKey) : null;
-  const found = soloMatch || groupMatch;
+  const mixedMatch = !soloMatch && !groupMatch ? findMixedBillMatch(chargeKey, gmailPayments) : null;
+  const found = soloMatch || groupMatch || mixedMatch;
   const autoMatch = found && !found.contested ? found.payment : null;
   const contested = found?.contested ? found.payment : null;
 
@@ -101,7 +117,9 @@ export function PayNowVerifyIcon({
     icon = <Mail className="h-3.5 w-3.5 text-emerald-400" />;
     title = `Manually confirmed paid by ${override.verifiedBy?.name || override.verifiedBy?.email || "staff"}${override.note ? ` — ${override.note}` : ""}`;
   } else if (autoMatch) {
-    const groupNote = !soloMatch ? " — matched as part of a combined payment with other orders on this table" : "";
+    const groupNote = mixedMatch
+      ? ` — one payment for this and ${mixedMatch.others} other charge${mixedMatch.others === 1 ? "" : "s"} (mixed bill)`
+      : !soloMatch ? " — matched as part of a combined payment with other orders on this table" : "";
     icon = <Mail className="h-3.5 w-3.5 text-emerald-400" />;
     title = `PayNow transfer verified — $${Number(autoMatch.amount).toFixed(2)} from "${autoMatch.senderName || "unknown"}" at ${fmtTimeSG(autoMatch.transactionTimestamp)}${groupNote}`;
   } else if (contested) {
@@ -164,6 +182,7 @@ function PayNowVerifyDialog({
   allOverrides: any[];
 }) {
   const setOverride = useSetPaynowOverride();
+  const { toast } = useToast();
   const clearOverride = useClearPaynowOverride();
   const [note, setNote] = useState("");
   // "confirm" = Confirm Paid with no bank record — needs a reason (D105, server enforces it too).
@@ -173,14 +192,21 @@ function PayNowVerifyDialog({
   // The transfer this charge is linked to (populated by the API).
   const linked = override?.status === "linked" ? override.gmailPaymentId : null;
   const linkedId = linked ? String(linked._id || linked) : null;
-  // Transfers already linked to some other charge — so one transfer isn't
-  // linked twice by mistake. Each maps to the charge it's linked to (the API
-  // describes it: booking / invoice / F&B, table or item, amount, time).
-  const usedElsewhere = new Map<string, any>(
-    allOverrides
-      .filter((o) => o.status === "linked" && o.gmailPaymentId && !(o.refType === refType && String(o.refId) === String(refId)))
-      .map((o) => [String(o.gmailPaymentId._id || o.gmailPaymentId), o])
-  );
+  // Transfers already linked to other charges, and what they're linked to (the
+  // API describes each: booking / invoice / F&B, table or item, amount, time).
+  // A transfer can pay a mixed bill, so it can be linked again while enough of
+  // it is left for this charge (the server checks too).
+  const usedElsewhere = new Map<string, any[]>();
+  for (const o of allOverrides) {
+    if (o.status !== "linked" || !o.gmailPaymentId || (o.refType === refType && String(o.refId) === String(refId))) continue;
+    const k = String(o.gmailPaymentId._id || o.gmailPaymentId);
+    usedElsewhere.set(k, [...(usedElsewhere.get(k) || []), o]);
+  }
+  const leftFor = (p: any, others: any[]) => {
+    if (typeof p.remaining === "number") return p.remaining;
+    const used = others.reduce((s, o) => s + (Number(o.charge?.amount) || 0), 0);
+    return Math.round((Number(p.amount) - used) * 100) / 100;
+  };
   const fallbackKind: Record<string, string> = { Booking: "a booking", TimerSession: "an invoice", FnbOrder: "an F&B order" };
   const linkedToLabel = (o: any) => {
     const c = o?.charge;
@@ -206,7 +232,10 @@ function PayNowVerifyDialog({
   };
 
   const linkTo = (gmailPaymentId: string) => {
-    setOverride.mutate({ refType, refId, status: "linked", gmailPaymentId });
+    setOverride.mutate(
+      { refType, refId, status: "linked", gmailPaymentId },
+      { onError: (err: Error) => toast({ title: "Couldn't link the transfer", description: err.message, variant: "destructive" }) }
+    );
     onOpenChange(false);
   };
   const confirmPaid = () => {
@@ -256,19 +285,26 @@ function PayNowVerifyDialog({
                 {candidates.map((p) => {
                   const isLinked = String(p._id) === linkedId;
                   const elsewhere = usedElsewhere.get(String(p._id));
+                  const left = elsewhere ? leftFor(p, elsewhere) : null;
+                  // 10c leeway for rounding, same as the server.
+                  const notEnoughLeft = left !== null && Math.round(left * 100) + 10 < Math.round(amount * 100);
                   return (
                     <button
                       key={p._id}
                       type="button"
-                      onClick={() => !isLinked && linkTo(p._id)}
-                      disabled={busy || isLinked}
+                      onClick={() => !isLinked && !notEnoughLeft && linkTo(p._id)}
+                      disabled={busy || isLinked || notEnoughLeft}
                       className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2 ${isLinked ? "bg-emerald-500/10 border-l-2 border-emerald-500" : "hover:bg-muted"}`}
                     >
                       <span>
                         ${Number(p.amount).toFixed(2)} — {p.senderName || "unknown"}
                         <span className="block text-xs text-muted-foreground">
-                          {fmtDateTimeSG(p.transactionTimestamp)} · {diffLabel(Number(p.amount))}
-                          {elsewhere && <span className="text-amber-500"> · already linked to {linkedToLabel(elsewhere)}</span>}
+                          {fmtDateTimeSG(p.transactionTimestamp)} · {elsewhere && left !== null ? diffLabel(left) + " of what's left" : diffLabel(Number(p.amount))}
+                          {elsewhere && (
+                            <span className={notEnoughLeft ? "text-amber-500" : "text-emerald-500"}>
+                              {" "}· already linked to {elsewhere.map(linkedToLabel).join("; ")} · ${Math.max(0, left ?? 0).toFixed(2)} left{notEnoughLeft ? " — not enough for this charge" : " — can also pay this charge"}
+                            </span>
+                          )}
                           {!elsewhere && p.usedFor?.kind === "topup" && (
                             <span className="text-amber-500"> · already credited to wallet top-up{p.usedFor.customer ? ` — ${p.usedFor.customer}` : ""}</span>
                           )}

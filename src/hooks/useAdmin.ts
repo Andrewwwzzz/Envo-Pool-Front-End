@@ -51,6 +51,8 @@ export function useSetPaynowOverride() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-paynow-overrides"] });
+      // A link changes how much of a transfer is left for other charges.
+      qc.invalidateQueries({ queryKey: ["admin-gmail-payments"] });
     },
   });
 }
@@ -67,6 +69,7 @@ export function useClearPaynowOverride() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-paynow-overrides"] });
+      qc.invalidateQueries({ queryKey: ["admin-gmail-payments"] });
     },
   });
 }
