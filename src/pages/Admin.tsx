@@ -1694,7 +1694,8 @@ function InvoicesTab() {
     </Card>
 
     <InvoiceDetailDialog
-      session={selectedSession}
+      // The latest copy from the list, so a change made in the dialog (e.g. payment method) shows at once.
+      session={selectedSession ? (sessions.find((x: any) => (x._id || x.id) === (selectedSession._id || selectedSession.id)) ?? selectedSession) : null}
       onClose={() => setSelectedSession(null)}
       onDelete={!canVoid ? undefined : () => {
         if (selectedSession) {
