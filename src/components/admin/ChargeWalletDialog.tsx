@@ -24,6 +24,7 @@ import { useChargeWallet, useAdminUser, type ChargeWalletCategory } from "@/hook
 import { useAdminMenu } from "@/hooks/useFnb";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ChargeWalletDialogProps {
   open: boolean;
@@ -86,6 +87,9 @@ export function ChargeWalletDialog({
 }: ChargeWalletDialogProps) {
   const charge = useChargeWallet();
   const { toast } = useToast();
+  // Only an admin may take a personal account below $0 (D9) — the server refuses it for staff.
+  const { user: authUser } = useAuth();
+  const isAdmin = authUser?.role === "admin";
   const { data: fnbProducts = [] } = useAdminMenu();
   // Caller-supplied accountAllowsNegative may be stale or simply not wired up
   // (e.g. it comes from a walk-in session row that never carried this field) —
@@ -123,6 +127,8 @@ export function ChargeWalletDialog({
   const validAmount = Number.isFinite(amt) && amt > 0;
   const newBalance = useMemo(() => currentBalance - (validAmount ? amt : 0), [currentBalance, amt, validAmount]);
   const willGoNegative = validAmount && newBalance < 0;
+  // F&B paid by cash/PayNow doesn't touch the wallet.
+  const touchesWallet = !(category === "fnb" && fnbPaymentMethod !== "wallet");
   const isFnbCategory = category === "fnb";
   const accountFlaggedNegative = accountAllowsNegative || !!freshUser?.allowNegativeBalance;
   const effectiveAllowNegative = allowNegative || accountFlaggedNegative;
@@ -171,21 +177,24 @@ export function ChargeWalletDialog({
     setIsSubmitting(true);
     try {
       if (isFnbCategory && fnbItems.length > 0) {
-        // Call /api/fnb/orders/staff once per unit so each item becomes a real FnbOrder
-        // (pending → staff marks served in FnB tab; stock decremented; correct transaction description)
-        for (const item of fnbItems) {
-          for (let i = 0; i < item.quantity; i++) {
-            const res = await apiFetch("/api/fnb/orders/staff", {
-              method: "POST",
-              body: JSON.stringify({ userId, productId: item.productId, tableName: normalizeTableName(tableName) || null, paymentMethod: fnbPaymentMethod }),
-            });
-            if (!res.ok) {
-              const err = await res.json().catch(() => ({}));
-              toast({ title: "Order failed", description: err.error || `Failed to order ${item.productName}`, variant: "destructive" });
-              return;
-            }
-          }
+        // D117: one request for every item — each unit still becomes a real F&B order (pending → served
+        // in the F&B tab), but they are charged and ordered all together or not at all.
+        const res = await apiFetch("/api/fnb/orders/staff/batch", {
+          method: "POST",
+          body: JSON.stringify({
+            userId,
+            items: fnbItems.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+            tableName: normalizeTableName(tableName) || null,
+            paymentMethod: fnbPaymentMethod,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          toast({ title: "Order failed — nothing was charged", description: err.error || "Please try again.", variant: "destructive" });
+          return;
         }
+        const data = await res.json().catch(() => ({}));
+        toast({ title: data.message || "Order placed" });
         onCharged?.();
         onOpenChange(false);
       } else {
@@ -225,7 +234,7 @@ export function ChargeWalletDialog({
         <div className="space-y-4">
           <div className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
             <span className="text-muted-foreground">Current balance</span>
-            <span className="font-semibold">${currentBalance.toFixed(2)}</span>
+            <span className="font-semibold">{currentBalance < 0 ? "−" : ""}${Math.abs(currentBalance).toFixed(2)}</span>
           </div>
 
           <div className="space-y-1.5">
@@ -393,11 +402,11 @@ export function ChargeWalletDialog({
             </div>
           )}
 
-          {validAmount && (
+          {validAmount && touchesWallet && (
             <div className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
               <span className="text-muted-foreground">Balance after charge</span>
               <span className={`font-semibold ${newBalance < 0 ? "text-destructive" : ""}`}>
-                ${newBalance.toFixed(2)}
+                {newBalance < 0 ? "−" : ""}${Math.abs(newBalance).toFixed(2)}
               </span>
             </div>
           )}
@@ -413,13 +422,17 @@ export function ChargeWalletDialog({
               <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
               <div className="space-y-2">
                 <p className="text-destructive">Charge exceeds the customer's wallet balance.</p>
-                <label className="flex items-center gap-2 text-xs">
-                  <Checkbox
-                    checked={allowNegative}
-                    onCheckedChange={(v) => setAllowNegative(v === true)}
-                  />
-                  Allow negative balance
-                </label>
+                {isAdmin ? (
+                  <label className="flex items-center gap-2 text-xs">
+                    <Checkbox
+                      checked={allowNegative}
+                      onCheckedChange={(v) => setAllowNegative(v === true)}
+                    />
+                    Allow negative balance
+                  </label>
+                ) : (
+                  <p className="text-xs text-muted-foreground">The customer needs to top up first, or ask an admin.</p>
+                )}
               </div>
             </div>
           )}

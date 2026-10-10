@@ -2064,7 +2064,7 @@ function CustomersTab({
           <DialogHeader>
             <DialogTitle>Delete customer account?</DialogTitle>
             <DialogDescription>
-              This soft-deletes {deleteTarget?.name || deleteTarget?.email}. Their data is retained but the account is disabled. A master admin can restore or permanently delete it later.
+              This soft-deletes {deleteTarget?.name || deleteTarget?.email}. Their data is kept but the account is disabled. An admin can restore it from Show Deleted; only the Master account can delete it permanently.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
