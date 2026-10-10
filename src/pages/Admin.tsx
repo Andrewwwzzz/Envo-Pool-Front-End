@@ -49,7 +49,7 @@ import { useAdminFnbOrders } from "@/hooks/useFnb";
 import { useAdminPublicHolidays } from "@/hooks/usePricing";
 import { useAdminCampaigns } from "@/hooks/useCampaign";
 import { OperatingHoursSection } from "@/components/admin/OperatingHoursSection";
-import { useAdminTransactions, useAdminActivityLogs } from "@/hooks/useAdminLogs";
+import { useAdminTransactions } from "@/hooks/useAdminLogs";
 import { useAdminGmailPayments } from "@/hooks/useAdmin";
 import { PayNowVerifyIcon } from "@/components/admin/PayNowVerifyIcon";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -2018,7 +2018,8 @@ function CustomersTab({
                   <td className="py-3 pr-4">${(c.total_spent ?? 0).toFixed(2)}</td>
                   <td className="py-3 pr-4 text-muted-foreground">{c.created_at ? fmtDateSG(c.created_at) : "—"}</td>
                   <td className="py-3" onClick={(e) => e.stopPropagation()}>
-                    {!canManageAccount ? null : c.isDeleted ? (
+                    {/* Team accounts can only be changed by the Master account (server rule) — no buttons for anyone else. */}
+                    {!canManageAccount || ((c.role === "admin" || c.role === "staff") && !isMaster) ? null : c.isDeleted ? (
                       <div className="flex gap-1">
                         <Button
                           variant="outline"
@@ -2218,7 +2219,8 @@ function WalletTransactionDetailDialog({ transaction, onClose }: { transaction: 
 
   // Timer-session invoice (admin pro-rate table) — reuse InvoiceDetailDialog directly.
   if (resolved?.kind === "timer_session") {
-    return <InvoiceDetailDialog session={{ ...resolved.data, _walkin: false }} onClose={onClose} onDelete={() => {}} />;
+    // No Delete here — invoices are deleted (admin only) from Bookings → Invoices.
+    return <InvoiceDetailDialog session={{ ...resolved.data, _walkin: false }} onClose={onClose} />;
   }
 
   // Walk-in session — shape it the same way InvoicesTab does before handing to InvoiceDetailDialog.
@@ -2238,7 +2240,7 @@ function WalletTransactionDetailDialog({ transaction, onClose }: { transaction: 
       amountCharged: s.amountCharged ?? s.totalCost ?? s.runningCost ?? 0,
       tableName: s.tableName || (s.tableId ? getTableLabel(s.tableId) : ""),
     };
-    return <InvoiceDetailDialog session={shaped} onClose={onClose} onDelete={() => {}} />;
+    return <InvoiceDetailDialog session={shaped} onClose={onClose} />;
   }
 
   // F&B order or unresolved/plain transaction — simple inline view.
@@ -2259,7 +2261,7 @@ function WalletTransactionDetailDialog({ transaction, onClose }: { transaction: 
               <div className="space-y-3 text-sm">
                 <div className="grid grid-cols-2 gap-3">
                   <div><p className="text-muted-foreground text-xs">Product</p><p className="font-medium">{o.productName || o.productId?.name}</p></div>
-                  <div><p className="text-muted-foreground text-xs">Category</p><p className="font-medium capitalize">{o.productCategory || o.productId?.category || "—"}</p></div>
+                  <div><p className="text-muted-foreground text-xs">Category</p><p className="font-medium capitalize">{String(o.productCategory || o.productId?.category || "—").replace(/_/g, " ")}</p></div>
                   <div><p className="text-muted-foreground text-xs">Total Price</p><p className="font-medium">${Number(o.totalPrice ?? 0).toFixed(2)}</p></div>
                   <div><p className="text-muted-foreground text-xs">Payment Method</p><p className="font-medium capitalize">{o.paymentMethod}</p></div>
                   <div><p className="text-muted-foreground text-xs">Table</p><p className="font-medium">{o.tableName || "—"}</p></div>
@@ -2278,7 +2280,7 @@ function WalletTransactionDetailDialog({ transaction, onClose }: { transaction: 
             return (
               <div className="space-y-3 text-sm">
                 <div className="grid grid-cols-2 gap-3">
-                  <div><p className="text-muted-foreground text-xs">Type</p><p className="font-medium capitalize">{t.type}</p></div>
+                  <div><p className="text-muted-foreground text-xs">Type</p><p className="font-medium">{({ topup: "Top Up", payment: "Payment", refund: "Refund", admin_charge: "Wallet Charge" } as Record<string, string>)[t.type] || String(t.type || "—").replace(/_/g, " ")}</p></div>
                   <div><p className="text-muted-foreground text-xs">Method</p><p className="font-medium capitalize">{t.method}</p></div>
                   <div><p className="text-muted-foreground text-xs">Amount</p><p className="font-medium">${Math.abs(Number(t.amount) || 0).toFixed(2)}</p></div>
                   <div><p className="text-muted-foreground text-xs">Status</p><p className="font-medium capitalize">{t.status}</p></div>
@@ -2287,7 +2289,9 @@ function WalletTransactionDetailDialog({ transaction, onClose }: { transaction: 
                 {t.description && (
                   <div><p className="text-muted-foreground text-xs">Description</p><p className="font-medium">{t.description}</p></div>
                 )}
-                <p className="text-xs text-muted-foreground pt-1">No linked order, booking, or session found for this transaction.</p>
+                {t.type === "payment" && (
+                  <p className="text-xs text-muted-foreground pt-1">No linked order, booking, or session found for this transaction.</p>
+                )}
               </div>
             );
           })()
@@ -2317,7 +2321,17 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const [emailReason, setEmailReason] = useState("");
   const { data: bookings, isLoading: bookingsLoading } = useCustomerBookings(customer.user_id);
   const { data: walletHistory } = useCustomerWalletHistory(customer.user_id);
-  const { data: activityLogs } = useAdminActivityLogs();
+  // Who verified this account — asked for directly (the shared activity-log list only holds recent entries).
+  const { data: verifyLogs } = useQuery({
+    queryKey: ["customer-verify-log", customer.user_id],
+    enabled: !!customer.user_id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const res = await apiFetch(`/api/logs/admin?action=verify_user&targetUserId=${customer.user_id}&limit=1`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
   const { data: allCustomers } = useAdminCustomers("");
   const { data: tablesList } = useAdminTables();
   const [selectedWalletTx, setSelectedWalletTx] = useState<any | null>(null);
@@ -2337,8 +2351,8 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
       const resolved = looksLikeId ? lookupName(raw) : null;
       return { name: resolved || raw, at: customer.verified_at };
     }
-    const logs = Array.isArray(activityLogs) ? activityLogs : [];
-    const entry = logs.find((l: any) => l.action === "verify_user" && (l.targetUserId === customer.user_id || l.targetUserId?._id === customer.user_id));
+    const logs = Array.isArray(verifyLogs) ? verifyLogs : [];
+    const entry = logs.find((l: any) => l.action === "verify_user");
     if (!entry) return null;
     const adminId = typeof entry.adminId === "object" ? entry.adminId?._id : entry.adminId;
     const adminName = typeof entry.adminId === "object"
@@ -2995,7 +3009,8 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
       </Dialog>
 
       <AdminBookingDetailDialog
-        booking={selectedBooking}
+        // Bookings listed on a profile belong to this customer — give the dialog their name/email.
+        booking={selectedBooking ? { customerName: customer.legal_name || customer.name, customerEmail: customer.email, shortId: customer.shortId, ...selectedBooking } : null}
         open={!!selectedBooking}
         onOpenChange={(open) => { if (!open) setSelectedBooking(null); }}
       />
