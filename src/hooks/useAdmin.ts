@@ -1168,17 +1168,23 @@ export function useUpdateCustomerWallet() {
       walletDelta,
       points,
       pointsDelta,
+      expectedWalletBalance,
+      expectedPoints,
+      reason,
     }: {
       userId: string;
       walletBalance?: number;
       walletDelta?: number;
       points?: number;
       pointsDelta?: number;
+      expectedWalletBalance?: number;
+      expectedPoints?: number;
+      reason: string;
     }) => {
-      const payload: Record<string, number> = {};
-      if (walletBalance !== undefined) payload.walletBalance = walletBalance;
+      const payload: Record<string, number | string> = { reason };
+      if (walletBalance !== undefined) { payload.walletBalance = walletBalance; payload.expectedWalletBalance = expectedWalletBalance as number; }
       if (walletDelta !== undefined) payload.walletDelta = walletDelta;
-      if (points !== undefined) payload.points = points;
+      if (points !== undefined) { payload.points = points; payload.expectedPoints = expectedPoints as number; }
       if (pointsDelta !== undefined) payload.pointsDelta = pointsDelta;
 
       const res = await apiFetch(`/api/users/${userId}/wallet`, {
@@ -1187,7 +1193,7 @@ export function useUpdateCustomerWallet() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to update wallet");
+        throw new Error(err.error || err.message || "Failed to update wallet");
       }
     },
     onSuccess: () => {

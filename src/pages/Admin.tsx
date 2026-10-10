@@ -2014,7 +2014,7 @@ function CustomersTab({
                       {c.role}
                     </Badge>
                   </td>
-                  <td className="py-3 pr-4">${(c.wallet_balance ?? 0).toFixed(2)}</td>
+                  <td className="py-3 pr-4">{fmtSignedMoney(c.wallet_balance)}</td>
                   <td className="py-3 pr-4">${(c.total_spent ?? 0).toFixed(2)}</td>
                   <td className="py-3 pr-4 text-muted-foreground">{c.created_at ? fmtDateSG(c.created_at) : "—"}</td>
                   <td className="py-3" onClick={(e) => e.stopPropagation()}>
@@ -2297,6 +2297,9 @@ function WalletTransactionDetailDialog({ transaction, onClose }: { transaction: 
   );
 }
 
+// Money with the sign in front: −$43.98, not $-43.98.
+const fmtSignedMoney = (n: any) => { const v = Number(n ?? 0) || 0; return `${v < 0 ? "−" : ""}$${Math.abs(v).toFixed(2)}`; };
+
 function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -2353,23 +2356,32 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const [reVerifyName, setReVerifyName] = useState("");
   const [reVerifyDob, setReVerifyDob] = useState("");
   const [reVerifying, setReVerifying] = useState(false);
+  const [reVerifyReason, setReVerifyReason] = useState("");
+  // D114: an unverified customer can be verified by staff (after an ID check); changing a verified
+  // legal name/DOB is admin-only with a reason. Team accounts follow the admin/master rules (server).
+  const alreadyVerified = !!customer.isVerified;
+  const canSetLegalName = canManageAccount || (!alreadyVerified && isCustomerAccount);
 
   const handleReVerify = async () => {
     if (!reVerifyName.trim() || !reVerifyDob) {
       toast({ title: "Missing fields", description: "Legal name and date of birth are required", variant: "destructive" });
       return;
     }
+    if (alreadyVerified && reVerifyReason.trim().length < 5) {
+      toast({ title: "Reason required", description: "Say why a verified legal name or date of birth is changing (at least 5 characters).", variant: "destructive" });
+      return;
+    }
     try {
       setReVerifying(true);
       const res = await apiFetch("/api/admin/verify-user", {
         method: "POST",
-        body: JSON.stringify({ userId: customer.user_id, legalName: reVerifyName.trim(), dateOfBirth: reVerifyDob }),
+        body: JSON.stringify({ userId: customer.user_id, legalName: reVerifyName.trim(), dateOfBirth: reVerifyDob, ...(alreadyVerified ? { reason: reVerifyReason.trim() } : {}) }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || data.message || "Failed");
       }
-      toast({ title: "Legal name updated" });
+      toast({ title: alreadyVerified ? "Legal name updated" : "Customer verified" });
       setReVerifyOpen(false);
       queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
     } catch (err: any) {
@@ -2443,24 +2455,41 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
   const [pointsMode, setPointsMode] = useState<"exact" | "delta">("delta");
   const [pointsExact, setPointsExact] = useState(String(customer.reward_points ?? 0));
   const [pointsDelta, setPointsDelta] = useState("0");
+  const [walletReason, setWalletReason] = useState("");
+
+  const openWalletEdit = () => {
+    setWalletMode("delta"); setWalletExact(String(customer.wallet_balance ?? 0)); setWalletDelta("0");
+    setPointsMode("delta"); setPointsExact(String(customer.reward_points ?? 0)); setPointsDelta("0");
+    setWalletReason("");
+    setEditing(true);
+  };
 
   const saveEdit = () => {
-    const payload: Parameters<typeof updateWallet.mutate>[0] = { userId: customer.user_id };
+    const bad = (msg: string) => toast({ title: "Check the amounts", description: msg, variant: "destructive" });
+    const payload: Parameters<typeof updateWallet.mutate>[0] = { userId: customer.user_id, reason: walletReason.trim() };
+    const curWallet = Number(customer.wallet_balance ?? 0);
+    const curPoints = Number(customer.reward_points ?? 0);
     if (walletMode === "exact") {
-      payload.walletBalance = parseFloat(walletExact);
+      const v = Number(walletExact);
+      if (walletExact.trim() === "" || !Number.isFinite(v) || v < 0) return bad("The exact wallet balance must be a number of 0 or more.");
+      if (Math.round(v * 100) !== Math.round(curWallet * 100)) { payload.walletBalance = Math.round(v * 100) / 100; payload.expectedWalletBalance = curWallet; }
     } else {
-      const d = parseFloat(walletDelta);
-      if (d !== 0) payload.walletDelta = d;
+      const d = Number(walletDelta);
+      if (walletDelta.trim() === "" || !Number.isFinite(d)) return bad("The wallet adjustment must be a number.");
+      if (d !== 0) payload.walletDelta = Math.round(d * 100) / 100;
     }
     if (pointsMode === "exact") {
-      const p = parseInt(pointsExact, 10);
-      if (!Number.isNaN(p)) payload.points = p;
+      const p = Number(pointsExact);
+      if (pointsExact.trim() === "" || !Number.isInteger(p) || p < 0) return bad("Exact points must be a whole number of 0 or more.");
+      if (p !== curPoints) { payload.points = p; payload.expectedPoints = curPoints; }
     } else {
-      const d = parseInt(pointsDelta, 10);
-      if (d) payload.pointsDelta = d;
+      const d = Number(pointsDelta);
+      if (pointsDelta.trim() === "" || !Number.isInteger(d)) return bad("The points adjustment must be a whole number.");
+      if (d !== 0) payload.pointsDelta = d;
     }
-    updateWallet.mutate(payload);
-    setEditing(false);
+    if (payload.walletBalance === undefined && payload.walletDelta === undefined && payload.points === undefined && payload.pointsDelta === undefined) return bad("Nothing to change.");
+    if (walletReason.trim().length < 5) return bad("Write a reason (at least 5 characters).");
+    updateWallet.mutate(payload, { onSuccess: () => { setEditing(false); setWalletReason(""); } });
   };
 
   const handleResetPassword = async () => {
@@ -2518,7 +2547,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
               <CardTitle>{customer.legal_name || customer.name || "No Name"}</CardTitle>
               {customer.shortId ? (
                 <div className="flex items-center gap-1">
-                  <span className="px-3 py-1 rounded-full bg-accent/20 text-accent-foreground border border-accent/30 font-mono text-sm font-semibold">
+                  <span className="px-3 py-1 rounded-full bg-muted text-foreground border border-border font-mono text-sm font-semibold">
                     {customer.shortId}
                   </span>
                   <Button
@@ -2545,7 +2574,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                   {canManageAccount && (
                     <>
                       <Button size="sm" variant="outline" onClick={() => { setNewEmailInput(customer.email ?? ""); setEmailReason(""); setChangeEmailOpen(true); }}><Pencil className="mr-1 h-3 w-3" /> Change Email</Button>
-                      <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet & Points</Button>
+                      <Button size="sm" variant="outline" onClick={openWalletEdit}><Pencil className="mr-1 h-3 w-3" /> Edit Wallet & Points</Button>
                       <Button size="sm" variant="outline" onClick={() => { setNewPassword(""); setConfirmPassword(""); setResetPasswordOpen(true); }}><Key className="mr-1 h-3 w-3" /> Reset Password</Button>
                     </>
                   )}
@@ -2583,9 +2612,11 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
               <p className="text-muted-foreground">Legal Name</p>
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-medium">{customer.legal_name || <span className="text-muted-foreground">—</span>}</p>
-                <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => { setReVerifyName(customer.legal_name || ""); setReVerifyDob(customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : ""); setReVerifyOpen(true); }}>
-                  Edit
-                </Button>
+                {canSetLegalName && (
+                  <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => { setReVerifyName(customer.legal_name || ""); setReVerifyDob(customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : ""); setReVerifyReason(""); setReVerifyOpen(true); }}>
+                    {alreadyVerified ? "Edit" : "Verify"}
+                  </Button>
+                )}
               </div>
             </div>
             {isFullAdmin && (
@@ -2610,7 +2641,14 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           {/* Re-verify / Set Legal Name dialog */}
           <Dialog open={reVerifyOpen} onOpenChange={setReVerifyOpen}>
             <DialogContent>
-              <DialogHeader><DialogTitle>Set Legal Name</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>{alreadyVerified ? "Change Legal Name" : "Verify Customer"}</DialogTitle>
+                <DialogDescription>
+                  {alreadyVerified
+                    ? "This account is already verified. Only change it to correct a mistake — your reason and the old details are kept in the log."
+                    : "Check the customer's ID in person, then enter the name and date of birth exactly as shown."}
+                </DialogDescription>
+              </DialogHeader>
               <div className="space-y-3 pt-2">
                 <div className="space-y-1">
                   <Label>Full Legal Name</Label>
@@ -2620,8 +2658,14 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                   <Label>Date of Birth</Label>
                   <Input type="date" value={reVerifyDob} onChange={e => setReVerifyDob(e.target.value)} />
                 </div>
+                {alreadyVerified && (
+                  <div className="space-y-1">
+                    <Label>Reason for the change</Label>
+                    <Textarea value={reVerifyReason} onChange={e => setReVerifyReason(e.target.value)} placeholder="e.g. Name misspelt — checked against NRIC (min 5 characters)" rows={2} maxLength={300} />
+                  </div>
+                )}
                 <div className="flex gap-2 pt-1">
-                  <Button onClick={handleReVerify} disabled={reVerifying || !reVerifyName.trim() || !reVerifyDob}>
+                  <Button onClick={handleReVerify} disabled={reVerifying || !reVerifyName.trim() || !reVerifyDob || (alreadyVerified && reVerifyReason.trim().length < 5)}>
                     {reVerifying ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null} Save
                   </Button>
                   <Button variant="ghost" onClick={() => setReVerifyOpen(false)}>Cancel</Button>
@@ -2635,7 +2679,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
               {/* Wallet Section */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label className="font-semibold">Wallet Balance (Current: ${(customer.wallet_balance ?? 0).toFixed(2)})</Label>
+                  <Label className="font-semibold">Wallet Balance (Current: {fmtSignedMoney(customer.wallet_balance)})</Label>
                   <div className="flex gap-1">
                     <Button size="sm" variant={walletMode === "delta" ? "default" : "outline"} onClick={() => setWalletMode("delta")} className="text-xs h-7">+/− Adjust</Button>
                     <Button size="sm" variant={walletMode === "exact" ? "default" : "outline"} onClick={() => setWalletMode("exact")} className="text-xs h-7">Set Exact</Button>
@@ -2698,8 +2742,13 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
                 )}
               </div>
 
+              <div className="space-y-1">
+                <Label className="font-semibold">Reason</Label>
+                <Textarea value={walletReason} onChange={(e) => setWalletReason(e.target.value)} placeholder="Why is the wallet or points changing? (min 5 characters — saved in the log and shown on the transaction)" rows={2} maxLength={300} />
+              </div>
+
               <div className="flex gap-2">
-                <Button size="sm" onClick={saveEdit} disabled={updateWallet.isPending}>
+                <Button size="sm" onClick={saveEdit} disabled={updateWallet.isPending || walletReason.trim().length < 5}>
                   {updateWallet.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />} Save Changes
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setEditing(false)}><X className="mr-1 h-3 w-3" /> Cancel</Button>
@@ -2708,7 +2757,7 @@ function CustomerDetail({ customer, onBack }: { customer: any; onBack: () => voi
           ) : (
             <div className="flex items-center justify-between gap-4 flex-wrap pt-2 border-t border-border text-sm">
               <div className="flex gap-6">
-                <span>Wallet: <strong>${(customer.wallet_balance ?? 0).toFixed(2)}</strong></span>
+                <span>Wallet: <strong>{fmtSignedMoney(customer.wallet_balance)}</strong></span>
                 <span>Total Spent: <strong>${(customer.total_spent ?? 0).toFixed(2)}</strong></span>
                 <span>Points: <strong>{customer.reward_points ?? 0}</strong></span>
               </div>
