@@ -174,12 +174,21 @@ function PayNowVerifyDialog({
   const linked = override?.status === "linked" ? override.gmailPaymentId : null;
   const linkedId = linked ? String(linked._id || linked) : null;
   // Transfers already linked to some other charge — so one transfer isn't
-  // linked twice by mistake.
-  const usedElsewhere = new Set(
+  // linked twice by mistake. Each maps to the charge it's linked to (the API
+  // describes it: booking / invoice / F&B, table or item, amount, time).
+  const usedElsewhere = new Map<string, any>(
     allOverrides
       .filter((o) => o.status === "linked" && o.gmailPaymentId && !(o.refType === refType && String(o.refId) === String(refId)))
-      .map((o) => String(o.gmailPaymentId._id || o.gmailPaymentId))
+      .map((o) => [String(o.gmailPaymentId._id || o.gmailPaymentId), o])
   );
+  const fallbackKind: Record<string, string> = { Booking: "a booking", TimerSession: "an invoice", FnbOrder: "an F&B order" };
+  const linkedToLabel = (o: any) => {
+    const c = o?.charge;
+    if (!c) return fallbackKind[o?.refType] || "another charge";
+    const amt = Number.isFinite(Number(c.amount)) ? ` · $${Number(c.amount).toFixed(2)}` : "";
+    const at = c.at ? ` · ${fmtDateTimeSG(c.at)}` : "";
+    return `${c.label}${amt}${at}`;
+  };
 
   const t = timestamp ? new Date(timestamp).getTime() : null;
   const nearest = (gmailPayments || [])
@@ -246,7 +255,7 @@ function PayNowVerifyDialog({
                 )}
                 {candidates.map((p) => {
                   const isLinked = String(p._id) === linkedId;
-                  const elsewhere = usedElsewhere.has(String(p._id));
+                  const elsewhere = usedElsewhere.get(String(p._id));
                   return (
                     <button
                       key={p._id}
@@ -259,9 +268,9 @@ function PayNowVerifyDialog({
                         ${Number(p.amount).toFixed(2)} — {p.senderName || "unknown"}
                         <span className="block text-xs text-muted-foreground">
                           {fmtDateTimeSG(p.transactionTimestamp)} · {diffLabel(Number(p.amount))}
-                          {elsewhere && <span className="text-amber-500"> · already linked to another charge</span>}
+                          {elsewhere && <span className="text-amber-500"> · already linked to {linkedToLabel(elsewhere)}</span>}
                           {!elsewhere && p.usedFor?.kind === "topup" && (
-                            <span className="text-amber-500"> · already credited to {p.usedFor.customer ? `${p.usedFor.customer}'s` : "a"} wallet top-up</span>
+                            <span className="text-amber-500"> · already credited to wallet top-up{p.usedFor.customer ? ` — ${p.usedFor.customer}` : ""}</span>
                           )}
                         </span>
                       </span>
