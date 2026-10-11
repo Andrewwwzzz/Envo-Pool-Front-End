@@ -305,6 +305,9 @@ export default function LockersTab() {
                     const renewal = rental?.renewalDate ?? l.renewalDate;
 
                     const rentalActive = rental && !isCancelled(rental);
+                    // A locker that came with a membership which has since expired or been deleted (D122).
+                    const linkedMembership = rental?.membershipId && typeof rental.membershipId === "object" ? rental.membershipId : null;
+                    const membershipEnded = !!rentalActive && !!linkedMembership && (linkedMembership.isDeleted || linkedMembership.status !== "active");
                     const isAvailable = !rentalActive && (l.status ?? "available") === "available";
 
                     return (
@@ -314,6 +317,11 @@ export default function LockersTab() {
                           <Badge variant={isAvailable ? "secondary" : "default"} className="capitalize">
                             {isAvailable ? "Available" : "Rented"}
                           </Badge>
+                          {membershipEnded && (
+                            <Badge variant="destructive" className="ml-1 whitespace-nowrap" title="The membership this locker came with has ended. Empty the locker, then Cancel the rental with a reason.">
+                              Membership ended — clear and cancel
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>${l.monthlyPrice ?? 0}</TableCell>
                         <TableCell>

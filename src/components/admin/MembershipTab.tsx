@@ -34,6 +34,10 @@ import { PinDialog } from "@/components/admin/PinDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { fmtDateSG } from "@/lib/sgTime";
 import ReasonDialog from "./ReasonDialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import DeletedBanner, { getDeletedInfo, isDeleted } from "./DeletedBanner";
 
 type PlanForm = {
@@ -404,7 +408,11 @@ function AssignMembershipDialog({ open, onOpenChange }: { open: boolean; onOpenC
 
 function VenuePinCell({ sub }: { sub: any }) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  // Resetting a venue PIN is admin-only and needs a confirmation (D123).
+  const canReset = (user as any)?.role === "admin";
   const [show, setShow] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const regen = useRegenerateMembershipPin();
 
   const pin: string | null = sub.venuePin ?? null;
@@ -433,9 +441,26 @@ function VenuePinCell({ sub }: { sub: any }) {
       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShow(v => !v)} title={show ? "Hide PIN" : "Show PIN"}>
         {show ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
       </Button>
-      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={doRegen} disabled={regen.isPending} title="Regenerate PIN">
-        <KeyRound className="h-3 w-3" />
-      </Button>
+      {canReset && (
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setConfirmReset(true)} disabled={regen.isPending} title="Reset PIN">
+          <KeyRound className="h-3 w-3" />
+        </Button>
+      )}
+      <AlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset this venue PIN?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The member gets a new PIN. Program it into the door keypads and tell the member.
+              Main Door and Back Door switch off; switch them on again once the keypads have the new PIN.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep current PIN</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmReset(false); doRegen(); }}>Reset PIN</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
