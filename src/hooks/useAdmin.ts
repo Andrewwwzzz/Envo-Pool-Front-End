@@ -838,7 +838,8 @@ export function useAdminPromoCodes(filter: "default" | "all" = "all") {
         method: "POST",
         body: JSON.stringify({ ...promo, code: promo.code.toUpperCase() }),
       });
-      if (!res.ok) throw new Error("Failed to create promo code");
+      // The server says what's wrong with the values (D124) — show that, not a generic error.
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Failed to create promo code"); }
     },
     onSuccess: () => {
       toast({ title: "Promo code created" });
@@ -882,7 +883,7 @@ export function useAdminPromoCodes(filter: "default" | "all" = "all") {
         method: "PATCH",
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to update promo code");
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Failed to update promo code"); }
     },
     onSuccess: () => {
       toast({ title: "Promo code updated" });

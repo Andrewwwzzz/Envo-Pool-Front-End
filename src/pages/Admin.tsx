@@ -3652,7 +3652,7 @@ function PromosTab() {
 
   const handleEdit = async () => {
     if (!editTarget) return;
-    await update.mutateAsync({
+    try { await update.mutateAsync({
       id: editTarget.id,
       data: {
         discount_type: editForm.discount_type,
@@ -3669,12 +3669,13 @@ function PromosTab() {
         exact_hours: editForm.exact_hours ? parseFloat(editForm.exact_hours) : null,
         staff_only: editForm.staff_only,
       },
-    });
+    }); } catch { return; } // the error toast says why; the dialog stays open
     setEditTarget(null);
   };
 
-  const handleCreate = () => {
-    create.mutate({
+  const handleCreate = async () => {
+    // Keep what was typed if the server refuses it (the toast says why).
+    try { await create.mutateAsync({
       code: form.code,
       discount_type: form.discount_type,
       discount_value: parseFloat(form.discount_value),
@@ -3690,7 +3691,7 @@ function PromosTab() {
       valid_time_end: form.valid_time_end || null,
       exact_hours: form.exact_hours ? parseFloat(form.exact_hours) : null,
       staff_only: form.staff_only,
-    });
+    }); } catch { return; }
     setForm({ code: "", discount_type: "percentage", discount_value: "", minimum_spend: "", minimum_hours: "", max_discount_amount: "", usage_limit: "", per_user_limit: "", expiry_date: "", valid_days: [], valid_time_start: "", valid_time_end: "", exact_hours: "", staff_only: false });
   };
 
