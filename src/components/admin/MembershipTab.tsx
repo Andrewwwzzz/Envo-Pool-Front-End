@@ -240,7 +240,7 @@ function PlanFormDialog({
           <div className="flex items-center justify-between rounded-md border border-purple-500/30 bg-purple-500/5 p-3">
             <div>
               <Label className="text-xs font-medium text-purple-400">Private / Invite-Only Plan</Label>
-              <p className="text-xs text-muted-foreground mt-0.5">Hidden from users — admin assigns only. Grants after-hours venue access with a PIN.</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Hidden from users — staff and admins assign it. Grants after-hours venue access with a PIN.</p>
             </div>
             <Switch checked={form.isPrivate} onCheckedChange={(v) => setForm({ ...form, isPrivate: v })} />
           </div>
