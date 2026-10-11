@@ -70,6 +70,9 @@ function getUser(r: any): { id?: string; name: string; email: string } {
 }
 
 function getIssuedBy(r: any): string {
+  // Milestones and Points Shop items are claimed by the customer in the app; the
+  // server stamps an admin account on them, which isn't who issued them.
+  if (r.reason === "milestone" || r.reason === "points_exchange") return "Customer (app)";
   const ib = r.issuedBy || r.createdBy;
   if (ib && typeof ib === "object") return ib.name || ib.email || "—";
   return typeof ib === "string" ? ib : "—";
@@ -303,7 +306,8 @@ export default function RewardsTab({
                       </td>
                       <td className="py-2 pr-4">
                         {r.type === "free_item" && r.description ? (
-                          <Badge variant="outline" className="whitespace-nowrap">{r.description}</Badge>
+                          // Catalog item names can be long — let them wrap so the row's actions stay on screen.
+                          <Badge variant="outline" className="max-w-[12rem] whitespace-normal leading-snug rounded-md">{r.description}</Badge>
                         ) : (
                           <Badge variant="outline" className="capitalize whitespace-nowrap">
                             {TYPE_LABELS[r.type] || r.type}
