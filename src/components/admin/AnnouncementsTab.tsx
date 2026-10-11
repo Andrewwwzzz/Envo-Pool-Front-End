@@ -462,7 +462,7 @@ export default function AnnouncementsTab() {
             <DialogTitle>Send this announcement?</DialogTitle>
             <DialogDescription>
               "{title}"{image ? " (with image)" : ""} will go to <strong>{recipientCount} {recipientCount === 1 ? "person" : "people"}</strong>
-              {audience === "all" ? " — every customer" : ""}. Sent announcements can't be recalled.
+              {audience === "all" ? " — every customer" : ""}. You can recall it from Inboxes later, but phone notifications already shown can't be taken back.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
