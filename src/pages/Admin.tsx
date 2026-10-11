@@ -3605,6 +3605,8 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 function PromosTab() {
   const { user: authUser } = useAuth();
   const isMaster = authUser?.isMaster ?? false;
+  // Promo codes set prices: only an admin creates, changes or deletes them (D124 — the server enforces it).
+  const canEditPromos = (authUser as any)?.role === "admin";
   const qc = useQueryClient();
   // Normal view: active codes only. "Show Deleted": deleted codes only.
   const [showDeleted, setShowDeleted] = useState(false);
@@ -3694,6 +3696,7 @@ function PromosTab() {
 
   return (
     <div className="space-y-6">
+      {canEditPromos && (
       <Card>
         <CardHeader><CardTitle>Create Promo Code</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -3793,6 +3796,7 @@ function PromosTab() {
           <Button onClick={handleCreate} disabled={!form.code || !form.discount_value || create.isPending}>Create Promo</Button>
         </CardContent>
       </Card>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
@@ -3859,7 +3863,7 @@ function PromosTab() {
                           )}
                         </td>
                         <td className="py-3 pr-3" onClick={(e) => e.stopPropagation()}>
-                          {deleted ? (
+                          {!canEditPromos ? null : deleted ? (
                             <div className="flex items-center justify-end gap-1">
                               <Button
                                 variant="outline"
