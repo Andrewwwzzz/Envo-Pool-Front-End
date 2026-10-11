@@ -4082,9 +4082,12 @@ function PromoTypeHint({ type }: { type: string }) {
 }
 
 function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () => void }) {
+  const { user: authUser } = useAuth();
+  // Who used a code is admin-only on the server, so staff don't fetch it.
+  const canSeeUsage = (authUser as any)?.role === "admin";
   const { data, isLoading, error } = useQuery({
     queryKey: ["promo-usage", promo?.code],
-    enabled: !!promo?.code,
+    enabled: !!promo?.code && canSeeUsage,
     queryFn: async () => {
       const res = await apiFetch(`/api/promo/${encodeURIComponent(promo.code)}/usage`);
       if (res.status === 404) return { __missing: true };
@@ -4155,7 +4158,8 @@ function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () 
 
           <div>
             <h4 className="text-sm font-semibold mb-2">Usage History</h4>
-            {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+            {!canSeeUsage && <p className="text-sm text-muted-foreground">Who used this code is visible to admins.</p>}
+            {canSeeUsage && isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
             {error && <p className="text-sm text-destructive">Failed to load usage history.</p>}
             {!isLoading && missing && (
               <p className="text-sm text-muted-foreground">
