@@ -73,6 +73,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { getTableLabel } from "@/lib/tableLabel";
+import { topUpCanBeCredited, topUpLateCreditDeadline, TOPUP_EXPIRED_BADGE_CLASS } from "@/lib/topUpStatus";
 import { useActiveWalkinSessions, useForceStopWalkin, useStoppedWalkinSessions } from "@/hooks/useWalkin";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShiftClockWidget } from "@/components/admin/ShiftClockWidget";
@@ -4717,7 +4718,7 @@ function GmailTransactionsTable({ payments, loading }: { payments: any[] | undef
 function TopUpsTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [status, setStatus] = useState<"pending" | "approved" | "rejected" | "all" | "transactions">("pending");
+  const [status, setStatus] = useState<"pending" | "approved" | "rejected" | "expired" | "all" | "transactions">("pending");
   const { data: requests, isLoading: requestsLoading } = useAdminTopUps(status, status !== "transactions");
   const { data: gmailPayments, isLoading: gmailLoading } = useAdminGmailPayments(status === "transactions");
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -4830,6 +4831,7 @@ function TopUpsTab() {
     const v = String(s || "").toLowerCase();
     if (v === "approved") return "bg-green-500/10 text-green-400 border-green-500/30";
     if (v === "rejected") return "bg-destructive/10 text-destructive border-destructive/30";
+    if (v === "expired") return TOPUP_EXPIRED_BADGE_CLASS;
     return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
   };
 
@@ -4870,6 +4872,7 @@ function TopUpsTab() {
             <TabsTrigger value="pending">Pending</TabsTrigger>
             <TabsTrigger value="approved">Approved</TabsTrigger>
             <TabsTrigger value="rejected">Rejected</TabsTrigger>
+            <TabsTrigger value="expired">Expired</TabsTrigger>
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="transactions">Transactions</TabsTrigger>
           </TabsList>
@@ -4903,13 +4906,15 @@ function TopUpsTab() {
                   const c = getCustomer(r);
                   const id = r._id || r.id;
                   const isPending = String(r.status || "pending").toLowerCase() === "pending";
+                  // Pending, or expired within the last 48h — Approve / Confirm Match still credit it
+                  const canCredit = topUpCanBeCredited(r);
                   const methodRaw = String(r.method || "paynow").toLowerCase();
                   const methodIsCash = methodRaw === "cash";
                   const methodClass = methodIsCash
                     ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
                     : "bg-purple-500/10 text-purple-400 border-purple-500/30";
                   const methodLabel = methodIsCash ? "Cash" : "PayNow";
-                  const hasSuggestedMatch = isPending && !!r.bankSenderName && r.matchedVia !== "gmail_auto";
+                  const hasSuggestedMatch = canCredit && !!r.bankSenderName && r.matchedVia !== "gmail_auto";
                   return (
                     <tr
                       key={id}
@@ -4942,7 +4947,7 @@ function TopUpsTab() {
                         )}
                       </td>
                       <td className="py-2 pr-4" onClick={(e) => e.stopPropagation()}>
-                        {isPending ? (
+                        {canCredit ? (
                           <div className="flex gap-2 flex-wrap">
                             {hasSuggestedMatch && (
                               <Button
@@ -4971,14 +4976,16 @@ function TopUpsTab() {
                                 <Check className="h-4 w-4 mr-1" /> Approve
                               </Button>
                             )}
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              disabled={busyId === id}
-                              onClick={() => { setRejectId(id); setRejectReason(""); }}
-                            >
-                              <X className="h-4 w-4 mr-1" /> Reject
-                            </Button>
+                            {isPending && (
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                disabled={busyId === id}
+                                onClick={() => { setRejectId(id); setRejectReason(""); }}
+                              >
+                                <X className="h-4 w-4 mr-1" /> Reject
+                              </Button>
+                            )}
                           </div>
                         ) : (
                           <Badge variant="outline" className={statusBadge(r.status)}>
@@ -5257,6 +5264,9 @@ function TopUpDetailDialog({
   const amount = Number(r.amount || 0);
   const statusStr = String(r.status || "pending");
   const isPending = statusStr.toLowerCase() === "pending";
+  // Pending, or expired within the last 48h — can still be approved
+  const canCredit = topUpCanBeCredited(r);
+  const lateCreditDeadline = topUpLateCreditDeadline(r);
   const reviewedAt = r.reviewedAt || r.reviewed_at;
   const reviewedBy = r.reviewedBy || r.reviewed_by;
   const reviewerName = reviewedBy && typeof reviewedBy === "object" ? reviewedBy.name : (typeof reviewedBy === "string" ? reviewedBy : null);
@@ -5316,6 +5326,9 @@ function TopUpDetailDialog({
                 </Badge>
               </div>
               <div><div className="text-muted-foreground">Submitted</div><div className="font-medium">{fmtDateTimeSG(r.createdAt || r.created_at)}</div></div>
+              {(r.expiredAt || r.expired_at) && (
+                <div><div className="text-muted-foreground">Expired</div><div className="font-medium">{fmtDateTimeSG(r.expiredAt || r.expired_at)}</div></div>
+              )}
               <div>
                 <div className="text-muted-foreground">Method</div>
                 {(() => {
@@ -5333,7 +5346,7 @@ function TopUpDetailDialog({
           </section>
 
           {/* Processing details */}
-          {!isPending && (
+          {!canCredit && (
             <section className="space-y-2">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Processing Details</h3>
               <div className="grid grid-cols-2 gap-3 text-sm">
@@ -5350,9 +5363,14 @@ function TopUpDetailDialog({
           )}
 
           {/* Staff instructions */}
-          {isPending && (
+          {canCredit && (
             <section className="space-y-1 rounded-md border border-yellow-500/30 bg-yellow-500/5 p-4">
               <h3 className="text-sm font-semibold text-yellow-500 uppercase tracking-wide">Instructions for Staff</h3>
+              {!isPending && lateCreditDeadline && (
+                <p className="text-sm">
+                  This request expired, but a late payment can still be credited until {fmtDateTimeSG(lateCreditDeadline)}.
+                </p>
+              )}
               {String(r.method || "paynow").toLowerCase() === "cash" ? (
                 <ul className="text-sm space-y-1 list-disc pl-5">
                   <li>Collect <span className="font-semibold">${amount.toFixed(2)}</span> in cash before approving</li>
@@ -5373,7 +5391,7 @@ function TopUpDetailDialog({
           )}
 
           {/* Actions */}
-          {isPending && (
+          {canCredit && (
             <section className="space-y-3">
               {!inlineRejectMode ? (
                 <div className="flex flex-col gap-2">
@@ -5391,13 +5409,15 @@ function TopUpDetailDialog({
                       <Check className="h-4 w-4 mr-2" /> Approve — Credit ${amount.toFixed(2)} to wallet
                     </Button>
                   )}
-                  <Button
-                    variant="destructive"
-                    disabled={busy}
-                    onClick={() => setInlineRejectMode(true)}
-                  >
-                    <X className="h-4 w-4 mr-2" /> Reject
-                  </Button>
+                  {isPending && (
+                    <Button
+                      variant="destructive"
+                      disabled={busy}
+                      onClick={() => setInlineRejectMode(true)}
+                    >
+                      <X className="h-4 w-4 mr-2" /> Reject
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2">

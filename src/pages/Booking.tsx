@@ -7,7 +7,7 @@ import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
 import { validateRewardCode, Reward } from "@/hooks/useRewards";
 import { useProfile } from "@/hooks/useProfile";
 import { useMyMembership, usePublicHolidays } from "@/hooks/useMembership";
-import { calculateBookingPrice, calculateDiscount, getCurrentHourlyRate } from "@/lib/pricing";
+import { calculateBookingPrice, calculateDiscount, getCurrentHourlyRate, isPHOrPHEve } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -42,6 +42,11 @@ const statusColor: Record<TableStatus, string> = {
 function slotToDate(date: Date, slot: string): Date {
   return sgSlotToUTC(date, slot);
 }
+
+// A membership's plan (populated planId, or a flattened `plan`) and its benefits
+const membershipPlan = (m: any) =>
+  (m?.planId && typeof m.planId === "object" ? m.planId : null) || m?.plan || null;
+const membershipBenefits = (m: any) => membershipPlan(m)?.benefits ?? m?.benefits ?? {};
 
 const Booking = () => {
   const { user, loading, signOut, token } = useAuth();
@@ -193,8 +198,10 @@ const Booking = () => {
 
   const pricing = useMemo(() => {
     if (!startDate || !endDate || !selectedTable || endDate <= startDate || !pricingRules) return null;
-    return calculateBookingPrice(pricingRules, selectedTable, startDate, endDate, publicHolidayDateSet);
-  }, [startDate, endDate, selectedTable, pricingRules, publicHolidayDateSet]);
+    // A per-table rule may name the table's _id or its hardware_id
+    const tableIds = [selectedTable, selectedTableData_pre?.hardware_id].filter(Boolean) as string[];
+    return calculateBookingPrice(pricingRules, tableIds, startDate, endDate, publicHolidayDateSet);
+  }, [startDate, endDate, selectedTable, selectedTableData_pre?.hardware_id, pricingRules, publicHolidayDateSet]);
 
   const originalPrice = pricing?.totalPrice ?? 0;
 
@@ -225,13 +232,14 @@ const Booking = () => {
       const overlapStart = new Date(Math.max(startDate.getTime(), windowStart.getTime()));
       const overlapEnd   = new Date(Math.min(endDate.getTime(),   windowEnd.getTime()));
       if (overlapEnd <= overlapStart) return 0;
-      const overlapCost = (pricing.segments as any[])
+      const overlapCost = parseFloat((pricing.segments as any[])
         .filter(seg => new Date(seg.endTime) > overlapStart && new Date(seg.startTime) < overlapEnd)
         .reduce((sum, seg) => {
           const sStart = Math.max(new Date(seg.startTime).getTime(), overlapStart.getTime());
           const sEnd   = Math.min(new Date(seg.endTime).getTime(),   overlapEnd.getTime());
           return sum + ((sEnd - sStart) / (1000 * 60 * 60)) * seg.hourlyRate;
-        }, 0);
+        }, 0)
+        .toFixed(2)); // the server rounds the overlap cost to the cent
       return calculateDiscount(overlapCost, appliedPromo.discount_type, appliedPromo.discount_value, appliedPromo.max_discount_amount);
     }
     return calculateDiscount(originalPrice, appliedPromo.discount_type, appliedPromo.discount_value, appliedPromo.max_discount_amount);
@@ -265,7 +273,7 @@ const Booking = () => {
     appliedReward?.type === "free_session"
       ? freeSessionCredit
       : appliedReward?.type === "booking_discount"
-      ? Math.min(originalPrice, originalPrice * (rewardDiscountPercent / 100))
+      ? Math.min(originalPrice, parseFloat(((originalPrice * rewardDiscountPercent) / 100).toFixed(2)))
       : 0;
   const rewardPct = originalPrice > 0 ? (rewardDiscountAmt / originalPrice) * 100 : 0;
 
@@ -278,17 +286,13 @@ const Booking = () => {
   const { data: shiftStatus } = useShiftStatus(holdsShiftGatedPlan);
   const onShift = !!shiftStatus?.onShift;
 
-  // Membership — highest active membership benefit
-  const activeMembership = useMemo(() => {
+  // Memberships that count for this booking (active, not expired by the start)
+  const activeMemberships = useMemo(() => {
     const list: any[] = myMembership?.memberships ?? [];
-    const getPlan = (m: any) =>
-      (m?.planId && typeof m.planId === "object" ? m.planId : null) || m?.plan || null;
-    const getPct = (m: any) =>
-      Number(getPlan(m)?.benefits?.bookingDiscount ?? m?.benefits?.bookingDiscount ?? 0);
-    const actives = list.filter((m) => {
+    return list.filter((m) => {
       const status = String(m?.status ?? (m?.active ? "active" : "")).toLowerCase();
       if (status !== "active") return false;
-      if (getPlan(m)?.requiresActiveShift && !onShift) return false;
+      if (membershipPlan(m)?.requiresActiveShift && !onShift) return false;
       const endRaw =
         m?.endDate ??
         m?.end_date ??
@@ -310,51 +314,40 @@ const Booking = () => {
       if (startDate && startDate > expiry) return false;
       return true;
     });
-    if (!actives.length) return null;
-    return actives.reduce(
-      (best, m) => (getPct(m) > getPct(best) ? m : best),
-      actives[0]
-    );
   }, [myMembership, startDate, onShift]);
 
-  const activeMembershipPlan =
-    (activeMembership?.planId && typeof activeMembership.planId === "object"
-      ? activeMembership.planId
-      : null) || activeMembership?.plan || null;
-  const membershipDiscountPct = Number(
-    activeMembershipPlan?.benefits?.bookingDiscount ??
-      activeMembership?.benefits?.bookingDiscount ??
-      0
-  );
+  // Membership — highest active membership benefit
+  const activeMembership = useMemo(() => {
+    if (!activeMemberships.length) return null;
+    const getPct = (m: unknown) => Number(membershipBenefits(m).bookingDiscount ?? 0);
+    return activeMemberships.reduce(
+      (best, m) => (getPct(m) > getPct(best) ? m : best),
+      activeMemberships[0]
+    );
+  }, [activeMemberships]);
+
+  const activeMembershipPlan = membershipPlan(activeMembership);
+  const membershipDiscountPct = Number(membershipBenefits(activeMembership).bookingDiscount ?? 0);
   const membershipPlanName = activeMembershipPlan?.name ?? activeMembership?.planName ?? "Membership";
 
   // Free minutes per visit — granted once per SGT day. Consumed from first
   // segments at their respective hourly rates, like a free_session reward.
-  const freeMinutesPerVisit = Number(
-    activeMembershipPlan?.benefits?.freeMinutesPerVisit ??
-      activeMembership?.benefits?.freeMinutesPerVisit ??
-      0
-  );
-  const freeMinutesDays: number[] = Array.isArray(activeMembershipPlan?.benefits?.freeMinutesDays)
-    ? activeMembershipPlan.benefits.freeMinutesDays
-    : Array.isArray(activeMembership?.benefits?.freeMinutesDays)
-    ? activeMembership.benefits.freeMinutesDays
+  // The plan shown in the "not available" note: the best membership if it has
+  // free minutes, otherwise the first one that does.
+  const freeMinutesMembership =
+    [activeMembership, ...activeMemberships].find((m) => Number(membershipBenefits(m).freeMinutesPerVisit ?? 0) > 0) ?? null;
+  const freeMinutesBenefits = membershipBenefits(freeMinutesMembership);
+  const freeMinutesPerVisit = Number(freeMinutesBenefits.freeMinutesPerVisit ?? 0);
+  const freeMinutesDays: number[] = Array.isArray(freeMinutesBenefits.freeMinutesDays)
+    ? freeMinutesBenefits.freeMinutesDays
     : [];
-  const freeMinutesExcludePH = Boolean(
-    activeMembershipPlan?.benefits?.freeMinutesExcludePH ??
-      activeMembership?.benefits?.freeMinutesExcludePH ??
-      false
-  );
+  const freeMinutesExcludePH = Boolean(freeMinutesBenefits.freeMinutesExcludePH ?? false);
 
-  // Is the booking's start date (in SGT) a public holiday or the day before one?
+  // Is the booking's start a public holiday or the day before one? Judged on
+  // the operational day (before 4am = previous day), like the server.
   const bookingIsPHOrPHEve = useMemo(() => {
     if (!startDate) return false;
-    const dateStr = getSGDateStr(startDate);
-    if (publicHolidayDateSet.has(dateStr)) return true;
-    const sgNextDay = toSG(startDate);
-    sgNextDay.setDate(sgNextDay.getDate() + 1);
-    const nextDayStr = getSGDateStr(sgNextDay);
-    return publicHolidayDateSet.has(nextDayStr);
+    return isPHOrPHEve(startDate, publicHolidayDateSet);
   }, [startDate, publicHolidayDateSet]);
   // Day-of-week eligibility — empty freeMinutesDays = every day. Evaluated
   // against the booking's actual start date, not "today" (advance bookings).
@@ -381,10 +374,44 @@ const Booking = () => {
     return !inWindow;
   }, [startDate, operatingHours, phCloseTime, bookingIsPHOrPHEve]);
 
+  // Free minutes from ALL active memberships add up, as on the server: an
+  // unlimited plan covers the whole booking (no day/PH/same-day/once-a-day
+  // gates); every other plan adds its free minutes if the booking's day and
+  // PH status qualify, it starts within today's operating day and opening
+  // hours, and that membership hasn't used them yet this operating day.
+  const bookingMinutes = startDate && endDate ? (endDate.getTime() - startDate.getTime()) / (1000 * 60) : 0;
+  const freeMinutesAvailable = useMemo(() => {
+    if (!startDate || bookingMinutes <= 0) return 0;
+    const sgDay = toSG(startDate).getDay();
+    // Free minutes only apply when the booking START date is within the
+    // CURRENT operating day (10am SGT to 4am SGT next day) — not calendar midnight.
+    // This lets a 11:30pm-12:10am session count as "today".
+    const startsToday = isWithinCurrentOperatingDay(startDate);
+    let total = 0;
+    for (const m of activeMemberships) {
+      const benefits = membershipBenefits(m);
+      if (benefits.unlimitedFreeMinutes) {
+        total += bookingMinutes;
+        continue;
+      }
+      const perVisit = Number(benefits.freeMinutesPerVisit ?? 0);
+      if (perVisit <= 0) continue;
+      const days: number[] = Array.isArray(benefits.freeMinutesDays) ? benefits.freeMinutesDays : [];
+      if (days.length > 0 && !days.includes(sgDay)) continue;
+      if (benefits.freeMinutesExcludePH && bookingIsPHOrPHEve) continue;
+      if (bookingStartsAfterHours || !startsToday) continue;
+      const lastVisitRaw = m?.lastVisitDate ?? m?.last_visit_date ?? null;
+      const lastVisit = lastVisitRaw ? new Date(lastVisitRaw) : null;
+      if (lastVisit && !isNaN(lastVisit.getTime()) && isWithinCurrentOperatingDay(lastVisit)) continue;
+      total += perVisit;
+    }
+    return Math.min(total, bookingMinutes);
+  }, [activeMemberships, startDate, bookingMinutes, bookingIsPHOrPHEve, bookingStartsAfterHours]);
+
   // Why free minutes aren't showing today, if the plan has the benefit but
   // today's date doesn't qualify (day-of-week or PH/PH-eve restriction).
   const freeMinutesUnavailableReason = useMemo(() => {
-    if (!activeMembership || freeMinutesPerVisit <= 0 || !startDate) return null;
+    if (!freeMinutesMembership || freeMinutesPerVisit <= 0 || !startDate || freeMinutesAvailable > 0) return null;
     if (!isWithinCurrentOperatingDay(startDate)) {
       return `Free ${freeMinutesPerVisit} mins only applies to today's session (10am-4am operating day)`;
     }
@@ -399,21 +426,7 @@ const Booking = () => {
       return `Free ${freeMinutesPerVisit} mins only applies during operating hours, not overnight`;
     }
     return null;
-  }, [activeMembership, freeMinutesPerVisit, startDate, freeMinutesDayAllowed, freeMinutesPHAllowed, freeMinutesDays, bookingStartsAfterHours]);
-
-  const lastVisitDateRaw = activeMembership?.lastVisitDate ?? activeMembership?.last_visit_date ?? null;
-  const freeMinutesAvailable = useMemo(() => {
-    if (!activeMembership || freeMinutesPerVisit <= 0) return 0;
-    if (!freeMinutesDayAllowed || !freeMinutesPHAllowed || bookingStartsAfterHours) return 0;
-    // Free minutes only apply when the booking START date is within the
-    // CURRENT operating day (10am SGT to 4am SGT next day) — not calendar midnight.
-    // This lets a 11:30pm-12:10am session count as "today".
-    if (!startDate || !isWithinCurrentOperatingDay(startDate)) return 0;
-    if (!lastVisitDateRaw) return freeMinutesPerVisit;
-    const lastVisit = new Date(lastVisitDateRaw);
-    if (isNaN(lastVisit.getTime())) return freeMinutesPerVisit;
-    return isWithinCurrentOperatingDay(lastVisit) ? 0 : freeMinutesPerVisit;
-  }, [activeMembership, freeMinutesPerVisit, lastVisitDateRaw, freeMinutesDayAllowed, freeMinutesPHAllowed, startDate, bookingStartsAfterHours]);
+  }, [freeMinutesMembership, freeMinutesPerVisit, startDate, freeMinutesAvailable, freeMinutesDayAllowed, freeMinutesPHAllowed, freeMinutesDays, bookingStartsAfterHours]);
 
   const { freeMinutesCredit, freeMinutesApplied } = useMemo(() => {
     if (freeMinutesAvailable <= 0 || originalPrice <= 0) {
@@ -438,9 +451,9 @@ const Booking = () => {
 
   // Membership % applies AFTER free minutes credit
   const membershipPercentBase = Math.max(0, originalPrice - freeMinutesCredit);
-  const membershipDiscountAmt = membershipPercentBase * (membershipDiscountPct / 100);
+  const membershipDiscountAmt = parseFloat(((membershipPercentBase * membershipDiscountPct) / 100).toFixed(2)); // cents, as the server rounds
   // Total membership benefit (free mins + percent) — used to compare against promo/reward
-  const membershipBenefitAmt = freeMinutesCredit + membershipDiscountAmt;
+  const membershipBenefitAmt = parseFloat((freeMinutesCredit + membershipDiscountAmt).toFixed(2));
 
   // ---- Pick the single winning discount ----
   type DiscountSource = "none" | "promo" | "reward" | "membership";

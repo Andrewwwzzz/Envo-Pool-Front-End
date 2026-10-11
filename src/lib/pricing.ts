@@ -15,6 +15,7 @@ export interface PricingRule {
   applies_to_table_id: string | null;
   priority: number;
   is_active: boolean;
+  created_at?: string | null; // only used to order ties (older rule first, as the server does)
 }
 
 export interface PublicHoliday {
@@ -23,63 +24,81 @@ export interface PublicHoliday {
   name: string;
 }
 
-import { getSGWeekday, getSGTimeMinutes, getSGDateStr } from "@/lib/sgTime";
+const SGT_MS = 8 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const PRICE_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function timeToMinutes(timeStr: string): number {
-  const [h, m] = timeStr.split(":").map(Number);
-  return h * 60 + m;
+  const [h, m] = String(timeStr || "00:00").split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+/** SGT time of day (minutes), SGT calendar date and operational date (before 4am = previous day). */
+function sgtParts(dateTime: Date) {
+  const sgt = new Date(dateTime.getTime() + SGT_MS);
+  const timeMin = sgt.getUTCHours() * 60 + sgt.getUTCMinutes();
+  const dateStr = sgt.toISOString().slice(0, 10);
+  const opDateStr = timeMin < 4 * 60
+    ? new Date(dateTime.getTime() + SGT_MS - DAY_MS).toISOString().slice(0, 10)
+    : dateStr;
+  return { timeMin, dateStr, opDateStr };
 }
 
 /**
- * Given a SGT date string (YYYY-MM-DD) and a Set of PH dates,
- * return the effective extra weekdays to inject for pricing.
- *
- * PH itself  → treated as "Sun" (peak weekend rate)
- * PH eve     → treated as "Fri" (peak start-of-weekend rate)
- *
- * We inject these ALONGSIDE the real weekday, so a rule that covers
- * e.g. ["Fri","Sat","Sun"] will match on PH or PH-eve even if the
- * calendar day is a Tuesday.
+ * PH and PH-eve operational days also count as Fri/Sat/Sun for pricing.
+ * The real weekday is kept alongside, so a rule covering ["Fri","Sat","Sun"]
+ * matches on a PH or PH eve even if the calendar day is a Tuesday.
  */
-function extraWeekdaysForDate(dateStr: string, phDates: Set<string>): string[] {
-  if (phDates.has(dateStr)) {
-    return ["Fri", "Sat", "Sun"]; // PH itself → full weekend rate
-  }
-  // Check if tomorrow is a PH (i.e. today is PH eve)
-  // Use UTC date arithmetic — dateStr is already the SGT calendar date
-  const [y, mo, dy] = dateStr.split("-").map(Number);
+function extraWeekdaysForPH(opDateStr: string, phDates: Set<string>): string[] {
+  if (phDates.has(opDateStr)) return ["Fri", "Sat", "Sun"];
+  const [y, mo, dy] = opDateStr.split("-").map(Number);
   const nextStr = new Date(Date.UTC(y, mo - 1, dy + 1)).toISOString().slice(0, 10);
-  if (phDates.has(nextStr)) {
-    return ["Fri", "Sat", "Sun"]; // PH eve → same weekend rate as PH
-  }
-  return [];
+  return phDates.has(nextStr) ? ["Fri", "Sat", "Sun"] : [];
 }
 
 /**
- * Find the best matching pricing rule for a specific moment in time and table.
- * Priority: specific_date + table > specific_date > table-specific > global
- * Within same scope, higher priority number wins.
+ * Whether a moment falls on a public holiday or PH eve, judged on the
+ * operational day (before 4am SGT = previous day), like the server.
+ */
+export function isPHOrPHEve(dateTime: Date, phDates: Set<string>): boolean {
+  return extraWeekdaysForPH(sgtParts(dateTime).opDateStr, phDates).length > 0;
+}
+
+/**
+ * Put rules in the server's order (priority desc, then older first, then lower
+ * id) so a tie between equally specific rules resolves the same way here.
+ */
+export function sortPricingRules(rules: PricingRule[]): PricingRule[] {
+  const created = (r: PricingRule) => (r.created_at ? new Date(r.created_at).getTime() || 0 : 0);
+  const byId = (a: PricingRule, b: PricingRule) => (String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0);
+  return [...rules].sort((a, b) =>
+    ((b.priority || 0) - (a.priority || 0)) || (created(a) - created(b)) || byId(a, b)
+  );
+}
+
+/**
+ * The pricing rule for one moment on one table. Mirrors the server's
+ * findBestRule (utils/pricingRules.js):
+ *   time  - SGT time of day inside the rule's start/end (overnight allowed)
+ *   date  - a rule with a specific_date applies on that SGT calendar date only
+ *           (its weekdays are ignored); otherwise its weekdays are matched
+ *           against the operational day (before 4am = previous day), plus
+ *           Fri/Sat/Sun on a PH or PH-eve
+ *   table - a per-table rule applies only to that table, whether it names the
+ *           table's hardware_id or its _id (tableIds should list both)
+ * Winner: most specific (date + table > date > table > general), then highest
+ * priority, then the order the rules were given in (see sortPricingRules).
  */
 function findBestRule(
   rules: PricingRule[],
   dateTime: Date,
-  tableId: string,
+  tableIds: string[],
   phDates: Set<string> = new Set()
 ): PricingRule | null {
-  const timeMin = getSGTimeMinutes(dateTime);
-  const dateStr = getSGDateStr(dateTime);
-
-  // Operational day: before 4am SGT belongs to the previous calendar day's session
-  const opDateStr = timeMin < 4 * 60
-    ? getSGDateStr(new Date(dateTime.getTime() - 24 * 60 * 60 * 1000))
-    : dateStr;
-
-  // Use OPERATIONAL day's weekday — e.g. 1am Monday is still Sunday's session
-  const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"] as const;
-  const weekday = WEEKDAYS[new Date(opDateStr + "T00:00:00Z").getUTCDay()];
-
-  // Effective weekdays: operational day + any PH/PH-eve bonus days
-  const effectiveWeekdays = new Set([weekday, ...extraWeekdaysForDate(opDateStr, phDates)]);
+  const { timeMin, dateStr, opDateStr } = sgtParts(dateTime);
+  const weekday = PRICE_DAYS[new Date(opDateStr + "T00:00:00Z").getUTCDay()];
+  const effectiveWeekdays = [weekday, ...extraWeekdaysForPH(opDateStr, phDates)];
+  const ids = tableIds.filter(Boolean).map(String);
 
   const matching = rules.filter((r) => {
     if (!r.is_active) return false;
@@ -92,35 +111,25 @@ function findBestRule(
       : timeMin >= rStart || timeMin < rEnd;
     if (!inTimeRange) return false;
 
-    // Check specific date or weekday
+    // Specific date: the SGT calendar date. Weekdays: the operational day (+ PH bonus days)
     if (r.specific_date) {
-      if (r.specific_date !== opDateStr) return false;
-    } else {
-      // Match if any of the effective weekdays is in the rule's weekday list
-      const ruleWeekdays = new Set(r.applies_to_weekdays);
-      const overlaps = [...effectiveWeekdays].some((d) => ruleWeekdays.has(d));
-      if (!overlaps) return false;
+      if (r.specific_date !== dateStr) return false;
+    } else if (!effectiveWeekdays.some((d) => (r.applies_to_weekdays || []).includes(d))) {
+      return false;
     }
 
-    // Check table scope
-    if (r.applies_to_table_id && r.applies_to_table_id !== tableId) return false;
+    // Table scope — either of the table's ids
+    if (r.applies_to_table_id && !ids.includes(String(r.applies_to_table_id))) return false;
 
     return true;
   });
 
   if (matching.length === 0) return null;
 
-  // Sort by specificity then priority
-  matching.sort((a, b) => {
-    const aDateScore = a.specific_date ? 2 : 0;
-    const bDateScore = b.specific_date ? 2 : 0;
-    const aTableScore = a.applies_to_table_id ? 1 : 0;
-    const bTableScore = b.applies_to_table_id ? 1 : 0;
-    const aTotal = aDateScore + aTableScore;
-    const bTotal = bDateScore + bTableScore;
-    if (aTotal !== bTotal) return bTotal - aTotal;
-    return b.priority - a.priority;
-  });
+  // Sort by specificity then priority. Array sort is stable, so an equal score
+  // and priority keeps the given (server) order.
+  const score = (r: PricingRule) => (r.specific_date ? 2 : 0) + (r.applies_to_table_id ? 1 : 0);
+  matching.sort((a, b) => (score(b) - score(a)) || ((b.priority || 0) - (a.priority || 0)));
 
   return matching[0];
 }
@@ -134,7 +143,12 @@ export interface PricingSegment {
   segmentCost: number;
 }
 
-const DEFAULT_HOURLY_RATE = 16.25; // fallback if no rules match
+const DEFAULT_HOURLY_RATE = 13.5; // fallback if no rules match (same as the server)
+
+/** A segment's cost: its whole length at its rate, rounded to the cent once (as the server does). */
+function segmentCost(hourlyRate: number, durationHours: number): number {
+  return Math.round(Number((hourlyRate * durationHours * 100).toFixed(6))) / 100;
+}
 
 /**
  * The hourly rate in effect right now (no specific table — global/default
@@ -145,59 +159,64 @@ export function getCurrentHourlyRate(
   rules: PricingRule[],
   phDates: Set<string> = new Set()
 ): number {
-  const rule = findBestRule(rules, new Date(), "", phDates);
+  const rule = findBestRule(rules, new Date(), [], phDates);
   return rule?.hourly_rate ?? DEFAULT_HOURLY_RATE;
 }
 
 /**
- * Calculate booking price with multi-period support.
- * Splits the booking into 15-minute segments and applies the best matching rule for each.
- * Pass phDates (Set of "YYYY-MM-DD") for public-holiday-aware pricing.
+ * Calculate booking price the way the server prices an online booking:
+ * 30-minute slots from the start, each priced by the rule in effect at the
+ * slot's start; consecutive slots with the same rate and rule merge, and each
+ * segment is rounded to the cent once.
+ * Pass the table's _id and hardware_id (a per-table rule may name either) and
+ * phDates (Set of "YYYY-MM-DD") for public-holiday-aware pricing.
  */
 export function calculateBookingPrice(
   rules: PricingRule[],
-  tableId: string,
+  tableId: string | string[],
   startTime: Date,
   endTime: Date,
   phDates: Set<string> = new Set()
 ): { totalPrice: number; segments: PricingSegment[] } {
+  const tableIds = Array.isArray(tableId) ? tableId : [tableId];
   const segments: PricingSegment[] = [];
-  const intervalMs = 15 * 60 * 1000; // 15 minutes
+  const intervalMs = 30 * 60 * 1000; // 30 minutes, like the server
   let current = new Date(startTime);
 
   while (current < endTime) {
     const segEnd = new Date(Math.min(current.getTime() + intervalMs, endTime.getTime()));
-    const rule = findBestRule(rules, current, tableId, phDates);
+    const rule = findBestRule(rules, current, tableIds, phDates);
     const hourlyRate = rule?.hourly_rate ?? DEFAULT_HOURLY_RATE;
     const durationHours = (segEnd.getTime() - current.getTime()) / (1000 * 60 * 60);
 
-    // Try to merge with previous segment if same rate
+    // Merge with the previous segment if same rate and rule (the server compares rule names)
     const prev = segments[segments.length - 1];
-    if (prev && prev.hourlyRate === hourlyRate && prev.rule?.id === rule?.id) {
+    if (prev && prev.hourlyRate === hourlyRate && (prev.rule?.name ?? "Default") === (rule?.name ?? "Default")) {
       prev.endTime = segEnd;
-      prev.durationHours += durationHours;
-      prev.segmentCost = Math.round(prev.hourlyRate * prev.durationHours * 100) / 100;
+      prev.durationHours = (segEnd.getTime() - prev.startTime.getTime()) / (1000 * 60 * 60);
+      prev.segmentCost = segmentCost(prev.hourlyRate, prev.durationHours);
     } else {
-      const segmentCost = Math.round(hourlyRate * durationHours * 100) / 100;
       segments.push({
         startTime: new Date(current),
         endTime: segEnd,
         rule,
         hourlyRate,
         durationHours,
-        segmentCost,
+        segmentCost: segmentCost(hourlyRate, durationHours),
       });
     }
 
     current = segEnd;
   }
 
-  const totalPrice = Math.round(segments.reduce((sum, s) => sum + s.segmentCost, 0) * 100) / 100;
+  const totalPrice = parseFloat(segments.reduce((sum, s) => sum + s.segmentCost, 0).toFixed(2));
   return { totalPrice, segments };
 }
 
 /**
- * Calculate promo discount.
+ * Calculate promo discount the way the server does: a percentage is rounded to
+ * the cent and capped at the max discount (when one is set); a fixed amount is
+ * capped only by the price.
  */
 export function calculateDiscount(
   originalPrice: number,
@@ -205,13 +224,12 @@ export function calculateDiscount(
   discountValue: number,
   maxDiscountAmount: number | null
 ): number {
-  let discount = discountType === "percentage"
-    ? Math.round(originalPrice * (discountValue / 100) * 100) / 100
-    : discountValue;
-
-  if (maxDiscountAmount !== null && discount > maxDiscountAmount) {
-    discount = maxDiscountAmount;
+  let discount: number;
+  if (discountType === "percentage") {
+    discount = parseFloat(((originalPrice * discountValue) / 100).toFixed(2));
+    if (maxDiscountAmount) discount = Math.min(discount, maxDiscountAmount);
+  } else {
+    discount = Math.min(discountValue, originalPrice);
   }
-
-  return Math.min(discount, originalPrice);
+  return parseFloat(discount.toFixed(2));
 }

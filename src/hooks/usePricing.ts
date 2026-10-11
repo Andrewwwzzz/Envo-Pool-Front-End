@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { PricingRule, PublicHoliday } from "@/lib/pricing";
+import { PricingRule, PublicHoliday, sortPricingRules } from "@/lib/pricing";
 import { apiFetch } from "@/lib/api";
 import { getCached, setCache } from "@/lib/queryCache";
 import { useToast } from "@/hooks/use-toast";
@@ -15,7 +15,7 @@ export function usePricingRules() {
       if (!res.ok) throw new Error("Failed to fetch pricing rules");
       const raw = await res.json();
       const list = Array.isArray(raw) ? raw : (raw?.pricingRules || raw?.rules || []);
-      const data: PricingRule[] = list.map((r: any) => ({
+      const mapped: PricingRule[] = list.map((r: any) => ({
         id: r._id || r.id,
         name: r.name,
         start_time: r.startTime ?? r.start_time,
@@ -26,7 +26,10 @@ export function usePricingRules() {
         applies_to_table_id: r.appliesToTableId ?? r.applies_to_table_id ?? null,
         priority: r.priority ?? 0,
         is_active: r.isActive ?? r.is_active ?? true,
+        created_at: r.createdAt ?? r.created_at ?? null,
       }));
+      // Same order the server prices with, so ties resolve the same way
+      const data = sortPricingRules(mapped);
       setCache("pricing-rules-public", data);
       return data;
     },

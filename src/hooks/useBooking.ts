@@ -22,6 +22,21 @@ export function validateDuration(start: Date, end: Date): string | null {
   return null;
 }
 
+/**
+ * Whether a booking is for this table. Bookings store the table either by its
+ * _id (online bookings) or its hardware_id (staff Book Now, walk-ins, moved
+ * bookings), possibly populated as an object — any of them counts.
+ */
+export function bookingIsForTable(booking: { tableId?: unknown } | null | undefined, tableId: string | null, hardwareId: string | null): boolean {
+  const refs = [tableId, hardwareId].filter(Boolean).map(String);
+  const t = booking?.tableId;
+  const populated = t && typeof t === "object" ? (t as Record<string, unknown>) : null;
+  const bookingRefs = populated
+    ? [populated._id, populated.id, populated.hardware_id, populated.hardwareId]
+    : [t];
+  return bookingRefs.some((r) => r != null && r !== "" && refs.includes(String(r)));
+}
+
 async function fetchActiveWalkinHardwareIds(): Promise<Set<string>> {
   const ids = new Set<string>();
   const extract = (s: any) => {
@@ -129,10 +144,7 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
           return { id: tableId, table_number: t.tableNumber ?? t.table_number, hardware_id: hardwareId, status: "In Use" as TableStatus };
         }
 
-        const overlapping = (bookings || []).filter((b: any) => {
-          const bTableId = typeof b.tableId === "object" ? b.tableId?.hardware_id : b.tableId;
-          return bTableId === hardwareId;
-        });
+        const overlapping = (bookings || []).filter((b: any) => bookingIsForTable(b, tableId, hardwareId));
 
         const hasConfirmed = overlapping.some((b: any) => b.status === "confirmed");
         if (hasConfirmed) {

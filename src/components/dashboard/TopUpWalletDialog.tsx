@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
+import { TOPUP_EXPIRED_BADGE_CLASS } from "@/lib/topUpStatus";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -118,6 +119,7 @@ export default function TopUpWalletDialog({
     if (v === "approved") return "bg-green-500/10 text-green-400 border-green-500/30";
     if (v === "rejected") return "bg-destructive/10 text-destructive border-destructive/30";
     if (v === "cancelled") return "bg-muted text-muted-foreground border-border";
+    if (v === "expired") return TOPUP_EXPIRED_BADGE_CLASS;
     return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
   };
   const statusText = (s: string) => {
