@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 import { getCached, setCache } from "@/lib/queryCache";
+import type { GmailPaymentRow } from "@/lib/paynowLinks";
 
 // Every PayNow payment Gmail extracted, matched or not — used to cross-
 // reference against paynow-paid bookings/invoices/F&B orders that often
@@ -17,6 +18,25 @@ export function useAdminGmailPayments(enabled: boolean) {
       return Array.isArray(data) ? data : data?.payments ?? [];
     },
     enabled,
+    refetchInterval: 15000,
+  });
+}
+
+// Top Ups → Transactions: the newest `limit` bank alerts, each with what it's
+// linked to (linkedTo) or might be (suggestions). Same key prefix as above,
+// so anything that refreshes the bank list refreshes this too.
+export function useAdminGmailPaymentLinks(enabled: boolean, limit: number) {
+  return useQuery({
+    queryKey: ["admin-gmail-payments", "links", limit],
+    queryFn: async (): Promise<{ payments: GmailPaymentRow[]; hasMore: boolean }> => {
+      const res = await apiFetch(`/api/transactions/topup/admin/gmail-payments?links=1&limit=${limit}`);
+      if (!res.ok) return { payments: [], hasMore: false };
+      const data = await res.json();
+      return Array.isArray(data) ? { payments: data, hasMore: false } : { payments: data?.payments ?? [], hasMore: !!data?.hasMore };
+    },
+    enabled,
+    // Keep the current list on screen while "Show more" loads the longer one.
+    placeholderData: (prev) => prev,
     refetchInterval: 15000,
   });
 }

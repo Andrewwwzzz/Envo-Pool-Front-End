@@ -50,7 +50,8 @@ import { useAdminPublicHolidays } from "@/hooks/usePricing";
 import { useAdminCampaigns } from "@/hooks/useCampaign";
 import { OperatingHoursSection } from "@/components/admin/OperatingHoursSection";
 import { useAdminTransactions } from "@/hooks/useAdminLogs";
-import { useAdminGmailPayments } from "@/hooks/useAdmin";
+import { useAdminGmailPayments, useAdminGmailPaymentLinks } from "@/hooks/useAdmin";
+import { linkText, suggestionText, isLinked, canOpen, LINK_KIND_LABEL, type PaynowLink } from "@/lib/paynowLinks";
 import { PayNowVerifyIcon } from "@/components/admin/PayNowVerifyIcon";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -4659,7 +4660,67 @@ function VerificationTabTrigger() {
   );
 }
 
-function GmailTransactionsTable({ payments, loading }: { payments: any[] | undefined; loading?: boolean }) {
+const LINK_KIND_ICON: Record<string, typeof Wallet> = {
+  topup: Wallet, table_invoice: FileText, walkin: Timer, booking: CalendarDays, fnb: Coffee,
+  membership: Crown, locker: Key, other: DollarSign, split: DollarSign,
+};
+
+// "Linked to" for one bank alert: what it paid for (each opens its detail when
+// there's a recorded payment behind it), or "Not linked" plus possible matches.
+function PaynowLinkedTo({ payment, onOpen }: { payment: { linkedTo?: PaynowLink[] | null; suggestions?: PaynowLink[] | null }; onOpen?: (transactionId: string) => void }) {
+  if (!Array.isArray(payment.linkedTo)) return <span className="text-xs text-muted-foreground">…</span>;
+  const links: PaynowLink[] = payment.linkedTo;
+  const suggestions: PaynowLink[] = Array.isArray(payment.suggestions) ? payment.suggestions : [];
+  if (links.length) {
+    return (
+      <div className="flex flex-col items-end md:items-start gap-1 min-w-0 md:max-w-xs">
+        {links.map((l) => {
+          const Icon = LINK_KIND_ICON[l.kind] || DollarSign;
+          const body = (
+            <>
+              <Icon className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-label={LINK_KIND_LABEL[l.kind]} />
+              <span className="text-left">{linkText(l)}</span>
+            </>
+          );
+          const cls = "inline-flex items-start gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-400";
+          return onOpen && canOpen(l) ? (
+            <button key={`${l.kind}:${l.id}`} type="button" onClick={() => onOpen(l.transactionId as string)} className={`${cls} hover:bg-emerald-500/20 hover:underline underline-offset-2`}>
+              {body}
+            </button>
+          ) : (
+            <span key={`${l.kind}:${l.id}`} className={cls}>{body}</span>
+          );
+        })}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col items-end md:items-start gap-0.5 min-w-0 md:max-w-xs">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400">
+        <AlertTriangle className="h-3.5 w-3.5" /> Not linked
+      </span>
+      {suggestions.length > 0 && (
+        <div className="text-xs text-muted-foreground text-right md:text-left">
+          <span>Possible:</span>
+          <ul className="space-y-0.5">
+            {suggestions.map((s) => (
+              <li key={`${s.kind}:${s.id}`}>
+                {onOpen && canOpen(s) ? (
+                  <button type="button" onClick={() => onOpen(s.transactionId as string)} className="text-right md:text-left hover:underline underline-offset-2">
+                    {suggestionText(s)}
+                  </button>
+                ) : suggestionText(s)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GmailTransactionsTable({ payments, loading, canResolve = false }: { payments: any[] | undefined; loading?: boolean; canResolve?: boolean }) {
+  const [openTx, setOpenTx] = useState<{ _id: string } | null>(null);
   const matchBadge = (status: string) => {
     if (status === "auto_matched") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
     if (status === "suggested_match") return "bg-amber-500/10 text-amber-400 border-amber-500/30";
@@ -4688,6 +4749,7 @@ function GmailTransactionsTable({ payments, loading }: { payments: any[] | undef
             <th className="py-2 pr-4">Reference</th>
             <th className="py-2 pr-4">Matched Customer</th>
             <th className="py-2 pr-4">Top-Up Match Status</th>
+            <th className="py-2 pr-4">Linked to</th>
           </tr>
         </thead>
         <tbody>
@@ -4715,11 +4777,15 @@ function GmailTransactionsTable({ payments, loading }: { payments: any[] | undef
                     <div className="text-xs text-muted-foreground mt-0.5 max-w-xs">{p.note}</div>
                   )}
                 </td>
+                <td className="py-2 pr-4">
+                  <PaynowLinkedTo payment={p} onOpen={canResolve ? (txId) => setOpenTx({ _id: txId }) : undefined} />
+                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+      {openTx && <WalletTransactionDetailDialog transaction={openTx} onClose={() => setOpenTx(null)} />}
     </div>
   );
 }
@@ -4729,7 +4795,10 @@ function TopUpsTab() {
   const qc = useQueryClient();
   const [status, setStatus] = useState<"pending" | "approved" | "rejected" | "expired" | "all" | "transactions">("pending");
   const { data: requests, isLoading: requestsLoading } = useAdminTopUps(status, status !== "transactions");
-  const { data: gmailPayments, isLoading: gmailLoading } = useAdminGmailPayments(status === "transactions");
+  const [bankLimit, setBankLimit] = useState(200);
+  const [notLinkedOnly, setNotLinkedOnly] = useState(false);
+  const { data: bankData, isLoading: gmailLoading, isFetching: gmailFetching } = useAdminGmailPaymentLinks(status === "transactions", bankLimit);
+  const gmailPayments = bankData?.payments;
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -4890,9 +4959,26 @@ function TopUpsTab() {
         {status === "transactions" ? (
           <>
             <p className="text-xs text-muted-foreground mb-2">
-              "Top-Up Match Status" only checks whether a transfer was linked to a top-up request — a transfer that directly paid for a booking, invoice, or F&B order will always show "No Top-Up Match" here even though it's fully accounted for. Check the PayNow icon next to that charge instead.
+              "Top-Up Match Status" only checks whether a transfer was linked to a top-up request. "Linked to" shows everything a transfer is tied to — a top-up, or a booking, invoice or F&B order linked with the PayNow icon. For a "Not linked" transfer, possible matches are listed (same amount within 30 min, or a few payments that add up to it) to help you look into it.
             </p>
-            <GmailTransactionsTable payments={gmailPayments} loading={gmailLoading} />
+            <label className="flex items-center gap-2 text-sm mb-2 w-fit cursor-pointer">
+              <Checkbox checked={notLinkedOnly} onCheckedChange={(v) => setNotLinkedOnly(v === true)} />
+              Not linked only
+              {notLinkedOnly && gmailPayments && (
+                <span className="text-xs text-muted-foreground">({gmailPayments.filter((p) => !isLinked(p)).length} of {gmailPayments.length})</span>
+              )}
+            </label>
+            <GmailTransactionsTable
+              payments={notLinkedOnly ? gmailPayments?.filter((p) => !isLinked(p)) : gmailPayments}
+              loading={gmailLoading}
+              canResolve={authUser?.role === "admin" || (authUser?.staffPermissions ?? []).includes("customers")}
+            />
+            {bankData?.hasMore && (
+              <Button size="sm" variant="outline" className="mt-2" disabled={gmailFetching} onClick={() => setBankLimit((n) => n + 200)}>
+                {gmailFetching ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                Show older transactions
+              </Button>
+            )}
           </>
         ) : !requests?.length ? (
           <p className="text-muted-foreground text-sm">{requestsLoading ? "Loading requests…" : "No requests."}</p>
