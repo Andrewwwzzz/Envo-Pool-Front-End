@@ -620,6 +620,8 @@ export default function MembershipTab() {
   const { toast } = useToast();
   const { user } = useAuth();
   const isMaster = (user as any)?.isMaster === true;
+  // Plans, locker units, catalog and multiplier events are admin-only (D118 — the server enforces it).
+  const canEditConfig = (user as any)?.role === "admin";
   const restore = useRestoreRecord();
   const hardDelete = useHardDelete();
   const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
@@ -694,7 +696,7 @@ export default function MembershipTab() {
               {showPlanDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
               {showPlanDeleted ? "Back to Plans" : "Show Deleted"}
             </Button>
-            <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4" /> Create Plan</Button>
+            {canEditConfig && <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4" /> Create Plan</Button>}
           </div>
         </CardHeader>
         <CardContent>
@@ -728,7 +730,7 @@ export default function MembershipTab() {
                         </Button>
                       </div>
                     )}
-                    {!planDeleted && (
+                    {!planDeleted && canEditConfig && (
                       <div className="flex gap-1">
                         <Button
                           variant="ghost" size="icon"

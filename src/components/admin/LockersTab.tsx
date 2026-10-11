@@ -25,6 +25,7 @@ import { useAdminCustomers } from "@/hooks/useAdmin";
 import { fmtDateSG } from "@/lib/sgTime";
 import ReasonDialog from "./ReasonDialog";
 import { isCancelled } from "./DeletedBanner";
+import { useAuth } from "@/contexts/AuthContext";
 
 function AddLockerDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { toast } = useToast();
@@ -172,7 +173,7 @@ function fmtDateOrDash(d?: string) {
 
 // Click-to-edit PIN cell. Saving updates the locker AND the renter's
 // membership card, so both always show the same PIN.
-function EditablePin({ lockerId, lockerNum, pin }: { lockerId: string; lockerNum: string | number; pin?: string }) {
+function EditablePin({ lockerId, lockerNum, pin, canEdit = true }: { lockerId: string; lockerNum: string | number; pin?: string; canEdit?: boolean }) {
   const { toast } = useToast();
   const setPin = useSetLockerPin();
   const [editing, setEditing] = useState(false);
@@ -190,6 +191,7 @@ function EditablePin({ lockerId, lockerNum, pin }: { lockerId: string; lockerNum
     }
   };
 
+  if (!canEdit) return <span className="font-mono text-sm">{pin || "—"}</span>;
   if (!editing) {
     return (
       <button
@@ -223,6 +225,9 @@ function EditablePin({ lockerId, lockerNum, pin }: { lockerId: string; lockerNum
 
 export default function LockersTab() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  // Plans, locker units, catalog and multiplier events are admin-only (D118 — the server enforces it).
+  const canEditConfig = (user as any)?.role === "admin";
   const { data: lockers = [], isLoading: lockersLoading } = useLockerUnits();
   const { data: rentals = [], isLoading: rentalsLoading } = useLockerRentals();
   const renew = useRenewLocker();
@@ -260,11 +265,15 @@ export default function LockersTab() {
         <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
           <CardTitle className="text-base">Locker Units</CardTitle>
           <div className="flex gap-2">
+            {canEditConfig && (
+              <>
             <Button variant="outline" size="sm" onClick={doSeedPins} disabled={seedPins.isPending}>
               {seedPins.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
               Seed Missing PINs
             </Button>
             <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add Locker</Button>
+              </>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -308,7 +317,7 @@ export default function LockersTab() {
                         </TableCell>
                         <TableCell>${l.monthlyPrice ?? 0}</TableCell>
                         <TableCell>
-                          <EditablePin lockerId={(anyL._id ?? l.id) as string} lockerNum={lockerNum} pin={anyL.pin} />
+                          <EditablePin lockerId={(anyL._id ?? l.id) as string} lockerNum={lockerNum} pin={anyL.pin} canEdit={canEditConfig} />
                         </TableCell>
                         <TableCell>
                           {!isAvailable && renterName ? (
@@ -322,9 +331,11 @@ export default function LockersTab() {
                         <TableCell className="text-right">
                           {isAvailable ? (
                             <div className="flex gap-1 justify-end">
-                              <Button variant="ghost" size="sm" onClick={() => doRegenPin((anyL._id ?? l.id) as string, lockerNum)} title="Regenerate PIN">
-                                <RefreshCw className="h-4 w-4" />
-                              </Button>
+                              {canEditConfig && (
+                                <Button variant="ghost" size="sm" onClick={() => doRegenPin((anyL._id ?? l.id) as string, lockerNum)} title="Regenerate PIN">
+                                  <RefreshCw className="h-4 w-4" />
+                                </Button>
+                              )}
                               <Button variant="outline" size="sm" onClick={() => setAssignFor(l)}>Assign</Button>
                             </div>
                           ) : (

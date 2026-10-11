@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useAllAdminRewards, useDeleteReward, RewardType, RewardReason } from "@/hooks/useRewards";
+import { useAllAdminRewards, useDeleteReward, RewardType } from "@/hooks/useRewards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,18 +24,30 @@ const TYPE_LABELS: Record<string, string> = {
   booking_discount: "Booking Discount",
 };
 
+// Keys are the reasons the server stores (reward.routes normalizeReason, milestones, points shop).
 const REASON_LABELS: Record<string, string> = {
-  reviews: "Google Review",
+  google_review: "Google Review",
   social_follow: "Social Follow",
   birthday: "Birthday",
-  refund: "Refund",
+  referral: "Referral",
+  milestone: "Milestone",
+  points_exchange: "Points Shop",
+  manual: "Manual",
   other: "Other",
 };
+// Older records may carry the form's own keys.
+const LEGACY_REASON_LABELS: Record<string, string> = { reviews: "Google Review", refund: "Refund" };
+
+function reasonLabel(reason?: string): string {
+  if (!reason) return "—";
+  return REASON_LABELS[reason] || LEGACY_REASON_LABELS[reason] || reason.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+}
 
 function formatValue(r: any): string {
   const t = r.type as RewardType;
   const v = Number(r.value);
-  if (t === "free_session") return Number.isFinite(v) ? `${v} hr${v === 1 ? "" : "s"}` : "—";
+  // One session = 30 minutes (booking.routes applies value × 30 min).
+  if (t === "free_session") return Number.isFinite(v) ? `${v} session${v === 1 ? "" : "s"} (${v * 30} min)` : "—";
   if (t === "wallet_credit") return Number.isFinite(v) ? `$${v.toFixed(2)}` : "—";
   if (t === "booking_discount") return Number.isFinite(v) ? `${v}% off` : "—";
   return "—";
@@ -222,7 +234,7 @@ export default function RewardsTab({
             <SelectTrigger><SelectValue placeholder="Reason" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Reasons</SelectItem>
-              {(Object.keys(REASON_LABELS) as RewardReason[]).map(k => (
+              {Object.keys(REASON_LABELS).map(k => (
                 <SelectItem key={k} value={k}>{REASON_LABELS[k]}</SelectItem>
               ))}
             </SelectContent>
@@ -299,7 +311,7 @@ export default function RewardsTab({
                         )}
                       </td>
                       <td className={`py-2 pr-4 whitespace-nowrap ${deleted ? "line-through" : ""}`}>{formatValue(r)}</td>
-                      <td className="py-2 pr-4">{REASON_LABELS[r.reason] || r.reason || "—"}</td>
+                      <td className="py-2 pr-4">{reasonLabel(r.reason)}</td>
                       <td className="py-2 pr-4">{getIssuedBy(r)}</td>
                       <td className="py-2 pr-4 whitespace-nowrap">{fmtDateSG(r.createdAt || r.created_at)}</td>
                       <td className="py-2 pr-4 whitespace-nowrap">
@@ -380,7 +392,7 @@ export default function RewardsTab({
                 <Row label="Code" value={detailRecord.code} mono />
                 <Row label="Type" value={TYPE_LABELS[detailRecord.type] || detailRecord.type} />
                 <Row label="Value" value={formatValue(detailRecord)} />
-                <Row label="Reason" value={REASON_LABELS[detailRecord.reason] || detailRecord.reason || "—"} />
+                <Row label="Reason" value={reasonLabel(detailRecord.reason)} />
                 <Row label="Customer" value={`${getUser(detailRecord).name} (${getUser(detailRecord).email || "—"})`} />
                 <Row label="Issued By" value={getIssuedBy(detailRecord)} />
                 <Row label="Issued On" value={fmtDateSG(detailRecord.createdAt || detailRecord.created_at)} />

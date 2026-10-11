@@ -53,6 +53,8 @@ export function MultiplierEventsTab() {
   const { toast } = useToast();
   const { user } = useAuth();
   const isMaster = (user as any)?.isMaster === true;
+  // Plans, locker units, catalog and multiplier events are admin-only (D118 — the server enforces it).
+  const canEditConfig = (user as any)?.role === "admin";
   const restore = useRestoreRecord();
   const hardDelete = useHardDelete();
   const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
@@ -148,9 +150,11 @@ export function MultiplierEventsTab() {
             {showDeleted ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
             {showDeleted ? "Back to Events" : "Show Deleted"}
           </Button>
-          <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-1" /> Create Event
-          </Button>
+          {canEditConfig && (
+            <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-1" /> Create Event
+            </Button>
+          )}
         </div>
       </div>
 
@@ -188,7 +192,7 @@ export function MultiplierEventsTab() {
                       </Button>
                     </div>
                   )}
-                  {!deleted && (
+                  {!deleted && canEditConfig && (
                     <div className="flex gap-2 flex-shrink-0">
                       <Button size="sm" variant="ghost" onClick={() => toggle.mutate(event._id)}>
                         {event.isActive ? <ToggleRight className="h-4 w-4 text-green-400" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
