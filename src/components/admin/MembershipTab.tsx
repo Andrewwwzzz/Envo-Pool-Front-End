@@ -524,6 +524,9 @@ function LockerCell({ sub }: { sub: any }) {
     }
   };
 
+  // Only a plan that includes a locker gets one here — the server refuses others (D120).
+  const planHasLocker = !!sub.planId?.benefits?.lockerIncluded;
+  if (!hasLocker && !planHasLocker) return <span className="text-muted-foreground">—</span>;
   if (!hasLocker) {
     return (
       <>

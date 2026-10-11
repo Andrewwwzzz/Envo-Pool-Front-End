@@ -336,15 +336,18 @@ export default function LockersTab() {
                                   <RefreshCw className="h-4 w-4" />
                                 </Button>
                               )}
-                              <Button variant="outline" size="sm" onClick={() => setAssignFor(l)}>Assign</Button>
+                              {/* Direct rentals take no payment — admin-only (D120). Staff use the Locker plan. */}
+                              {canEditConfig && <Button variant="outline" size="sm" onClick={() => setAssignFor(l)}>Assign</Button>}
                             </div>
                           ) : (
                             <div className="flex gap-1 justify-end">
                               {rentalId && (
                                 <>
-                                  <Button variant="ghost" size="sm" onClick={() => doRenew(rentalId)}>
-                                    <RotateCcw className="h-4 w-4" /> Renew
-                                  </Button>
+                                  {canEditConfig && (
+                                    <Button variant="ghost" size="sm" onClick={() => doRenew(rentalId)}>
+                                      <RotateCcw className="h-4 w-4" /> Renew
+                                    </Button>
+                                  )}
                                   <Button variant="ghost" size="sm" onClick={() => setCancelTargetId(rentalId)}>
                                     <XCircle className="h-4 w-4" /> Cancel
                                   </Button>
