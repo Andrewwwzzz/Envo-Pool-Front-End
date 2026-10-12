@@ -192,7 +192,7 @@ function RestoreRecordCard() {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          Paste the MongoDB ObjectId of the record you want to restore. Nothing is ever hard-deleted — only the soft-delete flag is cleared.
+          Paste the ID of a deleted record to bring it back. Restoring clears its deleted flag — a record removed with Master Hard Delete can't be restored.
         </p>
         <div className="flex flex-col sm:flex-row gap-2">
           <Select value={type} onValueChange={setType}>
