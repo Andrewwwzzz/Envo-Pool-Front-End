@@ -3190,6 +3190,9 @@ function CampaignsTab() {
 }
 
 function PricingTab() {
+  const { user: authUser } = useAuth();
+  // Pricing rules, public holidays and opening hours are admin-only to change (D125 — the server enforces it).
+  const canEditPricing = (authUser as any)?.role === "admin";
   // Normal view: active rules only. "Show Deleted": deleted rules only.
   const [showDeleted, setShowDeleted] = useState(false);
   const { data: allRules, create, remove, toggle, update } = useAdminPricingRules(showDeleted ? "all" : "default");
@@ -3291,7 +3294,7 @@ function PricingTab() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Add form */}
-          <div className="flex gap-2 flex-wrap">
+          {canEditPricing && <div className="flex gap-2 flex-wrap">
             <Input
               type="date"
               value={phForm.date}
@@ -3311,7 +3314,7 @@ function PricingTab() {
             >
               Add
             </Button>
-          </div>
+          </div>}
 
           {/* Upcoming holidays */}
           {upcomingHolidays.length > 0 && (
@@ -3334,7 +3337,7 @@ function PricingTab() {
                         </p>
                       </div>
                     </div>
-                    {!isDeleted && (
+                    {!isDeleted && canEditPricing && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -3363,7 +3366,7 @@ function PricingTab() {
                   return (
                     <div key={h._id || h.date} className={`flex items-center justify-between rounded-lg border px-3 py-1.5 ${isDeleted ? "border-destructive/20 opacity-40" : "border-border/30 opacity-50"}`}>
                       <p className={`text-xs text-muted-foreground ${isDeleted ? "line-through" : ""}`}>{h.date} — {h.name}{isDeleted ? " (deleted)" : ""}</p>
-                      {!isDeleted && (
+                      {!isDeleted && canEditPricing && (
                         <Button
                           size="sm"
                           variant="ghost"
@@ -3388,7 +3391,7 @@ function PricingTab() {
       </Card>
 
       {/* ── Add Pricing Rule ── */}
-      <Card>
+      {canEditPricing && <Card>
         <CardHeader><CardTitle>Add Pricing Rule</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -3436,7 +3439,7 @@ function PricingTab() {
           </div>
           <Button onClick={handleCreate} disabled={!form.name || create.isPending}>Create Rule</Button>
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* ── Existing Rules ── */}
       <Card>
@@ -3530,7 +3533,7 @@ function PricingTab() {
                       <div className="flex items-center gap-2">
                         {deleted ? (
                           <Badge variant="outline" className="bg-muted whitespace-nowrap">Deleted</Badge>
-                        ) : (
+                        ) : !canEditPricing ? null : (
                           <>
                             <Button variant="ghost" size="sm" onClick={() => startEdit(r)}><Pencil className="h-4 w-4" /></Button>
                             <Switch checked={r.is_active} onCheckedChange={(v) => toggle.mutate({ id: r.id, is_active: v })} />

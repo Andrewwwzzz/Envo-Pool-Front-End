@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   useOperatingHours,
   useSaveOperatingHours,
@@ -17,6 +18,9 @@ import {
 export function OperatingHoursSection() {
   const { data, isLoading } = useOperatingHours();
   const save = useSaveOperatingHours();
+  const { user } = useAuth();
+  // Opening hours are admin-only to change (D125 — the server enforces it); staff see them read-only.
+  const canEdit = (user as any)?.role === "admin";
   const { toast } = useToast();
   const [schedule, setSchedule] = useState<WeekSchedule>(DEFAULT_SCHEDULE);
   const [phCloseTime, setPhCloseTime] = useState(DEFAULT_PH_CLOSE);
@@ -50,6 +54,7 @@ export function OperatingHoursSection() {
         <CardTitle className="text-lg">Operating Hours</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <fieldset disabled={!canEdit} className="space-y-4 min-w-0">
         <p className="text-sm text-muted-foreground">
           <strong>Close time</strong> = public licensing cut-off (e.g. 01:00 = 1 AM next day). After this time, only Private Members may book.
         </p>
@@ -110,11 +115,16 @@ export function OperatingHoursSection() {
             );
           })}
         </div>
-        <div className="flex justify-end pt-2">
-          <Button onClick={handleSave} disabled={save.isPending || isLoading}>
-            {save.isPending ? "Saving…" : "Save Operating Hours"}
-          </Button>
-        </div>
+        {canEdit ? (
+          <div className="flex justify-end pt-2">
+            <Button onClick={handleSave} disabled={save.isPending || isLoading}>
+              {save.isPending ? "Saving…" : "Save Operating Hours"}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground pt-2">Only an admin can change opening hours.</p>
+        )}
+        </fieldset>
       </CardContent>
     </Card>
   );
