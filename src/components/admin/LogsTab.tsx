@@ -1,4 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -134,6 +136,54 @@ function formatDetailsSummary(details: any): string {
   return parts.length ? parts.join(", ") : "—";
 }
 
+// ── Search and filters (D10) ──
+type Filters = { q: string; from: string; to: string; kind: string };
+const NO_FILTERS: Filters = { q: "", from: "", to: "", kind: "" };
+
+function useDebounced<T>(value: T, ms = 400): T {
+  const [v, setV] = useState(value);
+  useEffect(() => { const t = setTimeout(() => setV(value), ms); return () => clearTimeout(t); }, [value, ms]);
+  return v;
+}
+
+/** The filters as sent to the server; the search text waits until typing pauses. */
+function useServerFilters(f: Filters, kindParam: string) {
+  const q = useDebounced(f.q.trim());
+  return useMemo(() => ({ q, from: f.from, to: f.to, [kindParam]: f.kind }), [q, f.from, f.to, f.kind, kindParam]);
+}
+
+function FilterBar({ value, onChange, placeholder, kinds, kindLabel }: {
+  value: Filters; onChange: (f: Filters) => void; placeholder: string;
+  kinds?: { value: string; label: string }[]; kindLabel?: string;
+}) {
+  const active = value.q || value.from || value.to || value.kind;
+  return (
+    <div className="flex flex-wrap items-end gap-2 pb-4">
+      <div className="flex-1 min-w-[220px]">
+        <Input value={value.q} onChange={(e) => onChange({ ...value, q: e.target.value })} placeholder={placeholder} />
+      </div>
+      <div className="space-y-1">
+        <div className="text-xs text-muted-foreground">From</div>
+        <Input type="date" value={value.from} onChange={(e) => onChange({ ...value, from: e.target.value })} className="w-40" />
+      </div>
+      <div className="space-y-1">
+        <div className="text-xs text-muted-foreground">To</div>
+        <Input type="date" value={value.to} onChange={(e) => onChange({ ...value, to: e.target.value })} className="w-40" />
+      </div>
+      {kinds && (
+        <Select value={value.kind || "all"} onValueChange={(v) => onChange({ ...value, kind: v === "all" ? "" : v })}>
+          <SelectTrigger className="w-44"><SelectValue placeholder={kindLabel} /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{kindLabel}</SelectItem>
+            {kinds.map((k) => <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      )}
+      {active && <Button variant="ghost" size="sm" onClick={() => onChange(NO_FILTERS)}>Clear</Button>}
+    </div>
+  );
+}
+
 // Older entries are fetched a page at a time (newest first).
 function LoadMore({ paged }: { paged: { hasNextPage: boolean; isFetchingNextPage: boolean; fetchNextPage: () => unknown } }) {
   if (!paged.hasNextPage) return null;
@@ -169,7 +219,8 @@ export default function LogsTab() {
 }
 
 function TransactionsView() {
-  const paged = usePagedTransactions();
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const paged = usePagedTransactions(useServerFilters(filters, "type"));
   const { refetch, isLoading } = paged;
   const transactions = useMemo(() => (paged.data?.pages ?? []).flatMap((p) => p.rows), [paged.data]);
   const nameMap = useUserNameMap();
@@ -187,6 +238,13 @@ function TransactionsView() {
         <Button variant="outline" size="sm" onClick={() => refetch()}>Refresh</Button>
       </CardHeader>
       <CardContent>
+        <FilterBar
+          value={filters}
+          onChange={setFilters}
+          placeholder="Search name, email, Short ID, amount or invoice ID"
+          kindLabel="All types"
+          kinds={[{ value: "payment", label: "Payment" }, { value: "topup", label: "Top-up" }, { value: "refund", label: "Refund" }, { value: "admin_charge", label: "Wallet Charge" }]}
+        />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -245,7 +303,7 @@ function TransactionsView() {
                 );
               })}
               {transactions.length === 0 && (
-                <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">{isLoading ? "Loading transactions…" : "No transactions found"}</td></tr>
+                <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">{isLoading ? "Loading transactions…" : (filters.q || filters.from || filters.to || filters.kind) ? "Nothing matches these filters" : "No transactions found"}</td></tr>
               )}
             </tbody>
           </table>
@@ -272,7 +330,8 @@ function TransactionsView() {
 }
 
 function BookingLogsView() {
-  const paged = usePagedBookingLogs();
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const paged = usePagedBookingLogs(useServerFilters(filters, "action"));
   const { refetch, isLoading } = paged;
   const logs = useMemo(() => (paged.data?.pages ?? []).flatMap((p) => p.rows), [paged.data]);
   const { data: bookingsData } = useAdminBookings(true) as { data: any };
@@ -294,6 +353,13 @@ function BookingLogsView() {
         <Button variant="outline" size="sm" onClick={() => refetch()}>Refresh</Button>
       </CardHeader>
       <CardContent>
+        <FilterBar
+          value={filters}
+          onChange={setFilters}
+          placeholder="Search customer name, email, Short ID or booking ID"
+          kindLabel="All actions"
+          kinds={[{ value: "created", label: "Created" }, { value: "moved", label: "Moved" }, { value: "cancelled", label: "Cancelled" }]}
+        />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -332,7 +398,7 @@ function BookingLogsView() {
                 );
               })}
               {logs.length === 0 && (
-                <tr><td colSpan={3} className="py-8 text-center text-muted-foreground">{isLoading ? "Loading booking logs…" : "No booking logs found"}</td></tr>
+                <tr><td colSpan={3} className="py-8 text-center text-muted-foreground">{isLoading ? "Loading booking logs…" : (filters.q || filters.from || filters.to || filters.kind) ? "Nothing matches these filters" : "No booking logs found"}</td></tr>
               )}
             </tbody>
           </table>
@@ -349,7 +415,8 @@ function BookingLogsView() {
 }
 
 function AdminLogsView() {
-  const paged = usePagedActivityLogs();
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const paged = usePagedActivityLogs(useServerFilters(filters, "action"));
   const { refetch, isLoading } = paged;
   const logs = useMemo(() => (paged.data?.pages ?? []).flatMap((p) => p.rows), [paged.data]);
   const nameMap = useUserNameMap();
@@ -362,6 +429,11 @@ function AdminLogsView() {
         <Button variant="outline" size="sm" onClick={() => refetch()}>Refresh</Button>
       </CardHeader>
       <CardContent>
+        <FilterBar
+          value={filters}
+          onChange={setFilters}
+          placeholder="Search staff or customer name, email, Short ID, or an action (e.g. refund)"
+        />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -397,7 +469,7 @@ function AdminLogsView() {
                 );
               })}
               {logs.length === 0 && (
-                <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">{isLoading ? "Loading admin logs…" : "No admin logs found"}</td></tr>
+                <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">{isLoading ? "Loading admin logs…" : (filters.q || filters.from || filters.to || filters.kind) ? "Nothing matches these filters" : "No admin logs found"}</td></tr>
               )}
             </tbody>
           </table>
