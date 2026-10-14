@@ -78,7 +78,14 @@ function getIssuedBy(r: any): string {
   return typeof ib === "string" ? ib : "—";
 }
 
+// A code that still has uses left but is past its expiry date can't be used —
+// the server refuses it — so it shows Expired rather than Active (B34).
+function isExpired(r: any): boolean {
+  return hasUsesLeft(r) && !!r.expiresAt && new Date(r.expiresAt).getTime() < Date.now();
+}
+
 function getUsage(r: any): { label: string; tone: "active" | "redeemed" | "muted" } {
+  if (isExpired(r)) return { label: "Expired", tone: "redeemed" };
   if (r.unlimited) {
     const used = Number(r.usesCount ?? r.usesUsed ?? 0);
     return { label: `Unlimited · ${used} used`, tone: "active" };
@@ -97,7 +104,7 @@ function getUsage(r: any): { label: string; tone: "active" | "redeemed" | "muted
     : { label: "Active", tone: "active" };
 }
 
-function isActive(r: any): boolean {
+function hasUsesLeft(r: any): boolean {
   if (r.unlimited) return true;
   const allowed = Number(r.usesAllowed);
   const remaining = Number(r.usesRemaining);
@@ -105,6 +112,10 @@ function isActive(r: any): boolean {
     return !Number.isFinite(remaining) || remaining > 0;
   }
   return !r.redeemed;
+}
+
+function isActive(r: any): boolean {
+  return hasUsesLeft(r) && !isExpired(r);
 }
 
 export default function RewardsTab({
@@ -136,7 +147,8 @@ export default function RewardsTab({
       if (typeFilter !== "all" && r.type !== typeFilter) return false;
       if (reasonFilter !== "all" && r.reason !== reasonFilter) return false;
       if (statusFilter === "active" && !isActive(r)) return false;
-      if (statusFilter === "redeemed" && isActive(r)) return false;
+      if (statusFilter === "redeemed" && hasUsesLeft(r)) return false;
+      if (statusFilter === "expired" && !isExpired(r)) return false;
       if (q) {
         const u = getUser(r);
         const hay = `${r.code || ""} ${u.name} ${u.email}`.toLowerCase();
@@ -155,7 +167,7 @@ export default function RewardsTab({
     let walletGiven = 0;
     for (const r of list) {
       if (isActive(r)) active++;
-      else redeemed++;
+      else if (!isExpired(r)) redeemed++;
       if (r.type === "wallet_credit" && r.redeemed) {
         walletGiven += Number(r.value) || 0;
       }
@@ -231,6 +243,7 @@ export default function RewardsTab({
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="redeemed">Redeemed</SelectItem>
+              <SelectItem value="expired">Expired</SelectItem>
             </SelectContent>
           </Select>
           <Select value={reasonFilter} onValueChange={setReasonFilter}>
