@@ -10,7 +10,7 @@ import { usePagedTransactions, usePagedBookingLogs, usePagedActivityLogs } from 
 import { useAdminCustomers, useAdminBookings } from "@/hooks/useAdmin";
 import { useMembershipPlans } from "@/hooks/useMembership";
 import { deriveTransactionDescription } from "@/lib/transactionLabel";
-import { fmtDateTimeSG, fmtDateSG } from "@/lib/sgTime";
+import { fmtDateTimeSG, fmtDateSG, fmtTimeSG } from "@/lib/sgTime";
 import { ScrollText, FileText, Users } from "lucide-react";
 import AdminBookingDetailDialog from "@/components/admin/AdminBookingDetailDialog";
 
@@ -91,6 +91,7 @@ const DETAIL_LABELS: Record<string, string> = {
   amount: "Amount",
   paymentMethod: "Payment Method",
   bookingId: "Booking ID",
+  openedDuringMaintenance: "Opened During Maintenance",
 };
 
 // Transaction.type as stored — every cash row used to be shown as "Timer
@@ -114,12 +115,16 @@ function actionLabel(action: string): string {
 
 function formatDetailValue(key: string, value: any): string {
   if (value == null) return "—";
+  if (key === "openedDuringMaintenance" && value.startTime) {
+    return `${fmtDateTimeSG(value.startTime)}–${fmtTimeSG(value.endTime)}${value.reason ? ` (${value.reason})` : ""}`;
+  }
   const lk = key.toLowerCase();
   if (lk === "dateofbirth" || lk === "date_of_birth" || lk === "dob" || lk === "birthdate") {
     const d = new Date(value);
     if (!isNaN(d.getTime())) return fmtDateSG(value);
   }
-  if (key === "startTime" || key === "endTime" || lk.includes("date") || lk.includes("at")) {
+  // Dates are keys like startedAt / createdAt — not any key containing "at" (hourlyRate, isManualRate).
+  if (key === "startTime" || key === "endTime" || lk.includes("date") || /At$/.test(key)) {
     const d = new Date(value);
     if (!isNaN(d.getTime())) return fmtDateTimeSG(value);
   }

@@ -4,6 +4,14 @@ import { apiFetch } from "@/lib/api";
 import { getCached, setCache } from "@/lib/queryCache";
 import type { GmailPaymentRow } from "@/lib/paynowLinks";
 
+/** A scheduled maintenance window the server reports when Open Table runs into one (D129). */
+export interface MaintenanceWindowInfo {
+  id: string;
+  startTime: string;
+  endTime: string;
+  reason: string | null;
+}
+
 // Every PayNow payment Gmail extracted, matched or not — used to cross-
 // reference against paynow-paid bookings/invoices/F&B orders that often
 // have no linked customer account (walk-ins), so amount+time is the only
@@ -382,21 +390,24 @@ export function useAdminTables() {
 
   const startTimer = useMutation({
     // pricingMode "custom" (with hourlyRate) is admin-only — the server refuses it from staff.
-    mutationFn: async ({ tableId, pricingMode, hourlyRate }: { tableId: string; pricingMode: PricingMode; hourlyRate?: number }) => {
+    // During a scheduled maintenance window the server answers code "maintenance_window"
+    // until staff confirm with openDuringMaintenance — the Open Table dialog asks (D129).
+    mutationFn: async ({ tableId, pricingMode, hourlyRate, openDuringMaintenance }: { tableId: string; pricingMode: PricingMode; hourlyRate?: number; openDuringMaintenance?: boolean }) => {
       const res = await apiFetch(`/api/admin/tables/${tableId}/start-timer`, {
         method: "POST",
-        body: JSON.stringify({ pricingMode, hourlyRate: pricingMode === "custom" ? hourlyRate || 0 : 0 }),
+        body: JSON.stringify({ pricingMode, hourlyRate: pricingMode === "custom" ? hourlyRate || 0 : 0, ...(openDuringMaintenance ? { openDuringMaintenance: true } : {}) }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || err.message || "Failed to start timer");
+        throw Object.assign(new Error(err.error || err.message || "Failed to start timer"), { code: err.code as string | undefined, window: err.window as MaintenanceWindowInfo | undefined });
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
       queryClient.invalidateQueries({ queryKey: ["tables-with-status"] });
     },
-    onError: (err: Error) => {
+    onError: (err: Error & { code?: string }) => {
+      if (err.code === "maintenance_window") return; // the dialog asks staff to confirm
       toast({ title: "Cannot open table", description: err.message, variant: "destructive" });
     },
   });

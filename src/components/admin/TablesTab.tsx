@@ -17,6 +17,7 @@ import {
   useAdminPromoCodes,
   isBookingsAffected,
   PricingMode,
+  MaintenanceWindowInfo,
 } from "@/hooks/useAdmin";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActiveWalkinSessions } from "@/hooks/useWalkin";
@@ -444,13 +445,22 @@ export default function TablesTab() {
   // Open-table dialog — pricing is chosen per table, every time (D15): it
   // starts on time-of-day, and a custom rate is offered to admins only.
   const [openTarget, setOpenTarget] = useState<string | null>(null);
+  // A scheduled maintenance window on the table being opened: the dialog shows it
+  // and staff can open the table anyway (D129).
+  const [openMaintenance, setOpenMaintenance] = useState<MaintenanceWindowInfo | null>(null);
+  useEffect(() => { setOpenMaintenance(null); }, [openTarget]);
   const openTable = (tableId: string, pricingMode: PricingMode, hourlyRate?: number) => {
     setCompletedSessions((prev) => {
       const copy = { ...prev };
       delete copy[tableId];
       return copy;
     });
-    startTimer.mutate({ tableId, pricingMode, hourlyRate }, { onSuccess: () => setOpenTarget(null) });
+    startTimer.mutate({ tableId, pricingMode, hourlyRate, openDuringMaintenance: !!openMaintenance }, {
+      onSuccess: () => setOpenTarget(null),
+      onError: (err: Error & { code?: string; window?: MaintenanceWindowInfo }) => {
+        if (err.code === "maintenance_window" && err.window) setOpenMaintenance(err.window);
+      },
+    });
   };
 
   // Close-table dialog — table id currently being closed (dialog owns its own state)
@@ -840,6 +850,7 @@ export default function TablesTab() {
       <OpenTableDialog
         table={(tables || []).find((tb) => tb.id === openTarget) || null}
         nextBooking={nextBookingWithin((tables || []).find((tb) => tb.id === openTarget), bookings)}
+        maintenance={openMaintenance}
         isAdminUser={isAdminUser}
         pending={startTimer.isPending}
         onOpen={openTable}
@@ -939,9 +950,16 @@ function UpcomingBookingNote({ booking, durationMinutes }: { booking: UpcomingBo
   );
 }
 
-function OpenTableDialog({ table, nextBooking, isAdminUser, pending, onOpen, onOpenChange }: {
+/** "06/10/2026 22:50–23:55 (Light repair)" — both dates when the window runs past midnight. */
+function maintenanceWindowText(w: MaintenanceWindowInfo): string {
+  const end = fmtDateSG(w.startTime) === fmtDateSG(w.endTime) ? fmtTimeSG(w.endTime) : fmtDateTimeSG(w.endTime);
+  return `${fmtDateTimeSG(w.startTime)}–${end}${w.reason ? ` (${w.reason})` : ""}`;
+}
+
+function OpenTableDialog({ table, nextBooking, maintenance, isAdminUser, pending, onOpen, onOpenChange }: {
   table: TableRow | null;
   nextBooking: UpcomingBooking | null;
+  maintenance: MaintenanceWindowInfo | null;
   isAdminUser: boolean;
   pending: boolean;
   onOpen: (tableId: string, mode: PricingMode, hourlyRate?: number) => void;
@@ -967,6 +985,12 @@ function OpenTableDialog({ table, nextBooking, isAdminUser, pending, onOpen, onO
         </DialogHeader>
         <div className="space-y-2 py-2">
           <UpcomingBookingNote booking={nextBooking} />
+          {maintenance && (
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-400">
+              <p className="font-medium flex items-center gap-1.5"><Wrench className="h-4 w-4 shrink-0" /> Scheduled maintenance {maintenanceWindowText(maintenance)}</p>
+              <p className="text-xs mt-1">Customers can't book this table during the window, and it stays in place. Open the table anyway only if it's fine to play on — for example, for a tournament.</p>
+            </div>
+          )}
           <Label>Pricing</Label>
           <PricingModePicker value={mode} onChange={setMode} allowCustom={isAdminUser} />
           <p className="text-xs text-muted-foreground">{PRICING_HELP[mode]}</p>
@@ -987,7 +1011,7 @@ function OpenTableDialog({ table, nextBooking, isAdminUser, pending, onOpen, onO
             disabled={pending || (mode === "custom" && !(customRate > 0))}
           >
             {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-            Open Table
+            {maintenance ? "Open Anyway" : "Open Table"}
           </Button>
         </DialogFooter>
       </DialogContent>
