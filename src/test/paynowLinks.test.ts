@@ -36,3 +36,44 @@ describe("paynow link formatting", () => {
     expect(canOpen({ ...invoice, transactionId: null })).toBe(false);
   });
 });
+
+describe("automaticMatches (B35)", async () => {
+  const { automaticMatches } = await import("@/lib/paynowLinks");
+  const { findMatchingGmailPayment, findMixedBillMatch } = await import("@/components/admin/PayNowVerifyIcon");
+  const at = "2026-10-14T01:05:00.000Z";
+  const order = (id: string, amount = 2.5): PaynowLink => ({ kind: "fnb", label: `F&B · item ${id}`, id, refType: "FnbOrder", amount, at, reason: "same amount, same minute" });
+  const alert = (id: string, extra: Record<string, unknown> = {}) => ({ _id: id, amount: 2.5, transactionTimestamp: at, linkedTo: [], suggestions: [order("o1")], candidateCharges: ["FnbOrder:o1"], ...extra });
+  const run = (p: any, all: any[], resolved = new Set<string>()) => automaticMatches(p, all, resolved, findMatchingGmailPayment, findMixedBillMatch);
+
+  it("names the charge a free, uncontested transfer turned green", () => {
+    const a = alert("a1");
+    const got = run(a, [a]);
+    expect(got.map((l) => l.id)).toEqual(["o1"]);
+    expect(linkText(got[0])).toBe("F&B · item o1 (matched automatically)");
+  });
+
+  it("leaves it Not linked when the match is contested, already used, or resolved by hand", () => {
+    const a = alert("a1", { candidateCharges: ["FnbOrder:o1", "FnbOrder:o2"] });
+    expect(run(a, [a])).toEqual([]);                                  // two charges, one transfer
+    const used = alert("a1", { usedFor: { kind: "topup" } });
+    expect(run(used, [used])).toEqual([]);
+    const b = alert("a1");
+    expect(run(b, [b], new Set(["FnbOrder:o1"]))).toEqual([]);       // staff linked / confirmed / flagged it
+    const linked = alert("a1", { linkedTo: [order("o9")] });
+    expect(run(linked, [linked])).toEqual([]);
+  });
+
+  it("only claims the charge when this transfer is its nearest match", () => {
+    const near = alert("near", { transactionTimestamp: at });
+    const far = alert("far", { transactionTimestamp: "2026-10-14T01:15:00.000Z", candidateCharges: ["FnbOrder:o1"] });
+    expect(run(far, [near, far])).toEqual([]);
+  });
+
+  it("matches a mixed bill when every part points at this transfer", () => {
+    const split: PaynowLink = { kind: "split", label: "Table 5 invoice + F&B", id: "s1+o1", parts: [{ kind: "table_invoice", label: "Table 5 invoice", id: "s1", refType: "TimerSession" }, order("o1")], reason: "2 payments add up" };
+    const a = { _id: "a1", amount: 12, transactionTimestamp: at, linkedTo: [], suggestions: [split], mixedBill: ["TimerSession:s1", "FnbOrder:o1"] };
+    expect(run(a, [a]).map((l) => l.kind)).toEqual(["split"]);
+    const rival = { ...a, _id: "a2" };
+    expect(run(a, [a, rival])).toEqual([]);
+  });
+});

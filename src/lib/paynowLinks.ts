@@ -14,7 +14,7 @@ export interface PaynowLink {
   customer?: { name: string; shortId?: string | null } | null;
   amount?: number | null;
   at?: string | null;
-  how?: "auto" | "confirmed" | "staff_link";
+  how?: "auto" | "confirmed" | "staff_link" | "auto_check";
   reason?: string;
   parts?: PaynowLink[];
 }
@@ -36,6 +36,7 @@ export function howLabel(how?: PaynowLink["how"]): string {
   if (how === "auto") return "auto-matched";
   if (how === "confirmed") return "match confirmed";
   if (how === "staff_link") return "linked by staff";
+  if (how === "auto_check") return "matched automatically";
   return "";
 }
 
@@ -68,4 +69,42 @@ export interface GmailPaymentRow {
   linkedTo?: PaynowLink[] | null;
   suggestions?: PaynowLink[] | null;
   [field: string]: unknown;
+}
+
+type SoloMatcher = (amount: number, at: string | null | undefined, payments: any[], chargeKey: string) => { payment: any; contested: boolean } | null;
+type MixedMatcher = (chargeKey: string, payments: any[]) => { payment: any; contested: boolean } | null;
+const CHARGE_TYPES = new Set(["Booking", "TimerSession", "FnbOrder"]);
+
+/**
+ * The charges a transfer with no definite link has turned green by itself (B35):
+ * the same check as the PayNow icon (findMatchingGmailPayment / findMixedBillMatch,
+ * passed in) run on each "Possible" suggestion — kept when that charge's automatic
+ * match is this very transfer and uncontested. Charges staff resolved by hand
+ * (`resolved` = "RefType:id" of any override) are left out: their icon isn't automatic.
+ */
+export function automaticMatches(
+  p: GmailPaymentRow & { usedFor?: unknown },
+  payments: any[] | undefined,
+  resolved: Set<string>,
+  solo: SoloMatcher,
+  mixed: MixedMatcher,
+): PaynowLink[] {
+  if (!payments?.length || isLinked(p) || p.usedFor) return [];
+  const mine = (m: { payment: any; contested: boolean } | null) => !!m && !m.contested && String(m.payment?._id) === String(p._id);
+  const out: PaynowLink[] = [];
+  for (const s of p.suggestions || []) {
+    if (s.kind === "split") {
+      const parts = s.parts || [];
+      const keys = parts.map((x) => `${x.refType}:${x.id}`);
+      if (parts.length && parts.every((x) => x.refType && CHARGE_TYPES.has(x.refType)) && keys.every((k) => !resolved.has(k) && mine(mixed(k, payments)))) {
+        out.push({ ...s, how: "auto_check" });
+      }
+      continue;
+    }
+    if (!s.refType || !CHARGE_TYPES.has(s.refType)) continue;
+    const key = `${s.refType}:${s.id}`;
+    if (resolved.has(key)) continue;
+    if (mine(solo(Number(s.amount), s.at, payments, key))) out.push({ ...s, how: "auto_check" });
+  }
+  return out;
 }

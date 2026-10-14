@@ -50,9 +50,9 @@ import { useAdminPublicHolidays } from "@/hooks/usePricing";
 import { useAdminCampaigns } from "@/hooks/useCampaign";
 import { OperatingHoursSection } from "@/components/admin/OperatingHoursSection";
 import { useAdminTransactions } from "@/hooks/useAdminLogs";
-import { useAdminGmailPayments, useAdminGmailPaymentLinks } from "@/hooks/useAdmin";
-import { linkText, suggestionText, isLinked, canOpen, LINK_KIND_LABEL, type PaynowLink } from "@/lib/paynowLinks";
-import { PayNowVerifyIcon } from "@/components/admin/PayNowVerifyIcon";
+import { useAdminGmailPayments, useAdminGmailPaymentLinks, useAdminPaynowOverrides } from "@/hooks/useAdmin";
+import { linkText, suggestionText, isLinked, canOpen, automaticMatches, LINK_KIND_LABEL, type PaynowLink } from "@/lib/paynowLinks";
+import { PayNowVerifyIcon, findMatchingGmailPayment, findMixedBillMatch } from "@/components/admin/PayNowVerifyIcon";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -4670,9 +4670,10 @@ const LINK_KIND_ICON: Record<string, typeof Wallet> = {
 
 // "Linked to" for one bank alert: what it paid for (each opens its detail when
 // there's a recorded payment behind it), or "Not linked" plus possible matches.
-function PaynowLinkedTo({ payment, onOpen }: { payment: { linkedTo?: PaynowLink[] | null; suggestions?: PaynowLink[] | null }; onOpen?: (transactionId: string) => void }) {
+function PaynowLinkedTo({ payment, onOpen }: { payment: { linkedTo?: PaynowLink[] | null; suggestions?: PaynowLink[] | null; autoMatched?: PaynowLink[] }; onOpen?: (transactionId: string) => void }) {
   if (!Array.isArray(payment.linkedTo)) return <span className="text-xs text-muted-foreground">…</span>;
-  const links: PaynowLink[] = payment.linkedTo;
+  // Nothing linked by hand, but the PayNow check matched it to a charge on its own (green icon) — B35.
+  const links: PaynowLink[] = payment.linkedTo.length ? payment.linkedTo : (payment.autoMatched ?? []);
   const suggestions: PaynowLink[] = Array.isArray(payment.suggestions) ? payment.suggestions : [];
   if (links.length) {
     return (
@@ -4801,7 +4802,15 @@ function TopUpsTab() {
   const [bankLimit, setBankLimit] = useState(200);
   const [notLinkedOnly, setNotLinkedOnly] = useState(false);
   const { data: bankData, isLoading: gmailLoading, isFetching: gmailFetching } = useAdminGmailPaymentLinks(status === "transactions", bankLimit);
-  const gmailPayments = bankData?.payments;
+  const { data: paynowOverrides } = useAdminPaynowOverrides(status === "transactions");
+  // Each transfer with the charges the PayNow check matched to it automatically (B35).
+  const gmailPayments = useMemo(() => {
+    const rows = bankData?.payments;
+    if (!rows) return rows;
+    const resolved = new Set<string>((paynowOverrides ?? []).map((o: any) => `${o.refType}:${o.refId}`));
+    return rows.map((p: any) => ({ ...p, autoMatched: automaticMatches(p, rows, resolved, findMatchingGmailPayment, findMixedBillMatch) }));
+  }, [bankData, paynowOverrides]);
+  const explained = (p: any) => isLinked(p) || (p.autoMatched?.length ?? 0) > 0;
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -4962,17 +4971,17 @@ function TopUpsTab() {
         {status === "transactions" ? (
           <>
             <p className="text-xs text-muted-foreground mb-2">
-              "Top-Up Match Status" only checks whether a transfer was linked to a top-up request. "Linked to" shows everything a transfer is tied to — a top-up, or a booking, invoice or F&B order linked with the PayNow icon. For a "Not linked" transfer, possible matches are listed (same amount within 30 min, or a few payments that add up to it) to help you look into it.
+              "Top-Up Match Status" only checks whether a transfer was linked to a top-up request. "Linked to" shows everything a transfer is tied to — a top-up, a booking, invoice or F&B order linked with the PayNow icon, or a charge the PayNow check matched automatically (its icon is green). For a "Not linked" transfer, possible matches are listed (same amount within 30 min, or a few payments that add up to it) to help you look into it.
             </p>
             <label className="flex items-center gap-2 text-sm mb-2 w-fit cursor-pointer">
               <Checkbox checked={notLinkedOnly} onCheckedChange={(v) => setNotLinkedOnly(v === true)} />
               Not linked only
               {notLinkedOnly && gmailPayments && (
-                <span className="text-xs text-muted-foreground">({gmailPayments.filter((p) => !isLinked(p)).length} of {gmailPayments.length})</span>
+                <span className="text-xs text-muted-foreground">({gmailPayments.filter((p) => !explained(p)).length} of {gmailPayments.length})</span>
               )}
             </label>
             <GmailTransactionsTable
-              payments={notLinkedOnly ? gmailPayments?.filter((p) => !isLinked(p)) : gmailPayments}
+              payments={notLinkedOnly ? gmailPayments?.filter((p) => !explained(p)) : gmailPayments}
               loading={gmailLoading}
               canResolve={authUser?.role === "admin" || (authUser?.staffPermissions ?? []).includes("customers")}
             />
