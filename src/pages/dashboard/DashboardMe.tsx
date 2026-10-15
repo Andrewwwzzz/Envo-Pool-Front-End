@@ -18,10 +18,10 @@ export default function DashboardMe() {
   const { user, signOut } = useAuth();
   const { data: profile } = useProfile();
   const name = profile?.username || profile?.name || user?.name || "";
-  const shortId = profile?.shortId ?? (user as any)?.shortId;
+  const shortId = profile?.shortId ?? user?.shortId;
   const wallet = profile?.wallet_balance ?? profile?.walletBalance ?? 0;
   const points = profile?.rewardPoints ?? 0;
-  const isAdmin = (user as any)?.isAdmin === true;
+  const isAdmin = user?.isAdmin === true;
 
   return (
     <>
