@@ -1,33 +1,44 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, LogOut } from "lucide-react";
 import { CampaignPopup } from "@/components/CampaignPopup";
 import { InboxBell } from "@/components/InboxBell";
+import { MobileBottomNav, BOTTOM_NAV_PADDING, ME_PAGES } from "@/components/MobileBottomNav";
 
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard/bookings": "My Bookings",
-  "/dashboard/transactions": "Transactions",
+  "/dashboard/transactions": "Wallet & Transactions",
   "/dashboard/settings": "Account Settings",
   "/dashboard/rewards": "My Rewards",
   "/dashboard/membership": "Membership",
   "/dashboard/fnb": "F&B & Others",
   "/dashboard/inbox": "Inbox",
   "/dashboard/tournaments": "My Tournaments",
+  "/dashboard/me": "Me",
 };
+
+// Pages that are a tab of their own on phones: no back arrow there, just the title.
+const TAB_PAGES = ["/dashboard/fnb", "/dashboard/transactions", "/dashboard/me"];
 
 export default function DashboardLayout() {
   const { user, loading, signOut } = useAuth();
   const location = useLocation();
+  const isMobile = useIsMobile();
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-muted-foreground dark">Loading...</div>;
   }
   if (!user) return <Navigate to="/auth" replace />;
 
-  const isHome = location.pathname === "/dashboard";
-  const pageTitle = PAGE_TITLES[location.pathname];
+  const path = location.pathname;
+  const isHome = path === "/dashboard";
+  const pageTitle = PAGE_TITLES[path];
+  const isTab = isMobile && TAB_PAGES.includes(path);
+  // On phones the account pages are opened from "Me", so Back returns there.
+  const backTo = isMobile && path !== "/dashboard/me" && ME_PAGES.includes(path) ? "/dashboard/me" : "/dashboard";
 
   return (
     <div className="min-h-screen bg-background dark">
@@ -39,13 +50,16 @@ export default function DashboardLayout() {
       >
         <div className="flex items-center gap-3">
           {isHome ? (
-            <Link to="/booking">
+            // Phones have the Book tab instead.
+            <Link to="/booking" className="hidden md:block">
               <Button variant="outline" size="sm" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground">
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
             </Link>
+          ) : isTab ? (
+            <h1 className="text-base font-semibold text-foreground pl-1">{pageTitle}</h1>
           ) : (
-            <Link to="/dashboard">
+            <Link to={backTo}>
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-2 pl-1">
                 <ArrowLeft className="h-5 w-5" />
                 <span className="text-sm font-medium">{pageTitle || "Dashboard"}</span>
@@ -59,10 +73,11 @@ export default function DashboardLayout() {
 
         <div className="flex items-center gap-1">
           <InboxBell />
+          {/* On phones, Sign out lives in Me (out of reach of a stray tap). */}
           <Button
             variant="ghost"
             size="sm"
-            className="text-muted-foreground hover:text-destructive"
+            className="hidden md:inline-flex text-muted-foreground hover:text-destructive"
             onClick={signOut}
           >
             <LogOut className="h-4 w-4" />
@@ -72,12 +87,11 @@ export default function DashboardLayout() {
 
       <CampaignPopup />
 
-      <main
-        className="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 pt-4 sm:pt-6 space-y-4 sm:space-y-6"
-        style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}
-      >
+      <main className={`relative z-10 mx-auto max-w-4xl px-4 sm:px-6 pt-4 sm:pt-6 space-y-4 sm:space-y-6 ${BOTTOM_NAV_PADDING}`}>
         <Outlet />
       </main>
+
+      <MobileBottomNav />
     </div>
   );
 }

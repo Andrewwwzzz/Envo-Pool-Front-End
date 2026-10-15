@@ -28,6 +28,7 @@ import { isBefore } from "date-fns";
 import { todaySG, sgSlotToUTC, sgDayBoundsUTC, isTodaySG, toSG, getSGDateStr, isWithinCurrentOperatingDay, fmtTimeSG } from "@/lib/sgTime";
 import WalkinSessionPanel from "@/components/WalkinSessionPanel";
 import { CampaignPopup } from "@/components/CampaignPopup";
+import { MobileBottomNav, BOTTOM_NAV_PADDING } from "@/components/MobileBottomNav";
 import { useMyWalkinSession, useStartWalkin } from "@/hooks/useWalkin";
 import { Timer } from "lucide-react";
 
@@ -832,16 +833,16 @@ const Booking = () => {
               <Button variant="outline" size="sm" className="border-accent/30 text-accent hover:bg-accent/10"><Shield className="mr-2 h-4 w-4" /> Admin</Button>
             </Link>
           )}
-          <Link to="/dashboard">
+          <Link to="/dashboard" className="hidden md:block">
             <Button variant="outline" size="sm" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground">Dashboard</Button>
           </Link>
-          <Button variant="ghost" size="sm" onClick={signOut} className="text-muted-foreground">
+          <Button variant="ghost" size="sm" onClick={signOut} className="hidden md:inline-flex text-muted-foreground">
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-4xl p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <main className={`relative z-10 mx-auto max-w-4xl p-4 sm:p-6 space-y-4 sm:space-y-6 ${BOTTOM_NAV_PADDING}`}>
         <CampaignPopup />
         <WalkinSessionPanel />
         {!kycVerified && (
@@ -1252,6 +1253,7 @@ const Booking = () => {
           </DialogContent>
         </Dialog>
       </main>
+      <MobileBottomNav />
     </div>
   );
 };

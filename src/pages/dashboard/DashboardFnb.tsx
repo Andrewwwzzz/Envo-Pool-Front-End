@@ -354,7 +354,7 @@ export default function DashboardFnb() {
 
       {/* Cart */}
       {cart.length > 0 && (
-        <Card className="border-accent/40 bg-background sticky bottom-2 z-10 shadow-lg">
+        <Card className="border-accent/40 bg-background sticky bottom-[calc(env(safe-area-inset-bottom,0px)+4.5rem)] md:bottom-2 z-10 shadow-lg">
           <CardContent className="p-4 space-y-3">
             <h3 className="font-semibold text-sm text-foreground flex items-center gap-1.5">
               <ShoppingBag className="h-4 w-4" /> Your Cart

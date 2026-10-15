@@ -11,11 +11,16 @@ import { deriveTransactionDescription } from "@/lib/transactionLabel";
 import { useMembershipPlans } from "@/hooks/useMembership";
 import { useMyWalkinSession } from "@/hooks/useWalkin";
 import { getTableLabel } from "@/lib/tableLabel";
-import { Timer, ArrowDownLeft, ArrowUpRight, RefreshCw, CreditCard, Zap } from "lucide-react";
+import { Timer, ArrowDownLeft, ArrowUpRight, RefreshCw, CreditCard, Zap, Wallet } from "lucide-react";
+import { useProfile } from "@/hooks/useProfile";
+import TopUpWalletDialog from "@/components/dashboard/TopUpWalletDialog";
 
 export default function DashboardTransactions() {
   const { user } = useAuth();
   const [showAll, setShowAll] = useState(true);
+  const { data: profile } = useProfile();
+  const [topUpOpen, setTopUpOpen] = useState(false);
+  const walletBalance = Number(profile?.wallet_balance ?? profile?.walletBalance ?? 0);
   const { data: plans } = useMembershipPlans();
   const membershipPrices = (plans || []).map((p: any) => Number(p.price)).filter((n) => !isNaN(n));
   const { data: walkinSession } = useMyWalkinSession();
@@ -182,6 +187,25 @@ export default function DashboardTransactions() {
 
   return (
     <div className="space-y-4">
+      {/* Wallet: balance and top-up (the Wallet tab on phones) */}
+      <Card className="card-premium">
+        <CardContent className="p-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-10 w-10 rounded-full bg-accent/15 flex items-center justify-center shrink-0">
+              <Wallet className="h-5 w-5 text-accent" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Wallet balance</p>
+              <p className="text-2xl font-bold text-foreground">${walletBalance.toFixed(2)}</p>
+            </div>
+          </div>
+          <Button className="bg-accent text-accent-foreground hover:bg-accent/90 shrink-0" onClick={() => setTopUpOpen(true)}>
+            Top Up
+          </Button>
+        </CardContent>
+      </Card>
+      <TopUpWalletDialog open={topUpOpen} onOpenChange={setTopUpOpen} shortId={(user as any)?.shortId} />
+
       {walkinSession && (
         <Card className="card-premium border-accent/40 bg-accent/5">
           <CardContent className="pt-4 pb-4">
