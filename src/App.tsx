@@ -46,7 +46,6 @@ const Terms = page(() => import("./pages/Terms"));
 const Tournaments = page(() => import("./pages/Tournaments"));
 const TournamentDetail = page(() => import("./pages/TournamentDetail"));
 const DashboardTournaments = page(() => import("./pages/dashboard/DashboardTournaments"));
-const DashboardMe = page(() => import("./pages/dashboard/DashboardMe"));
 const Kyc = page(() => import("./pages/Kyc"));
 const NotFound = page(() => import("./pages/NotFound"));
 
@@ -106,7 +105,6 @@ const App = () => (
                   <Route path="bookings" element={<DashboardBookings />} />
                   <Route path="inbox" element={<DashboardInbox />} />
                   <Route path="tournaments" element={<DashboardTournaments />} />
-                  <Route path="me" element={<DashboardMe />} />
                 </Route>
                 <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
                 <Route

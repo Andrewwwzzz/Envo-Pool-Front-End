@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, LogOut } from "lucide-react";
 import { CampaignPopup } from "@/components/CampaignPopup";
 import { InboxBell } from "@/components/InboxBell";
-import { MobileBottomNav, BOTTOM_NAV_PADDING, ME_PAGES } from "@/components/MobileBottomNav";
+import { MobileBottomNav, BOTTOM_NAV_PADDING } from "@/components/MobileBottomNav";
 
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard/bookings": "My Bookings",
@@ -17,11 +17,10 @@ const PAGE_TITLES: Record<string, string> = {
   "/dashboard/fnb": "F&B & Others",
   "/dashboard/inbox": "Inbox",
   "/dashboard/tournaments": "My Tournaments",
-  "/dashboard/me": "Me",
 };
 
 // Pages that are a tab of their own on phones: no back arrow there, just the title.
-const TAB_PAGES = ["/dashboard/fnb", "/dashboard/transactions", "/dashboard/me"];
+const TAB_PAGES = ["/dashboard/fnb", "/dashboard/transactions"];
 
 export default function DashboardLayout() {
   const { user, loading, signOut } = useAuth();
@@ -37,8 +36,6 @@ export default function DashboardLayout() {
   const isHome = path === "/dashboard";
   const pageTitle = PAGE_TITLES[path];
   const isTab = isMobile && TAB_PAGES.includes(path);
-  // On phones the account pages are opened from "Me", so Back returns there.
-  const backTo = isMobile && path !== "/dashboard/me" && ME_PAGES.includes(path) ? "/dashboard/me" : "/dashboard";
 
   return (
     <div className="min-h-screen bg-background dark">
@@ -59,7 +56,7 @@ export default function DashboardLayout() {
           ) : isTab ? (
             <h1 className="text-base font-semibold text-foreground pl-1">{pageTitle}</h1>
           ) : (
-            <Link to={backTo}>
+            <Link to="/dashboard">
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-2 pl-1">
                 <ArrowLeft className="h-5 w-5" />
                 <span className="text-sm font-medium">{pageTitle || "Dashboard"}</span>
@@ -73,11 +70,10 @@ export default function DashboardLayout() {
 
         <div className="flex items-center gap-1">
           <InboxBell />
-          {/* On phones, Sign out lives in Me (out of reach of a stray tap). */}
           <Button
             variant="ghost"
             size="sm"
-            className="hidden md:inline-flex text-muted-foreground hover:text-destructive"
+            className="text-muted-foreground hover:text-destructive"
             onClick={signOut}
           >
             <LogOut className="h-4 w-4" />

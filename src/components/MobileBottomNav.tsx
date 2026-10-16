@@ -1,24 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, CalendarPlus, UtensilsCrossed, Wallet, User } from "lucide-react";
+import { Home, CalendarPlus, UtensilsCrossed, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// The pages reached from "Me" — that tab stays lit while on any of them.
-export const ME_PAGES = [
-  "/dashboard/me",
-  "/dashboard/membership",
-  "/dashboard/rewards",
-  "/dashboard/tournaments",
-  "/dashboard/settings",
-  "/dashboard/inbox",
-  "/dashboard/bookings",
-];
+const isTabPage = (p: string) => p.startsWith("/dashboard/fnb") || p.startsWith("/dashboard/transactions");
 
 const TABS = [
-  { to: "/dashboard", label: "Home", icon: Home, active: (p: string) => p === "/dashboard" },
+  // Home stays lit on the pages opened from its tiles (membership, rewards, …).
+  { to: "/dashboard", label: "Home", icon: Home, active: (p: string) => p.startsWith("/dashboard") && !isTabPage(p) },
   { to: "/booking", label: "Book", icon: CalendarPlus, active: (p: string) => p.startsWith("/booking") },
   { to: "/dashboard/fnb", label: "F&B", icon: UtensilsCrossed, active: (p: string) => p.startsWith("/dashboard/fnb") },
   { to: "/dashboard/transactions", label: "Wallet", icon: Wallet, active: (p: string) => p.startsWith("/dashboard/transactions") },
-  { to: "/dashboard/me", label: "Me", icon: User, active: (p: string) => ME_PAGES.some((m) => p.startsWith(m)) },
 ];
 
 // Space to leave under a page's content on phones so the bar never covers it.
@@ -34,7 +25,7 @@ export function MobileBottomNav() {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-card/95 backdrop-blur-md md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      <ul className="grid grid-cols-5">
+      <ul className="grid grid-cols-4">
         {TABS.map(({ to, label, icon: Icon, active }) => {
           const on = active(pathname);
           return (

@@ -836,7 +836,7 @@ const Booking = () => {
           <Link to="/dashboard" className="hidden md:block">
             <Button variant="outline" size="sm" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground">Dashboard</Button>
           </Link>
-          <Button variant="ghost" size="sm" onClick={signOut} className="hidden md:inline-flex text-muted-foreground">
+          <Button variant="ghost" size="sm" onClick={signOut} className="text-muted-foreground">
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
