@@ -101,10 +101,27 @@ export default function DashboardRewards() {
 
   /** True if reward is tangible merchandise — must be collected from staff at
    *  the counter, since there's no order/delivery flow for physical items. */
-  /** Top-up promo's free 1-month membership — self-redeemable. The
-   *  membership + locker tier still goes through the counter. */
-  const isMembershipReward = (r: Reward) =>
-    (r as any).source === "topup_promo" && r.description === "Free 1-Month Standard Membership";
+  /** Rewarded memberships the customer activates themselves (top-up promo free
+   *  months and milestone memberships) — same rule as the server
+   *  (utils/membershipRewards.js). A locker month activates the Locker plan;
+   *  the physical locker and PIN are given at the counter. */
+  const membershipRewardKinds = (r: Reward | null): ("regular" | "locker")[] | null => {
+    if (!r) return null;
+    const source = (r as any).source;
+    const d = String(r.description || "").trim();
+    if (source === "topup_promo") {
+      if (d === "Free 1-Month Standard Membership") return ["regular"];
+      if (d === "Free 1-Month Standard Membership + Locker") return ["regular", "locker"];
+      return null;
+    }
+    if (source === "milestone") {
+      if (/^free 1-month locker membership\b/i.test(d)) return ["locker"];
+      if (/^free 1-month membership\b/i.test(d)) return ["regular"];
+    }
+    return null;
+  };
+  const isMembershipReward = (r: Reward) => !!membershipRewardKinds(r);
+  const hasLocker = (r: Reward | null) => !!membershipRewardKinds(r)?.includes("locker");
 
   const isMerchandiseReward = (r: Reward) =>
     r.type === "free_item" &&
@@ -316,10 +333,14 @@ export default function DashboardRewards() {
                         <div className="rounded-md bg-emerald-500/10 border border-emerald-500/30 px-3 py-2.5 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2 min-w-0">
                             <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
-                            <p className="text-xs text-emerald-300">Activate your free 1-month membership instantly — no need to see staff.</p>
+                            <p className="text-xs text-emerald-300">
+                              {hasLocker(r)
+                                ? "Activate it yourself now, then collect your locker and PIN at the counter."
+                                : "Activate your free 1-month membership instantly — no need to see staff."}
+                            </p>
                           </div>
                           <Button size="sm" className="shrink-0" onClick={() => setConfirmMembershipReward(r)}>
-                            Redeem
+                            Activate
                           </Button>
                         </div>
                       ) : (
@@ -492,9 +513,14 @@ export default function DashboardRewards() {
       <Dialog open={!!confirmMembershipReward} onOpenChange={(o) => { if (!o) setConfirmMembershipReward(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Activate Free Membership</DialogTitle>
-            <DialogDescription>
-              Your free 1-month Standard Membership starts right away. If you're already a member, we'll add one free month to your current membership instead.
+            <DialogTitle>{confirmMembershipReward?.description || "Activate Free Membership"}</DialogTitle>
+            <DialogDescription className="space-y-2">
+              {membershipRewardKinds(confirmMembershipReward)?.includes("regular") && (
+                <span className="block">Your free month of Standard Membership starts right away. If you're already a member, we'll add one free month to your current membership instead.</span>
+              )}
+              {hasLocker(confirmMembershipReward) && (
+                <span className="block">Your locker month starts now (or is added to your current locker). Collect your locker and PIN from staff at the counter.</span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
