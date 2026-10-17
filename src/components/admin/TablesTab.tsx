@@ -25,6 +25,7 @@ import { useTablePendingFnb } from "@/hooks/useFnb";
 import { useCustomerActiveMembership } from "@/hooks/useMembership";
 import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
 import { MoveBookingDialog } from "@/components/admin/MoveBookingDialog";
+import { MoveTableDialog } from "@/components/admin/MoveTableDialog";
 import { ArrowRightLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -316,6 +317,7 @@ export default function TablesTab() {
   const [bulkSchedEnd, setBulkSchedEnd] = useState("");
   const [bulkSchedReason, setBulkSchedReason] = useState("");
   const [moveTarget, setMoveTarget] = useState<any | null>(null);
+  const [moveTableId, setMoveTableId] = useState<string | null>(null);
   const { toast } = useToast();
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
   const [bookingCountdown, setBookingCountdown] = useState<Record<string, number>>({});
@@ -336,6 +338,29 @@ export default function TablesTab() {
   const [affected, setAffected] = useState<{ groups: AffectedGroup[]; retry: () => Promise<void> } | null>(null);
   const [affectedLoading, setAffectedLoading] = useState(false);
   const tableLabel = (id: string) => `Table ${(tables || []).find((t) => t.id === id)?.table_number ?? ""}`;
+
+  // Why a table can't take a running session moved onto it — the same rules
+  // the server checks (it has the final say, e.g. a light switched ON by hand).
+  const moveUnavailable = (() => {
+    const out: Record<string, string> = {};
+    if (!moveTableId) return out;
+    const now = Date.now();
+    const in15 = now + 15 * 60 * 1000;
+    for (const t of tables || []) {
+      const ids = [t.id, t.hardware_id].filter(Boolean);
+      const bookedSoon = (bookings || []).some((b: any) => {
+        const bTableId = typeof b.tableId === "object" ? b.tableId?._id || b.tableId?.hardware_id : b.tableId;
+        if (b.isDeleted || !ids.includes(bTableId) || !["pending_payment", "confirmed"].includes(b.status)) return false;
+        return new Date(b.startTime || b.start_time).getTime() < in15 && new Date(b.endTime || b.end_time).getTime() > now;
+      });
+      const walkin = (walkinSessions as any[]).some((s: any) => ids.includes(s.tableId || s.table_id));
+      if (t.timer_started_at) out[t.id] = "In use";
+      else if (walkin) out[t.id] = "Walk-in running";
+      else if (bookedSoon) out[t.id] = "Booked now or within 15 minutes";
+      else if (t.status === "maintenance") out[t.id] = "Under maintenance";
+    }
+    return out;
+  })();
 
   const changeStatus = async (tableIds: string[], maintenance: boolean, reason: string, acknowledgeBookings = false) => {
     if (tableIds.length === 1) {
@@ -724,9 +749,14 @@ export default function TablesTab() {
                       with full labels on larger screens. */}
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-1">
                     {isRunning ? (
-                      <Button size="sm" variant="destructive" onClick={() => openCloseDialog(t.id)} className="w-full col-span-2 sm:col-span-1">
-                        <Square className="mr-2 h-3 w-3" /> Close Table
-                      </Button>
+                      <>
+                        <Button size="sm" variant="destructive" onClick={() => openCloseDialog(t.id)} className="w-full col-span-2 sm:col-span-1">
+                          <Square className="mr-2 h-3 w-3" /> Close Table
+                        </Button>
+                        <Button size="sm" variant="secondary" className="w-full col-span-2 sm:col-span-1" onClick={() => setMoveTableId(t.id)} title="Move this session to another table — same start time, rate and F&B">
+                          <ArrowRightLeft className="mr-2 h-3 w-3" /> Move Table
+                        </Button>
+                      </>
                     ) : (
                       <>
                         <Button size="sm" variant="default" onClick={() => setOpenTarget(t.id)} className="w-full" disabled={hasActiveBooking || hasUserWalkin} title={hasActiveBooking ? "Table has an active booking" : hasUserWalkin ? "Table has an active walk-in session" : isMaintenance ? "Table is under maintenance — public booking/walk-in is blocked, but staff can still open it (e.g. for a private event)" : "Pay-by-time — bill is calculated when the table is closed"}>
@@ -901,6 +931,11 @@ export default function TablesTab() {
       />
 
       <MoveBookingDialog booking={moveTarget} onOpenChange={(o) => { if (!o) setMoveTarget(null); }} />
+      <MoveTableDialog
+        table={(tables || []).find((t) => t.id === moveTableId && t.timer_started_at) ?? null}
+        unavailable={moveUnavailable}
+        onOpenChange={(o) => { if (!o) setMoveTableId(null); }}
+      />
 
       <BookNowDialog
         tables={tables || []}
