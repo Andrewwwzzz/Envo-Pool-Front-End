@@ -1714,7 +1714,7 @@ function InvoicesTab() {
         <DialogHeader>
           <DialogTitle>Delete Invoice</DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-muted-foreground">This removes the invoice from the list and reports. It doesn't refund anyone — to correct a payment, use Change payment method. An admin can restore it from Show Deleted.</p>
+        <p className="text-sm text-muted-foreground">This removes the invoice from the list and reports, and a cash or PayNow payment on it stops counting toward the day's cash and revenue. It doesn't refund a wallet charge — to correct a payment, use Change payment method. An admin can restore it from Show Deleted.</p>
         <Textarea
           value={deleteReason}
           onChange={(e) => setDeleteReason(e.target.value)}
