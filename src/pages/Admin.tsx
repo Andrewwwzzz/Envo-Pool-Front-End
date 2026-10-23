@@ -4814,10 +4814,11 @@ function TopUpsTab() {
   const [inlineRejectMode, setInlineRejectMode] = useState(false);
   const [inlineRejectReason, setInlineRejectReason] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  // PayNow without a bank match: staff can't approve it; admin/master must
-  // give a reason (the server enforces both).
+  // PayNow without a bank match: admin or staff may approve it (a friend
+  // often pays on the customer's behalf, so the sender name won't match)
+  // but must give a reason (the server enforces this).
   const { user: authUser } = useAuth();
-  const canManualPaynow = authUser?.role === "admin";
+  const canManualPaynow = authUser?.role === "admin" || authUser?.role === "staff";
   const [manualApprove, setManualApprove] = useState<{ id: string; amount: number } | null>(null);
   const [manualReason, setManualReason] = useState("");
   const isPaynowRequest = (r: any) => String(r?.method || "paynow").toLowerCase() !== "cash";
@@ -5131,7 +5132,7 @@ function TopUpsTab() {
             <DialogHeader>
               <DialogTitle>Approve PayNow without a bank match</DialogTitle>
               <DialogDescription>
-                No matching bank transfer has been confirmed for this ${manualApprove?.amount.toFixed(2)} top-up. Only approve after checking the bank app. The reason is saved in the logs.
+                No matching bank transfer has been confirmed for this ${manualApprove?.amount.toFixed(2)} top-up. Only approve after checking the bank app (e.g. a friend paid on the customer's behalf). The reason is saved in the logs.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2">
@@ -5500,7 +5501,7 @@ function TopUpDetailDialog({
                 <div className="flex flex-col gap-2">
                   {approveBlocked ? (
                     <p className="rounded-md border border-border px-3 py-2 text-sm text-muted-foreground">
-                      PayNow top-ups are credited once the bank transfer is matched — automatically, or with Confirm Match in the list. Otherwise ask an admin to approve it.
+                      PayNow top-ups are credited once the bank transfer is matched — automatically, or with Confirm Match in the list. Otherwise approve it with a reason after checking the bank app.
                     </p>
                   ) : (
                     <Button
