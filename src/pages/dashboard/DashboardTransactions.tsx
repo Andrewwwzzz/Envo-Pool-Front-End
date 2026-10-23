@@ -165,11 +165,13 @@ export default function DashboardTransactions() {
         });
       });
       items.sort((a, b) => b.sortKey - a.sortKey);
-      setCache("transactions", items);
+      // Keyed by user so one account's history is never shown as another's
+      // starting data on a shared device.
+      setCache(`transactions:${user?.id ?? user?._id ?? "anon"}`, items);
       return items;
     },
     enabled: !!user,
-    initialData: () => getCached<any[]>("transactions") ?? [],
+    initialData: () => getCached<any[]>(`transactions:${user?.id ?? user?._id ?? "anon"}`) ?? [],
   });
 
   const list = transactionHistory ?? [];

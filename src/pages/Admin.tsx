@@ -4226,12 +4226,9 @@ function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () 
 function VerificationTab() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"pending" | "rejected">("pending");
-  const [users, setUsers] = useState<any[]>(() => {
-    try {
-      const cached = localStorage.getItem("cache:unverified-users");
-      return cached ? JSON.parse(cached) : [];
-    } catch { return []; }
-  });
+  // Not cached in localStorage: these are full customer records (phone,
+  // DOB, email…) and must not sit on the device after the tab is closed.
+  const [users, setUsers] = useState<any[]>([]);
   const [rejectedUsers, setRejectedUsers] = useState<any[]>([]);
   const [verifying, setVerifying] = useState<string | null>(null);
   const [verifyTarget, setVerifyTarget] = useState<any | null>(null);
@@ -4252,7 +4249,6 @@ function VerificationTab() {
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.users || [];
       setUsers(list);
-      localStorage.setItem("cache:unverified-users", JSON.stringify(list));
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }

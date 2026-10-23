@@ -1,5 +1,19 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
+
+// Everything this browser remembers about the signed-in session: the token,
+// the profile, and every "cache:*" entry (admin customer lists, wallets,
+// transaction history…). Cleared on sign-out AND when a saved token turns
+// out to be expired, so a shared counter PC never keeps the last person's
+// customer data around after their session ended.
+function clearStoredSession() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  Object.keys(localStorage).forEach((key) => {
+    if (key.startsWith("cache:")) localStorage.removeItem(key);
+  });
+}
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -55,6 +69,7 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<BackendUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,9 +91,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return u;
     } catch (err) {
       console.error("fetchCurrentUser error:", err);
-      // Token invalid — clear auth
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      // Token invalid/expired — forget the whole session, caches included
+      clearStoredSession();
       return null;
     }
   };
@@ -113,12 +127,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // present to confirm. The public `signOut` a user clicks instead just
   // opens the confirmation dialog rendered further down.
   const doSignOut = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    // Clear all cached query data
-    Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith("cache:")) localStorage.removeItem(key);
-    });
+    clearStoredSession();
+    // Drop in-memory query results too, so the next account to sign in on
+    // this tab doesn't briefly see the previous account's lists.
+    queryClient.clear();
     setToken(null);
     setUser(null);
   };
