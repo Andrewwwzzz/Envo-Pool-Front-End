@@ -5343,7 +5343,7 @@ function CreateTopUpDialog({
 
           <div className="space-y-1.5">
             <Label>Amount</Label>
-            <Input type="number" step="0.01" min="0.01" max="500" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Max $500" />
+            <Input type="number" step="0.01" min="0.01" max="1000" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Max $1000" />
           </div>
 
           <div className="space-y-1.5">

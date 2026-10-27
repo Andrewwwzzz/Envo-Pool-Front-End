@@ -183,9 +183,9 @@ export default function TopUpWalletDialog({
                 <Gift className="h-4 w-4 text-amber-400" /> Top Up Bonus
               </p>
               <p className="text-xs text-muted-foreground">
-                Top up exactly {promo.tiers.map((t) => `$${t.amount}`).join(", ").replace(/, ([^,]*)$/, " or $1")} and the extra credit is added automatically.
+                Top up exactly {promo.tiers.map((t) => `$${t.amount}`).join(", ").replace(/, ([^,]*)$/, " or $1")} and your bonus is added automatically — extra credit goes straight to your wallet, and the free membership appears in your Rewards tab for you to activate.
               </p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {promo.tiers.map((tier) => (
                   <button
                     key={tier.key}
