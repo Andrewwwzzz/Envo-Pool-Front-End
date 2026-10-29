@@ -20,6 +20,57 @@ import {
   useSetMasterPin,
 } from "@/hooks/useAdmin";
 import { SetPinDialog } from "@/components/admin/PinDialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAccountSearch, useImpersonate, AccountHit } from "@/hooks/useImpersonate";
+import { LogIn } from "lucide-react";
+
+// Master only: open any other account as that person for an hour (logged).
+function LoginAsCard() {
+  const { startImpersonation } = useAuth();
+  const [q, setQ] = useState("");
+  const { data: hits = [], isFetching } = useAccountSearch(q);
+  const impersonate = useImpersonate();
+  const [busy, setBusy] = useState<string | null>(null);
+  const open = async (a: AccountHit) => {
+    setBusy(a.id);
+    try {
+      const r = await impersonate.mutateAsync(a.id);
+      await startImpersonation(r.token);
+      window.location.assign(a.role === "user" ? "/dashboard" : "/admin");
+    } catch (e) {
+      setBusy(null);
+      alert((e as Error).message);
+    }
+  };
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Log in as any account</CardTitle>
+        <p className="text-sm text-muted-foreground">See the site exactly as a customer or staff member does. Lasts one hour; every use is written to the admin log.</p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Input placeholder="Search by name, email, ID or phone" value={q} onChange={(e) => setQ(e.target.value)} />
+        {q.trim().length >= 2 && (
+          <div className="rounded-md border divide-y">
+            {isFetching && hits.length === 0 && <div className="p-2 text-sm text-muted-foreground">Searching…</div>}
+            {!isFetching && hits.length === 0 && <div className="p-2 text-sm text-muted-foreground">No account matches.</div>}
+            {hits.map((a) => (
+              <div key={a.id} className="flex items-center justify-between gap-2 p-2 text-sm">
+                <div className="min-w-0">
+                  <div className="font-medium truncate">{a.name} <span className="text-xs text-muted-foreground">({a.role})</span></div>
+                  <div className="text-xs text-muted-foreground truncate">{a.email}{a.shortId ? ` · ${a.shortId}` : ""}</div>
+                </div>
+                <Button size="sm" variant="outline" disabled={busy === a.id} onClick={() => open(a)}>
+                  {busy === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><LogIn className="h-3.5 w-3.5 mr-1" /> Log in as</>}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 const RESTORE_TYPES = [
   { value: "user", label: "User (deleted account)" },
@@ -234,6 +285,7 @@ export default function StaffTab() {
 
   return (
     <div className="space-y-6">
+      <LoginAsCard />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
           <CardTitle className="text-base">Staff Accounts</CardTitle>

@@ -10,6 +10,8 @@ import { apiFetch } from "@/lib/api";
 function clearStoredSession() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
+  sessionStorage.removeItem("impersonator_token");
+  sessionStorage.removeItem("impersonator_user");
   Object.keys(localStorage).forEach((key) => {
     if (key.startsWith("cache:")) localStorage.removeItem(key);
   });
@@ -55,6 +57,10 @@ interface AuthContextType {
   signOut: () => void;
   setAuth: (token: string, user: BackendUser) => void;
   refreshUser: () => Promise<void>;
+  /** Master only: this tab is currently inside another account (see startImpersonation). */
+  impersonating: boolean;
+  startImpersonation: (token: string) => Promise<BackendUser>;
+  stopImpersonation: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -64,6 +70,9 @@ const AuthContext = createContext<AuthContextType>({
   signOut: () => {},
   setAuth: () => {},
   refreshUser: async () => {},
+  impersonating: false,
+  startImpersonation: async () => { throw new Error("not ready"); },
+  stopImpersonation: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -73,6 +82,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<BackendUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // "Log in as" (master only): the master's own token is parked in sessionStorage
+  // while this tab runs as the other account; closing the tab ends it.
+  const [impersonating, setImpersonating] = useState<boolean>(() => !!sessionStorage.getItem("impersonator_token"));
 
   const fetchCurrentUser = async (savedToken?: string): Promise<BackendUser | null> => {
     const t = savedToken || localStorage.getItem("token");
@@ -168,9 +180,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const dropCaches = () => {
+    Object.keys(localStorage).forEach((key) => { if (key.startsWith("cache:")) localStorage.removeItem(key); });
+    queryClient.clear();
+  };
+
+  const startImpersonation = async (newToken: string) => {
+    sessionStorage.setItem("impersonator_token", localStorage.getItem("token") || "");
+    sessionStorage.setItem("impersonator_user", localStorage.getItem("user") || "");
+    dropCaches();
+    localStorage.setItem("token", newToken);
+    setToken(newToken);
+    const u = await fetchCurrentUser(newToken);
+    if (!u) {
+      await stopImpersonation();
+      throw new Error("Could not open that account");
+    }
+    setUser(u);
+    setImpersonating(true);
+    return u;
+  };
+
+  const stopImpersonation = async () => {
+    const saved = sessionStorage.getItem("impersonator_token");
+    sessionStorage.removeItem("impersonator_token");
+    sessionStorage.removeItem("impersonator_user");
+    dropCaches();
+    setImpersonating(false);
+    if (!saved) { doSignOut(); return; }
+    localStorage.setItem("token", saved);
+    setToken(saved);
+    const u = await fetchCurrentUser(saved);
+    if (u) setUser(u); else doSignOut();
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, signOut, setAuth, refreshUser }}>
+    <AuthContext.Provider value={{ user, token, loading, signOut, setAuth, refreshUser, impersonating, startImpersonation, stopImpersonation }}>
       {children}
+      {impersonating && user && (
+        <div className="fixed bottom-0 inset-x-0 z-[60] bg-amber-400 text-black text-sm px-3 py-2 flex items-center justify-between gap-2 shadow-lg">
+          <span>Logged in as <b>{user.name}</b> ({user.role}) from the master account. Expires in 1 hour.</span>
+          <Button size="sm" variant="secondary" onClick={() => stopImpersonation().then(() => window.location.assign("/admin"))}>Back to my account</Button>
+        </div>
+      )}
       <Dialog open={confirmSignOutOpen} onOpenChange={setConfirmSignOutOpen}>
         <DialogContent>
           <DialogHeader>
