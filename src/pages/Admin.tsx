@@ -305,6 +305,9 @@ function OverviewTab() {
   // Staff see yesterday and today only (the server clamps the stats the same way); the sales report is the master's.
   const staffView = me?.role === "staff";
   const masterView = me?.role === "admin" && !!me?.isMaster;
+  // Staff get the overview only around a rostered shift (the server refuses it otherwise).
+  const { data: myShift } = useShiftStatus(staffView);
+  const staffLocked = staffView && !!myShift && myShift.canAct === false;
   const [period, setPeriod] = useState<PeriodKey>(staffView ? "today" : "this_month");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -444,6 +447,16 @@ function OverviewTab() {
       { key: "this_month", label: "This Month" },
       { key: "all_time", label: "All Time" },
     ];
+
+  if (staffLocked) {
+    return (
+      <Card>
+        <CardContent className="pt-6 text-sm text-muted-foreground">
+          The overview is available from 2 hours before your rostered shift until 2 hours after it ends.
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">
