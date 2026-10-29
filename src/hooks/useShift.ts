@@ -13,6 +13,10 @@ export interface ShiftStatus {
   onShift: boolean;
   shift: ShiftLog | null;
   maxShiftHours: number;
+  /** Staff only: false means the dashboard is view-only right now (outside a rostered shift ±2h). */
+  canAct?: boolean;
+  rosterShift?: { startAt: string; endAt: string } | null;
+  windowHours?: number;
 }
 
 export function useShiftStatus(enabled = true) {

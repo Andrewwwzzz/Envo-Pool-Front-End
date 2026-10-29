@@ -32,6 +32,7 @@ export interface ClockLog {
   staffName: string;
   clockInAt: string;
   clockOutAt: string | null;
+  autoClockedOut?: boolean;
   shiftId: string | null;
   shiftStartAt: string | null;
   shiftEndAt: string | null;

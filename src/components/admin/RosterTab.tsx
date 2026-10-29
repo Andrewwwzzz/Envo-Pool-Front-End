@@ -223,7 +223,7 @@ export default function RosterTab() {
                       <td className="p-2 whitespace-nowrap">{dayLabel(sgDateStr(new Date(l.clockInAt)))}</td>
                       <td className="p-2 font-medium">{l.staffName}</td>
                       <td className="p-2 whitespace-nowrap">{fmtTime(new Date(l.clockInAt))}</td>
-                      <td className="p-2 whitespace-nowrap">{l.clockOutAt ? fmtTime(new Date(l.clockOutAt)) : <span className="text-emerald-600 dark:text-emerald-400">Still on shift</span>}</td>
+                      <td className="p-2 whitespace-nowrap">{l.clockOutAt ? <>{fmtTime(new Date(l.clockOutAt))}{l.autoClockedOut && <span className="text-xs text-muted-foreground"> (auto)</span>}</> : <span className="text-emerald-600 dark:text-emerald-400">Still on shift</span>}</td>
                       <td className="p-2">{l.clockOutAt ? hoursBetween(l.clockInAt, l.clockOutAt) : "—"}</td>
                       <td className="p-2 whitespace-nowrap text-muted-foreground">{l.shiftStartAt && l.shiftEndAt ? `${fmtTime(new Date(l.shiftStartAt))} – ${fmtTime(new Date(l.shiftEndAt))}` : "—"}</td>
                       <td className={cn("p-2 whitespace-nowrap", p.cls)}>{p.label}</td>

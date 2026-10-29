@@ -41,6 +41,7 @@ import TournamentsTab from "@/components/admin/TournamentsTab";
 import AnnouncementsTab from "@/components/admin/AnnouncementsTab";
 import IncentivesTab from "@/components/admin/IncentivesTab";
 import RosterTab from "@/components/admin/RosterTab";
+import { useShiftStatus } from "@/hooks/useShift";
 import StaffTab from "@/components/admin/StaffTab";
 import { CashCountTab } from "@/components/admin/CashCountTab";
 import MembershipTab from "@/components/admin/MembershipTab";
@@ -96,6 +97,8 @@ const Admin = () => {
   const [pendingCustomerEmail, setPendingCustomerEmail] = useState<string | null>(null);
   const { data: pendingFnbOrders = [] } = useAdminFnbOrders("pending");
   const { data: pendingTopUps = [] } = useAdminTopUps("pending", !!user?.isAdmin);
+  // Staff: outside a rostered shift (±2h) the server refuses changes; say so up top.
+  const { data: shiftStatus } = useShiftStatus(user?.role === "staff");
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
@@ -168,6 +171,13 @@ const Admin = () => {
         {/* Phones: shift controls get their own row instead of squeezing the header. */}
         {(isAdmin || isStaff) && <div className="md:hidden mt-2"><ShiftClockWidget /></div>}
       </header>
+      {isStaff && shiftStatus && shiftStatus.canAct === false && (
+        <div className="mx-auto max-w-6xl px-3 sm:px-6 mt-3">
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+            View only: you're outside your rostered shift. Changes are allowed from 2 hours before your shift starts until 2 hours after it ends. Ask an admin if you need to be added to the roster.
+          </div>
+        </div>
+      )}
 
       <main className="admin-main mx-auto max-w-6xl px-3 pb-6 sm:p-6">
         <AutoLabelTables />
@@ -256,7 +266,7 @@ function AutoLabelTables() {
   return null;
 }
 
-type PeriodKey = "today" | "this_week" | "this_month" | "last_month" | "this_year" | "all_time" | "custom";
+type PeriodKey = "today" | "yesterday" | "this_week" | "this_month" | "last_month" | "this_year" | "all_time" | "custom";
 
 function getPeriodRange(period: PeriodKey): { from: string; to: string } {
   const toISO = (d: Date) =>
@@ -264,6 +274,10 @@ function getPeriodRange(period: PeriodKey): { from: string; to: string } {
   const now = new Date();
   if (period === "today") {
     return { from: toISO(now), to: toISO(now) };
+  }
+  if (period === "yesterday") {
+    const y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    return { from: toISO(y), to: toISO(y) };
   }
   if (period === "this_week") {
     // Week starts Monday
@@ -287,7 +301,11 @@ function getPeriodRange(period: PeriodKey): { from: string; to: string } {
 
 function OverviewTab() {
   const { toast } = useToast();
-  const [period, setPeriod] = useState<PeriodKey>("this_month");
+  const { user: me } = useAuth();
+  // Staff see yesterday and today only (the server clamps the stats the same way); the sales report is the master's.
+  const staffView = me?.role === "staff";
+  const masterView = me?.role === "admin" && !!me?.isMaster;
+  const [period, setPeriod] = useState<PeriodKey>(staffView ? "today" : "this_month");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const presetRange = getPeriodRange(period === "custom" ? "today" : period);
@@ -415,12 +433,17 @@ function OverviewTab() {
     }
   };
 
-  const periodOptions: { key: PeriodKey; label: string }[] = [
-    { key: "today", label: "Today" },
-    { key: "this_week", label: "This Week" },
-    { key: "this_month", label: "This Month" },
-    { key: "all_time", label: "All Time" },
-  ];
+  const periodOptions: { key: PeriodKey; label: string }[] = staffView
+    ? [
+      { key: "today", label: "Today" },
+      { key: "yesterday", label: "Yesterday" },
+    ]
+    : [
+      { key: "today", label: "Today" },
+      { key: "this_week", label: "This Week" },
+      { key: "this_month", label: "This Month" },
+      { key: "all_time", label: "All Time" },
+    ];
 
   return (
     <div className="space-y-4">
@@ -436,7 +459,7 @@ function OverviewTab() {
               {opt.label}
             </Button>
           ))}
-          <div className="flex items-center gap-1 ml-1">
+          <div className="flex items-center gap-1 ml-1" style={staffView ? { display: "none" } : undefined}>
             <Input
               type="date"
               value={from}
@@ -508,7 +531,7 @@ function OverviewTab() {
         </CardContent></Card>
       </div>
 
-      <Card>
+      <Card style={masterView ? undefined : { display: "none" }}>
         <CardHeader>
           <CardTitle>Sales Report</CardTitle>
         </CardHeader>
