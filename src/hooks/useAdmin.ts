@@ -1466,6 +1466,7 @@ export const ALL_PERMISSIONS = [
   { key: "cashcount", label: "Cash Count" },
   { key: "tournaments", label: "Tournaments" },
   { key: "logs", label: "Logs" },
+  { key: "roster", label: "Roster" },
 ] as const;
 
 export function useStaffList() {

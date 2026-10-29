@@ -40,6 +40,7 @@ import LogsTab from "@/components/admin/LogsTab";
 import TournamentsTab from "@/components/admin/TournamentsTab";
 import AnnouncementsTab from "@/components/admin/AnnouncementsTab";
 import IncentivesTab from "@/components/admin/IncentivesTab";
+import RosterTab from "@/components/admin/RosterTab";
 import StaffTab from "@/components/admin/StaffTab";
 import { CashCountTab } from "@/components/admin/CashCountTab";
 import MembershipTab from "@/components/admin/MembershipTab";
@@ -83,7 +84,7 @@ import { AdminNav, type AdminSection, type AdminPage } from "@/components/admin/
 import { TodayPanel } from "@/components/admin/TodayPanel";
 import { MoveBookingDialog } from "@/components/admin/MoveBookingDialog";
 import { ArrowRightLeft } from "lucide-react";
-import { LayoutDashboard, LayoutGrid, Coffee, Wallet, Crown, UserCog, Megaphone, Settings, Trophy } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, Coffee, Wallet, Crown, UserCog, Megaphone, Settings, Trophy, CalendarClock } from "lucide-react";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -131,6 +132,7 @@ const Admin = () => {
     { key: "marketing", label: "Marketing", icon: Megaphone, pages: [page(can("promos"), "promos", "Promos"), page(isAdmin, "campaigns", "Campaigns"), page(isAdmin, "announcements", "Announcements")] },
     { key: "settings", label: "Settings", icon: Settings, pages: [page(can("pricing"), "pricing", "Pricing")] },
     { key: "team", label: "Team", icon: UserCog, pages: [page(isMaster, "staff", "Staff"), page(true, "incentives", "Incentives"), page(can("logs"), "logs", "Logs")] },
+    { key: "roster", label: "Roster", icon: CalendarClock, pages: [page(can("roster"), "roster", "Roster")] },
   ] as { key: string; label: string; icon: AdminSection["icon"]; pages: (AdminPage | false)[] }[])
     .map((s) => ({ ...s, pages: s.pages.filter(Boolean) as AdminPage[] }))
     .filter((s) => s.pages.length > 0);
@@ -201,6 +203,7 @@ const Admin = () => {
           {can("cashcount") && <TabsContent value="cashcount"><CashCountTab /></TabsContent>}
           {/* Every admin and staff account can see everyone's incentives. */}
           <TabsContent value="incentives"><IncentivesTab /></TabsContent>
+          {can("roster") && <TabsContent value="roster"><RosterTab /></TabsContent>}
           {isMaster && <TabsContent value="staff"><StaffTab /></TabsContent>}
           {isAdmin && <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>}
           {can("logs") && <TabsContent value="logs"><LogsTab /></TabsContent>}
