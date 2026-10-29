@@ -95,6 +95,9 @@ export default function RosterTab() {
     return m;
   }, [data]);
 
+  // Newest clock-in first.
+  const logs = useMemo(() => [...(data?.logs ?? [])].sort((a, b) => new Date(b.clockInAt).getTime() - new Date(a.clockInAt).getTime()), [data]);
+
   const openNew = (date: string) => setDraft({ id: null, staffId: "", date, start: "17:00", end: "01:00", note: "" });
   const openEdit = (s: RosterShift) =>
     setDraft({ id: s.id, staffId: s.staffId, date: sgDateStr(new Date(s.startAt)), start: sgTimeStr(new Date(s.startAt)), end: sgTimeStr(new Date(s.endAt)), note: s.note });
@@ -196,7 +199,7 @@ export default function RosterTab() {
 
       <div className="space-y-2">
         <h3 className="text-base font-semibold">Clock in / out this week</h3>
-        {(data?.logs ?? []).length === 0 ? (
+        {logs.length === 0 ? (
           <p className="text-sm text-muted-foreground">No clock-ins yet this week.</p>
         ) : (
           <div className="rounded-lg border overflow-x-auto">
@@ -213,7 +216,7 @@ export default function RosterTab() {
                 </tr>
               </thead>
               <tbody>
-                {(data?.logs ?? []).map((l) => {
+                {logs.map((l) => {
                   const p = punctuality(l);
                   return (
                     <tr key={l.id} className="border-t">
