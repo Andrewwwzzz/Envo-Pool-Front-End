@@ -25,6 +25,18 @@ export interface RosterShift {
   clockedOutAt: string | null;
 }
 
+/** One clock-in from the Staff Dashboard, with the rostered shift it belongs to (if any). */
+export interface ClockLog {
+  id: string;
+  staffId: string;
+  staffName: string;
+  clockInAt: string;
+  clockOutAt: string | null;
+  shiftId: string | null;
+  shiftStartAt: string | null;
+  shiftEndAt: string | null;
+}
+
 export interface TeamMember {
   id: string;
   name: string;
@@ -47,7 +59,7 @@ async function fail(res: Response, fallback: string): Promise<never> {
 export function useRosterShifts(from: string, to: string) {
   return useQuery({
     queryKey: ["roster", from, to],
-    queryFn: async (): Promise<{ from: string; to: string; shifts: RosterShift[] }> => {
+    queryFn: async (): Promise<{ from: string; to: string; shifts: RosterShift[]; logs: ClockLog[] }> => {
       const res = await apiFetch(`/api/roster?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
       if (!res.ok) await fail(res, "Failed to load the roster");
       return res.json();

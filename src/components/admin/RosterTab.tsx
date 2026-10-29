@@ -12,7 +12,7 @@ import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2 } from "lucide
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useRosterShifts, useRosterTeam, useCreateShift, useUpdateShift, useCancelShift, RosterShift } from "@/hooks/useRoster";
+import { useRosterShifts, useRosterTeam, useCreateShift, useUpdateShift, useCancelShift, RosterShift, ClockLog } from "@/hooks/useRoster";
 
 // ── Singapore time helpers (the roster is always shown in SGT) ──
 const SGT_MS = 8 * 3600e3;
@@ -59,6 +59,16 @@ function statusOf(s: RosterShift): { label: string; cls: string } {
   if (c.notLinkedAt) return { label: "Not on Telegram", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400" };
   return { label: "Scheduled", cls: "bg-muted text-muted-foreground" };
 }
+
+/** "on time", "12 min late", "15 min early", or "not rostered". */
+function punctuality(l: ClockLog): { label: string; cls: string } {
+  if (!l.shiftStartAt) return { label: "Not rostered", cls: "text-muted-foreground" };
+  const diff = Math.round((new Date(l.clockInAt).getTime() - new Date(l.shiftStartAt).getTime()) / 60000);
+  if (diff > 5) return { label: `${diff} min late`, cls: "text-destructive" };
+  if (diff < -5) return { label: `${-diff} min early`, cls: "text-muted-foreground" };
+  return { label: "On time", cls: "text-emerald-600 dark:text-emerald-400" };
+}
+const hoursBetween = (a: string, b: string) => ((new Date(b).getTime() - new Date(a).getTime()) / 3600e3).toFixed(1);
 
 interface Draft { id: string | null; staffId: string; date: string; start: string; end: string; note: string }
 
@@ -182,6 +192,45 @@ export default function RosterTab() {
             })}
           </div>
         ))}
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-base font-semibold">Clock in / out this week</h3>
+        {(data?.logs ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">No clock-ins yet this week.</p>
+        ) : (
+          <div className="rounded-lg border overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-xs text-muted-foreground">
+                <tr>
+                  <th className="text-left font-medium p-2">Day</th>
+                  <th className="text-left font-medium p-2">Name</th>
+                  <th className="text-left font-medium p-2">Clocked in</th>
+                  <th className="text-left font-medium p-2">Clocked out</th>
+                  <th className="text-left font-medium p-2">Hours</th>
+                  <th className="text-left font-medium p-2">Rostered</th>
+                  <th className="text-left font-medium p-2">Punctuality</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data?.logs ?? []).map((l) => {
+                  const p = punctuality(l);
+                  return (
+                    <tr key={l.id} className="border-t">
+                      <td className="p-2 whitespace-nowrap">{dayLabel(sgDateStr(new Date(l.clockInAt)))}</td>
+                      <td className="p-2 font-medium">{l.staffName}</td>
+                      <td className="p-2 whitespace-nowrap">{fmtTime(new Date(l.clockInAt))}</td>
+                      <td className="p-2 whitespace-nowrap">{l.clockOutAt ? fmtTime(new Date(l.clockOutAt)) : <span className="text-emerald-600 dark:text-emerald-400">Still on shift</span>}</td>
+                      <td className="p-2">{l.clockOutAt ? hoursBetween(l.clockInAt, l.clockOutAt) : "—"}</td>
+                      <td className="p-2 whitespace-nowrap text-muted-foreground">{l.shiftStartAt && l.shiftEndAt ? `${fmtTime(new Date(l.shiftStartAt))} – ${fmtTime(new Date(l.shiftEndAt))}` : "—"}</td>
+                      <td className={cn("p-2 whitespace-nowrap", p.cls)}>{p.label}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <Dialog open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
