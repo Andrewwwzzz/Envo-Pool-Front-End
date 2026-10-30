@@ -36,7 +36,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import ReasonDialog from "@/components/admin/ReasonDialog";
 import DeletedBanner, { getDeletedInfo, isDeleted as isRecordDeleted } from "@/components/admin/DeletedBanner";
-import { Timer, Play, Square, Wrench, DollarSign, Wifi, WifiOff, Power, PowerOff, RotateCcw, Loader2, AlertTriangle, X, Check, Eye, EyeOff, CalendarClock } from "lucide-react";
+import { Timer, Play, Square, Wrench, DollarSign, Wifi, WifiOff, Power, PowerOff, RotateCcw, Loader2, AlertTriangle, X, Check, Eye, EyeOff, CalendarClock, Plus } from "lucide-react";
 
 function ChipStatus({ lastSeen }: { lastSeen: string | null }) {
   const [, setTick] = useState(0);
@@ -317,6 +317,8 @@ export default function TablesTab() {
   const [bulkSchedEnd, setBulkSchedEnd] = useState("");
   const [bulkSchedReason, setBulkSchedReason] = useState("");
   const [moveTarget, setMoveTarget] = useState<any | null>(null);
+  // Add Time — a new booking on this table, starting when its last booking ends.
+  const [followTarget, setFollowTarget] = useState<{ tableId: string; booking: any } | null>(null);
   const [moveTableId, setMoveTableId] = useState<string | null>(null);
   const { toast } = useToast();
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
@@ -704,6 +706,10 @@ export default function TablesTab() {
                     {displayState === "booked" && (
                       <span className="text-xs text-muted-foreground">left</span>
                     )}
+                    {displayState === "booked" && (() => {
+                      const last = lastInChain(t, activeBooking, bookings);
+                      return last !== activeBooking ? <span className="text-xs text-sky-400">· then booked until {fmtTimeSG(last.endTime || last.end_time)}</span> : null;
+                    })()}
                     {displayState === "walkin" && (
                       <span className="text-xs text-muted-foreground">played</span>
                     )}
@@ -766,6 +772,11 @@ export default function TablesTab() {
                           <CalendarClock className="mr-2 h-3 w-3" /><span className="sm:hidden">Book Now</span><span className="hidden sm:inline">Book Now (Fixed Duration)</span>
                         </Button>
                       </>
+                    )}
+                    {activeBooking?.status === "confirmed" && (
+                      <Button size="sm" variant="default" className="w-full col-span-2 sm:col-span-1" onClick={() => setFollowTarget({ tableId: t.id, booking: lastInChain(t, activeBooking, bookings) })} title="Book more time straight after this booking — a new booking with its own bill">
+                        <Plus className="mr-2 h-3 w-3" /> Add Time
+                      </Button>
                     )}
                     {activeBooking && (
                       <Button size="sm" variant="secondary" className="w-full col-span-2 sm:col-span-1" onClick={() => setMoveTarget(activeBooking)} title="Move this booking to another table — same time, price and payment">
@@ -939,10 +950,14 @@ export default function TablesTab() {
 
       <BookNowDialog
         tables={tables || []}
-        bookTarget={bookTarget}
-        nextBooking={nextBookingWithin((tables || []).find((tb) => tb.id === bookTarget), bookings)}
+        bookTarget={bookTarget ?? followTarget?.tableId ?? null}
+        follows={followTarget?.booking ?? null}
+        nextBooking={nextBookingWithin(
+          (tables || []).find((tb) => tb.id === (bookTarget ?? followTarget?.tableId)), bookings,
+          followTarget ? new Date(followTarget.booking.endTime || followTarget.booking.end_time).getTime() : undefined,
+        )}
         isAdminUser={isAdminUser}
-        onOpenChange={(o) => { if (!o) setBookTarget(null); }}
+        onOpenChange={(o) => { if (!o) { setBookTarget(null); setFollowTarget(null); } }}
       />
     </div>
   );
@@ -955,9 +970,9 @@ const minuteNowISO = () => new Date(Math.floor(Date.now() / 60000) * 60000).toIS
 // table is free until then — so they can sell a bundle that ends in time (the server still blocks < 15 min).
 const UPCOMING_BOOKING_HOURS = 6;
 type UpcomingBooking = { start: Date; freeMinutes: number };
-function nextBookingWithin(table: { id: string; hardware_id?: string | null } | null | undefined, bookings: any[] | undefined): UpcomingBooking | null {
+function nextBookingWithin(table: { id: string; hardware_id?: string | null } | null | undefined, bookings: any[] | undefined, from = Date.now()): UpcomingBooking | null {
   if (!table) return null;
-  const now = Date.now();
+  const now = from;
   let best: number | null = null;
   for (const b of bookings || []) {
     const bTableId = typeof b.tableId === "object" ? b.tableId?._id || b.tableId?.hardware_id : b.tableId;
@@ -967,6 +982,21 @@ function nextBookingWithin(table: { id: string; hardware_id?: string | null } | 
     if (start > now && start - now <= UPCOMING_BOOKING_HOURS * 3600e3 && (best === null || start < best)) best = start;
   }
   return best === null ? null : { start: new Date(best), freeMinutes: Math.floor((best - now) / 60000) };
+}
+/** The last booking in a back-to-back run starting at `booking` (Add Time books after this one). */
+function lastInChain(table: { id: string; hardware_id?: string | null }, booking: any, bookings: any[] | undefined): any {
+  const onTable = (bookings || []).filter((b) => {
+    const bTableId = typeof b.tableId === "object" ? b.tableId?._id || b.tableId?.hardware_id : b.tableId;
+    return (bTableId === table.id || bTableId === table.hardware_id) && b.status === "confirmed" && !b.isDeleted;
+  });
+  let last = booking;
+  for (let i = 0; i < onTable.length; i++) {
+    const endMs = new Date(last.endTime || last.end_time).getTime();
+    const next = onTable.find((b) => new Date(b.startTime || b.start_time).getTime() === endMs);
+    if (!next) break;
+    last = next;
+  }
+  return last;
 }
 const fmtFree = (mins: number) => (mins >= 60 ? `${Math.floor(mins / 60)} h${mins % 60 ? ` ${mins % 60} min` : ""}` : `${mins} min`);
 
@@ -1144,7 +1174,7 @@ function CloseTableDialog({
     : null;
   // The bill comes from the server, worked out by the same function as the
   // real close: time (split at every price change), member free minutes then
-  // discount (wallet only, never self-practice), staff discount, F&B, cash
+  // discount (wallet only, never self-practice), staff discount, F&B, cash/PayNow
   // rounding. So the total and the balance warning match the actual charge.
   const selfPractice = pricingMode === "self_practice";
   const discountPct = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
@@ -1258,7 +1288,7 @@ function CloseTableDialog({
                   {(freeMinutesCredit > 0 || membershipPct > 0) && <>: ${afterMembership.toFixed(2)}</>}
                   {discountPct > 0 && <> · after {discountPct}% off: ${timeChargeExact.toFixed(2)}</>}
                   {fnbTotal > 0 && <> + F&B ${fnbTotal.toFixed(2)}</>}
-                  {(discountPct > 0 || fnbTotal > 0 || freeMinutesCredit > 0 || membershipPct > 0 || paymentMethod === "cash") && <> — total: <strong>${finalCost.toFixed(2)}</strong></>}
+                  {(discountPct > 0 || fnbTotal > 0 || freeMinutesCredit > 0 || membershipPct > 0 || paymentMethod !== "wallet") && <> — total: <strong>${finalCost.toFixed(2)}</strong></>}
                 </>}
               </>
             )}
@@ -1380,16 +1410,21 @@ function CloseTableDialog({
 }
 
 const DURATION_PRESETS = [60, 120, 180, 300];
+const ADD_TIME_PRESETS = [20, 60, 120, 180];
 
+// Book Now, and Add Time (`follows` set): the same booking, priced the same way — promo codes and
+// bundles included — but starting when the table's current booking ends, as its own booking and bill.
 function BookNowDialog({
   tables,
   bookTarget,
+  follows = null,
   nextBooking,
   isAdminUser,
   onOpenChange,
 }: {
   tables: any[];
   bookTarget: string | null;
+  follows?: any | null;
   nextBooking: UpcomingBooking | null;
   isAdminUser: boolean;
   onOpenChange: (open: boolean) => void;
@@ -1428,20 +1463,26 @@ function BookNowDialog({
   const { data: activeMembership } = useCustomerActiveMembership(
     paymentMethod === "wallet" ? customerId : null
   );
+  // Add Time: the earlier booking's customer, unless it was a walk-in guest.
+  const followsOwner = follows && typeof follows.userId === "object" && follows.userId && !/^Guest Account/i.test(follows.userId.name || "") ? follows.userId : null;
+  const followsStartMs = follows ? new Date(follows.endTime || follows.end_time).getTime() : null;
 
   useEffect(() => {
     if (bookTarget) {
       setDurationInput("60");
       // Every booking starts on time-of-day pricing (split correctly across
       // any price change in the window); custom rates are admin-only.
-      setPricingMode("time_of_day");
+      // Added time keeps self-practice if that's how the booking was priced.
+      setPricingMode(follows?.pricingMode === "self_practice" ? "self_practice" : "time_of_day");
       setRateInput("");
       setDiscountInput("0");
       setDiscountReason("");
-      setPaymentMethod("wallet");
-      setCustomerId("");
-      setCustomerSearch("");
-      setCustomerName("");
+      // Added time defaults to how the booking was paid, and to its customer (a guest can't use wallet).
+      const followsMethod = ["wallet", "cash", "paynow"].includes(follows?.paymentMethod) ? follows.paymentMethod : "cash";
+      setPaymentMethod(!follows ? "wallet" : !followsOwner && followsMethod === "wallet" ? "cash" : followsMethod);
+      setCustomerId(followsOwner?._id || "");
+      setCustomerSearch(followsOwner?.email || followsOwner?.name || "");
+      setCustomerName(followsOwner?.name || "");
       setAllowNegative(false);
       setApplyMembershipDiscount(true);
       setApplyMembershipFreeMinutes(true);
@@ -1453,7 +1494,7 @@ function BookNowDialog({
       autoTried.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookTarget]);
+  }, [bookTarget, follows?._id]);
 
   // A code is checked against the duration/pricing it was applied with —
   // make staff re-apply it if either changes. Self-practice can't be
@@ -1474,11 +1515,14 @@ function BookNowDialog({
   const promoForPreview = appliedPromo && promoAppliedFor === promoKey ? appliedPromo.code : "";
   // The exact bill, worked out by the server with the same function as the real booking — member
   // free minutes, then the % discount (wallet only, never with self-practice — D11/D2), or the promo
-  // code when it saves more, then the staff discount and cash rounding. Nothing is used up by it.
+  // code when it saves more, then the staff discount and cash/PayNow rounding. Nothing is used up by it.
   const { data: bill } = useBookNowPreview(bookTarget, {
     durationMinutes, pricingMode, hourlyRate: pricingMode === "custom" ? customRate : 0, paymentMethod, customerId,
     promoCode: promoForPreview, discountPercent: discountPct, applyMembershipDiscount, applyMembershipFreeMinutes,
+    followsBookingId: follows?._id || "",
   }, !!bookTarget && durationMinutes >= 15 && (pricingMode !== "custom" || customRate > 0));
+  // When the booking starts: now, or when the booking it follows ends (Add Time). Promo codes are checked for that window.
+  const bookingStartMs = () => followsStartMs ?? Math.floor(Date.now() / 30000) * 30000;
   // Show "…" until the server's price arrives, not $0.00.
   const priceLoading = !bill || !!bill.error;
   const gross = bill?.grossAmount ?? 0;
@@ -1487,7 +1531,7 @@ function BookNowDialog({
 
   const handleApplyPromo = async () => {
     if (!promoInput.trim() || !bookTarget || durationMinutes < 15) return;
-    const startMs = Math.floor(Date.now() / 30000) * 30000;
+    const startMs = bookingStartMs();
     const result = await validatePromo.mutateAsync({
       code: promoInput.trim(),
       originalPrice: gross,
@@ -1531,7 +1575,7 @@ function BookNowDialog({
       .sort((a, b) => a.discount_value - b.discount_value);
     if (!candidates.length) return;
     (async () => {
-      const startMs = Math.floor(Date.now() / 30000) * 30000;
+      const startMs = bookingStartMs();
       let firstRejection: { code: string; reason: string } | null = null;
       for (const p of candidates) {
         const result = await validatePromo.mutateAsync({
@@ -1563,7 +1607,7 @@ function BookNowDialog({
     setAutoApplied(false);
     setPromoInput("");
   };
-  // Already rounded to 10c by the server for cash; wallet/PayNow settle to the exact cent.
+  // Already rounded to 10c by the server for cash and PayNow; wallet settles to the exact cent.
   const estimatedTotal = bill?.amountCharged ?? 0;
 
   const selectedCustomer = customers.find((c: any) => c.id === customerId);
@@ -1616,20 +1660,21 @@ function BookNowDialog({
         applyMembershipDiscount,
         applyMembershipFreeMinutes,
         promoCode: appliedPromo?.code || null,
+        followsBookingId: follows?._id || null,
       },
       {
         onSuccess: (data: any) => {
           const amount = data?.finalAmount ?? estimatedTotal;
           const methodLabel = paymentMethod === "wallet" ? `charged to ${customerName || "customer"}'s wallet` : `paid via ${paymentMethod === "paynow" ? "PayNow" : "cash"}`;
           toast({
-            title: "Table booked",
+            title: follows ? `Time added — booked until ${fmtTimeSG(data?.booking?.endTime)}` : "Table booked",
             description: `${durationMinutes} min · $${Number(amount).toFixed(2)} ${methodLabel}.`
               + (data?.booking?.promoCode ? ` Promo ${data.booking.promoCode} applied.`
                 : sentPromo ? ` ${sentPromo} not used — the customer's membership gave a better price.` : ""),
           });
         },
         onError: (err: Error) => {
-          toast({ title: "Failed to book table", description: err.message, variant: "destructive" });
+          toast({ title: follows ? "Couldn't add time" : "Failed to book table", description: err.message, variant: "destructive" });
         },
       }
     );
@@ -1640,13 +1685,17 @@ function BookNowDialog({
     <Dialog open={!!bookTarget} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Book Table Now</DialogTitle>
+          <DialogTitle>{follows ? "Add Time" : "Book Table Now"}</DialogTitle>
           <DialogDescription>
-            {bookTarget && (
+            {bookTarget && (follows ? (
+              <>
+                Table {table?.table_number} · a new booking from {fmtTimeSG(followsStartMs!)}, when the current one ends — its own bill, paid now. Promo codes and bundles apply.
+              </>
+            ) : (
               <>
                 Table {table?.table_number} · fixed duration, paid upfront — like a booking, for a walk-in guest.
               </>
-            )}
+            ))}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
@@ -1666,7 +1715,7 @@ function BookNowDialog({
           <div className="space-y-2">
             <Label>Duration</Label>
             <div className="grid grid-cols-4 gap-2">
-              {DURATION_PRESETS.map((m) => (
+              {(follows ? ADD_TIME_PRESETS : DURATION_PRESETS).map((m) => (
                 <Button
                   key={m}
                   type="button"
@@ -1687,7 +1736,11 @@ function BookNowDialog({
               onChange={(e) => setDurationInput(e.target.value)}
               placeholder="Minutes"
             />
-            <p className="text-xs text-muted-foreground">Custom minutes — 15 min to 12 hours.</p>
+            <p className="text-xs text-muted-foreground">
+              {follows && durationMinutes >= 15
+                ? <>{fmtTimeSG(followsStartMs!)} → <strong>{fmtTimeSG(followsStartMs! + durationMinutes * 60000)}</strong> · or type minutes (15 min to 12 hours).</>
+                : "Custom minutes — 15 min to 12 hours."}
+            </p>
           </div>
 
           <div className="rounded-md border border-border px-3 py-2 text-sm">
@@ -1839,7 +1892,7 @@ function BookNowDialog({
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleConfirm} disabled={bookTableNow.isPending || priceLoading}>
-            {bookTableNow.isPending ? "Booking..." : "Confirm & Book"}
+            {bookTableNow.isPending ? "Booking..." : follows ? "Confirm & Add Time" : "Confirm & Book"}
           </Button>
         </DialogFooter>
       </DialogContent>

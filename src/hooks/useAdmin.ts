@@ -138,6 +138,7 @@ export function useBookTableNow() {
       promoCode,
       pricingMode,
       discountReason,
+      followsBookingId,
     }: {
       tableId: string;
       durationMinutes: number;
@@ -151,6 +152,7 @@ export function useBookTableNow() {
       promoCode?: string | null;
       pricingMode: PricingMode;
       discountReason?: string;
+      followsBookingId?: string | null; // Add Time: start when this booking ends
     }) => {
       const res = await apiFetch(`/api/admin/tables/${tableId}/book-now`, {
         method: "POST",
@@ -166,6 +168,7 @@ export function useBookTableNow() {
           applyMembershipDiscount: applyMembershipDiscount !== false,
           applyMembershipFreeMinutes: applyMembershipFreeMinutes !== false,
           promoCode: promoCode || null,
+          followsBookingId: followsBookingId || null,
         }),
       });
       if (!res.ok) {
@@ -246,7 +249,7 @@ export interface ClosePreview {
 }
 
 // The exact bill Close Table would charge right now — the server works it out with the same
-// function as the real close (member free minutes, then discount; staff discount; F&B; cash
+// function as the real close (member free minutes, then discount; staff discount; F&B; cash/PayNow
 // rounding), without charging anything. While the timer ticks the last bill stays on screen;
 // any other change (customer, payment, discount, pricing) waits for the new figure.
 export function useClosePreview(
@@ -282,11 +285,11 @@ export interface BookNowPreview extends ClosePreview {
 
 // The exact bill Book Now would charge for a booking starting now — worked out by the server with
 // the same function as the real booking (member free minutes, then discount, or a promo code when
-// it saves more; staff discount; cash rounding), without booking anything or using free minutes.
+// it saves more; staff discount; cash/PayNow rounding), without booking anything or using free minutes.
 // Refreshed every 30s since the booking starts "now"; any change to the inputs waits for the new figure.
 export function useBookNowPreview(
   tableId: string | null,
-  params: { durationMinutes: number; pricingMode: PricingMode; hourlyRate: number; paymentMethod: string; customerId: string; promoCode: string; discountPercent: number; applyMembershipDiscount: boolean; applyMembershipFreeMinutes: boolean },
+  params: { durationMinutes: number; pricingMode: PricingMode; hourlyRate: number; paymentMethod: string; customerId: string; promoCode: string; discountPercent: number; applyMembershipDiscount: boolean; applyMembershipFreeMinutes: boolean; followsBookingId?: string },
   enabled: boolean,
 ) {
   return useQuery({
