@@ -308,7 +308,7 @@ function OverviewTab() {
   // Staff get the overview only around a rostered shift (the server refuses it otherwise).
   const { data: myShift } = useShiftStatus(staffView);
   const staffLocked = staffView && !!myShift && myShift.canAct === false;
-  const [period, setPeriod] = useState<PeriodKey>(staffView ? "today" : "this_month");
+  const [period, setPeriod] = useState<PeriodKey>("today");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const presetRange = getPeriodRange(period === "custom" ? "today" : period);
@@ -436,17 +436,15 @@ function OverviewTab() {
     }
   };
 
-  const periodOptions: { key: PeriodKey; label: string }[] = staffView
-    ? [
-      { key: "today", label: "Today" },
-      { key: "yesterday", label: "Yesterday" },
-    ]
-    : [
-      { key: "today", label: "Today" },
+  const periodOptions: { key: PeriodKey; label: string }[] = [
+    { key: "today", label: "Today" },
+    { key: "yesterday", label: "Yesterday" },
+    ...(staffView ? [] : [
       { key: "this_week", label: "This Week" },
       { key: "this_month", label: "This Month" },
       { key: "all_time", label: "All Time" },
-    ];
+    ] as { key: PeriodKey; label: string }[]),
+  ];
 
   if (staffLocked) {
     return (
