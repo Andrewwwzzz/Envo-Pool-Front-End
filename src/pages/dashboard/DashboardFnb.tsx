@@ -44,8 +44,11 @@ import { VendingMenu } from "@/components/dashboard/VendingMenu";
 import { Store } from "lucide-react";
 
 // Where the order goes: the counter brings it to the table, or the vending
-// machine drops it the moment the member confirms.
+// machine drops it the moment the member confirms. Table delivery is switched
+// off for now — everything is collected at the machine — but the flow stays
+// here so it can be turned back on without rebuilding it.
 type OrderMode = "table" | "vending";
+const TABLE_DELIVERY_ENABLED = false;
 
 function useCountdown(resumeAt: string | null | undefined) {
   const [label, setLabel] = useState("");
@@ -108,7 +111,7 @@ export default function DashboardFnb() {
   const placeOrder = usePlaceOrder();
   const countdown = useCountdown(fnbStatus?.resumeAt);
 
-  const [orderMode, setOrderMode] = useState<OrderMode>("table");
+  const [orderMode, setOrderMode] = useState<OrderMode>(TABLE_DELIVERY_ENABLED ? "table" : "vending");
   const [activeTab, setActiveTab] = useState<Category>("all");
   const [tableInput, setTableInput] = useState("");
   const [confirm, setConfirm] = useState<{ product: FnbProduct; isFree: boolean } | null>(null);
@@ -246,7 +249,7 @@ export default function DashboardFnb() {
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
             <ShoppingBag className="h-6 w-6 text-accent" /> F&B & Others
           </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">Order food, drinks & more, delivered to your table</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">{TABLE_DELIVERY_ENABLED ? "Order food, drinks & more, delivered to your table" : "Buy a drink here and collect it at the vending machine"}</p>
         </div>
         <Badge className="bg-accent/10 text-accent text-sm px-3 py-1">
           Wallet: ${walletBalance.toFixed(2)}
@@ -254,14 +257,14 @@ export default function DashboardFnb() {
       </div>
 
       {/* Order mode */}
-      <div className="grid grid-cols-2 gap-2 sm:max-w-md">
+      {TABLE_DELIVERY_ENABLED && <div className="grid grid-cols-2 gap-2 sm:max-w-md">
         <Button variant={orderMode === "table" ? "default" : "outline"} className={orderMode === "table" ? "bg-accent text-accent-foreground hover:bg-accent/90" : ""} onClick={() => setOrderMode("table")}>
           <ShoppingBag className="h-4 w-4 mr-2" /> Deliver to my table
         </Button>
         <Button variant={orderMode === "vending" ? "default" : "outline"} className={orderMode === "vending" ? "bg-accent text-accent-foreground hover:bg-accent/90" : ""} onClick={() => setOrderMode("vending")}>
           <Store className="h-4 w-4 mr-2" /> Vending machine
         </Button>
-      </div>
+      </div>}
 
       {orderMode === "vending" ? <VendingMenu walletBalance={walletBalance} /> : (<>
       {/* Free drink banner */}

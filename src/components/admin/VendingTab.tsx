@@ -11,10 +11,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Wifi, WifiOff, RefreshCw, Play, Thermometer, Signal } from "lucide-react";
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { useAdminMenu } from "@/hooks/useFnb";
+import { useAdminCustomers } from "@/hooks/useAdmin";
 import {
   useVendingStatus, useVendingTestVend, useVendingRequestReport, useVendingCancelCommand, useVendingUpdateSlot,
-  VendingSlot, VendingMachineStatus, VendingCommand, fmtCents,
+  useVendingStaffOrder, useVendingOrder, isOrderFinal,
+  VendingSlot, VendingMachineStatus, VendingCommand, VendingPaymentMethod, fmtCents, PAYMENT_LABELS,
 } from "@/hooks/useVending";
+import { ShoppingCart, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { VendingOrdersPanel } from "@/components/admin/VendingOrdersPanel";
 
 const COMMAND_COLORS: Record<string, string> = {
@@ -165,6 +168,108 @@ function SlotRow({ slot }: { slot: VendingSlot }) {
   );
 }
 
+// Counter sale: staff pick the item, the customer (optional for cash/PayNow)
+// and how they paid; the machine drops it straight away and the row below
+// follows the result the same way the member's app does.
+function SellCard({ machine, slots }: { machine: VendingMachineStatus; slots: VendingSlot[] }) {
+  const sell = useVendingStaffOrder();
+  const [slotNo, setSlotNo] = useState<string>("");
+  const [payment, setPayment] = useState<VendingPaymentMethod>("cash");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerId, setCustomerId] = useState("");
+  const [customerLabel, setCustomerLabel] = useState("");
+  const [lastOrderId, setLastOrderId] = useState<string | null>(null);
+  const searchReady = customerSearch.trim().length >= 2;
+  const { data: customers = [], isFetching } = useAdminCustomers(searchReady ? customerSearch : "");
+  const { data: lastOrder } = useVendingOrder(lastOrderId);
+
+  const sellable = slots.filter((s) => s.enabled && s.productRef && (s.status == null || s.status === "0"));
+  const chosen = sellable.find((s) => String(s.slotNo) === slotNo);
+  const price = chosen ? (chosen.priceCents != null ? chosen.priceCents : Math.round((chosen.productRef?.sellingPrice ?? 0) * 100)) : null;
+  const needsCustomer = payment === "wallet" || payment === "free_membership";
+  const canSell = !!chosen && machine.online && !sell.isPending && (!needsCustomer || !!customerId);
+
+  const pick = (c: { id: string; name?: string; email?: string }) => {
+    setCustomerId(c.id);
+    setCustomerLabel(c.name || c.email || c.id);
+    setCustomerSearch("");
+  };
+
+  const submit = () => {
+    if (!chosen) return;
+    sell.mutate(
+      { machineId: machine.machineId, slotNo: chosen.slotNo, paymentMethod: payment, userId: customerId || undefined },
+      { onSuccess: (data) => setLastOrderId((data.order as { _id: string })?._id ?? null) }
+    );
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2"><ShoppingCart className="h-4 w-4" /> Sell at the counter</CardTitle>
+        <p className="text-xs text-muted-foreground">Customer pays you, you pick the item, the machine drops it. Cash/PayNow need no account; wallet and the free drink need the member.</p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid sm:grid-cols-3 gap-3">
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">Item</p>
+            <Select value={slotNo} onValueChange={setSlotNo}>
+              <SelectTrigger className="h-9"><SelectValue placeholder={sellable.length ? "Pick an item" : "No items on sale"} /></SelectTrigger>
+              <SelectContent>
+                {sellable.map((s) => {
+                  const avail = (s.quantity ?? 0) - (s.reservedCount ?? 0);
+                  const p = s.priceCents != null ? s.priceCents : Math.round((s.productRef?.sellingPrice ?? 0) * 100);
+                  return <SelectItem key={s.slotNo} value={String(s.slotNo)} disabled={avail <= 0}>Slot {s.slotNo} — {s.displayName || s.productRef?.name} {fmtCents(p)}{avail <= 0 ? " (sold out)" : ` (${avail} left)`}</SelectItem>;
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">Paid by</p>
+            <Select value={payment} onValueChange={(v) => setPayment(v as VendingPaymentMethod)}>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(["cash", "paynow", "wallet", "free_membership"] as VendingPaymentMethod[]).map((m) => <SelectItem key={m} value={m}>{PAYMENT_LABELS[m]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">Customer {needsCustomer ? "(required)" : "(optional)"}</p>
+            {customerId ? (
+              <div className="flex items-center gap-2 h-9 text-sm"><span className="truncate">{customerLabel}</span><Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => { setCustomerId(""); setCustomerLabel(""); }}>change</Button></div>
+            ) : (
+              <Input value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} placeholder="Name, email or phone" className="h-9" />
+            )}
+            {!customerId && searchReady && (
+              <div className="rounded-md border border-border/50 max-h-40 overflow-y-auto text-sm">
+                {isFetching && customers.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">Searching…</p>}
+                {customers.slice(0, 8).map((c: { id: string; name?: string; email?: string; phone?: string }) => (
+                  <button key={c.id} type="button" className="w-full text-left px-2 py-1.5 hover:bg-muted/50" onClick={() => pick(c)}>
+                    <span className="font-medium">{c.name || "—"}</span> <span className="text-muted-foreground text-xs">{c.email || c.phone || ""}</span>
+                  </button>
+                ))}
+                {!isFetching && customers.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">No match</p>}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button disabled={!canSell} onClick={submit}>
+            <Play className="h-3.5 w-3.5 mr-1" /> {sell.isPending ? "Sending…" : price != null ? `Dispense — ${payment === "free_membership" ? "free" : fmtCents(price)}` : "Dispense"}
+          </Button>
+          {!machine.online && <p className="text-xs text-muted-foreground">Machine is offline.</p>}
+          {lastOrder && (
+            <p className="text-sm flex items-center gap-1.5">
+              {!isOrderFinal(lastOrder.status) ? <Loader2 className="h-4 w-4 animate-spin text-accent" /> : lastOrder.status === "dispensed" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-red-400" />}
+              {lastOrder.productName}: {lastOrder.message}
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function VendingTab() {
   const { data: status, isLoading, error } = useVendingStatus();
 
@@ -184,7 +289,10 @@ export function VendingTab() {
 
       <TabsContent value="machine" className="space-y-4">
         {status.machines.map((m) => (
-          <MachineCard key={m.machineId} machine={m} counts={status.openOrders} commands={status.commands.filter((c) => c.machineId === m.machineId)} />
+          <div key={m.machineId} className="space-y-4">
+            <SellCard machine={m} slots={status.slots.filter((s) => s.machineId === m.machineId)} />
+            <MachineCard machine={m} counts={status.openOrders} commands={status.commands.filter((c) => c.machineId === m.machineId)} />
+          </div>
         ))}
       </TabsContent>
 

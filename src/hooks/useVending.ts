@@ -28,6 +28,14 @@ export interface VendingMenuData {
 }
 
 export type VendingOrderStatus = "queued" | "sent" | "dispensed" | "failed" | "refunded" | "expired" | "needs_review";
+export type VendingPaymentMethod = "wallet" | "free_membership" | "cash" | "paynow";
+
+export const PAYMENT_LABELS: Record<VendingPaymentMethod, string> = {
+  wallet: "Wallet",
+  free_membership: "Free drink",
+  cash: "Cash",
+  paynow: "PayNow",
+};
 
 export interface VendingOrder {
   _id: string;
@@ -38,7 +46,8 @@ export interface VendingOrder {
   slotNo: number;
   productName: string;
   priceCents: number;
-  paymentMethod: "wallet" | "free_membership";
+  paymentMethod: VendingPaymentMethod;
+  placedBy?: string | null;
   pickupCode?: string;
   pickupExpiresAt?: string;
   createdAt: string;
@@ -110,7 +119,8 @@ export interface VendingAdminOrder {
   priceCents: number;
   mode: "remote" | "pickup";
   status: VendingOrderStatus;
-  paymentMethod: "wallet" | "free_membership";
+  paymentMethod: VendingPaymentMethod;
+  placedBy?: { name?: string } | string | null;
   tradeNo: string;
   machinePayType: string | null;
   failure?: { reason: string | null; at: string | null };
@@ -354,6 +364,15 @@ export function useVendingUpdateSlot() {
   return useAdminMutation(
     ({ slotNo, ...body }: SlotUpdate) => apiFetch(`${ADMIN}/slots/${slotNo}`, { method: "PUT", body: JSON.stringify(body) }),
     "Slot update failed", "Slot updated", [...STATUS_KEYS, ["vending-menu"]]
+  );
+}
+
+/** Counter sale: the machine dispenses for a customer standing at it. */
+export function useVendingStaffOrder() {
+  return useAdminMutation(
+    (a: { machineId: string; slotNo: number; userId?: string; paymentMethod: VendingPaymentMethod }) =>
+      apiFetch(`${ADMIN}/orders`, { method: "POST", body: JSON.stringify(a) }),
+    "Sale failed", "Sent to the machine", [...ORDER_KEYS, ["vending-menu"], ["admin-customers"]]
   );
 }
 

@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import {
   useVendingAdminOrders, useVendingExternalSales, useVendingLogs, useVendingRefundOrder, useVendingResolveOrder,
-  VendingAdminOrder, fmtCents, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS, PAY_TYPE_LABELS,
+  VendingAdminOrder, fmtCents, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS, PAY_TYPE_LABELS, PAYMENT_LABELS,
 } from "@/hooks/useVending";
 
 const FILTERS = [
@@ -32,7 +32,9 @@ function RefundDialog({ order, onClose }: { order: VendingAdminOrder | null; onC
       <DialogContent>
         <DialogHeader><DialogTitle>Refund {order?.productName}</DialogTitle></DialogHeader>
         <p className="text-sm text-muted-foreground">
-          {order?.paymentMethod === "free_membership" ? "Gives the member today's free drink back." : `${order ? fmtCents(order.priceCents) : ""} goes back to the member's wallet.`} This can only happen once.
+          {order?.paymentMethod === "free_membership" ? "Gives the member today's free drink back."
+            : order?.paymentMethod === "cash" || order?.paymentMethod === "paynow" ? `${order ? fmtCents(order.priceCents) : ""} was paid at the counter — hand it back to the customer; this records the reversal.`
+            : `${order ? fmtCents(order.priceCents) : ""} goes back to the member's wallet.`} This can only happen once.
         </p>
         <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (required, shown to the member)" />
         <DialogFooter>
@@ -92,7 +94,7 @@ function OrdersView() {
                   <TableCell className="whitespace-nowrap text-xs">{fmtDateTimeSG(o.createdAt)}</TableCell>
                   <TableCell className="text-xs"><p>{o.userId?.name || "—"}</p><p className="text-muted-foreground">{o.userId?.email || o.userId?.phone || ""}</p></TableCell>
                   <TableCell className="text-xs"><p>{o.productName}</p><p className="text-muted-foreground">slot {o.slotNo} · {o.mode}</p></TableCell>
-                  <TableCell className="text-xs">{o.paymentMethod === "free_membership" ? "Free drink" : fmtCents(o.priceCents)}</TableCell>
+                  <TableCell className="text-xs">{o.paymentMethod === "free_membership" ? "Free drink" : fmtCents(o.priceCents)}<p className="text-muted-foreground">{PAYMENT_LABELS[o.paymentMethod] ?? o.paymentMethod}{o.placedBy ? " · counter" : ""}</p></TableCell>
                   <TableCell>
                     <Badge className={`text-xs ${ORDER_STATUS_COLORS[o.status]}`}>{ORDER_STATUS_LABELS[o.status]}</Badge>
                     {o.failure?.reason && <p className="text-[11px] text-muted-foreground mt-0.5">{o.failure.reason}</p>}
