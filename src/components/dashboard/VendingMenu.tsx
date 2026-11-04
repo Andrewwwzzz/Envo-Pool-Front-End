@@ -152,7 +152,9 @@ export function VendingMenu({ walletBalance }: { walletBalance: number }) {
                   <Badge className={`text-xs mt-1 ${CATEGORY_COLORS[item.category] ?? ""}`}>{CATEGORY_LABELS[item.category] ?? item.category}</Badge>
                 </div>
                 <p className="text-accent font-bold">{price}</p>
-                {!item.inStock ? (
+                {item.faulty ? (
+                  <Badge variant="outline" className="text-muted-foreground w-full justify-center">Unavailable</Badge>
+                ) : !item.inStock ? (
                   <Badge variant="outline" className="text-muted-foreground w-full justify-center">Sold Out</Badge>
                 ) : !item.machineOnline ? (
                   <Badge variant="outline" className="text-muted-foreground w-full justify-center">Machine offline</Badge>

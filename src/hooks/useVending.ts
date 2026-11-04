@@ -13,6 +13,7 @@ export interface VendingItem {
   imageUrl: string | null;
   priceCents: number;
   inStock: boolean;
+  faulty: boolean;      // the machine has flagged the slot; it won't vend from it
   isAlcohol: boolean;
   isSignature: boolean;
   freeDrinkEligible: boolean;
