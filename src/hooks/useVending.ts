@@ -6,7 +6,9 @@ import { useToast } from "@/hooks/use-toast";
 
 export interface VendingItem {
   machineId: string;
-  slotNo: number;
+  slotNo: number;       // lowest slot holding it; the server picks the actual slot at purchase
+  slots: number[];
+  available: number;
   productId: string;
   name: string;
   category: string;
@@ -242,7 +244,7 @@ export function useVendingPurchase() {
   const qc = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async (body: { machineId: string; slotNo: number; mode: "remote" | "pickup"; isFreeRedemption?: boolean }) => {
+    mutationFn: async (body: { machineId: string; productId: string; mode: "remote" | "pickup"; isFreeRedemption?: boolean }) => {
       const data = await readJson(
         await apiFetch("/api/vending/purchase", { method: "POST", body: JSON.stringify(body) }),
         "Purchase failed"
@@ -370,7 +372,7 @@ export function useVendingUpdateSlot() {
 /** Counter sale: the machine dispenses for a customer standing at it. */
 export function useVendingStaffOrder() {
   return useAdminMutation(
-    (a: { machineId: string; slotNo: number; userId?: string; paymentMethod: VendingPaymentMethod }) =>
+    (a: { machineId: string; productId: string; userId?: string; paymentMethod: VendingPaymentMethod }) =>
       apiFetch(`${ADMIN}/orders`, { method: "POST", body: JSON.stringify(a) }),
     "Sale failed", "Sent to the machine", [...ORDER_KEYS, ["vending-menu"], ["admin-customers"]]
   );

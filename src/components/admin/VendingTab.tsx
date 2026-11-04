@@ -183,9 +183,18 @@ function SellCard({ machine, slots }: { machine: VendingMachineStatus; slots: Ve
   const { data: customers = [], isFetching } = useAdminCustomers(searchReady ? customerSearch : "");
   const { data: lastOrder } = useVendingOrder(lastOrderId);
 
-  const sellable = slots.filter((s) => s.enabled && s.productRef && (s.status == null || s.status === "0"));
-  const chosen = sellable.find((s) => String(s.slotNo) === slotNo);
-  const price = chosen ? (chosen.priceCents != null ? chosen.priceCents : Math.round((chosen.productRef?.sellingPrice ?? 0) * 100)) : null;
+  // One line per drink: its slots' stock added up; the server picks the slot.
+  const drinks = new Map<string, { productId: string; name: string; priceCents: number; available: number }>();
+  for (const s of slots) {
+    if (!s.enabled || !s.productRef || (s.status != null && s.status !== "0")) continue;
+    const avail = Math.max(0, (s.quantity ?? 0) - (s.reservedCount ?? 0));
+    const cur = drinks.get(s.productRef._id) || { productId: s.productRef._id, name: s.displayName || s.productRef.name, priceCents: s.priceCents != null ? s.priceCents : Math.round(s.productRef.sellingPrice * 100), available: 0 };
+    cur.available += avail;
+    drinks.set(s.productRef._id, cur);
+  }
+  const sellable = [...drinks.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const chosen = sellable.find((d) => d.productId === slotNo);
+  const price = chosen ? chosen.priceCents : null;
   const needsCustomer = payment === "wallet" || payment === "free_membership";
   const canSell = !!chosen && machine.online && !sell.isPending && (!needsCustomer || !!customerId);
 
@@ -198,7 +207,7 @@ function SellCard({ machine, slots }: { machine: VendingMachineStatus; slots: Ve
   const submit = () => {
     if (!chosen) return;
     sell.mutate(
-      { machineId: machine.machineId, slotNo: chosen.slotNo, paymentMethod: payment, userId: customerId || undefined },
+      { machineId: machine.machineId, productId: chosen.productId, paymentMethod: payment, userId: customerId || undefined },
       { onSuccess: (data) => setLastOrderId((data.order as { _id: string })?._id ?? null) }
     );
   };
@@ -216,11 +225,9 @@ function SellCard({ machine, slots }: { machine: VendingMachineStatus; slots: Ve
             <Select value={slotNo} onValueChange={setSlotNo}>
               <SelectTrigger className="h-9"><SelectValue placeholder={sellable.length ? "Pick an item" : "No items on sale"} /></SelectTrigger>
               <SelectContent>
-                {sellable.map((s) => {
-                  const avail = (s.quantity ?? 0) - (s.reservedCount ?? 0);
-                  const p = s.priceCents != null ? s.priceCents : Math.round((s.productRef?.sellingPrice ?? 0) * 100);
-                  return <SelectItem key={s.slotNo} value={String(s.slotNo)} disabled={avail <= 0}>Slot {s.slotNo} — {s.displayName || s.productRef?.name} {fmtCents(p)}{avail <= 0 ? " (sold out)" : ` (${avail} left)`}</SelectItem>;
-                })}
+                {sellable.map((d) => (
+                  <SelectItem key={d.productId} value={d.productId} disabled={d.available <= 0}>{d.name} {fmtCents(d.priceCents)}{d.available <= 0 ? " (sold out)" : ` (${d.available} left)`}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

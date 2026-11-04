@@ -103,7 +103,7 @@ export function VendingMenu({ walletBalance }: { walletBalance: number }) {
   const handleConfirm = () => {
     if (!confirm) return;
     purchase.mutate(
-      { machineId: confirm.item.machineId, slotNo: confirm.item.slotNo, mode: "remote", isFreeRedemption: confirm.isFree },
+      { machineId: confirm.item.machineId, productId: confirm.item.productId, mode: "remote", isFreeRedemption: confirm.isFree },
       {
         onSuccess: (data) => setActiveOrderId(data.order._id),
         onSettled: () => setConfirm(null),
@@ -139,7 +139,7 @@ export function VendingMenu({ walletBalance }: { walletBalance: number }) {
           const unavailable = !item.inStock || !item.machineOnline;
           const price = fmtCents(item.priceCents);
           return (
-            <Card key={`${item.machineId}-${item.slotNo}`} className={`relative border-border/50 ${unavailable ? "opacity-50" : ""}`}>
+            <Card key={`${item.machineId}-${item.productId}`} className={`relative border-border/50 ${unavailable ? "opacity-50" : ""}`}>
               {item.isSignature && (
                 <div className="absolute -top-2.5 -right-2.5 h-8 w-8 rounded-full bg-amber-400 flex items-center justify-center shadow-md ring-2 ring-background z-10">
                   <Star className="h-5 w-5 text-amber-950 fill-amber-950" />
