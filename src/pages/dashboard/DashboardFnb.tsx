@@ -41,6 +41,7 @@ import { fmtDateTimeSG } from "@/lib/sgTime";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { VendingMenu } from "@/components/dashboard/VendingMenu";
+import { useVendingMenu } from "@/hooks/useVending";
 import { Store } from "lucide-react";
 
 // Where the order goes: the counter brings it to the table, or the vending
@@ -49,6 +50,12 @@ import { Store } from "lucide-react";
 // here so it can be turned back on without rebuilding it.
 type OrderMode = "table" | "vending";
 const TABLE_DELIVERY_ENABLED = false;
+// With table delivery off, the page shows both: drinks from the machine, and
+// everything else (hot drinks, food…) ordered here and collected at the
+// counter. Counter orders go through the normal F&B flow with "Counter" as
+// the table, so staff see them in the same place as before.
+const COUNTER_PICKUP = !TABLE_DELIVERY_ENABLED;
+const COUNTER_LABEL = "Counter";
 
 function useCountdown(resumeAt: string | null | undefined) {
   const [label, setLabel] = useState("");
@@ -112,6 +119,13 @@ export default function DashboardFnb() {
   const countdown = useCountdown(fnbStatus?.resumeAt);
 
   const [orderMode, setOrderMode] = useState<OrderMode>(TABLE_DELIVERY_ENABLED ? "table" : "vending");
+  // Items the machine sells are left out of the counter menu (same react-query
+  // key as VendingMenu, so this costs no extra request).
+  const { data: vendingMenu } = useVendingMenu(COUNTER_PICKUP);
+  const vendingProductIds = new Set((vendingMenu?.items ?? []).map((i) => String(i.productId)));
+  const showVending = COUNTER_PICKUP || orderMode === "vending";
+  const showCounter = COUNTER_PICKUP || orderMode === "table";
+
   const [activeTab, setActiveTab] = useState<Category>("all");
   const [tableInput, setTableInput] = useState("");
   const [confirm, setConfirm] = useState<{ product: FnbProduct; isFree: boolean } | null>(null);
@@ -123,8 +137,12 @@ export default function DashboardFnb() {
   const [nachoChoice, setNachoChoice] = useState(false);
 
   const walletBalance = profile?.walletBalance ?? 0;
+  // Where the order goes: a fixed "Counter", or the table the member typed.
+  const tableOk = COUNTER_PICKUP || isValidTable(tableInput);
+  const tableLabel = COUNTER_PICKUP ? COUNTER_LABEL : normalizeTableName(tableInput);
 
   const filteredMenu = menu.filter((p) => {
+    if (COUNTER_PICKUP && vendingProductIds.has(p._id)) return false;
     if (activeTab === "all") return true;
     return getCategoryGroup(p.category) === activeTab;
   });
@@ -134,8 +152,8 @@ export default function DashboardFnb() {
     placeOrder.mutate(
       {
         productId: confirm.product._id,
-        tableId: normalizeTableName(tableInput),
-        tableName: normalizeTableName(tableInput),
+        tableId: tableLabel,
+        tableName: tableLabel,
         isFreeRedemption: confirm.isFree,
       },
       { onSettled: () => setConfirm(null) }
@@ -173,7 +191,7 @@ export default function DashboardFnb() {
   };
 
   const handlePlaceCart = async () => {
-    if (cart.length === 0 || !isValidTable(tableInput)) return;
+    if (cart.length === 0 || !tableOk) return;
     setCartConfirmOpen(false);
     setPlacingCart(true);
     let succeeded = 0;
@@ -185,8 +203,8 @@ export default function DashboardFnb() {
         try {
           await placeOrder.mutateAsync({
             productId: line.product._id,
-            tableId: normalizeTableName(tableInput),
-            tableName: normalizeTableName(tableInput),
+            tableId: tableLabel,
+            tableName: tableLabel,
             isFreeRedemption: false,
             ...(line.product.hasSauceOptions ? { selectedSauce: line.sauce ?? undefined, nachoCheeseAddOn: line.nacho } : {}),
             silent: true,
@@ -204,7 +222,7 @@ export default function DashboardFnb() {
     setPlacingCart(false);
     setCart(remaining);
     if (failed === 0) {
-      toast({ title: `${succeeded} item${succeeded === 1 ? "" : "s"} ordered!`, description: "We'll bring it to your table shortly." });
+      toast({ title: `${succeeded} item${succeeded === 1 ? "" : "s"} ordered!`, description: COUNTER_PICKUP ? "Collect it at the counter when it's ready." : "We'll bring it to your table shortly." });
     } else {
       toast({ title: `${succeeded} ordered, ${failed} failed`, description: "An item may have gone out of stock — remaining items are still in your cart.", variant: "destructive" });
     }
@@ -249,7 +267,7 @@ export default function DashboardFnb() {
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
             <ShoppingBag className="h-6 w-6 text-accent" /> F&B & Others
           </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">{TABLE_DELIVERY_ENABLED ? "Order food, drinks & more, delivered to your table" : "Buy a drink here and collect it at the vending machine"}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">{TABLE_DELIVERY_ENABLED ? "Order food, drinks & more, delivered to your table" : "Drinks drop from the vending machine; hot drinks & food are collected at the counter"}</p>
         </div>
         <Badge className="bg-accent/10 text-accent text-sm px-3 py-1">
           Wallet: ${walletBalance.toFixed(2)}
@@ -266,9 +284,22 @@ export default function DashboardFnb() {
         </Button>
       </div>}
 
-      {orderMode === "vending" ? <VendingMenu walletBalance={walletBalance} /> : (<>
-      {/* Free drink banner */}
-      {redemption?.canRedeem && (
+      {showVending && (<>
+        {COUNTER_PICKUP && (
+          <h2 className="font-semibold text-foreground flex items-center gap-2"><Store className="h-4 w-4 text-accent" /> From the vending machine</h2>
+        )}
+        <VendingMenu walletBalance={walletBalance} />
+      </>)}
+
+      {showCounter && (<>
+      {COUNTER_PICKUP && (
+        <div className="pt-6 border-t border-border/50">
+          <h2 className="font-semibold text-foreground flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-accent" /> Collect at the counter</h2>
+          <p className="text-xs text-muted-foreground mt-1">Hot drinks, food and anything the machine doesn't hold — order here, pick it up at the counter.</p>
+        </div>
+      )}
+      {/* Free drink banner (the machine section shows its own) */}
+      {!COUNTER_PICKUP && redemption?.canRedeem && (
         <div className="rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 flex items-center gap-2">
           <Gift className="h-4 w-4 text-green-400 flex-shrink-0" />
           <p className="text-sm text-green-400">
@@ -278,7 +309,7 @@ export default function DashboardFnb() {
       )}
 
       {/* Table input */}
-      <div className="space-y-1.5">
+      {!COUNTER_PICKUP && <div className="space-y-1.5">
         <label className="text-xs text-muted-foreground uppercase tracking-wider">
           Your Table <span className="text-red-400">*</span>
         </label>
@@ -294,7 +325,7 @@ export default function DashboardFnb() {
         {tableInput.trim() && !isValidTable(tableInput) && (
           <p className="text-xs text-red-400">Invalid table — must be between 1 and {MAX_TABLE}</p>
         )}
-      </div>
+      </div>}
 
       {/* Category tabs */}
       <div className="flex gap-2 flex-wrap">
@@ -347,7 +378,7 @@ export default function DashboardFnb() {
                       <Button
                         size="sm"
                         className="w-full bg-green-600 hover:bg-green-700 text-white text-xs"
-                        disabled={!isValidTable(tableInput)}
+                        disabled={!tableOk}
                         onClick={() => setConfirm({ product, isFree: true })}
                       >
                         Redeem Free
@@ -357,10 +388,10 @@ export default function DashboardFnb() {
                       size="sm"
                       variant="outline"
                       className="w-full text-xs"
-                      disabled={!isValidTable(tableInput)}
+                      disabled={!tableOk}
                       onClick={() => addToCart(product)}
                     >
-                      {!isValidTable(tableInput) ? "Enter valid table" : `Add to Cart — $${product.sellingPrice.toFixed(2)}`}
+                      {!tableOk ? "Enter valid table" : `Add to Cart — $${product.sellingPrice.toFixed(2)}`}
                     </Button>
                   </div>
                 )}
@@ -412,7 +443,7 @@ export default function DashboardFnb() {
               <Button
                 size="sm"
                 className="bg-accent text-accent-foreground hover:bg-accent/90"
-                disabled={placingCart || !isValidTable(tableInput) || cartTotal > walletBalance}
+                disabled={placingCart || !tableOk || cartTotal > walletBalance}
                 onClick={() => setCartConfirmOpen(true)}
               >
                 {placingCart ? "Placing..." : cartTotal > walletBalance ? "Insufficient Balance" : "Place Order"}
@@ -424,7 +455,7 @@ export default function DashboardFnb() {
 
       {/* Today's Orders */}
       <div className="space-y-3">
-        <h2 className="font-semibold text-foreground">Today's Orders</h2>
+        <h2 className="font-semibold text-foreground">{COUNTER_PICKUP ? "Counter Orders" : "Today's Orders"}</h2>
         {orders.length === 0 ? (
           <p className="text-sm text-muted-foreground">No orders yet today.</p>
         ) : (
@@ -470,8 +501,8 @@ export default function DashboardFnb() {
                 ? "FREE — membership benefit"
                 : `$${confirm?.product.sellingPrice.toFixed(2)} will be deducted from your wallet`}
             </p>
-            {tableInput && (
-              <p className="text-sm text-muted-foreground mt-1">Deliver to: <span className="text-foreground">{tableInput}</span></p>
+            {tableLabel && (
+              <p className="text-sm text-muted-foreground mt-1">{COUNTER_PICKUP ? "Collect at the counter when it's ready." : <>Deliver to: <span className="text-foreground">{tableLabel}</span></>}</p>
             )}
           </div>
           <DialogFooter>
@@ -511,7 +542,7 @@ export default function DashboardFnb() {
               <span>${cartTotal.toFixed(2)}</span>
             </div>
             <p className="text-sm text-muted-foreground pt-1">
-              ${cartTotal.toFixed(2)} will be deducted from your wallet. Deliver to: <span className="text-foreground">{tableInput}</span>
+              ${cartTotal.toFixed(2)} will be deducted from your wallet. {COUNTER_PICKUP ? "Collect at the counter when it's ready." : <>Deliver to: <span className="text-foreground">{tableLabel}</span></>}
             </p>
           </div>
           <DialogFooter>
