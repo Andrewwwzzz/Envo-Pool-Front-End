@@ -40,6 +40,12 @@ function ProductPhoto({ product }: { product: FnbProduct }) {
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
+import { VendingMenu } from "@/components/dashboard/VendingMenu";
+import { Store } from "lucide-react";
+
+// Where the order goes: the counter brings it to the table, or the vending
+// machine drops it the moment the member confirms.
+type OrderMode = "table" | "vending";
 
 function useCountdown(resumeAt: string | null | undefined) {
   const [label, setLabel] = useState("");
@@ -102,6 +108,7 @@ export default function DashboardFnb() {
   const placeOrder = usePlaceOrder();
   const countdown = useCountdown(fnbStatus?.resumeAt);
 
+  const [orderMode, setOrderMode] = useState<OrderMode>("table");
   const [activeTab, setActiveTab] = useState<Category>("all");
   const [tableInput, setTableInput] = useState("");
   const [confirm, setConfirm] = useState<{ product: FnbProduct; isFree: boolean } | null>(null);
@@ -206,8 +213,9 @@ export default function DashboardFnb() {
     return <Badge className="bg-red-500/20 text-red-400">Cancelled</Badge>;
   };
 
-  // Closed notice — show full-screen overlay when F&B is paused
-  if (fnbStatus?.isOpen === false) {
+  // Closed notice — show full-screen overlay when F&B is paused (the vending
+  // machine keeps working, so the member can switch to it from here)
+  if (fnbStatus?.isOpen === false && orderMode === "table") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-4">
         <div className="text-center space-y-3">
@@ -225,6 +233,7 @@ export default function DashboardFnb() {
           )}
         </div>
         <p className="text-xs text-muted-foreground">Check back soon or order from a staff member.</p>
+        <Button variant="outline" onClick={() => setOrderMode("vending")}><Store className="h-4 w-4 mr-2" /> Use the vending machine instead</Button>
       </div>
     );
   }
@@ -244,6 +253,17 @@ export default function DashboardFnb() {
         </Badge>
       </div>
 
+      {/* Order mode */}
+      <div className="grid grid-cols-2 gap-2 sm:max-w-md">
+        <Button variant={orderMode === "table" ? "default" : "outline"} className={orderMode === "table" ? "bg-accent text-accent-foreground hover:bg-accent/90" : ""} onClick={() => setOrderMode("table")}>
+          <ShoppingBag className="h-4 w-4 mr-2" /> Deliver to my table
+        </Button>
+        <Button variant={orderMode === "vending" ? "default" : "outline"} className={orderMode === "vending" ? "bg-accent text-accent-foreground hover:bg-accent/90" : ""} onClick={() => setOrderMode("vending")}>
+          <Store className="h-4 w-4 mr-2" /> Vending machine
+        </Button>
+      </div>
+
+      {orderMode === "vending" ? <VendingMenu walletBalance={walletBalance} /> : (<>
       {/* Free drink banner */}
       {redemption?.canRedeem && (
         <div className="rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 flex items-center gap-2">
@@ -431,6 +451,8 @@ export default function DashboardFnb() {
           </div>
         )}
       </div>
+
+      </>)}
 
       {/* Confirm dialog */}
       <Dialog open={!!confirm} onOpenChange={() => setConfirm(null)}>
