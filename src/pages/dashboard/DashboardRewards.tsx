@@ -77,6 +77,10 @@ export default function DashboardRewards() {
   const fulfilFnb = useFulfilFnbReward();
   // Which menu items the machine can drop right now
   const { data: vendingMenu } = useVendingMenu();
+  // linked: the product is sold through the machine (never at the counter);
+  // vendable: and the machine can drop it right now.
+  const linked = (productId?: string | null) =>
+    !!productId && (vendingMenu?.items ?? []).some((i) => String(i.productId) === String(productId));
   const vendable = (productId?: string | null) =>
     !!productId && (vendingMenu?.items ?? []).some((i) => String(i.productId) === String(productId) && i.inStock && i.machineOnline);
   const [vendOrderId, setVendOrderId] = useState<string | null>(null);
@@ -279,7 +283,7 @@ export default function DashboardRewards() {
                     </div>
                     <p className="text-xs text-muted-foreground flex-1">{item.description}</p>
                     {isFnb && (
-                      <p className="text-xs text-blue-400/80">{vendable(item.fnbProductId) ? "🍹 Drops from the vending machine, or collect at the counter" : "🍹 Collect at the counter"}</p>
+                      <p className="text-xs text-blue-400/80">{linked(item.fnbProductId) ? (vendable(item.fnbProductId) ? "🍹 Drops from the vending machine" : "🍹 Vending machine — unavailable right now") : "🍹 Collect at the counter"}</p>
                     )}
                     <div className="flex items-center justify-between pt-2">
                       <span className="font-mono text-amber-400 font-semibold">{cost.toLocaleString()} pts</span>
@@ -487,7 +491,7 @@ export default function DashboardRewards() {
             <DialogTitle>Redeem — {confirmExchange?.name}</DialogTitle>
             <DialogDescription>
               {confirmExchange?.category === "food_drinks"
-                ? <>This will spend <strong className="text-amber-400">{confirmExchange?.pointCost} points</strong>. {vendable(confirmExchange?.fnbProductId) ? "Choose where to collect it: the vending machine drops it right away, or pick it up at the counter." : "Collect it at the counter when it's ready."}</>
+                ? <>This will spend <strong className="text-amber-400">{confirmExchange?.pointCost} points</strong>. {linked(confirmExchange?.fnbProductId) ? (vendable(confirmExchange?.fnbProductId) ? "The vending machine drops it right away." : "This item comes from the vending machine, which can't dispense it right now — please try again later.") : "Collect it at the counter when it's ready."}</>
                 : <>This will spend <strong className="text-amber-400">{confirmExchange?.pointCost} points</strong>. A discount code will be added to your My Reward Codes — use it at checkout when paying for a booking.</>
               }
             </DialogDescription>
@@ -497,20 +501,21 @@ export default function DashboardRewards() {
             <Button variant="outline" onClick={() => { setConfirmExchange(null); setFnbTableInput(""); }}>Cancel</Button>
             {confirmExchange?.category === "food_drinks" ? (
               <>
-                <Button
-                  variant={vendable(confirmExchange?.fnbProductId) ? "outline" : "default"}
-                  disabled={exchange.isPending}
-                  onClick={async () => {
-                    if (!confirmExchange) return;
-                    await exchange.mutateAsync({ catalogId: (confirmExchange._id || confirmExchange.id)!, tableId: COUNTER_LABEL, tableName: COUNTER_LABEL, collect: "counter" });
-                    setConfirmExchange(null);
-                  }}
-                >
-                  Collect at counter
-                </Button>
-                {vendable(confirmExchange?.fnbProductId) && (
+                {!linked(confirmExchange?.fnbProductId) && (
                   <Button
                     disabled={exchange.isPending}
+                    onClick={async () => {
+                      if (!confirmExchange) return;
+                      await exchange.mutateAsync({ catalogId: (confirmExchange._id || confirmExchange.id)!, tableId: COUNTER_LABEL, tableName: COUNTER_LABEL, collect: "counter" });
+                      setConfirmExchange(null);
+                    }}
+                  >
+                    Collect at counter
+                  </Button>
+                )}
+                {linked(confirmExchange?.fnbProductId) && (
+                  <Button
+                    disabled={exchange.isPending || !vendable(confirmExchange?.fnbProductId)}
                     onClick={async () => {
                       if (!confirmExchange) return;
                       const data = await exchange.mutateAsync({ catalogId: (confirmExchange._id || confirmExchange.id)!, collect: "vending" });
@@ -575,27 +580,30 @@ export default function DashboardRewards() {
           <DialogHeader>
             <DialogTitle>Place Order — {fnbOrderReward?.description}</DialogTitle>
             <DialogDescription>
-              {vendable(rewardProductId(fnbOrderReward))
-                ? <>Where would you like <strong>{fnbOrderReward?.description}</strong>? The vending machine drops it right away, or pick it up at the counter.</>
+              {linked(rewardProductId(fnbOrderReward))
+                ? (vendable(rewardProductId(fnbOrderReward))
+                  ? <>The vending machine will drop <strong>{fnbOrderReward?.description}</strong> right away.</>
+                  : <><strong>{fnbOrderReward?.description}</strong> comes from the vending machine, which can't dispense it right now — please try again later.</>)
                 : <><strong>{fnbOrderReward?.description}</strong> will be ready for you at the counter.</>}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => { setFnbOrderReward(null); setFnbOrderTable(""); }}>Cancel</Button>
-            <Button
-              variant={vendable(rewardProductId(fnbOrderReward)) ? "outline" : "default"}
-              disabled={fulfilFnb.isPending}
-              onClick={async () => {
-                if (!fnbOrderReward) return;
-                await fulfilFnb.mutateAsync({ rewardId: rewardIdOf(fnbOrderReward), tableName: COUNTER_LABEL, collect: "counter" });
-                setFnbOrderReward(null);
-              }}
-            >
-              Collect at counter
-            </Button>
-            {vendable(rewardProductId(fnbOrderReward)) && (
+            {!linked(rewardProductId(fnbOrderReward)) && (
               <Button
                 disabled={fulfilFnb.isPending}
+                onClick={async () => {
+                  if (!fnbOrderReward) return;
+                  await fulfilFnb.mutateAsync({ rewardId: rewardIdOf(fnbOrderReward), tableName: COUNTER_LABEL, collect: "counter" });
+                  setFnbOrderReward(null);
+                }}
+              >
+                Collect at counter
+              </Button>
+            )}
+            {linked(rewardProductId(fnbOrderReward)) && (
+              <Button
+                disabled={fulfilFnb.isPending || !vendable(rewardProductId(fnbOrderReward))}
                 onClick={async () => {
                   if (!fnbOrderReward) return;
                   const data = await fulfilFnb.mutateAsync({ rewardId: rewardIdOf(fnbOrderReward), collect: "vending" });
