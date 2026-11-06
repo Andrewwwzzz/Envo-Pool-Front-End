@@ -168,7 +168,8 @@ function SlotRow({ slot }: { slot: VendingSlot }) {
   const priceCents = price.trim() === "" ? null : Math.round(parseFloat(price) * 100);
   const priceBad = price.trim() !== "" && (!Number.isFinite(priceCents) || (priceCents as number) < 0);
   const selected = products.find((p) => p._id === productRef);
-  const available = (slot.quantity ?? 0) - (slot.reservedCount ?? 0);
+  const faulty = !!slot.status && slot.status !== "0";
+  const available = faulty ? 0 : (slot.quantity ?? 0) - (slot.reservedCount ?? 0);
 
   const save = () => update.mutate({
     machineId: slot.machineId,
@@ -196,7 +197,7 @@ function SlotRow({ slot }: { slot: VendingSlot }) {
         {!price.trim() && selected && <p className="text-[11px] text-muted-foreground mt-0.5">uses ${selected.sellingPrice.toFixed(2)}</p>}
       </TableCell>
       <TableCell><Switch checked={enabled} onCheckedChange={setEnabled} disabled={!productRef} /></TableCell>
-      <TableCell className="text-xs">{slot.enabled && slot.productRef ? (available > 0 ? <span className="text-green-400">{available} for sale</span> : <span className="text-muted-foreground">sold out</span>) : <span className="text-muted-foreground">hidden</span>}</TableCell>
+      <TableCell className="text-xs">{faulty ? <span className="text-red-400">not for sale (fault)</span> : slot.enabled && slot.productRef ? (available > 0 ? <span className="text-green-400">{available} for sale</span> : <span className="text-muted-foreground">sold out</span>) : <span className="text-muted-foreground">hidden</span>}</TableCell>
       <TableCell><Button size="sm" disabled={!dirty || priceBad || update.isPending} onClick={save}>Save</Button></TableCell>
     </TableRow>
   );
