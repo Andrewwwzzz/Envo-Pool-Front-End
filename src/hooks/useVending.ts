@@ -30,13 +30,14 @@ export interface VendingMenuData {
 }
 
 export type VendingOrderStatus = "queued" | "sent" | "dispensed" | "failed" | "refunded" | "expired" | "needs_review";
-export type VendingPaymentMethod = "wallet" | "free_membership" | "cash" | "paynow";
+export type VendingPaymentMethod = "wallet" | "free_membership" | "cash" | "paynow" | "free_reward";
 
 export const PAYMENT_LABELS: Record<VendingPaymentMethod, string> = {
   wallet: "Wallet",
   free_membership: "Free drink",
   cash: "Cash",
   paynow: "PayNow",
+  free_reward: "Reward",
 };
 
 export interface VendingOrder {

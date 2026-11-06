@@ -186,17 +186,22 @@ export function useExchangeReward() {
   const qc = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async ({ catalogId, tableId, tableName }: { catalogId: string; tableId?: string; tableName?: string }) => {
+    // collect: "vending" sends an F&B reward to the vending machine instead of a table/counter order
+    mutationFn: async ({ catalogId, tableId, tableName, collect }: { catalogId: string; tableId?: string; tableName?: string; collect?: "vending" | "counter" }) => {
       const res = await apiFetch(`/api/rewards/exchange/${catalogId}`, {
         method: "POST",
-        body: JSON.stringify({ tableId, tableName }),
+        body: JSON.stringify({ tableId, tableName, collect }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to redeem");
       return data as { isFnbOrder?: boolean; message?: string; [key: string]: any };
     },
     onSuccess: (data) => {
-      if (data?.isFnbOrder) {
+      if (data?.isVendingOrder) {
+        toast({ title: "Sent to the vending machine", description: data.message });
+        qc.invalidateQueries({ queryKey: ["vending-orders-my"] });
+        qc.invalidateQueries({ queryKey: ["vending-menu"] });
+      } else if (data?.isFnbOrder) {
         toast({ title: "Order placed!", description: data.message || "Your item will be delivered to your table." });
         qc.invalidateQueries({ queryKey: ["fnb-orders-my"] });
       } else {

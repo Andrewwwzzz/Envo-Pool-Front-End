@@ -27,7 +27,7 @@ function ItemPhoto({ item }: { item: VendingItem }) {
 // Follows one order while the machine works on it: the server moves it
 // queued → sent → dispensed (or refunds it), and this polls every 2 s until
 // it settles. The member can close it any time; the list below keeps updating.
-function OrderProgressDialog({ orderId, onClose }: { orderId: string | null; onClose: () => void }) {
+export function OrderProgressDialog({ orderId, onClose }: { orderId: string | null; onClose: () => void }) {
   const { data: order } = useVendingOrder(orderId);
   const status = order?.status;
   const final = isOrderFinal(status);
