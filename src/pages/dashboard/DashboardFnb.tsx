@@ -123,7 +123,10 @@ export default function DashboardFnb() {
   // key as VendingMenu, so this costs no extra request).
   const { data: vendingMenu } = useVendingMenu(COUNTER_PICKUP);
   const vendingProductIds = new Set((vendingMenu?.items ?? []).map((i) => String(i.productId)));
-  const showVending = COUNTER_PICKUP || orderMode === "vending";
+  // The machine section only appears once a slot is mapped to a product, so a
+  // freshly deployed site shows the counter menu alone until the machine is set up.
+  const machineHasItems = (vendingMenu?.items?.length ?? 0) > 0;
+  const showVending = (COUNTER_PICKUP && machineHasItems) || (!COUNTER_PICKUP && orderMode === "vending");
   const showCounter = COUNTER_PICKUP || orderMode === "table";
 
   const [activeTab, setActiveTab] = useState<Category>("all");
@@ -267,7 +270,7 @@ export default function DashboardFnb() {
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
             <ShoppingBag className="h-6 w-6 text-accent" /> F&B & Others
           </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">{TABLE_DELIVERY_ENABLED ? "Order food, drinks & more, delivered to your table" : "Drinks drop from the vending machine; hot drinks & food are collected at the counter"}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">{TABLE_DELIVERY_ENABLED ? "Order food, drinks & more, delivered to your table" : machineHasItems ? "Drinks drop from the vending machine; hot drinks & food are collected at the counter" : "Order here and collect at the counter"}</p>
         </div>
         <Badge className="bg-accent/10 text-accent text-sm px-3 py-1">
           Wallet: ${walletBalance.toFixed(2)}
