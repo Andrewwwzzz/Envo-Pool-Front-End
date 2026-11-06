@@ -4,8 +4,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { useStaffIncentives } from "@/hooks/useStaffIncentives";
+import { useStaffIncentives, IncentiveKey } from "@/hooks/useStaffIncentives";
 import { fmtDateTimeSG } from "@/lib/sgTime";
+
+const LABELS: Record<IncentiveKey, string> = {
+  membership: "New membership",
+  topup250: "Top-up $250+",
+  topup500: "Top-up $500",
+  package3h: "3h package",
+  package5h: "5h package",
+};
+const KEYS: IncentiveKey[] = ["membership", "topup250", "topup500", "package3h", "package5h"];
 
 // Current SGT month plus the previous five, newest first.
 function recentMonths(): string[] {
@@ -27,9 +36,6 @@ export default function IncentivesTab() {
   const { data, isLoading, error } = useStaffIncentives(month);
 
   const items = (data?.items ?? []).filter((i) => !staffFilter || i.staffId === staffFilter);
-  // The rules of the chosen month (rates change by month) — they set the columns too.
-  const rules = data?.rules ?? [];
-  const labelOf = (key: string) => rules.find((r) => r.key === key)?.label ?? key;
 
   return (
     <div className="space-y-6">
@@ -50,7 +56,11 @@ export default function IncentivesTab() {
         <CardHeader className="pb-3"><CardTitle className="text-base">How bonuses are earned</CardTitle></CardHeader>
         <CardContent>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 text-sm">
-            {rules.map((r) => <Rule key={r.key} amount={r.bonus} text={r.text} />)}
+            <Rule amount={data?.rules.membership ?? 5} text="New membership sold — assigned with Wallet, Cash or PayNow payment (not locker plans, free ones or extensions)" />
+            <Rule amount={data?.rules.topup250 ?? 5} text="Top-up of $250–$499 submitted by staff for the customer, once approved" />
+            <Rule amount={data?.rules.topup500 ?? 15} text="Top-up of $500 submitted by staff for the customer, once approved" />
+            <Rule amount={data?.rules.package3h ?? 2} text="3-hour package (DAY3H / EVE3H) booked through Book Now" />
+            <Rule amount={data?.rules.package5h ?? 5} text="5-hour package (DAY5H) booked through Book Now" />
             <p className="text-xs text-muted-foreground self-center">Customers' own online top-ups and bookings don't count. Cancelled bookings and deleted memberships drop off automatically.</p>
           </div>
         </CardContent>
@@ -74,7 +84,7 @@ export default function IncentivesTab() {
                 <thead>
                   <tr className="border-b border-border text-left text-muted-foreground">
                     <th className="py-2 pr-3 font-medium">Staff</th>
-                    {rules.map((r) => <th key={r.key} className="py-2 pr-3 font-medium text-right whitespace-nowrap">{r.label}</th>)}
+                    {KEYS.map((k) => <th key={k} className="py-2 pr-3 font-medium text-right whitespace-nowrap">{LABELS[k]}</th>)}
                     <th className="py-2 font-medium text-right">Bonus</th>
                   </tr>
                 </thead>
@@ -86,7 +96,7 @@ export default function IncentivesTab() {
                       onClick={() => setStaffFilter(staffFilter === s.staffId ? null : s.staffId)}
                     >
                       <td className="py-2.5 pr-3 font-medium">{s.name}</td>
-                      {rules.map((r) => <td key={r.key} className="py-2.5 pr-3 text-right tabular-nums">{s[r.key] || "—"}</td>)}
+                      {KEYS.map((k) => <td key={k} className="py-2.5 pr-3 text-right tabular-nums">{s[k] || "—"}</td>)}
                       <td className="py-2.5 text-right font-semibold tabular-nums">${s.bonus.toFixed(2)}</td>
                     </tr>
                   ))}
@@ -124,7 +134,7 @@ export default function IncentivesTab() {
                     <tr key={idx} className="border-b border-border/50">
                       <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">{fmtDateTimeSG(i.at)}</td>
                       <td className="py-2 pr-3">{i.staffName}</td>
-                      <td className="py-2 pr-3 whitespace-nowrap">{labelOf(i.key)}</td>
+                      <td className="py-2 pr-3 whitespace-nowrap">{LABELS[i.key]}</td>
                       <td className="py-2 pr-3">{i.customer}</td>
                       <td className="py-2 pr-3 text-muted-foreground">{i.detail}</td>
                       <td className="py-2 text-right tabular-nums">${i.bonus.toFixed(2)}</td>

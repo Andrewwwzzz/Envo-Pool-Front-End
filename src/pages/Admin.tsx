@@ -47,8 +47,6 @@ import { CashCountTab } from "@/components/admin/CashCountTab";
 import MembershipTab from "@/components/admin/MembershipTab";
 import LockersTab from "@/components/admin/LockersTab";
 import { FnbTab } from "@/components/admin/FnbTab";
-import { VendingTab } from "@/components/admin/VendingTab";
-import { useVendingStatus } from "@/hooks/useVending";
 import { useAdminFnbOrders } from "@/hooks/useFnb";
 import { useAdminPublicHolidays } from "@/hooks/usePricing";
 import { useAdminCampaigns } from "@/hooks/useCampaign";
@@ -101,8 +99,6 @@ const Admin = () => {
   const { data: pendingTopUps = [] } = useAdminTopUps("pending", !!user?.isAdmin);
   // Staff: outside a rostered shift (±2h) the server refuses changes; say so up top.
   const { data: shiftStatus } = useShiftStatus(user?.role === "staff");
-  // Admin-only for now: vending orders the machine never confirmed, shown as a badge
-  const { data: vendingStatus } = useVendingStatus(user?.role === "admin");
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
@@ -130,7 +126,7 @@ const Admin = () => {
   const sections: AdminSection[] = ([
     { key: "today", label: "Today", icon: LayoutDashboard, pages: [page(can("overview"), "overview", "Today")] },
     { key: "tables", label: "Tables", icon: LayoutGrid, pages: [page(can("tables"), "tables", "Tables")] },
-    { key: "fnb", label: "F&B", icon: Coffee, pages: [page(can("fnb"), "fnb", "F&B", fnbPending), page(isAdmin, "vending", "Vending", vendingStatus?.openOrders?.needs_review || 0)] },
+    { key: "fnb", label: "F&B", icon: Coffee, pages: [page(can("fnb"), "fnb", "F&B", fnbPending)] },
     { key: "payments", label: "Payments", icon: Wallet, pages: [page(can("topups"), "topups", "Top Ups", topupPending), page(can("cashcount"), "cashcount", "Cash Count")] },
     { key: "bookings", label: "Bookings", icon: CalendarDays, pages: [page(can("bookings"), "bookings", "Bookings"), page(can("invoices"), "invoices", "Invoices")] },
     { key: "customers", label: "Customers", icon: Users, pages: [page(can("customers"), "customers", "Customers")] },
@@ -196,7 +192,6 @@ const Admin = () => {
           )}
           {can("tables") && <TabsContent value="tables"><TablesTab /></TabsContent>}
           {can("fnb") && <TabsContent value="fnb"><FnbTab /></TabsContent>}
-          {isAdmin && <TabsContent value="vending"><VendingTab /></TabsContent>}
           {can("topups") && <TabsContent value="topups"><TopUpsTab /></TabsContent>}
           {can("customers") && (
             <TabsContent value="customers">
@@ -5277,7 +5272,7 @@ function CreateTopUpDialog({
 
   const selectedCustomer = pickedCustomer && pickedCustomer.id === customerId ? pickedCustomer : customers.find((c: any) => c.id === customerId);
   const amountNum = parseFloat(amount) || 0;
-  const canSubmit = !!customerId && amountNum > 0;
+  const canSubmit = !!customerId && amountNum > 0 && amountNum <= 500;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -5346,7 +5341,7 @@ function CreateTopUpDialog({
 
           <div className="space-y-1.5">
             <Label>Amount</Label>
-            <Input type="number" step="0.01" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount" />
+            <Input type="number" step="0.01" min="0.01" max="1000" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Max $1000" />
           </div>
 
           <div className="space-y-1.5">

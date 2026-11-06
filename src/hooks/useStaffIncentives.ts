@@ -1,15 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 
-// The month's bonus kinds come from the server (rates change by month), e.g. "membership", "topup500".
-export type IncentiveKey = string;
-
-export interface IncentiveRule {
-  key: IncentiveKey;
-  label: string;
-  bonus: number;
-  text: string;
-}
+export type IncentiveKey = "membership" | "topup250" | "topup500" | "package3h" | "package5h";
 
 export interface IncentiveItem {
   type: "membership" | "topup" | "package";
@@ -22,16 +14,15 @@ export interface IncentiveItem {
   at: string;
 }
 
-export interface StaffIncentiveRow {
+export interface StaffIncentiveRow extends Record<IncentiveKey, number> {
   staffId: string;
   name: string;
   bonus: number;
-  [key: IncentiveKey]: number | string;
 }
 
 export interface StaffIncentives {
   month: string;
-  rules: IncentiveRule[];
+  rules: Record<IncentiveKey, number>;
   staff: StaffIncentiveRow[];
   items: IncentiveItem[];
   totalBonus: number;
