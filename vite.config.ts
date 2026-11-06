@@ -42,7 +42,17 @@ function seoPages(): Plugin {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+import { loadEnv } from "vite";
+
+// A production build must never carry a local API URL (that is how the live
+// site once ended up calling a laptop). Checked against every env source Vite
+// would read for this mode, and fails the build instead of shipping it.
+export default defineConfig(({ mode }) => {
+  if (mode === "production") {
+    const api = loadEnv(mode, process.cwd(), "VITE_").VITE_API_URL || process.env.VITE_API_URL || "";
+    if (/localhost|127\.0\.0\.1/.test(api)) throw new Error(`Refusing production build: VITE_API_URL=${api}`);
+  }
+  return ({
   server: {
     host: "::",
     port: 8080,
@@ -56,4 +66,5 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-}));
+});
+});
