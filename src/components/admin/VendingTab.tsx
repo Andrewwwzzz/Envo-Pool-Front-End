@@ -5,12 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Wifi, WifiOff, RefreshCw, Play, Thermometer, Signal } from "lucide-react";
+import { Wifi, WifiOff, RefreshCw, Play, Thermometer, Signal, Check, ChevronsUpDown } from "lucide-react";
 import { fmtDateTimeSG } from "@/lib/sgTime";
-import { useAdminMenu } from "@/hooks/useFnb";
+import { useAdminMenu, FnbProduct } from "@/hooks/useFnb";
 import { useAdminCustomers } from "@/hooks/useAdmin";
 import {
   useVendingStatus, useVendingTestVend, useVendingRequestReport, useVendingCancelCommand, useVendingUpdateSlot,
@@ -113,6 +115,44 @@ function MachineCard({ machine, counts, commands }: { machine: VendingMachineSta
 
 // One slot row: what the machine reports on the left, what we sell on the right.
 // Edits are local until Save, so a 5-second status refresh can't wipe typing.
+// Type-to-search product picker for a slot (the plain dropdown got too long
+// once every F&B item was listed).
+function ProductPicker({ products, value, onChange }: { products: FnbProduct[]; value: string; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const selected = products.find((p) => p._id === value);
+  const choose = (id: string) => { onChange(id); setOpen(false); };
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" role="combobox" aria-expanded={open} className="h-9 w-full justify-between font-normal">
+          <span className={`truncate ${selected ? "" : "text-muted-foreground"}`}>{selected ? `${selected.name} ($${selected.sellingPrice.toFixed(2)})` : "— No product —"}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[320px] p-0" align="start">
+        <Command filter={(value, search) => (value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0)}>
+          <CommandInput placeholder="Type to search…" />
+          <CommandList>
+            <CommandEmpty>No product found.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem value="— No product —" onSelect={() => choose("")}>
+                <Check className={`mr-2 h-4 w-4 ${value ? "opacity-0" : "opacity-100"}`} />— No product —
+              </CommandItem>
+              {products.filter((p) => p.isActive).map((p) => (
+                <CommandItem key={p._id} value={`${p.name} ${p.category}`} onSelect={() => choose(p._id)}>
+                  <Check className={`mr-2 h-4 w-4 ${value === p._id ? "opacity-100" : "opacity-0"}`} />
+                  <span className="truncate">{p.name}</span>
+                  <span className="ml-auto pl-2 text-xs text-muted-foreground">${p.sellingPrice.toFixed(2)}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function SlotRow({ slot }: { slot: VendingSlot }) {
   const { data: products = [] } = useAdminMenu();
   const update = useVendingUpdateSlot();
@@ -148,13 +188,7 @@ function SlotRow({ slot }: { slot: VendingSlot }) {
         {slot.status && slot.status !== "0" && <p className="text-red-400">Fault code {slot.status}</p>}
       </TableCell>
       <TableCell className="min-w-[180px]">
-        <Select value={productRef || "__none"} onValueChange={(v) => setProductRef(v === "__none" ? "" : v)}>
-          <SelectTrigger className="h-9"><SelectValue placeholder="No product" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none">— No product —</SelectItem>
-            {products.filter((p) => p.isActive).map((p) => <SelectItem key={p._id} value={p._id}>{p.name} (${p.sellingPrice.toFixed(2)})</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <ProductPicker products={products} value={productRef} onChange={setProductRef} />
         <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name (optional)" className="h-8 mt-1 text-xs" />
       </TableCell>
       <TableCell>
