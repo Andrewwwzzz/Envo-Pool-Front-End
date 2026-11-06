@@ -76,7 +76,7 @@ export default function DashboardRewards() {
   const claim = useClaimMilestone();
   const fulfilFnb = useFulfilFnbReward();
   // Which menu items the machine can drop right now
-  const { data: vendingMenu } = useVendingMenu();
+  const { data: vendingMenu, isLoading: vendingLoading } = useVendingMenu();
   // linked: the product is sold through the machine (never at the counter);
   // vendable: and the machine can drop it right now.
   const linked = (productId?: string | null) =>
@@ -503,7 +503,7 @@ export default function DashboardRewards() {
               <>
                 {!linked(confirmExchange?.fnbProductId) && (
                   <Button
-                    disabled={exchange.isPending}
+                    disabled={exchange.isPending || vendingLoading}
                     onClick={async () => {
                       if (!confirmExchange) return;
                       await exchange.mutateAsync({ catalogId: (confirmExchange._id || confirmExchange.id)!, tableId: COUNTER_LABEL, tableName: COUNTER_LABEL, collect: "counter" });
@@ -591,7 +591,7 @@ export default function DashboardRewards() {
             <Button variant="outline" onClick={() => { setFnbOrderReward(null); setFnbOrderTable(""); }}>Cancel</Button>
             {!linked(rewardProductId(fnbOrderReward)) && (
               <Button
-                disabled={fulfilFnb.isPending}
+                disabled={fulfilFnb.isPending || vendingLoading}
                 onClick={async () => {
                   if (!fnbOrderReward) return;
                   await fulfilFnb.mutateAsync({ rewardId: rewardIdOf(fnbOrderReward), tableName: COUNTER_LABEL, collect: "counter" });

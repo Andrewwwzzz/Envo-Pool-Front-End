@@ -239,7 +239,10 @@ export default function DashboardFnb() {
 
   // Closed notice — show full-screen overlay when F&B is paused (the vending
   // machine keeps working, so the member can switch to it from here)
-  if (fnbStatus?.isOpen === false && orderMode === "table") {
+  const counterPaused = fnbStatus?.isOpen === false;
+  // Whole-page overlay only when there's nothing else to offer (table mode, or
+  // counter pickup with no machine items); otherwise the counter section alone is closed.
+  if (counterPaused && !COUNTER_PICKUP && orderMode === "table") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-4">
         <div className="text-center space-y-3">
@@ -294,7 +297,16 @@ export default function DashboardFnb() {
         <VendingMenu walletBalance={walletBalance} />
       </>)}
 
-      {showCounter && (<>
+      {showCounter && COUNTER_PICKUP && counterPaused && (
+        <div className="pt-6 border-t border-border/50">
+          <h2 className="font-semibold text-foreground flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-accent" /> Collect at the counter</h2>
+          <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
+            <p className="font-medium text-amber-300">Counter orders are paused right now</p>
+            <p className="text-muted-foreground mt-1">{fnbStatus?.notice || "Check back soon or order from a staff member."}{machineHasItems ? " Drinks from the vending machine are still available above." : ""}</p>
+          </div>
+        </div>
+      )}
+      {showCounter && !(COUNTER_PICKUP && counterPaused) && (<>
       {COUNTER_PICKUP && (
         <div className="pt-6 border-t border-border/50">
           <h2 className="font-semibold text-foreground flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-accent" /> Collect at the counter</h2>
