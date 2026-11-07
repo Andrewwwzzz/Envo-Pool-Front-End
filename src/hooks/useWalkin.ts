@@ -131,7 +131,7 @@ export function useStoppedWalkinSessions(enabled = true, showDeleted = false) {
       return Array.isArray(data) ? data : data?.sessions ?? [];
     },
     enabled,
-    refetchInterval: 60000,
+    refetchInterval: 15000,
     staleTime: 0,
   });
 }

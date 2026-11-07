@@ -101,8 +101,9 @@ const Admin = () => {
   const { data: pendingTopUps = [] } = useAdminTopUps("pending", !!user?.isAdmin);
   // Staff: outside a rostered shift (±2h) the server refuses changes; say so up top.
   const { data: shiftStatus } = useShiftStatus(user?.role === "staff");
-  // Admin-only for now: vending orders the machine never confirmed, shown as a badge
-  const { data: vendingStatus } = useVendingStatus(user?.role === "admin");
+  // Vending orders the machine never confirmed, shown as a badge on the tab
+  // (hooks run before the early returns below, so this can't use `can` yet)
+  const { data: vendingStatus } = useVendingStatus(user?.role === "admin" || (user?.staffPermissions ?? []).includes("vending"));
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
@@ -130,7 +131,7 @@ const Admin = () => {
   const sections: AdminSection[] = ([
     { key: "today", label: "Today", icon: LayoutDashboard, pages: [page(can("overview"), "overview", "Today")] },
     { key: "tables", label: "Tables", icon: LayoutGrid, pages: [page(can("tables"), "tables", "Tables")] },
-    { key: "fnb", label: "F&B", icon: Coffee, pages: [page(can("fnb"), "fnb", "F&B", fnbPending), page(isAdmin, "vending", "Vending", vendingStatus?.openOrders?.needs_review || 0)] },
+    { key: "fnb", label: "F&B", icon: Coffee, pages: [page(can("fnb"), "fnb", "F&B", fnbPending), page(can("vending"), "vending", "Vending", vendingStatus?.openOrders?.needs_review || 0)] },
     { key: "payments", label: "Payments", icon: Wallet, pages: [page(can("topups"), "topups", "Top Ups", topupPending), page(can("cashcount"), "cashcount", "Cash Count")] },
     { key: "bookings", label: "Bookings", icon: CalendarDays, pages: [page(can("bookings"), "bookings", "Bookings"), page(can("invoices"), "invoices", "Invoices")] },
     { key: "customers", label: "Customers", icon: Users, pages: [page(can("customers"), "customers", "Customers")] },
@@ -196,7 +197,7 @@ const Admin = () => {
           )}
           {can("tables") && <TabsContent value="tables"><TablesTab /></TabsContent>}
           {can("fnb") && <TabsContent value="fnb"><FnbTab /></TabsContent>}
-          {isAdmin && <TabsContent value="vending"><VendingTab /></TabsContent>}
+          {can("vending") && <TabsContent value="vending"><VendingTab /></TabsContent>}
           {can("topups") && <TabsContent value="topups"><TopUpsTab /></TabsContent>}
           {can("customers") && (
             <TabsContent value="customers">
@@ -1003,7 +1004,9 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
     : baseTotal > 0 ? baseTotal
     : manualGrossAmount > 0 ? manualGrossAmount
     : amount + membershipDiscountAmount + freeMinutesCredit;
-  const staff = s.startedBy?.name || s.startedBy?.email || "—";
+  // Invoices from before closedBy was recorded hold the closer in startedBy.
+  const closedBy = s.closedBy?.name || s.closedBy?.email || s.startedBy?.name || s.startedBy?.email || "—";
+  const openedBy = s.closedBy ? (s.startedBy?.name || s.startedBy?.email || "—") : "—";
   // Who the charge belongs to — walk-in sessions are always a real logged-in
   // customer; admin-opened sessions are only tied to a customer if one was
   // selected at counter, otherwise it's an anonymous walk-in on the Guest Account.
@@ -1438,10 +1441,16 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
                 <div className="font-medium">{customerName}</div>
               </div>
               {!walkin && (
-                <div>
-                  <div className="text-muted-foreground">Opened by</div>
-                  <div className="font-medium">{staff}</div>
-                </div>
+                <>
+                  <div>
+                    <div className="text-muted-foreground">Opened by</div>
+                    <div className="font-medium">{openedBy}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Closed by</div>
+                    <div className="font-medium">{closedBy}</div>
+                  </div>
+                </>
               )}
             </div>
           </section>

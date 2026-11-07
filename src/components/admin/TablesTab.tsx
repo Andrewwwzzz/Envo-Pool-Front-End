@@ -4,7 +4,7 @@ import { useDeviceState, useDeviceControl, useBulkDeviceControl } from "@/hooks/
 import { fmtDateSG, fmtTimeSG, fmtDateTimeSG, sgSlotToUTC, getSGDateStr } from "@/lib/sgTime";
 import {
   useAdminTables,
-  useAdminBookings,
+  useAdminLiveBookings,
   useAdminCustomers,
   useTableMaintenance,
   useScheduleMaintenance,
@@ -308,7 +308,7 @@ export default function TablesTab() {
   const { data: tables, startTimer, stopTimer, setMaintenance, setBulkMaintenance } = useAdminTables();
   const bulkSchedule = useBulkScheduleMaintenance();
   const { controlDevices, pending: bulkPowerPending } = useBulkDeviceControl();
-  const { data: bookings } = useAdminBookings();
+  const { data: bookings } = useAdminLiveBookings();
   const { data: walkinSessions = [] } = useActiveWalkinSessions();
   const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
   const [bulkScheduleOpen, setBulkScheduleOpen] = useState(false);

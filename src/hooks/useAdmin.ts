@@ -20,7 +20,9 @@ export function useAdminGmailPayments(enabled: boolean) {
   return useQuery({
     queryKey: ["admin-gmail-payments"],
     queryFn: async () => {
-      const res = await apiFetch("/api/transactions/topup/admin/gmail-payments");
+      // Newest 400 bank alerts — enough to match the receipt icon on any
+      // recent PayNow charge; the full list was 2700+ rows every 15 s.
+      const res = await apiFetch("/api/transactions/topup/admin/gmail-payments?limit=400");
       if (!res.ok) return [];
       const data = await res.json();
       return Array.isArray(data) ? data : data?.payments ?? [];
@@ -116,6 +118,25 @@ export function useAdminBookings(showDeleted = false) {
     refetchInterval: 10000,
     refetchOnWindowFocus: true,
     initialData: () => getCached(key),
+  });
+}
+
+// Only bookings still running or ending after yesterday — the Tables tab
+// decides "Booked" from this, so it must come back in well under a second
+// (the full list is 1500+ rows and took ~5 s, which is why a table booked
+// with Book Now took that long to show). Shares the "admin-bookings" key
+// prefix, so every invalidation of the bookings list refreshes it too.
+export function useAdminLiveBookings() {
+  return useQuery({
+    queryKey: ["admin-bookings", "live"],
+    queryFn: async () => {
+      const from = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const res = await apiFetch(`/api/bookings?from=${encodeURIComponent(from)}`);
+      if (!res.ok) throw new Error("Failed to fetch bookings");
+      return await res.json();
+    },
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -653,17 +674,21 @@ export function useBulkScheduleMaintenance() {
   });
 }
 
+// Newest 400 invoices, refreshed every 10 s like the bookings list — the
+// full history was several MB and left the Invoices tab spinning.
 export function useAdminTimerSessions(showDeleted = false) {
   const key = showDeleted ? "admin-timer-sessions-deleted" : "admin-timer-sessions";
   return useQuery({
     queryKey: ["admin-timer-sessions", showDeleted],
     queryFn: async () => {
-      const res = await apiFetch(`/api/admin/timer-sessions${showDeleted ? "?showDeleted=true" : ""}`);
+      const res = await apiFetch(`/api/admin/timer-sessions?limit=400${showDeleted ? "&showDeleted=true" : ""}`);
       if (!res.ok) throw new Error("Failed to fetch timer sessions");
       const data = await res.json();
       setCache(key, data);
       return data;
     },
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
     initialData: () => getCached(key),
   });
 }
@@ -1470,6 +1495,7 @@ export const ALL_PERMISSIONS = [
   { key: "tournaments", label: "Tournaments" },
   { key: "logs", label: "Logs" },
   { key: "roster", label: "Roster" },
+  { key: "vending", label: "Vending" },
 ] as const;
 
 export function useStaffList() {

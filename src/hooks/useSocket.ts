@@ -52,6 +52,10 @@ export function useSocket() {
       queryClient.invalidateQueries({ queryKey: ["admin-booking-logs"] });
       queryClient.invalidateQueries({ queryKey: ["transaction-history"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+      // The Tables tab and the Invoices tab follow table opens/closes too
+      queryClient.invalidateQueries({ queryKey: ["admin-tables"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-timer-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["walkin-stopped"] });
     });
 
     socket.on("walletUpdated", (payload: any) => {
