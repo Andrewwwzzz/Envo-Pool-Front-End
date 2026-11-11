@@ -41,6 +41,25 @@ function seoPages(): Plugin {
   };
 }
 
+// App version: every build gets its own id, baked into the bundle as
+// __APP_BUILD__ and written to dist/version.json. An open copy of the app
+// compares the two to know a newer version is out (src/hooks/useAppVersion.ts).
+// Vercel builds use the commit; other builds the build time. Dev is "dev".
+function appVersion(build: string): Plugin {
+  let outDir = "dist";
+  return {
+    name: "envo-app-version",
+    configResolved(config) {
+      outDir = path.resolve(config.root, config.build.outDir);
+    },
+    closeBundle() {
+      const file = path.join(outDir, "version.json");
+      const base = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
+      fs.writeFileSync(file, JSON.stringify({ ...base, version: build, updatedAt: new Date().toISOString() }, null, 2));
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 import { loadEnv } from "vite";
 
@@ -52,7 +71,11 @@ export default defineConfig(({ mode }) => {
     const api = loadEnv(mode, process.cwd(), "VITE_").VITE_API_URL || process.env.VITE_API_URL || "";
     if (/localhost|127\.0\.0\.1/.test(api)) throw new Error(`Refusing production build: VITE_API_URL=${api}`);
   }
+  const build = mode === "development" ? "dev" : (process.env.VERCEL_GIT_COMMIT_SHA || "").slice(0, 12) || Date.now().toString(36);
   return ({
+  define: {
+    __APP_BUILD__: JSON.stringify(build),
+  },
   server: {
     host: "::",
     port: 8080,
@@ -60,7 +83,7 @@ export default defineConfig(({ mode }) => {
       overlay: false,
     },
   },
-  plugins: [react(), seoPages(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [react(), seoPages(), appVersion(build), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

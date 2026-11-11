@@ -17,11 +17,9 @@ import { useAppVersion } from "@/hooks/useAppVersion";
  * (this session pushes many per day), which made it feel like it never
  * stopped popping up.
  *
- * TO ANNOUNCE A NOTEWORTHY UPDATE:
- * 1. Open public/version.json
- * 2. Bump the "version" field (e.g. "1.0.0" → "1.1.0")
- * 3. Optionally update "message" to describe what changed
- * 4. Commit and push — open sessions will see the toast within 5 minutes
+ * Every deploy is a new version: the build writes its own id into
+ * version.json (vite.config.ts), so open sessions see the toast within
+ * 5 minutes. To change the wording, edit "message" in public/version.json.
  */
 export default function AppUpdateBanner() {
   const { updateAvailable, updateMessage, applyUpdate } = useAppVersion();
