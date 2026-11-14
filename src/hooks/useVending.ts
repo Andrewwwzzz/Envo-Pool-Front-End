@@ -30,7 +30,7 @@ export interface VendingMenuData {
 }
 
 export type VendingOrderStatus = "queued" | "sent" | "dispensed" | "failed" | "refunded" | "expired" | "needs_review";
-export type VendingPaymentMethod = "wallet" | "free_membership" | "cash" | "paynow" | "free_reward";
+export type VendingPaymentMethod = "wallet" | "free_membership" | "cash" | "paynow" | "free_reward" | "charge_to_table";
 
 export const PAYMENT_LABELS: Record<VendingPaymentMethod, string> = {
   wallet: "Wallet",
@@ -38,7 +38,14 @@ export const PAYMENT_LABELS: Record<VendingPaymentMethod, string> = {
   cash: "Cash",
   paynow: "PayNow",
   free_reward: "Reward",
+  charge_to_table: "Table tab",
 };
+
+// Payment channels staff may correct after the sale (free drink / reward orders aren't editable)
+export const EDITABLE_PAYMENTS = ["wallet", "cash", "paynow", "charge_to_table"] as const;
+export type EditablePayment = (typeof EDITABLE_PAYMENTS)[number];
+// Order states where a payment can still be corrected
+export const PAYMENT_EDITABLE_STATUSES: VendingOrderStatus[] = ["queued", "sent", "dispensed", "needs_review"];
 
 export interface VendingOrder {
   _id: string;
@@ -50,6 +57,7 @@ export interface VendingOrder {
   productName: string;
   priceCents: number;
   paymentMethod: VendingPaymentMethod;
+  tableName?: string | null;
   placedBy?: string | null;
   pickupCode?: string;
   pickupExpiresAt?: string;
@@ -69,6 +77,8 @@ export interface VendingMachineStatus {
   signal: string | null;
   dropSensor: string | null;
   shipFailCode: string | null;
+  // Drinks with nothing left for sale, grouped by type
+  soldOut?: { category: string; label: string; items: string[] }[];
 }
 
 export interface VendingSlot {
@@ -123,6 +133,8 @@ export interface VendingAdminOrder {
   mode: "remote" | "pickup";
   status: VendingOrderStatus;
   paymentMethod: VendingPaymentMethod;
+  tableName?: string | null;
+  settledAt?: string | null;
   placedBy?: { name?: string } | string | null;
   tradeNo: string;
   machinePayType: string | null;
@@ -373,9 +385,18 @@ export function useVendingUpdateSlot() {
 /** Counter sale: the machine dispenses for a customer standing at it. */
 export function useVendingStaffOrder() {
   return useAdminMutation(
-    (a: { machineId: string; productId: string; userId?: string; paymentMethod: VendingPaymentMethod }) =>
+    (a: { machineId: string; productId: string; userId?: string; paymentMethod: VendingPaymentMethod; tableRefId?: string }) =>
       apiFetch(`${ADMIN}/orders`, { method: "POST", body: JSON.stringify(a) }),
-    "Sale failed", "Sent to the machine", [...ORDER_KEYS, ["vending-menu"], ["admin-customers"]]
+    "Sale failed", "Sent to the machine", [...ORDER_KEYS, ["vending-menu"], ["admin-customers"], ["fnb-orders-table-pending"]]
+  );
+}
+
+/** Correct how an order was paid (wallet / cash / PayNow / table tab). */
+export function useVendingChangePayment() {
+  return useAdminMutation(
+    (a: { id: string; paymentMethod: EditablePayment; reason: string; tableRefId?: string; userId?: string; allowNegative?: boolean }) =>
+      apiFetch(`${ADMIN}/orders/${a.id}/payment-method`, { method: "PATCH", body: JSON.stringify({ paymentMethod: a.paymentMethod, reason: a.reason, tableRefId: a.tableRefId, userId: a.userId, allowNegative: a.allowNegative }) }),
+    "Payment change failed", (d) => d?.message || "Payment updated", [...ORDER_KEYS, ["admin-customers"], ["fnb-orders-table-pending"], ["admin-transactions"]]
   );
 }
 

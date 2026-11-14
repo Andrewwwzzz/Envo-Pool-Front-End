@@ -13,7 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Wifi, WifiOff, RefreshCw, Play, Thermometer, Signal, Check, ChevronsUpDown } from "lucide-react";
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { useAdminMenu, FnbProduct } from "@/hooks/useFnb";
-import { useAdminCustomers } from "@/hooks/useAdmin";
+import { useAdminCustomers, useAdminTables } from "@/hooks/useAdmin";
+import { sortSlots, sellableByCategory, CATEGORY_LABELS, SlotSort } from "@/lib/vendingSlots";
 import {
   useVendingStatus, useVendingTestVend, useVendingRequestReport, useVendingCancelCommand, useVendingUpdateSlot,
   useVendingStaffOrder, useVendingOrder, isOrderFinal,
@@ -63,6 +64,15 @@ function MachineCard({ machine, counts, commands }: { machine: VendingMachineSta
           <div><p className="text-xs text-muted-foreground flex items-center gap-1"><Signal className="h-3 w-3" /> Signal</p><p>{machine.signal ?? "—"}</p></div>
           <div><p className="text-xs text-muted-foreground">Open orders</p><p>{counts.queued + counts.sent} in flight · <span className={counts.needs_review ? "text-orange-400 font-medium" : ""}>{counts.needs_review} to review</span></p></div>
         </div>
+
+        {(machine.soldOut?.length ?? 0) > 0 && (
+          <div className="rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm">
+            <p className="text-xs font-medium text-red-400 mb-1">Sold out — refill</p>
+            {machine.soldOut!.map((g) => (
+              <p key={g.category} className="text-xs"><span className="text-muted-foreground">{g.label}:</span> {g.items.join(", ")}</p>
+            ))}
+          </div>
+        )}
 
         <div className="flex items-end gap-2 flex-wrap">
           <div className="space-y-1">
@@ -183,6 +193,7 @@ function SlotRow({ slot }: { slot: VendingSlot }) {
   return (
     <TableRow className={slot.status && slot.status !== "0" ? "bg-red-500/5" : ""}>
       <TableCell className="font-semibold">{slot.slotNo}</TableCell>
+      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{slot.productRef ? (CATEGORY_LABELS[slot.productRef.category] ?? slot.productRef.category) : "—"}</TableCell>
       <TableCell className="text-xs text-muted-foreground">
         <p className="text-foreground">{slot.name || "—"}</p>
         <p>{slot.quantity ?? "?"}/{slot.capacity ?? "?"} in machine{slot.reservedCount ? ` · ${slot.reservedCount} reserved` : ""}{slot.machinePrice && slot.machinePrice !== "6553.5" ? ` · machine price ${slot.machinePrice}` : ""}</p>
@@ -203,13 +214,16 @@ function SlotRow({ slot }: { slot: VendingSlot }) {
   );
 }
 
-// Counter sale: staff pick the item, the customer (optional for cash/PayNow)
-// and how they paid; the machine drops it straight away and the row below
-// follows the result the same way the member's app does.
+// Counter sale: staff pick the item (type to search), the customer (optional
+// for cash/PayNow/table tab) and how they paid; the machine drops it straight
+// away and the row below follows the result the same way the member's app does.
 function SellCard({ machine, slots }: { machine: VendingMachineStatus; slots: VendingSlot[] }) {
   const sell = useVendingStaffOrder();
-  const [slotNo, setSlotNo] = useState<string>("");
+  const { data: tables = [] } = useAdminTables();
+  const [productId, setProductId] = useState<string>("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [payment, setPayment] = useState<VendingPaymentMethod>("cash");
+  const [tableId, setTableId] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [customerLabel, setCustomerLabel] = useState("");
@@ -218,20 +232,16 @@ function SellCard({ machine, slots }: { machine: VendingMachineStatus; slots: Ve
   const { data: customers = [], isFetching } = useAdminCustomers(searchReady ? customerSearch : "");
   const { data: lastOrder } = useVendingOrder(lastOrderId);
 
-  // One line per drink: its slots' stock added up; the server picks the slot.
-  const drinks = new Map<string, { productId: string; name: string; priceCents: number; available: number }>();
-  for (const s of slots) {
-    if (!s.enabled || !s.productRef || (s.status != null && s.status !== "0")) continue;
-    const avail = Math.max(0, (s.quantity ?? 0) - (s.reservedCount ?? 0));
-    const cur = drinks.get(s.productRef._id) || { productId: s.productRef._id, name: s.displayName || s.productRef.name, priceCents: s.priceCents != null ? s.priceCents : Math.round(s.productRef.sellingPrice * 100), available: 0 };
-    cur.available += avail;
-    drinks.set(s.productRef._id, cur);
-  }
-  const sellable = [...drinks.values()].sort((a, b) => a.name.localeCompare(b.name));
-  const chosen = sellable.find((d) => d.productId === slotNo);
+  // One line per drink, grouped by type: its slots' stock added up; the server picks the slot.
+  const groups = sellableByCategory(slots);
+  const drinks = groups.flatMap((g) => g.drinks);
+  const chosen = drinks.find((d) => d.productId === productId);
   const price = chosen ? chosen.priceCents : null;
+  const runningTables = tables.filter((t: { timer_started_at?: string | null }) => !!t.timer_started_at);
+  const selectedTable = runningTables.find((t: { id: string }) => t.id === tableId);
   const needsCustomer = payment === "wallet" || payment === "free_membership";
-  const canSell = !!chosen && machine.online && !sell.isPending && (!needsCustomer || !!customerId);
+  const needsTable = payment === "charge_to_table";
+  const canSell = !!chosen && chosen.available > 0 && machine.online && !sell.isPending && (!needsCustomer || !!customerId) && (!needsTable || !!tableId);
 
   const pick = (c: { id: string; name?: string; email?: string }) => {
     setCustomerId(c.id);
@@ -242,7 +252,7 @@ function SellCard({ machine, slots }: { machine: VendingMachineStatus; slots: Ve
   const submit = () => {
     if (!chosen) return;
     sell.mutate(
-      { machineId: machine.machineId, productId: chosen.productId, paymentMethod: payment, userId: customerId || undefined },
+      { machineId: machine.machineId, productId: chosen.productId, paymentMethod: payment, userId: customerId || undefined, tableRefId: needsTable ? tableId : undefined },
       { onSuccess: (data) => setLastOrderId((data.order as { _id: string })?._id ?? null) }
     );
   };
@@ -251,29 +261,59 @@ function SellCard({ machine, slots }: { machine: VendingMachineStatus; slots: Ve
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2"><ShoppingCart className="h-4 w-4" /> Sell at the counter</CardTitle>
-        <p className="text-xs text-muted-foreground">Customer pays you, you pick the item, the machine drops it. Cash/PayNow need no account; wallet and the free drink need the member.</p>
+        <p className="text-xs text-muted-foreground">Customer pays you, you pick the item, the machine drops it. Cash/PayNow need no account; wallet and the free drink need the member; Table tab goes on a running table's bill.</p>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="grid sm:grid-cols-3 gap-3">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">Item</p>
-            <Select value={slotNo} onValueChange={setSlotNo}>
-              <SelectTrigger className="h-9"><SelectValue placeholder={sellable.length ? "Pick an item" : "No items on sale"} /></SelectTrigger>
-              <SelectContent>
-                {sellable.map((d) => (
-                  <SelectItem key={d.productId} value={d.productId} disabled={d.available <= 0}>{d.name} {fmtCents(d.priceCents)}{d.available <= 0 ? " (sold out)" : ` (${d.available} left)`}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" aria-expanded={pickerOpen} className="h-9 w-full justify-between font-normal">
+                  <span className={`truncate ${chosen ? "" : "text-muted-foreground"}`}>{chosen ? `${chosen.name} · ${fmtCents(chosen.priceCents)}` : drinks.length ? "Type to search an item" : "No items on sale"}</span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[340px] p-0" align="start">
+                <Command filter={(value, search) => (value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0)}>
+                  <CommandInput placeholder="Search drinks and snacks…" />
+                  <CommandList>
+                    <CommandEmpty>No item found.</CommandEmpty>
+                    {groups.map((g) => (
+                      <CommandGroup key={g.category} heading={g.label}>
+                        {g.drinks.map((d) => (
+                          <CommandItem key={d.productId} value={`${d.name} ${g.label}`} disabled={d.available <= 0} onSelect={() => { setProductId(d.productId); setPickerOpen(false); }}>
+                            <Check className={`mr-2 h-4 w-4 ${productId === d.productId ? "opacity-100" : "opacity-0"}`} />
+                            <span className="truncate">{d.name}</span>
+                            <span className={`ml-auto pl-2 text-xs ${d.available <= 0 ? "text-red-400" : "text-muted-foreground"}`}>{fmtCents(d.priceCents)} · {d.available <= 0 ? "sold out" : `${d.available} left`}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    ))}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">Paid by</p>
             <Select value={payment} onValueChange={(v) => setPayment(v as VendingPaymentMethod)}>
               <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {(["cash", "paynow", "wallet", "free_membership"] as VendingPaymentMethod[]).map((m) => <SelectItem key={m} value={m}>{PAYMENT_LABELS[m]}</SelectItem>)}
+                {(["cash", "paynow", "charge_to_table", "wallet", "free_membership"] as VendingPaymentMethod[]).map((m) => <SelectItem key={m} value={m}>{PAYMENT_LABELS[m]}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">Table {needsTable ? "(required)" : "(optional)"}</p>
+            <Select value={tableId || "none"} onValueChange={(v) => setTableId(v === "none" ? "" : v)}>
+              <SelectTrigger className="h-9"><SelectValue placeholder="No table" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No table</SelectItem>
+                {runningTables.map((t: { id: string; table_number: number | string }) => <SelectItem key={t.id} value={t.id}>Table {t.table_number}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {needsTable && runningTables.length === 0 && <p className="text-[11px] text-muted-foreground">No table is running.</p>}
           </div>
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">Customer {needsCustomer ? "(required)" : "(optional)"}</p>
@@ -295,6 +335,7 @@ function SellCard({ machine, slots }: { machine: VendingMachineStatus; slots: Ve
             )}
           </div>
         </div>
+        {needsTable && selectedTable && <p className="text-xs text-muted-foreground">Added to Table {(selectedTable as { table_number: number | string }).table_number}'s bill — settled together when the table closes.</p>}
         <div className="flex items-center gap-3 flex-wrap">
           <Button disabled={!canSell} onClick={submit}>
             <Play className="h-3.5 w-3.5 mr-1" /> {sell.isPending ? "Sending…" : price != null ? `Dispense — ${payment === "free_membership" ? "free" : fmtCents(price)}` : "Dispense"}
@@ -314,6 +355,7 @@ function SellCard({ machine, slots }: { machine: VendingMachineStatus; slots: Ve
 
 export function VendingTab() {
   const { data: status, isLoading, error } = useVendingStatus();
+  const [slotSort, setSlotSort] = useState<SlotSort>("type");
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading vending machine…</p>;
   if (error || !status) return <p className="text-sm text-red-400">{(error as Error)?.message || "Couldn't load vending status"}</p>;
@@ -340,17 +382,26 @@ export function VendingTab() {
 
       <TabsContent value="slots">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Slots</CardTitle>
-            <p className="text-xs text-muted-foreground">Left: what the machine reports. Right: the product, price and visibility members see. Our price is what gets charged — never the machine's.</p>
+          <CardHeader className="pb-2 flex-row items-start justify-between gap-2 space-y-0">
+            <div>
+              <CardTitle className="text-base">Slots</CardTitle>
+              <p className="text-xs text-muted-foreground">Left: what the machine reports. Right: the product, price and visibility members see. Our price is what gets charged — never the machine's.</p>
+            </div>
+            <Select value={slotSort} onValueChange={(v) => setSlotSort(v as SlotSort)}>
+              <SelectTrigger className="w-56 h-9 shrink-0"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="type">Sort by product type</SelectItem>
+                <SelectItem value="slot">Sort by slot number</SelectItem>
+              </SelectContent>
+            </Select>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             {status.slots.length === 0 ? (
               <p className="text-sm text-muted-foreground">No slots reported yet — press "Request slot report" on the Machine tab.</p>
             ) : (
               <Table>
-                <TableHeader><TableRow><TableHead>Slot</TableHead><TableHead>Machine</TableHead><TableHead>Product</TableHead><TableHead>Price ($)</TableHead><TableHead>On sale</TableHead><TableHead>Members see</TableHead><TableHead></TableHead></TableRow></TableHeader>
-                <TableBody>{status.slots.map((s) => <SlotRow key={`${s.machineId}-${s.slotNo}`} slot={s} />)}</TableBody>
+                <TableHeader><TableRow><TableHead>Slot</TableHead><TableHead>Type</TableHead><TableHead>Machine</TableHead><TableHead>Product</TableHead><TableHead>Price ($)</TableHead><TableHead>On sale</TableHead><TableHead>Members see</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                <TableBody>{sortSlots(status.slots, slotSort).map((s) => <SlotRow key={`${s.machineId}-${s.slotNo}`} slot={s} />)}</TableBody>
               </Table>
             )}
           </CardContent>

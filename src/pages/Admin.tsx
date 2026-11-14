@@ -997,7 +997,16 @@ function InvoiceDetailDialog({ session, onClose, onDelete }: { session: any | nu
   // final bill — shown here so staff can see exactly which orders were
   // actually paid as part of this invoice vs. still outstanding elsewhere.
   const fnbTotal = Number(s.fnbTotal ?? s.fnb_total ?? 0);
-  const fnbOrders: any[] = Array.isArray(s.fnbOrderIds) ? s.fnbOrderIds.filter((o: any) => o && typeof o === "object") : [];
+  const fnbOrders: any[] = [
+    ...(Array.isArray(s.fnbOrderIds) ? s.fnbOrderIds.filter((o: any) => o && typeof o === "object") : []),
+    // Vending drinks charged to the table, shaped like F&B lines (a refunded drink was never billed)
+    ...((Array.isArray(s.vendingOrderIds) ? s.vendingOrderIds : []) as unknown[])
+      .filter((o): o is { _id: string; productName: string; priceCents?: number; status: string } => !!o && typeof o === "object")
+      .map((v) => ({
+        _id: v._id, productName: `${v.productName} (vending)`, quantity: 1, totalPrice: (v.priceCents ?? 0) / 100,
+        status: ["refunded", "failed", "expired"].includes(v.status) ? "cancelled" : v.status,
+      })),
+  ];
   const hasDiscountBreakdown = !isActive && (membershipDiscountAmount > 0 || freeMinutesCredit > 0 || hasManualDiscount);
   // Before discounts. Walk-ins store baseTotal; staff-opened invoices store grossAmount (Subtotal showed $0.00 for them).
   const subtotal = hasManualDiscount ? manualGrossAmount

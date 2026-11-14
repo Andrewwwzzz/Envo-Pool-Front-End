@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fmtDateTimeSG } from "@/lib/sgTime";
+import { useAdminCustomers, useAdminTables } from "@/hooks/useAdmin";
 import {
-  useVendingAdminOrders, useVendingExternalSales, useVendingLogs, useVendingRefundOrder, useVendingResolveOrder,
+  useVendingAdminOrders, useVendingExternalSales, useVendingLogs, useVendingRefundOrder, useVendingResolveOrder, useVendingChangePayment,
   VendingAdminOrder, fmtCents, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS, PAY_TYPE_LABELS, PAYMENT_LABELS,
+  EDITABLE_PAYMENTS, EditablePayment, PAYMENT_EDITABLE_STATUSES,
 } from "@/hooks/useVending";
 
 const FILTERS = [
@@ -24,6 +26,96 @@ const FILTERS = [
 
 const REFUNDABLE = ["queued", "sent", "dispensed", "failed", "expired", "needs_review"];
 
+const canEditPayment = (o: VendingAdminOrder) =>
+  (EDITABLE_PAYMENTS as readonly string[]).includes(o.paymentMethod) && PAYMENT_EDITABLE_STATUSES.includes(o.status) && !o.settledAt;
+
+// Corrects how an order was paid (logged as cash but it was PayNow, should be
+// on the table's tab, the member wants it on their wallet…). Free drink /
+// reward orders aren't editable; a table-tab drink already settled with its
+// invoice isn't either — the invoice's payment method is what to change then.
+function EditPaymentDialog({ order, onClose }: { order: VendingAdminOrder | null; onClose: () => void }) {
+  const change = useVendingChangePayment();
+  const { data: tables = [] } = useAdminTables();
+  const runningTables = tables.filter((t: { timer_started_at?: string | null }) => !!t.timer_started_at);
+  const [method, setMethod] = useState<EditablePayment>("cash");
+  const [tableId, setTableId] = useState("");
+  const [reason, setReason] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerId, setCustomerId] = useState("");
+  const [customerLabel, setCustomerLabel] = useState("");
+  const searchReady = customerSearch.trim().length >= 2;
+  const { data: customers = [], isFetching } = useAdminCustomers(searchReady ? customerSearch : "");
+
+  useEffect(() => {
+    if (order) {
+      setMethod((EDITABLE_PAYMENTS as readonly string[]).includes(order.paymentMethod) ? (order.paymentMethod as EditablePayment) : "cash");
+      setTableId(""); setReason(""); setCustomerSearch(""); setCustomerId(""); setCustomerLabel("");
+    }
+  }, [order]);
+
+  if (!order) return null;
+  // A counter sale sits on the shared Guest Account; charging a wallet needs the real member.
+  const hasMember = !!order.userId && !/guest/i.test(order.userId.name || "");
+  const needsCustomer = method === "wallet" && !hasMember && !customerId;
+  const ready = method !== order.paymentMethod && reason.trim() && (method !== "charge_to_table" || tableId) && !needsCustomer;
+  const submit = () => order && change.mutate(
+    { id: order._id, paymentMethod: method, reason: reason.trim(), tableRefId: method === "charge_to_table" ? tableId : undefined, userId: method === "wallet" && customerId ? customerId : undefined },
+    { onSuccess: onClose }
+  );
+
+  return (
+    <Dialog open={!!order} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle>Edit payment</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">{order.productName} — currently <strong>{PAYMENT_LABELS[order.paymentMethod] ?? order.paymentMethod}</strong>{order.tableName ? ` (${order.tableName})` : ""}, {fmtCents(order.priceCents)}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {EDITABLE_PAYMENTS.map((m) => (
+              <Button key={m} type="button" size="sm" variant={method === m ? "default" : "outline"} onClick={() => setMethod(m)}>{PAYMENT_LABELS[m]}</Button>
+            ))}
+          </div>
+          {method === "charge_to_table" && (
+            <Select value={tableId || "none"} onValueChange={(v) => setTableId(v === "none" ? "" : v)}>
+              <SelectTrigger className="h-9"><SelectValue placeholder="Select a running table" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Select a running table</SelectItem>
+                {runningTables.map((t: { id: string; table_number: number | string }) => <SelectItem key={t.id} value={t.id}>Table {t.table_number}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          {method === "wallet" && !hasMember && (
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Member whose wallet to charge</p>
+              {customerId ? (
+                <div className="flex items-center gap-2 text-sm"><span className="truncate">{customerLabel}</span><Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => { setCustomerId(""); setCustomerLabel(""); }}>change</Button></div>
+              ) : (
+                <Input value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} placeholder="Name, email or phone" className="h-9" />
+              )}
+              {!customerId && searchReady && (
+                <div className="rounded-md border border-border/50 max-h-32 overflow-y-auto text-sm">
+                  {isFetching && customers.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">Searching…</p>}
+                  {customers.slice(0, 8).map((c: { id: string; name?: string; email?: string; phone?: string }) => (
+                    <button key={c.id} type="button" className="w-full text-left px-2 py-1.5 hover:bg-muted/50" onClick={() => { setCustomerId(c.id); setCustomerLabel(c.name || c.email || c.id); setCustomerSearch(""); }}>
+                      <span className="font-medium">{c.name || "—"}</span> <span className="text-muted-foreground text-xs">{c.email || c.phone || ""}</span>
+                    </button>
+                  ))}
+                  {!isFetching && customers.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">No match</p>}
+                </div>
+              )}
+            </div>
+          )}
+          {method !== order.paymentMethod && <p className="text-xs text-muted-foreground">{order.paymentMethod === "charge_to_table" ? "Taken off the table's bill and charged the new way." : method === "charge_to_table" ? "The original charge is reversed and the drink goes on the table's bill." : "The ledger line is corrected; the money moves accordingly."}</p>}
+          <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (required)" />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button disabled={!ready || change.isPending} onClick={submit}>{change.isPending ? "Saving…" : "Save"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function RefundDialog({ order, onClose }: { order: VendingAdminOrder | null; onClose: () => void }) {
   const refund = useVendingRefundOrder();
   const [reason, setReason] = useState("");
@@ -33,6 +125,7 @@ function RefundDialog({ order, onClose }: { order: VendingAdminOrder | null; onC
         <DialogHeader><DialogTitle>Refund {order?.productName}</DialogTitle></DialogHeader>
         <p className="text-sm text-muted-foreground">
           {order?.paymentMethod === "free_membership" ? "Gives the member today's free drink back."
+            : order?.paymentMethod === "charge_to_table" ? `Nothing was paid yet — this takes the drink off ${order.tableName || "the table"}'s bill.`
             : order?.paymentMethod === "cash" || order?.paymentMethod === "paynow" ? `${order ? fmtCents(order.priceCents) : ""} was paid at the counter — hand it back to the customer; this records the reversal.`
             : `${order ? fmtCents(order.priceCents) : ""} goes back to the member's wallet.`} This can only happen once.
         </p>
@@ -72,6 +165,7 @@ function OrdersView() {
   const { data: orders = [], isLoading } = useVendingAdminOrders(filter);
   const [refunding, setRefunding] = useState<VendingAdminOrder | null>(null);
   const [resolving, setResolving] = useState<VendingAdminOrder | null>(null);
+  const [editing, setEditing] = useState<VendingAdminOrder | null>(null);
 
   return (
     <Card>
@@ -94,7 +188,7 @@ function OrdersView() {
                   <TableCell className="whitespace-nowrap text-xs">{fmtDateTimeSG(o.createdAt)}</TableCell>
                   <TableCell className="text-xs"><p>{o.userId?.name || "—"}</p><p className="text-muted-foreground">{o.userId?.email || o.userId?.phone || ""}</p></TableCell>
                   <TableCell className="text-xs"><p>{o.productName}</p><p className="text-muted-foreground">slot {o.slotNo} · {o.mode}</p></TableCell>
-                  <TableCell className="text-xs">{o.paymentMethod === "free_membership" ? "Free drink" : fmtCents(o.priceCents)}<p className="text-muted-foreground">{PAYMENT_LABELS[o.paymentMethod] ?? o.paymentMethod}{o.placedBy ? " · counter" : ""}</p></TableCell>
+                  <TableCell className="text-xs">{o.paymentMethod === "free_membership" ? "Free drink" : fmtCents(o.priceCents)}<p className="text-muted-foreground">{PAYMENT_LABELS[o.paymentMethod] ?? o.paymentMethod}{o.tableName ? ` · ${o.tableName}${o.settledAt ? " (settled)" : ""}` : ""}{o.placedBy ? " · counter" : ""}</p></TableCell>
                   <TableCell>
                     <Badge className={`text-xs ${ORDER_STATUS_COLORS[o.status]}`}>{ORDER_STATUS_LABELS[o.status]}</Badge>
                     {o.failure?.reason && <p className="text-[11px] text-muted-foreground mt-0.5">{o.failure.reason}</p>}
@@ -103,6 +197,7 @@ function OrdersView() {
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
                     {o.status === "needs_review" && <Button size="sm" className="h-7 text-xs mr-1" onClick={() => setResolving(o)}>Resolve</Button>}
+                    {canEditPayment(o) && <Button size="sm" variant="ghost" className="h-7 text-xs mr-1" onClick={() => setEditing(o)}>Edit payment</Button>}
                     {REFUNDABLE.includes(o.status) && o.status !== "needs_review" && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setRefunding(o)}>Refund</Button>}
                   </TableCell>
                 </TableRow>
@@ -113,6 +208,7 @@ function OrdersView() {
       </CardContent>
       <RefundDialog order={refunding} onClose={() => setRefunding(null)} />
       <ResolveDialog order={resolving} onClose={() => setResolving(null)} />
+      <EditPaymentDialog order={editing} onClose={() => setEditing(null)} />
     </Card>
   );
 }
