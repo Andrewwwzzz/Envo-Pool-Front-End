@@ -18,6 +18,7 @@ export interface RosterShift {
   staffRole: string | null;
   startAt: string;
   endAt: string;
+  shiftType: ShiftType;
   note: string;
   status: "scheduled" | "cancelled";
   check: ShiftCheck;
@@ -44,11 +45,19 @@ export interface TeamMember {
   role: string;
 }
 
-export interface ShiftInput {
-  staffId: string;
-  startAt: string;
-  endAt: string;
-  note?: string;
+/** Morning / Night take their hours from Operating Hours; custom hours are typed in. */
+export type ShiftType = "morning" | "night" | "custom";
+
+export type ShiftInput =
+  | { staffId: string; shiftType: "morning" | "night"; date: string; note?: string }
+  | { staffId: string; shiftType: "custom"; startAt: string; endAt: string; note?: string };
+
+export interface ShiftTimes {
+  date: string;
+  handover: string;
+  morning: { startAt: string; endAt: string } | { error: string };
+  night: { startAt: string; endAt: string } | { error: string };
+  isPH: boolean;
 }
 
 async function fail(res: Response, fallback: string): Promise<never> {
@@ -66,6 +75,20 @@ export function useRosterShifts(from: string, to: string) {
       return res.json();
     },
     refetchInterval: 30_000,
+  });
+}
+
+/** The Morning and Night hours on an SGT date ("YYYY-MM-DD"), worked out by the server. */
+export function useShiftTimes(date: string | null) {
+  return useQuery({
+    queryKey: ["roster-shift-times", date],
+    queryFn: async (): Promise<ShiftTimes> => {
+      const res = await apiFetch(`/api/roster/shift-times?date=${encodeURIComponent(date as string)}`);
+      if (!res.ok) await fail(res, "Couldn't work out the shift hours");
+      return res.json();
+    },
+    enabled: !!date && /^\d{4}-\d{2}-\d{2}$/.test(date),
+    staleTime: 60_000,
   });
 }
 

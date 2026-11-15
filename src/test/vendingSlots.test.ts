@@ -16,6 +16,16 @@ describe("slotAvailable", () => {
     expect(slotAvailable(slot({ slotNo: 1, quantity: 5, status: "255" }))).toBe(0);
     expect(slotAvailable(slot({ slotNo: 1, quantity: null, status: null }))).toBe(0);
   });
+
+  it("is zero for a stuck slot, while another slot of the same drink still sells", () => {
+    expect(slotAvailable(slot({ slotNo: 1, quantity: 5, stuckAt: "2026-11-16T10:00:00Z" }))).toBe(0);
+    const drinks = sellableDrinks([
+      slot({ slotNo: 30, productRef: product("a", "Chrysanthemum", "soft_drinks"), quantity: 2, stuckAt: "2026-11-16T10:00:00Z" }),
+      slot({ slotNo: 31, productRef: product("a", "Chrysanthemum", "soft_drinks"), quantity: 3 }),
+    ]);
+    expect(drinks).toHaveLength(1);
+    expect(drinks[0].available).toBe(3);
+  });
 });
 
 describe("sortSlots", () => {

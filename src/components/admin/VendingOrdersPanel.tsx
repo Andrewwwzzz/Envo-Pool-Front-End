@@ -192,6 +192,7 @@ function OrdersView() {
                   <TableCell>
                     <Badge className={`text-xs ${ORDER_STATUS_COLORS[o.status]}`}>{ORDER_STATUS_LABELS[o.status]}</Badge>
                     {o.failure?.reason && <p className="text-[11px] text-muted-foreground mt-0.5">{o.failure.reason}</p>}
+                    {(o.attempts?.length ?? 0) > 0 && <p className="text-[11px] text-orange-400 mt-0.5">Slot {o.attempts!.map((a) => a.slotNo).join(", ")} stuck → retried from slot {o.slotNo}</p>}
                     {o.refund?.reason && <p className="text-[11px] text-muted-foreground mt-0.5">Refund: {o.refund.reason}{o.refund.by?.name ? ` (${o.refund.by.name})` : ""}</p>}
                     {o.review?.note && o.status === "needs_review" && <p className="text-[11px] text-orange-400 mt-0.5">{o.review.note}</p>}
                   </TableCell>

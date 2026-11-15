@@ -18,10 +18,11 @@ const categoryRank = (category: string | undefined) => {
   return i === -1 ? CATEGORY_ORDER.length : i;
 };
 
-export const isSlotFaulty = (slot: Pick<VendingSlot, "status">) => !!slot.status && slot.status !== "0";
+/** The machine has flagged the slot, or we set it aside after a failed vend. */
+export const isSlotFaulty = (slot: Pick<VendingSlot, "status" | "stuckAt">) => (!!slot.status && slot.status !== "0") || !!slot.stuckAt;
 
-/** Units the machine can still sell from this slot (0 when the machine has flagged it). */
-export const slotAvailable = (slot: Pick<VendingSlot, "status" | "quantity" | "reservedCount">) =>
+/** Units the machine can still sell from this slot (0 when flagged or stuck). */
+export const slotAvailable = (slot: Pick<VendingSlot, "status" | "quantity" | "reservedCount" | "stuckAt">) =>
   isSlotFaulty(slot) ? 0 : Math.max(0, (slot.quantity ?? 0) - (slot.reservedCount ?? 0));
 
 /**

@@ -12,7 +12,7 @@ import { ChevronLeft, ChevronRight, Plus, Loader2, Pencil, Trash2 } from "lucide
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useRosterShifts, useRosterTeam, useCreateShift, useUpdateShift, useCancelShift, RosterShift, ClockLog } from "@/hooks/useRoster";
+import { useRosterShifts, useRosterTeam, useCreateShift, useUpdateShift, useCancelShift, useShiftTimes, RosterShift, ClockLog, ShiftType, ShiftInput } from "@/hooks/useRoster";
 
 // ── Singapore time helpers (the roster is always shown in SGT) ──
 const SGT_MS = 8 * 3600e3;
@@ -70,7 +70,16 @@ function punctuality(l: ClockLog): { label: string; cls: string } {
 }
 const hoursBetween = (a: string, b: string) => ((new Date(b).getTime() - new Date(a).getTime()) / 3600e3).toFixed(1);
 
-interface Draft { id: string | null; staffId: string; date: string; start: string; end: string; note: string }
+const SHIFT_LABELS: Record<ShiftType, string> = { morning: "Morning", night: "Night", custom: "Custom" };
+
+interface Draft { id: string | null; staffId: string; date: string; shiftType: ShiftType | null; start: string; end: string; note: string }
+
+/** "10am – 6pm" for a server-worked-out window, or its error. */
+function windowLabel(w: { startAt: string; endAt: string } | { error: string } | undefined): string {
+  if (!w) return "…";
+  if ("error" in w) return w.error;
+  return `${fmtTime(new Date(w.startAt))} – ${fmtTime(new Date(w.endAt))}`;
+}
 
 export default function RosterTab() {
   const { user } = useAuth();
@@ -86,6 +95,7 @@ export default function RosterTab() {
   const cancel = useCancelShift();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [removing, setRemoving] = useState<RosterShift | null>(null);
+  const { data: times } = useShiftTimes(draft?.date ?? null);
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const today = sgDateStr(new Date());
@@ -98,18 +108,25 @@ export default function RosterTab() {
   // Newest clock-in first.
   const logs = useMemo(() => [...(data?.logs ?? [])].sort((a, b) => new Date(b.clockInAt).getTime() - new Date(a.clockInAt).getTime()), [data]);
 
-  const openNew = (date: string) => setDraft({ id: null, staffId: "", date, start: "17:00", end: "01:00", note: "" });
+  const openNew = (date: string) => setDraft({ id: null, staffId: "", date, shiftType: null, start: "17:00", end: "01:00", note: "" });
   const openEdit = (s: RosterShift) =>
-    setDraft({ id: s.id, staffId: s.staffId, date: sgDateStr(new Date(s.startAt)), start: sgTimeStr(new Date(s.startAt)), end: sgTimeStr(new Date(s.endAt)), note: s.note });
+    setDraft({ id: s.id, staffId: s.staffId, date: sgDateStr(new Date(s.startAt)), shiftType: s.shiftType || "custom", start: sgTimeStr(new Date(s.startAt)), end: sgTimeStr(new Date(s.endAt)), note: s.note });
 
   const save = async () => {
     if (!draft) return;
     if (!draft.staffId) return toast({ title: "Pick who is on this shift", variant: "destructive" });
-    if (!draft.date || !draft.start || !draft.end) return toast({ title: "Fill in the date, start and end", variant: "destructive" });
-    const startAt = sgInstant(draft.date, draft.start);
-    let endAt = sgInstant(draft.date, draft.end);
-    if (endAt <= startAt) endAt = new Date(endAt.getTime() + DAY_MS); // ends after midnight
-    const input = { staffId: draft.staffId, startAt: startAt.toISOString(), endAt: endAt.toISOString(), note: draft.note.trim() };
+    if (!draft.date) return toast({ title: "Pick the date", variant: "destructive" });
+    if (!draft.shiftType) return toast({ title: "Pick Morning or Night", variant: "destructive" });
+    let input: ShiftInput;
+    if (draft.shiftType === "custom") {
+      if (!draft.start || !draft.end) return toast({ title: "Fill in the start and end", variant: "destructive" });
+      const startAt = sgInstant(draft.date, draft.start);
+      let endAt = sgInstant(draft.date, draft.end);
+      if (endAt <= startAt) endAt = new Date(endAt.getTime() + DAY_MS); // ends after midnight
+      input = { staffId: draft.staffId, shiftType: "custom", startAt: startAt.toISOString(), endAt: endAt.toISOString(), note: draft.note.trim() };
+    } else {
+      input = { staffId: draft.staffId, shiftType: draft.shiftType, date: draft.date, note: draft.note.trim() };
+    }
     try {
       if (draft.id) await update.mutateAsync({ id: draft.id, ...input });
       else await create.mutateAsync(input);
@@ -179,7 +196,10 @@ export default function RosterTab() {
                   <div className="flex items-start justify-between gap-1">
                     <div className="min-w-0">
                       <div className="font-medium truncate">{s.staffName}</div>
-                      <div className="text-xs text-muted-foreground">{fmtTime(new Date(s.startAt))} – {fmtTime(new Date(s.endAt))}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {s.shiftType && s.shiftType !== "custom" && <span className="font-medium text-foreground/80">{SHIFT_LABELS[s.shiftType]} · </span>}
+                        {fmtTime(new Date(s.startAt))} – {fmtTime(new Date(s.endAt))}
+                      </div>
                     </div>
                     {isAdmin && (
                       <div className="flex shrink-0">
@@ -254,17 +274,36 @@ export default function RosterTab() {
                 <Label htmlFor="shift-date">Date</Label>
                 <Input id="shift-date" type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="shift-start">Start</Label>
-                  <Input id="shift-start" type="time" step={900} value={draft.start} onChange={(e) => setDraft({ ...draft, start: e.target.value })} />
+              <div className="space-y-1.5">
+                <Label>Shift</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["morning", "night"] as const).map((t) => (
+                    <Button key={t} type="button" variant={draft.shiftType === t ? "default" : "outline"} className="h-auto py-2 flex-col items-center gap-0.5" onClick={() => setDraft({ ...draft, shiftType: t })}>
+                      <span>{SHIFT_LABELS[t]}</span>
+                      <span className="text-[11px] font-normal opacity-80">{windowLabel(times?.[t])}</span>
+                    </Button>
+                  ))}
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="shift-end">End</Label>
-                  <Input id="shift-end" type="time" step={900} value={draft.end} onChange={(e) => setDraft({ ...draft, end: e.target.value })} />
-                </div>
+                {times?.isPH && <p className="text-xs text-muted-foreground">Public holiday or its eve — night runs to the late closing time.</p>}
+                <button type="button" className="text-xs text-muted-foreground underline underline-offset-2" onClick={() => setDraft({ ...draft, shiftType: draft.shiftType === "custom" ? null : "custom" })}>
+                  {draft.shiftType === "custom" ? "Use Morning / Night instead" : "Other hours…"}
+                </button>
               </div>
-              <p className="text-xs text-muted-foreground">Times are Singapore time. An end time earlier than the start means the shift runs past midnight.</p>
+              {draft.shiftType === "custom" && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="shift-start">Start</Label>
+                      <Input id="shift-start" type="time" step={900} value={draft.start} onChange={(e) => setDraft({ ...draft, start: e.target.value })} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="shift-end">End</Label>
+                      <Input id="shift-end" type="time" step={900} value={draft.end} onChange={(e) => setDraft({ ...draft, end: e.target.value })} />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Times are Singapore time. An end time earlier than the start means the shift runs past midnight.</p>
+                </>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor="shift-note">Note (optional)</Label>
                 <Input id="shift-note" maxLength={200} value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} placeholder="e.g. tournament night" />

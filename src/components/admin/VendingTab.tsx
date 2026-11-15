@@ -14,9 +14,9 @@ import { Wifi, WifiOff, RefreshCw, Play, Thermometer, Signal, Check, ChevronsUpD
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { useAdminMenu, FnbProduct } from "@/hooks/useFnb";
 import { useAdminCustomers, useAdminTables } from "@/hooks/useAdmin";
-import { sortSlots, sellableByCategory, CATEGORY_LABELS, SlotSort } from "@/lib/vendingSlots";
+import { sortSlots, sellableByCategory, isSlotFaulty, CATEGORY_LABELS, SlotSort } from "@/lib/vendingSlots";
 import {
-  useVendingStatus, useVendingTestVend, useVendingRequestReport, useVendingCancelCommand, useVendingUpdateSlot,
+  useVendingStatus, useVendingTestVend, useVendingRequestReport, useVendingCancelCommand, useVendingUpdateSlot, useVendingClearStuck,
   useVendingStaffOrder, useVendingOrder, isOrderFinal,
   VendingSlot, VendingMachineStatus, VendingCommand, VendingPaymentMethod, fmtCents, PAYMENT_LABELS,
 } from "@/hooks/useVending";
@@ -33,7 +33,8 @@ const COMMAND_COLORS: Record<string, string> = {
   cancelled: "bg-muted text-muted-foreground",
 };
 
-function MachineCard({ machine, counts, commands }: { machine: VendingMachineStatus; counts: { queued: number; sent: number; needs_review: number }; commands: VendingCommand[] }) {
+function MachineCard({ machine, counts, commands, slots }: { machine: VendingMachineStatus; counts: { queued: number; sent: number; needs_review: number }; commands: VendingCommand[]; slots: VendingSlot[] }) {
+  const stuck = slots.filter((s) => s.stuckAt);
   const testVend = useVendingTestVend();
   const requestReport = useVendingRequestReport();
   const cancel = useVendingCancelCommand();
@@ -64,6 +65,16 @@ function MachineCard({ machine, counts, commands }: { machine: VendingMachineSta
           <div><p className="text-xs text-muted-foreground flex items-center gap-1"><Signal className="h-3 w-3" /> Signal</p><p>{machine.signal ?? "—"}</p></div>
           <div><p className="text-xs text-muted-foreground">Open orders</p><p>{counts.queued + counts.sent} in flight · <span className={counts.needs_review ? "text-orange-400 font-medium" : ""}>{counts.needs_review} to review</span></p></div>
         </div>
+
+        {stuck.length > 0 && (
+          <div className="rounded-md border border-orange-500/30 bg-orange-500/5 px-3 py-2 text-sm">
+            <p className="text-xs font-medium text-orange-400 mb-1">Stuck slots — set aside, other slots of the drink keep selling</p>
+            {stuck.map((s) => (
+              <p key={s.slotNo} className="text-xs">Slot {s.slotNo}: {s.displayName || s.productRef?.name || s.name || "—"} <span className="text-muted-foreground">since {fmtDateTimeSG(s.stuckAt as string)}</span></p>
+            ))}
+            <p className="text-[11px] text-muted-foreground mt-1">Clear the jam and the fault on the machine (Fault diagnose → Clean). The slot comes back on its own once the machine reports it healthy, or press Clear on the Slots tab.</p>
+          </div>
+        )}
 
         {(machine.soldOut?.length ?? 0) > 0 && (
           <div className="rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm">
@@ -166,6 +177,7 @@ function ProductPicker({ products, value, onChange }: { products: FnbProduct[]; 
 function SlotRow({ slot }: { slot: VendingSlot }) {
   const { data: products = [] } = useAdminMenu();
   const update = useVendingUpdateSlot();
+  const clearStuck = useVendingClearStuck();
   const [productRef, setProductRef] = useState<string>(slot.productRef?._id ?? "");
   const [price, setPrice] = useState<string>(slot.priceCents != null ? (slot.priceCents / 100).toFixed(2) : "");
   const [displayName, setDisplayName] = useState<string>(slot.displayName ?? "");
@@ -178,7 +190,7 @@ function SlotRow({ slot }: { slot: VendingSlot }) {
   const priceCents = price.trim() === "" ? null : Math.round(parseFloat(price) * 100);
   const priceBad = price.trim() !== "" && (!Number.isFinite(priceCents) || (priceCents as number) < 0);
   const selected = products.find((p) => p._id === productRef);
-  const faulty = !!slot.status && slot.status !== "0";
+  const faulty = isSlotFaulty(slot);
   const available = faulty ? 0 : (slot.quantity ?? 0) - (slot.reservedCount ?? 0);
 
   const save = () => update.mutate({
@@ -191,13 +203,19 @@ function SlotRow({ slot }: { slot: VendingSlot }) {
   });
 
   return (
-    <TableRow className={slot.status && slot.status !== "0" ? "bg-red-500/5" : ""}>
+    <TableRow className={faulty ? "bg-red-500/5" : ""}>
       <TableCell className="font-semibold">{slot.slotNo}</TableCell>
       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{slot.productRef ? (CATEGORY_LABELS[slot.productRef.category] ?? slot.productRef.category) : "—"}</TableCell>
       <TableCell className="text-xs text-muted-foreground">
         <p className="text-foreground">{slot.name || "—"}</p>
         <p>{slot.quantity ?? "?"}/{slot.capacity ?? "?"} in machine{slot.reservedCount ? ` · ${slot.reservedCount} reserved` : ""}{slot.machinePrice && slot.machinePrice !== "6553.5" ? ` · machine price ${slot.machinePrice}` : ""}</p>
         {slot.status && slot.status !== "0" && <p className="text-red-400">Fault code {slot.status}</p>}
+        {slot.stuckAt && (
+          <div className="mt-1 flex items-center gap-2 flex-wrap">
+            <span className="text-orange-400">Stuck since {fmtDateTimeSG(slot.stuckAt)}</span>
+            <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" disabled={clearStuck.isPending} onClick={() => clearStuck.mutate({ machineId: slot.machineId, slotNo: slot.slotNo })}>Clear</Button>
+          </div>
+        )}
       </TableCell>
       <TableCell className="min-w-[180px]">
         <ProductPicker products={products} value={productRef} onChange={setProductRef} />
@@ -208,7 +226,7 @@ function SlotRow({ slot }: { slot: VendingSlot }) {
         {!price.trim() && selected && <p className="text-[11px] text-muted-foreground mt-0.5">uses ${selected.sellingPrice.toFixed(2)}</p>}
       </TableCell>
       <TableCell><Switch checked={enabled} onCheckedChange={setEnabled} disabled={!productRef} /></TableCell>
-      <TableCell className="text-xs">{faulty ? <span className="text-red-400">not for sale (fault)</span> : slot.enabled && slot.productRef ? (available > 0 ? <span className="text-green-400">{available} for sale</span> : <span className="text-muted-foreground">sold out</span>) : <span className="text-muted-foreground">hidden</span>}</TableCell>
+      <TableCell className="text-xs">{faulty ? <span className="text-red-400">{slot.stuckAt ? "set aside (stuck)" : "not for sale (fault)"}</span> : slot.enabled && slot.productRef ? (available > 0 ? <span className="text-green-400">{available} for sale</span> : <span className="text-muted-foreground">sold out</span>) : <span className="text-muted-foreground">hidden</span>}</TableCell>
       <TableCell><Button size="sm" disabled={!dirty || priceBad || update.isPending} onClick={save}>Save</Button></TableCell>
     </TableRow>
   );
@@ -375,7 +393,7 @@ export function VendingTab() {
         {status.machines.map((m) => (
           <div key={m.machineId} className="space-y-4">
             <SellCard machine={m} slots={status.slots.filter((s) => s.machineId === m.machineId)} />
-            <MachineCard machine={m} counts={status.openOrders} commands={status.commands.filter((c) => c.machineId === m.machineId)} />
+            <MachineCard machine={m} counts={status.openOrders} commands={status.commands.filter((c) => c.machineId === m.machineId)} slots={status.slots.filter((s) => s.machineId === m.machineId)} />
           </div>
         ))}
       </TabsContent>

@@ -91,6 +91,9 @@ export interface VendingSlot {
   priceCents: number | null;
   enabled: boolean;
   reservedCount: number;
+  // Set aside after a failed vend; other slots of the drink keep selling
+  stuckAt?: string | null;
+  stuckReason?: string | null;
   status: string | null;
   quantity: number | null;
   capacity: number | null;
@@ -141,6 +144,8 @@ export interface VendingAdminOrder {
   failure?: { reason: string | null; at: string | null };
   refund?: { reason: string | null; by: { name?: string } | null; at: string | null };
   review?: { note: string | null; outcome: string | null; by: { name?: string } | null; at: string | null };
+  // Slots tried before the current one (a stuck slot is retried from another slot)
+  attempts?: { slotNo: number; reason?: string; at: string }[];
   createdAt: string;
   sentAt: string | null;
   dispensedAt: string | null;
@@ -379,6 +384,14 @@ export function useVendingUpdateSlot() {
   return useAdminMutation(
     ({ slotNo, ...body }: SlotUpdate) => apiFetch(`${ADMIN}/slots/${slotNo}`, { method: "PUT", body: JSON.stringify(body) }),
     "Slot update failed", "Slot updated", [...STATUS_KEYS, ["vending-menu"]]
+  );
+}
+
+/** Put a slot that was set aside after a failed vend back on sale. */
+export function useVendingClearStuck() {
+  return useAdminMutation(
+    (a: { machineId: string; slotNo: number }) => apiFetch(`${ADMIN}/slots/${a.slotNo}/clear-stuck`, { method: "POST", body: JSON.stringify({ machineId: a.machineId }) }),
+    "Couldn't clear the slot", "Slot back on sale", [...STATUS_KEYS, ["vending-menu"]]
   );
 }
 
