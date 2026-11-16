@@ -24,6 +24,7 @@ export const BUSINESS = {
   // Where "Leave a Google review" goes: the Business Profile's own review link
   // (opens the review box straight away).
   googleReviewUrl: "https://g.page/r/CZayd-4Cjr1JEAE/review",
+  instagramUrl: "https://www.instagram.com/envo.sg/",
   image: `${SITE_URL}/og-image.jpg`,
   logo: `${SITE_URL}/icons/icon-512x512.png`,
 };

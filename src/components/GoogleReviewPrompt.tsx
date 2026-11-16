@@ -1,11 +1,12 @@
-import { Star } from "lucide-react";
+import { Instagram, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BUSINESS } from "@/seo/site";
 
 /**
  * "Enjoyed your game? Leave us a Google review" — shown after a booking is
  * confirmed and on the receipt when a walk-in session ends. Opens Envo's
- * Google review page in a new tab (BUSINESS.googleReviewUrl).
+ * Google review page in a new tab (BUSINESS.googleReviewUrl), with a link to
+ * Envo's Instagram below it.
  */
 export function GoogleReviewPrompt({ message = "Enjoying Envo Pool? A quick Google review helps us a lot." }: { message?: string }) {
   return (
@@ -16,6 +17,9 @@ export function GoogleReviewPrompt({ message = "Enjoying Envo Pool? A quick Goog
       <p className="text-sm text-foreground">{message}</p>
       <Button asChild variant="outline" className="w-full border-accent/40">
         <a href={BUSINESS.googleReviewUrl} target="_blank" rel="noopener noreferrer">Leave a Google review</a>
+      </Button>
+      <Button asChild variant="outline" className="w-full border-accent/40">
+        <a href={BUSINESS.instagramUrl} target="_blank" rel="noopener noreferrer"><Instagram className="h-4 w-4 mr-2" />Follow us on Instagram</a>
       </Button>
     </div>
   );
