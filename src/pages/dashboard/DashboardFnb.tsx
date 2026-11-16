@@ -56,6 +56,10 @@ const TABLE_DELIVERY_ENABLED = false;
 // the table, so staff see them in the same place as before.
 const COUNTER_PICKUP = !TABLE_DELIVERY_ENABLED;
 const COUNTER_LABEL = "Counter";
+// Food and hot drinks ordered here are brought to the member's table (owner,
+// 16 Nov 2026: staff couldn't tell where "Counter" orders should go). Drinks
+// the machine holds still come from the machine above.
+const ASK_TABLE = true;
 
 function useCountdown(resumeAt: string | null | undefined) {
   const [label, setLabel] = useState("");
@@ -141,8 +145,8 @@ export default function DashboardFnb() {
 
   const walletBalance = profile?.walletBalance ?? 0;
   // Where the order goes: a fixed "Counter", or the table the member typed.
-  const tableOk = COUNTER_PICKUP || isValidTable(tableInput);
-  const tableLabel = COUNTER_PICKUP ? COUNTER_LABEL : normalizeTableName(tableInput);
+  const tableOk = !ASK_TABLE || isValidTable(tableInput);
+  const tableLabel = ASK_TABLE ? normalizeTableName(tableInput) : COUNTER_LABEL;
 
   const filteredMenu = menu.filter((p) => {
     if (COUNTER_PICKUP && vendingProductIds.has(p._id)) return false;
@@ -225,7 +229,7 @@ export default function DashboardFnb() {
     setPlacingCart(false);
     setCart(remaining);
     if (failed === 0) {
-      toast({ title: `${succeeded} item${succeeded === 1 ? "" : "s"} ordered!`, description: COUNTER_PICKUP ? "Collect it at the counter when it's ready." : "We'll bring it to your table shortly." });
+      toast({ title: `${succeeded} item${succeeded === 1 ? "" : "s"} ordered!`, description: ASK_TABLE ? `We'll bring it to ${tableLabel} shortly.` : "Collect it at the counter when it's ready." });
     } else {
       toast({ title: `${succeeded} ordered, ${failed} failed`, description: "An item may have gone out of stock — remaining items are still in your cart.", variant: "destructive" });
     }
@@ -273,7 +277,7 @@ export default function DashboardFnb() {
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
             <ShoppingBag className="h-6 w-6 text-accent" /> F&B & Others
           </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">{TABLE_DELIVERY_ENABLED ? "Order food, drinks & more, delivered to your table" : machineHasItems ? "Drinks drop from the vending machine; hot drinks & food are collected at the counter" : "Order here and collect at the counter"}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">{TABLE_DELIVERY_ENABLED ? "Order food, drinks & more, delivered to your table" : machineHasItems ? (ASK_TABLE ? "Drinks drop from the vending machine; hot drinks & food are brought to your table" : "Drinks drop from the vending machine; hot drinks & food are collected at the counter") : ASK_TABLE ? "Order here and we'll bring it to your table" : "Order here and collect at the counter"}</p>
         </div>
         <Badge className="bg-accent/10 text-accent text-sm px-3 py-1">
           Wallet: ${walletBalance.toFixed(2)}
@@ -299,7 +303,7 @@ export default function DashboardFnb() {
 
       {showCounter && COUNTER_PICKUP && counterPaused && (
         <div className="pt-6 border-t border-border/50">
-          <h2 className="font-semibold text-foreground flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-accent" /> Collect at the counter</h2>
+          <h2 className="font-semibold text-foreground flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-accent" /> {ASK_TABLE ? "Brought to your table" : "Collect at the counter"}</h2>
           <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
             <p className="font-medium text-amber-300">Counter orders are paused right now</p>
             <p className="text-muted-foreground mt-1">{fnbStatus?.notice || "Check back soon or order from a staff member."}{machineHasItems ? " Drinks from the vending machine are still available above." : ""}</p>
@@ -309,8 +313,8 @@ export default function DashboardFnb() {
       {showCounter && !(COUNTER_PICKUP && counterPaused) && (<>
       {COUNTER_PICKUP && (
         <div className="pt-6 border-t border-border/50">
-          <h2 className="font-semibold text-foreground flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-accent" /> Collect at the counter</h2>
-          <p className="text-xs text-muted-foreground mt-1">Hot drinks, food and anything the machine doesn't hold — order here, pick it up at the counter.</p>
+          <h2 className="font-semibold text-foreground flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-accent" /> {ASK_TABLE ? "Brought to your table" : "Collect at the counter"}</h2>
+          <p className="text-xs text-muted-foreground mt-1">{ASK_TABLE ? "Hot drinks, food and anything the machine doesn't hold — order here with your table number and we'll bring it over." : "Hot drinks, food and anything the machine doesn't hold — order here, pick it up at the counter."}</p>
         </div>
       )}
       {/* Free drink banner (the machine section shows its own) */}
@@ -324,7 +328,7 @@ export default function DashboardFnb() {
       )}
 
       {/* Table input */}
-      {!COUNTER_PICKUP && <div className="space-y-1.5">
+      {ASK_TABLE && <div className="space-y-1.5">
         <label className="text-xs text-muted-foreground uppercase tracking-wider">
           Your Table <span className="text-red-400">*</span>
         </label>
@@ -470,7 +474,7 @@ export default function DashboardFnb() {
 
       {/* Today's Orders */}
       <div className="space-y-3">
-        <h2 className="font-semibold text-foreground">{COUNTER_PICKUP ? "Counter Orders" : "Today's Orders"}</h2>
+        <h2 className="font-semibold text-foreground">{ASK_TABLE ? "Today's Orders" : "Counter Orders"}</h2>
         {orders.length === 0 ? (
           <p className="text-sm text-muted-foreground">No orders yet today.</p>
         ) : (
@@ -517,7 +521,7 @@ export default function DashboardFnb() {
                 : `$${confirm?.product.sellingPrice.toFixed(2)} will be deducted from your wallet`}
             </p>
             {tableLabel && (
-              <p className="text-sm text-muted-foreground mt-1">{COUNTER_PICKUP ? "Collect at the counter when it's ready." : <>Deliver to: <span className="text-foreground">{tableLabel}</span></>}</p>
+              <p className="text-sm text-muted-foreground mt-1">{ASK_TABLE ? <>Deliver to: <span className="text-foreground">{tableLabel}</span></> : "Collect at the counter when it's ready."}</p>
             )}
           </div>
           <DialogFooter>
@@ -557,7 +561,7 @@ export default function DashboardFnb() {
               <span>${cartTotal.toFixed(2)}</span>
             </div>
             <p className="text-sm text-muted-foreground pt-1">
-              ${cartTotal.toFixed(2)} will be deducted from your wallet. {COUNTER_PICKUP ? "Collect at the counter when it's ready." : <>Deliver to: <span className="text-foreground">{tableLabel}</span></>}
+              ${cartTotal.toFixed(2)} will be deducted from your wallet. {ASK_TABLE ? <>Deliver to: <span className="text-foreground">{tableLabel}</span></> : "Collect at the counter when it's ready."}
             </p>
           </div>
           <DialogFooter>
