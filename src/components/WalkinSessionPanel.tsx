@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useMyWalkinSession, useStopWalkin } from "@/hooks/useWalkin";
 import { getTableLabel } from "@/lib/tableLabel";
 import { fmtDateTimeSG } from "@/lib/sgTime";
+import { GoogleReviewPrompt } from "@/components/GoogleReviewPrompt";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 function getStartDate(session: any): Date {
@@ -189,6 +190,7 @@ export default function WalkinSessionPanel() {
               )}
             </div>
           )}
+          <GoogleReviewPrompt message="Thanks for playing at Envo Pool! Enjoyed it? A quick Google review helps us a lot." />
           <DialogFooter>
             <Button onClick={() => setReceipt(null)}>Close</Button>
           </DialogFooter>

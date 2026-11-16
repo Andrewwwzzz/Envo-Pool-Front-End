@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { GoogleReviewPrompt } from "@/components/GoogleReviewPrompt";
 
 const BookingConfirmed = () => {
   const queryClient = useQueryClient();
@@ -27,7 +28,9 @@ const BookingConfirmed = () => {
             <p className="text-muted-foreground">Your table has been reserved successfully.</p>
           </div>
 
-          <div className="flex flex-col gap-3 pt-4">
+          <GoogleReviewPrompt message="Thanks for booking with Envo Pool! A quick Google review helps us a lot." />
+
+          <div className="flex flex-col gap-3 pt-2">
             <Link to="/dashboard">
               <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
                 View My Bookings

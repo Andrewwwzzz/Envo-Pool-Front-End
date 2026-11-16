@@ -21,6 +21,10 @@ export const BUSINESS = {
   longitude: 103.89068747460635,
   mrt: "Paya Lebar MRT (EW8/CC9)",
   mapsUrl: "https://maps.google.com/?q=Envo+Pool+511+Guillemard+Road+Singapore+399849",
+  // Where "Leave a Google review" goes. Best: the Business Profile's own review
+  // link (Google Business Profile → "Ask for reviews" → g.page/r/…/review),
+  // which opens the review box straight away. Until then, the Maps listing.
+  googleReviewUrl: "https://www.google.com/maps/search/?api=1&query=Envo+Pool+511+Guillemard+Road+Singapore",
   image: `${SITE_URL}/og-image.jpg`,
   logo: `${SITE_URL}/icons/icon-512x512.png`,
 };
