@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sortSlots, sellableDrinks, sellableByCategory, slotAvailable } from "@/lib/vendingSlots";
+import { sortSlots, sellableDrinks, sellableByCategory, slotAvailable, stableSlotOrder, orderSlots } from "@/lib/vendingSlots";
 import type { VendingSlot } from "@/hooks/useVending";
 
 const slot = (over: Partial<VendingSlot> & { slotNo: number }): VendingSlot => ({
@@ -74,5 +74,22 @@ describe("sellableDrinks", () => {
     ]);
     expect(groups.map((g) => g.label)).toEqual(["Soft drinks", "Beer"]);
     expect(groups[0].drinks[0].name).toBe("Coke");
+  });
+});
+
+describe("stableSlotOrder", () => {
+  it("keeps a row in place after its product changes, until the sort is redone", () => {
+    const before = [
+      slot({ slotNo: 54, productRef: product("c", "Coca Cola", "soft_drinks") }),
+      slot({ slotNo: 55, productRef: product("c", "Coca Cola", "soft_drinks") }),
+      slot({ slotNo: 60, productRef: product("z", "Zesta", "soft_drinks") }),
+    ];
+    const keys = stableSlotOrder(before, "type", null);
+    expect(orderSlots(before, keys).map((s) => s.slotNo)).toEqual([54, 55, 60]);
+    // Slot 54 changed to a drink that sorts last: it stays first on screen.
+    const after = [slot({ slotNo: 54, productRef: product("z2", "Zzz Soda", "soft_drinks") }), before[1], before[2]];
+    expect(orderSlots(after, stableSlotOrder(after, "type", keys)).map((s) => s.slotNo)).toEqual([54, 55, 60]);
+    // A fresh sort moves it.
+    expect(orderSlots(after, stableSlotOrder(after, "type", null)).map((s) => s.slotNo)).toEqual([55, 60, 54]);
   });
 });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ import { Wifi, WifiOff, RefreshCw, Play, Thermometer, Signal, Check, ChevronsUpD
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { useAdminMenu, FnbProduct } from "@/hooks/useFnb";
 import { useAdminCustomers, useAdminTables } from "@/hooks/useAdmin";
-import { sortSlots, sellableByCategory, isSlotFaulty, CATEGORY_LABELS, SlotSort } from "@/lib/vendingSlots";
+import { stableSlotOrder, orderSlots, sellableByCategory, isSlotFaulty, CATEGORY_LABELS, SlotSort } from "@/lib/vendingSlots";
 import {
   useVendingStatus, useVendingTestVend, useVendingRequestReport, useVendingCancelCommand, useVendingUpdateSlot, useVendingClearStuck,
   useVendingStaffOrder, useVendingOrder, isOrderFinal,
@@ -374,6 +374,13 @@ function SellCard({ machine, slots }: { machine: VendingMachineStatus; slots: Ve
 export function VendingTab() {
   const { data: status, isLoading, error } = useVendingStatus();
   const [slotSort, setSlotSort] = useState<SlotSort>("type");
+  // Rows keep their place across refreshes (a saved product change would
+  // otherwise move the row and look unsaved); re-sorted when the sort changes.
+  const slotOrder = useRef<{ sort: SlotSort; keys: string[] } | null>(null);
+  const allSlots = status?.slots ?? [];
+  const slotKeys = stableSlotOrder(allSlots, slotSort, slotOrder.current?.sort === slotSort ? slotOrder.current.keys : null);
+  slotOrder.current = { sort: slotSort, keys: slotKeys };
+  const orderedSlots = orderSlots(allSlots, slotKeys);
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading vending machine…</p>;
   if (error || !status) return <p className="text-sm text-red-400">{(error as Error)?.message || "Couldn't load vending status"}</p>;
@@ -419,7 +426,7 @@ export function VendingTab() {
             ) : (
               <Table>
                 <TableHeader><TableRow><TableHead>Slot</TableHead><TableHead>Type</TableHead><TableHead>Machine</TableHead><TableHead>Product</TableHead><TableHead>Price ($)</TableHead><TableHead>On sale</TableHead><TableHead>Members see</TableHead><TableHead></TableHead></TableRow></TableHeader>
-                <TableBody>{sortSlots(status.slots, slotSort).map((s) => <SlotRow key={`${s.machineId}-${s.slotNo}`} slot={s} />)}</TableBody>
+                <TableBody>{orderedSlots.map((s) => <SlotRow key={`${s.machineId}-${s.slotNo}`} slot={s} />)}</TableBody>
               </Table>
             )}
           </CardContent>

@@ -76,3 +76,25 @@ export function sellableByCategory(slots: VendingSlot[]): { category: string; la
   for (const d of sellableDrinks(slots)) groups.set(d.category, [...(groups.get(d.category) ?? []), d]);
   return [...groups.entries()].map(([category, drinks]) => ({ category, label: CATEGORY_LABELS[category] ?? category, drinks }));
 }
+
+const slotKey = (s: Pick<VendingSlot, "machineId" | "slotNo">) => `${s.machineId}-${s.slotNo}`;
+
+/**
+ * Row order that stays put while the page refreshes: slots keep the place
+ * they had (`previous`), so a row whose product was just changed doesn't jump
+ * to its new spot under "sort by type" and look unsaved. New slots go last;
+ * pass previous = null to sort afresh (sort changed, page opened).
+ */
+export function stableSlotOrder(slots: VendingSlot[], sort: SlotSort, previous: string[] | null): string[] {
+  const fresh = sortSlots(slots, sort).map(slotKey);
+  if (!previous) return fresh;
+  const present = new Set(fresh);
+  const kept = previous.filter((k) => present.has(k));
+  const keptSet = new Set(kept);
+  return [...kept, ...fresh.filter((k) => !keptSet.has(k))];
+}
+
+export function orderSlots(slots: VendingSlot[], keys: string[]): VendingSlot[] {
+  const byKey = new Map(slots.map((s) => [slotKey(s), s]));
+  return keys.map((k) => byKey.get(k)).filter((s): s is VendingSlot => !!s);
+}
