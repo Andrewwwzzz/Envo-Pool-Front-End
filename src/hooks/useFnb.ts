@@ -88,7 +88,7 @@ export interface RedemptionCheck {
 
 export const CATEGORY_LABELS: Record<string, string> = {
   soft_drinks: "Soft Drink",
-  beer: "Beer",
+  beer: "Alcohol", // beers and soju (owner, 17 Nov 2026)
   finger_food: "Finger Food",
   snacks: "Snack",
   others: "Other",

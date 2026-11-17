@@ -5,7 +5,7 @@ import type { VendingSlot } from "@/hooks/useVending";
 export const CATEGORY_ORDER = ["soft_drinks", "beer", "finger_food", "snacks", "others"] as const;
 export const CATEGORY_LABELS: Record<string, string> = {
   soft_drinks: "Soft drinks",
-  beer: "Beer",
+  beer: "Alcohol",
   finger_food: "Finger food",
   snacks: "Snacks",
   others: "Others",

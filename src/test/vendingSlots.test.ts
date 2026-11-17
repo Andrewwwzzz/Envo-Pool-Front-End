@@ -72,7 +72,7 @@ describe("sellableDrinks", () => {
       slot({ slotNo: 1, productRef: product("b", "Tiger", "beer") }),
       slot({ slotNo: 2, productRef: product("a", "Coke", "soft_drinks") }),
     ]);
-    expect(groups.map((g) => g.label)).toEqual(["Soft drinks", "Beer"]);
+    expect(groups.map((g) => g.label)).toEqual(["Soft drinks", "Alcohol"]);
     expect(groups[0].drinks[0].name).toBe("Coke");
   });
 });
