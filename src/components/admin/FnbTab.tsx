@@ -1290,7 +1290,7 @@ export function FnbTab() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="soft_drinks">Soft Drinks</SelectItem>
-                  <SelectItem value="beer">Beer</SelectItem>
+                  <SelectItem value="beer">Alcohol</SelectItem>
                   <SelectItem value="finger_food">Finger Food</SelectItem>
                   <SelectItem value="snacks">Snacks</SelectItem>
                   <SelectItem value="others">Others</SelectItem>
@@ -1310,7 +1310,7 @@ export function FnbTab() {
             <div className="space-y-1.5">
               <Label className="text-xs">Happy Hour Price ($, optional)</Label>
               <Input type="number" value={form.happyHourPrice} placeholder="Leave blank for no happy-hour price" onChange={(e) => setForm({ ...form, happyHourPrice: e.target.value })} />
-              <p className="text-xs text-muted-foreground">Charged instead of the selling price during happy hour (10am–6pm daily).</p>
+              <p className="text-xs text-muted-foreground">Charged instead of the selling price during the daily happy hour.</p>
             </div>
             {/* Live margin preview */}
             {form.costPrice && form.sellingPrice && Number(form.sellingPrice) > 0 && (

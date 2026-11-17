@@ -116,6 +116,7 @@ export function getCategoryGroup(cat: string): CategoryGroup {
 export function useMenu() {
   return useQuery({
     queryKey: ["fnb-menu"],
+    refetchInterval: 60_000, // happy-hour prices change on the clock
     queryFn: async () => {
       const res = await apiFetch("/api/fnb/products");
       if (!res.ok) throw new Error("Failed to load menu");
@@ -257,6 +258,7 @@ export function usePlaceStaffOrder() {
 export function useAdminMenu(includeDeleted = false) {
   return useQuery({
     queryKey: ["fnb-menu-admin", { includeDeleted }],
+    refetchInterval: 60_000, // happy-hour prices change on the clock
     queryFn: async () => {
       const qs = includeDeleted ? "?includeDeleted=1" : "";
       const res = await apiFetch(`/api/fnb/products/admin${qs}`);
