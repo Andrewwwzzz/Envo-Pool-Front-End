@@ -595,8 +595,10 @@ function EditPaymentMethodDialog({
 export function FnbTab() {
   const { user } = useAuth();
   const isMaster = (user as any)?.isMaster === true;
-  // Adding, editing or removing products (and their photos and prices) is admin-only (P3).
-  const canManageProducts = user?.role === "admin";
+  // Adding and editing products (and their photos and prices): admins, or staff
+  // with the F&B tab (owner, 17 Nov 2026). Deleting a product stays admin-only.
+  const canDeleteProducts = user?.role === "admin";
+  const canManageProducts = canDeleteProducts || (user?.role === "staff" && (user?.staffPermissions ?? []).includes("fnb"));
   const restore = useRestoreRecord();
   const hardDelete = useHardDelete();
   const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
@@ -1049,7 +1051,7 @@ export function FnbTab() {
             <div>
               <p className="text-sm text-muted-foreground">{products.length} {hideDeleted ? "products" : "deleted products"}</p>
               {!canManageProducts && (
-                <p className="text-xs text-muted-foreground">Adding, editing or removing products is admin only — ask an admin.</p>
+                <p className="text-xs text-muted-foreground">Adding or editing products needs the F&amp;B permission — ask an admin.</p>
               )}
             </div>
             <div className="flex gap-2">
@@ -1156,9 +1158,11 @@ export function FnbTab() {
                               <Button size="sm" variant="outline" title="Edit" onClick={() => openEdit(p)}>
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
-                              <Button size="sm" variant="outline" title="Delete" onClick={() => setDeleteProductTarget(p)}>
-                                <XCircle className="h-3.5 w-3.5 text-destructive" />
-                              </Button>
+                              {canDeleteProducts && (
+                                <Button size="sm" variant="outline" title="Delete" onClick={() => setDeleteProductTarget(p)}>
+                                  <XCircle className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              )}
                             </>
                           )}
                         </div>
