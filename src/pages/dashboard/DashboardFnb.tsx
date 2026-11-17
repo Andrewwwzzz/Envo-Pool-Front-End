@@ -12,7 +12,7 @@ import { useProfile } from "@/hooks/useProfile";
 import {
   useMenu, useMyFnbOrders, useRedemptionCheck, usePlaceOrder,
   useFnbStatus, productImageSrc,
-  FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, NACHO_CHEESE_PRICE,
+  FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS,
   priceOf,
 } from "@/hooks/useFnb";
 
@@ -40,7 +40,6 @@ function ProductPhoto({ product }: { product: FnbProduct }) {
 }
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { useToast } from "@/hooks/use-toast";
-import { Checkbox } from "@/components/ui/checkbox";
 import { VendingMenu } from "@/components/dashboard/VendingMenu";
 import { useVendingMenu } from "@/hooks/useVending";
 import { Store } from "lucide-react";
@@ -142,7 +141,6 @@ export default function DashboardFnb() {
   const [cartConfirmOpen, setCartConfirmOpen] = useState(false);
   const [sauceModalProduct, setSauceModalProduct] = useState<FnbProduct | null>(null);
   const [sauceChoice, setSauceChoice] = useState<"chilli" | "ketchup" | null>(null);
-  const [nachoChoice, setNachoChoice] = useState(false);
 
   const walletBalance = profile?.walletBalance ?? 0;
   // Where the order goes: a fixed "Counter", or the table the member typed.
@@ -168,7 +166,7 @@ export default function DashboardFnb() {
     );
   };
 
-  const cartTotal = cart.reduce((s, l) => s + (priceOf(l.product) + (l.nacho ? NACHO_CHEESE_PRICE : 0)) * l.qty, 0);
+  const cartTotal = cart.reduce((s, l) => s + (priceOf(l.product)) * l.qty, 0);
 
   const addLineToCart = (line: Omit<CartLine, "qty">) => {
     setCart((prev) => {
@@ -181,7 +179,6 @@ export default function DashboardFnb() {
   const addToCart = (product: FnbProduct) => {
     if (product.hasSauceOptions) {
       setSauceChoice(null);
-      setNachoChoice(false);
       setSauceModalProduct(product);
       return;
     }
@@ -189,7 +186,7 @@ export default function DashboardFnb() {
   };
   const confirmSauceModal = () => {
     if (!sauceModalProduct) return;
-    addLineToCart({ product: sauceModalProduct, sauce: sauceChoice, nacho: nachoChoice });
+    addLineToCart({ product: sauceModalProduct, sauce: sauceChoice, nacho: false });
     setSauceModalProduct(null);
   };
   const changeCartQty = (key: string, delta: number) => {
@@ -436,7 +433,7 @@ export default function DashboardFnb() {
             <div className="space-y-1.5">
               {cart.map((l) => {
                 const key = lineKey(l);
-                const unitPrice = priceOf(l.product) + (l.nacho ? NACHO_CHEESE_PRICE : 0);
+                const unitPrice = priceOf(l.product);
                 return (
                   <div key={key} className="flex items-center justify-between text-sm">
                     <div className="flex-1 min-w-0 pr-2">
@@ -546,7 +543,7 @@ export default function DashboardFnb() {
           </DialogHeader>
           <div className="py-2 space-y-2">
             {cart.map((l) => {
-              const unitPrice = priceOf(l.product) + (l.nacho ? NACHO_CHEESE_PRICE : 0);
+              const unitPrice = priceOf(l.product);
               return (
                 <div key={lineKey(l)} className="flex justify-between text-sm">
                   <span>
@@ -593,10 +590,6 @@ export default function DashboardFnb() {
                 <Button type="button" variant={sauceChoice === "ketchup" ? "default" : "outline"} onClick={() => setSauceChoice("ketchup")}>Ketchup</Button>
               </div>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={nachoChoice} onCheckedChange={(v) => setNachoChoice(v === true)} />
-              Add Nacho Cheese (+${NACHO_CHEESE_PRICE.toFixed(2)})
-            </label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSauceModalProduct(null)}>Cancel</Button>

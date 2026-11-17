@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,7 +19,7 @@ import {
   useAdminFnbOrders, useAdminMenu, useServeOrder, useCancelFnbOrder,
   useCreateProduct, useUpdateProduct, useRestockProduct, useDeleteProduct, useSetProductImage, productImageSrc,
   useFnbStatus, useSetFnbStatus, usePlaceStaffOrder, useEditFnbOrderPaymentMethod,
-  FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, getCategoryGroup, CategoryGroup, NACHO_CHEESE_PRICE,
+  FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, getCategoryGroup, CategoryGroup,
   priceOf,
 } from "@/hooks/useFnb";
 import { fmtDateTimeSG, getSGDateStr, nowSG } from "@/lib/sgTime";
@@ -195,7 +194,6 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   const [submitting, setSubmitting] = useState(false);
   const [sauceModalProduct, setSauceModalProduct] = useState<FnbProduct | null>(null);
   const [sauceChoice, setSauceChoice] = useState<"chilli" | "ketchup" | null>(null);
-  const [nachoChoice, setNachoChoice] = useState(false);
 
   // Customer — optional for cash/paynow/charge-to-table (defaults to a
   // shared guest account), but required to pay via wallet since that has to
@@ -242,7 +240,7 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
     : availableProducts;
 
   const selectedTable = runningTables.find((t: any) => t.id === tableId);
-  const total = cart.reduce((s, l) => s + (priceOf(l.product) + (l.nacho ? NACHO_CHEESE_PRICE : 0)) * l.qty, 0);
+  const total = cart.reduce((s, l) => s + (priceOf(l.product)) * l.qty, 0);
 
   const addLineToCart = (line: Omit<CartLine, "qty">) => {
     setCart((prev) => {
@@ -255,7 +253,6 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   const addToCart = (product: FnbProduct) => {
     if (product.hasSauceOptions) {
       setSauceChoice(null);
-      setNachoChoice(false);
       setSauceModalProduct(product);
       return;
     }
@@ -263,7 +260,7 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   };
   const confirmSauceModal = () => {
     if (!sauceModalProduct) return;
-    addLineToCart({ product: sauceModalProduct, sauce: sauceChoice, nacho: nachoChoice });
+    addLineToCart({ product: sauceModalProduct, sauce: sauceChoice, nacho: false });
     setSauceModalProduct(null);
   };
   const changeQty = (key: string, delta: number) => {
@@ -357,7 +354,7 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
               <div className="rounded-md border border-border divide-y divide-border/50">
                 {cart.map((l) => {
                   const key = lineKey(l);
-                  const unitPrice = priceOf(l.product) + (l.nacho ? NACHO_CHEESE_PRICE : 0);
+                  const unitPrice = priceOf(l.product);
                   return (
                     <div key={key} className="flex items-center justify-between px-3 py-2 text-sm">
                       <div className="flex-1 min-w-0">
@@ -482,10 +479,6 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
                 <Button type="button" size="sm" variant={sauceChoice === "ketchup" ? "default" : "outline"} onClick={() => setSauceChoice("ketchup")}>Ketchup</Button>
               </div>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={nachoChoice} onCheckedChange={(v) => setNachoChoice(v === true)} />
-              Add Nacho Cheese (+${NACHO_CHEESE_PRICE.toFixed(2)})
-            </label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSauceModalProduct(null)}>Cancel</Button>
@@ -1388,7 +1381,7 @@ export function FnbTab() {
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-sm">Sauce options</Label>
-                <p className="text-xs text-muted-foreground">Chilli/ketchup (free) + nacho cheese (+$1) at order time</p>
+                <p className="text-xs text-muted-foreground">Chilli or ketchup (free) at order time</p>
               </div>
               <Switch checked={form.hasSauceOptions} onCheckedChange={(v) => setForm({ ...form, hasSauceOptions: v })} />
             </div>

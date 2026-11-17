@@ -29,7 +29,6 @@ export interface FnbProduct {
   imageUrl: string | null;
 }
 
-export const NACHO_CHEESE_PRICE = 1;
 
 /** What one unit costs right now (happy-hour price inside the window). */
 export const priceOf = (p: Pick<FnbProduct, "sellingPrice" | "currentPrice">) => Number(p.currentPrice ?? p.sellingPrice ?? 0);
