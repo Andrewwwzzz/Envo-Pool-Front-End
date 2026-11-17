@@ -8,6 +8,11 @@ export interface FnbProduct {
   category: "soft_drinks" | "beer" | "finger_food" | "snacks" | "others";
   costPrice: number;
   sellingPrice: number;
+  // Price inside the daily happy hour (null = none); the server sends the
+  // price that applies right now as currentPrice.
+  happyHourPrice?: number | null;
+  currentPrice?: number;
+  happyHourActive?: boolean;
   stock: number;
   lowStockThreshold: number;
   piecesPerUnit: number;
@@ -25,6 +30,9 @@ export interface FnbProduct {
 }
 
 export const NACHO_CHEESE_PRICE = 1;
+
+/** What one unit costs right now (happy-hour price inside the window). */
+export const priceOf = (p: Pick<FnbProduct, "sellingPrice" | "currentPrice">) => Number(p.currentPrice ?? p.sellingPrice ?? 0);
 
 export function productImageSrc(p: Pick<FnbProduct, "imageUrl">): string | null {
   return p.imageUrl ? `${BASE_URL}${p.imageUrl}` : null;

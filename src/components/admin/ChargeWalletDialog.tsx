@@ -148,7 +148,7 @@ export function ChargeWalletDialog({
     if (!product) return;
 
     const qty = Math.max(1, parseInt(selectedQuantity) || 1);
-    const unitPrice = Number(product.sellingPrice ?? 0);
+    const unitPrice = Number(product.currentPrice ?? product.sellingPrice ?? 0);
     const newItem: FnbItem = {
       productId: product._id,
       productName: product.name,
@@ -342,7 +342,7 @@ export function ChargeWalletDialog({
                       <SelectContent>
                         {fnbProducts.map((product) => (
                           <SelectItem key={product._id} value={product._id}>
-                            {product.name} (${Number(product.sellingPrice ?? 0).toFixed(2)})
+                            {product.name} (${Number(product.currentPrice ?? product.sellingPrice ?? 0).toFixed(2)})
                           </SelectItem>
                         ))}
                       </SelectContent>

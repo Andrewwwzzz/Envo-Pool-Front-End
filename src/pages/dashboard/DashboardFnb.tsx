@@ -13,6 +13,7 @@ import {
   useMenu, useMyFnbOrders, useRedemptionCheck, usePlaceOrder,
   useFnbStatus, productImageSrc,
   FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, NACHO_CHEESE_PRICE,
+  priceOf,
 } from "@/hooks/useFnb";
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
@@ -167,7 +168,7 @@ export default function DashboardFnb() {
     );
   };
 
-  const cartTotal = cart.reduce((s, l) => s + (l.product.sellingPrice + (l.nacho ? NACHO_CHEESE_PRICE : 0)) * l.qty, 0);
+  const cartTotal = cart.reduce((s, l) => s + (priceOf(l.product) + (l.nacho ? NACHO_CHEESE_PRICE : 0)) * l.qty, 0);
 
   const addLineToCart = (line: Omit<CartLine, "qty">) => {
     setCart((prev) => {
@@ -388,7 +389,7 @@ export default function DashboardFnb() {
                     {CATEGORY_LABELS[product.category]}
                   </Badge>
                 </div>
-                <p className="text-accent font-bold">${product.sellingPrice.toFixed(2)}</p>
+                <p className="text-accent font-bold">${priceOf(product).toFixed(2)}{product.happyHourActive && <span className="ml-1 text-xs font-medium text-amber-400">Happy hour</span>}</p>
                 {outOfStock ? (
                   <Badge variant="outline" className="text-muted-foreground w-full justify-center">Out of Stock</Badge>
                 ) : (
@@ -410,7 +411,7 @@ export default function DashboardFnb() {
                       disabled={!tableOk}
                       onClick={() => addToCart(product)}
                     >
-                      {!tableOk ? "Enter valid table" : `Add to Cart — $${product.sellingPrice.toFixed(2)}`}
+                      {!tableOk ? "Enter valid table" : `Add to Cart — $${priceOf(product).toFixed(2)}`}
                     </Button>
                   </div>
                 )}
@@ -435,7 +436,7 @@ export default function DashboardFnb() {
             <div className="space-y-1.5">
               {cart.map((l) => {
                 const key = lineKey(l);
-                const unitPrice = l.product.sellingPrice + (l.nacho ? NACHO_CHEESE_PRICE : 0);
+                const unitPrice = priceOf(l.product) + (l.nacho ? NACHO_CHEESE_PRICE : 0);
                 return (
                   <div key={key} className="flex items-center justify-between text-sm">
                     <div className="flex-1 min-w-0 pr-2">
@@ -518,7 +519,7 @@ export default function DashboardFnb() {
             <p className="text-sm text-muted-foreground mt-1">
               {confirm?.isFree
                 ? "FREE — membership benefit"
-                : `$${confirm?.product.sellingPrice.toFixed(2)} will be deducted from your wallet`}
+                : `$${confirm ? priceOf(confirm.product).toFixed(2) : "0.00"} will be deducted from your wallet`}
             </p>
             {tableLabel && (
               <p className="text-sm text-muted-foreground mt-1">{ASK_TABLE ? <>Deliver to: <span className="text-foreground">{tableLabel}</span></> : "Collect at the counter when it's ready."}</p>
@@ -545,7 +546,7 @@ export default function DashboardFnb() {
           </DialogHeader>
           <div className="py-2 space-y-2">
             {cart.map((l) => {
-              const unitPrice = l.product.sellingPrice + (l.nacho ? NACHO_CHEESE_PRICE : 0);
+              const unitPrice = priceOf(l.product) + (l.nacho ? NACHO_CHEESE_PRICE : 0);
               return (
                 <div key={lineKey(l)} className="flex justify-between text-sm">
                   <span>

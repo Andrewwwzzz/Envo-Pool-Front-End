@@ -21,6 +21,7 @@ import {
   useCreateProduct, useUpdateProduct, useRestockProduct, useDeleteProduct, useSetProductImage, productImageSrc,
   useFnbStatus, useSetFnbStatus, usePlaceStaffOrder, useEditFnbOrderPaymentMethod,
   FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, getCategoryGroup, CategoryGroup, NACHO_CHEESE_PRICE,
+  priceOf,
 } from "@/hooks/useFnb";
 import { fmtDateTimeSG, getSGDateStr, nowSG } from "@/lib/sgTime";
 import { useAdminGmailPayments, useAdminCustomers } from "@/hooks/useAdmin";
@@ -135,6 +136,7 @@ const EMPTY_FORM = {
   category: "soft_drinks" as FnbProduct["category"],
   costPrice: "",
   sellingPrice: "",
+  happyHourPrice: "",
   stock: "",
   lowStockThreshold: "5",
   piecesPerUnit: "1",
@@ -240,7 +242,7 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
     : availableProducts;
 
   const selectedTable = runningTables.find((t: any) => t.id === tableId);
-  const total = cart.reduce((s, l) => s + (l.product.sellingPrice + (l.nacho ? NACHO_CHEESE_PRICE : 0)) * l.qty, 0);
+  const total = cart.reduce((s, l) => s + (priceOf(l.product) + (l.nacho ? NACHO_CHEESE_PRICE : 0)) * l.qty, 0);
 
   const addLineToCart = (line: Omit<CartLine, "qty">) => {
     setCart((prev) => {
@@ -340,7 +342,7 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
                     {/* Age-restricted: staff check the customer's ID at the counter (B7) — a marker only, nothing is blocked. */}
                     {p.isAlcohol && <Badge className="bg-red-500/20 text-red-400 text-xs">18+ Alcohol</Badge>}
                   </span>
-                  <span className="text-muted-foreground">${p.sellingPrice.toFixed(2)}</span>
+                  <span className="text-muted-foreground">{p.happyHourActive && <span className="text-amber-400 mr-1">HH</span>}${priceOf(p).toFixed(2)}</span>
                 </button>
               ))}
               {filteredProducts.length === 0 && (
@@ -355,7 +357,7 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
               <div className="rounded-md border border-border divide-y divide-border/50">
                 {cart.map((l) => {
                   const key = lineKey(l);
-                  const unitPrice = l.product.sellingPrice + (l.nacho ? NACHO_CHEESE_PRICE : 0);
+                  const unitPrice = priceOf(l.product) + (l.nacho ? NACHO_CHEESE_PRICE : 0);
                   return (
                     <div key={key} className="flex items-center justify-between px-3 py-2 text-sm">
                       <div className="flex-1 min-w-0">
@@ -657,6 +659,7 @@ export function FnbTab() {
     setForm({
       name: p.name, category: p.category,
       costPrice: String(p.costPrice), sellingPrice: String(p.sellingPrice),
+      happyHourPrice: p.happyHourPrice != null ? String(p.happyHourPrice) : "",
       stock: String(p.stock), lowStockThreshold: String(p.lowStockThreshold),
       piecesPerUnit: String(p.piecesPerUnit ?? 1),
       stockFromProductId: p.stockFromProductId ? String(p.stockFromProductId) : "",
@@ -672,6 +675,7 @@ export function FnbTab() {
     const payload = {
       name: form.name, category: form.category,
       costPrice: Number(form.costPrice), sellingPrice: Number(form.sellingPrice),
+      happyHourPrice: form.happyHourPrice.trim() === "" ? null : Number(form.happyHourPrice),
       stock: Number(form.stock), lowStockThreshold: Number(form.lowStockThreshold),
       piecesPerUnit: Math.max(1, Number(form.piecesPerUnit) || 1),
       stockFromProductId: form.stockFromProductId || null,
@@ -1118,6 +1122,7 @@ export function FnbTab() {
                         <div className="flex items-center gap-4 mt-1.5 text-xs">
                           <span className="text-muted-foreground">Cost <span className="text-foreground font-medium">${p.costPrice.toFixed(2)}</span></span>
                           <span className="text-muted-foreground">Sell <span className="text-accent font-medium">${p.sellingPrice.toFixed(2)}</span></span>
+                          {p.happyHourPrice != null && <span className="text-muted-foreground">Happy hour <span className={`font-medium ${p.happyHourActive ? "text-amber-400" : "text-foreground"}`}>${Number(p.happyHourPrice).toFixed(2)}</span>{p.happyHourActive ? " (now)" : ""}</span>}
                           <span className="text-muted-foreground">Margin <span className={`font-medium ${margin >= 40 ? "text-green-400" : margin >= 20 ? "text-yellow-400" : "text-red-400"}`}>{margin.toFixed(0)}%</span></span>
                         </div>
 
@@ -1301,6 +1306,11 @@ export function FnbTab() {
                 <Label className="text-xs">Selling Price ($)</Label>
                 <Input type="number" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Happy Hour Price ($, optional)</Label>
+              <Input type="number" value={form.happyHourPrice} placeholder="Leave blank for no happy-hour price" onChange={(e) => setForm({ ...form, happyHourPrice: e.target.value })} />
+              <p className="text-xs text-muted-foreground">Charged instead of the selling price during happy hour (10am–6pm daily).</p>
             </div>
             {/* Live margin preview */}
             {form.costPrice && form.sellingPrice && Number(form.sellingPrice) > 0 && (
