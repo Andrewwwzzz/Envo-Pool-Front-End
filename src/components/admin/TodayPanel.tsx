@@ -91,7 +91,7 @@ export function TodayPanel({ can, fnbPending, topupPending, onGo }: {
   }
 
   if (can("fnb")) {
-    const low = products.filter((p) => p.isActive && p.lowStockThreshold > 0 && p.stock <= p.lowStockThreshold);
+    const low = products.filter((p) => p.isActive && !p.stockFromProductId && p.lowStockThreshold > 0 && p.stock <= p.lowStockThreshold);
     if (low.length) {
       items.push({
         key: "stock", icon: PackageX,

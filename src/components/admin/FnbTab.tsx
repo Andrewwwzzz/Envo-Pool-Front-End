@@ -138,6 +138,7 @@ const EMPTY_FORM = {
   stock: "",
   lowStockThreshold: "5",
   piecesPerUnit: "1",
+  stockFromProductId: "",
   isRedeemable: false,
   isAlcohol: false,
   isSignature: false,
@@ -183,7 +184,7 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   const placeOrder = usePlaceStaffOrder();
 
   const runningTables = tables.filter((t: any) => !!t.timer_started_at);
-  const availableProducts = products.filter((p) => p.isActive && p.stock > 0);
+  const availableProducts = products.filter((p) => p.isActive && p.stock >= Math.max(1, p.piecesPerUnit || 1));
 
   const [tableId, setTableId] = useState<string>("");
   const [search, setSearch] = useState("");
@@ -658,6 +659,7 @@ export function FnbTab() {
       costPrice: String(p.costPrice), sellingPrice: String(p.sellingPrice),
       stock: String(p.stock), lowStockThreshold: String(p.lowStockThreshold),
       piecesPerUnit: String(p.piecesPerUnit ?? 1),
+      stockFromProductId: p.stockFromProductId ? String(p.stockFromProductId) : "",
       isRedeemable: p.isRedeemable, isAlcohol: p.isAlcohol, isSignature: !!p.isSignature, hasSauceOptions: !!p.hasSauceOptions, isActive: p.isActive, sortOrder: String(p.sortOrder),
     });
     setProductDialog("edit");
@@ -672,6 +674,7 @@ export function FnbTab() {
       costPrice: Number(form.costPrice), sellingPrice: Number(form.sellingPrice),
       stock: Number(form.stock), lowStockThreshold: Number(form.lowStockThreshold),
       piecesPerUnit: Math.max(1, Number(form.piecesPerUnit) || 1),
+      stockFromProductId: form.stockFromProductId || null,
       isRedeemable: form.isRedeemable, isAlcohol: form.isAlcohol, isSignature: form.isSignature, hasSauceOptions: form.hasSauceOptions, isActive: form.isActive, sortOrder: Number(form.sortOrder),
     };
     // Photo goes up after the product itself saves (a new product needs its id first)
@@ -1087,7 +1090,7 @@ export function FnbTab() {
 
           <div className="space-y-2">
             {products.map((p) => {
-              const lowStock = p.stock <= p.lowStockThreshold;
+              const lowStock = !p.stockFromProductId && p.stock <= p.lowStockThreshold;
               const margin = p.sellingPrice > 0 ? ((p.sellingPrice - p.costPrice) / p.sellingPrice * 100) : 0;
               const deleted = !!(p as any).isDeleted;
               return (
@@ -1120,6 +1123,12 @@ export function FnbTab() {
 
                         {/* Stock row */}
                         <div className="flex items-center gap-3 mt-1 text-xs">
+                          {p.stockFromProductId ? (
+                            <span className="text-muted-foreground">
+                              Uses stock of <span className="text-foreground font-medium">{p.stockFromName || "another product"}</span>
+                              {" "}— {p.piecesPerUnit} per sale · {p.stock} left = <span className={Math.floor(p.stock / Math.max(1, p.piecesPerUnit)) === 0 ? "text-red-400 font-medium" : "text-foreground font-medium"}>{Math.floor(p.stock / Math.max(1, p.piecesPerUnit))} sale{Math.floor(p.stock / Math.max(1, p.piecesPerUnit)) === 1 ? "" : "s"}</span>
+                            </span>
+                          ) : (<>
                           <span className={`flex items-center gap-1 font-medium ${lowStock ? "text-red-400" : "text-foreground"}`}>
                             {lowStock && <AlertTriangle className="h-3 w-3" />}
                             Stock: {p.stock}
@@ -1129,6 +1138,7 @@ export function FnbTab() {
                           {p.piecesPerUnit > 1 && (
                             <span className="text-muted-foreground">−{p.piecesPerUnit} pcs/sale</span>
                           )}
+                          </>)}
                         </div>
                       </div>
 
@@ -1147,12 +1157,14 @@ export function FnbTab() {
                           <Button size="sm" variant="outline" title="Stock history" onClick={() => openLogs(p)}>
                             <History className="h-3.5 w-3.5" />
                           </Button>
+                          {!p.stockFromProductId && (<>
                           <Button size="sm" variant="outline" title="Restock" onClick={() => openRestock(p)}>
                             <RotateCcw className="h-3.5 w-3.5" />
                           </Button>
                           <Button size="sm" variant="outline" title="Adjust stock" onClick={() => openAdjust(p)}>
                             <BarChart3 className="h-3.5 w-3.5" />
                           </Button>
+                          </>)}
                           {canManageProducts && (
                             <>
                               <Button size="sm" variant="outline" title="Edit" onClick={() => openEdit(p)}>
@@ -1305,22 +1317,37 @@ export function FnbTab() {
             )}
             <div className="grid grid-cols-2 gap-3">
               {/* Opening stock is set once, when the product is created; after that stock only moves via Restock / Adjust Stock. */}
-              {productDialog === "create" && (
+              {productDialog === "create" && !form.stockFromProductId && (
                 <div className="space-y-1.5">
                   <Label className="text-xs">Opening Stock</Label>
                   <Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
                 </div>
               )}
-              <div className={productDialog === "create" ? "space-y-1.5" : "col-span-2 space-y-1.5"}>
+              <div className={productDialog === "create" && !form.stockFromProductId ? "space-y-1.5" : "col-span-2 space-y-1.5"}>
                 <Label className="text-xs">Low Stock Alert At</Label>
                 <Input type="number" value={form.lowStockThreshold} onChange={(e) => setForm({ ...form, lowStockThreshold: e.target.value })} />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Pieces Per Unit Sold</Label>
+              <Label className="text-xs">Takes Stock From</Label>
+              <Select value={form.stockFromProductId || "own"} onValueChange={(v) => setForm({ ...form, stockFromProductId: v === "own" ? "" : v })}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="own">Its own stock</SelectItem>
+                  {allProducts
+                    .filter((o) => !(o as { isDeleted?: boolean }).isDeleted && !o.stockFromProductId && o._id !== selectedProduct?._id)
+                    .map((o) => <SelectItem key={o._id} value={o._id}>{o.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                For bundles: a "Tiger bucket of 5" takes its stock from "Tiger (single bottle)", so every sale comes off one count. Restock the single item only.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">{form.stockFromProductId ? "Taken Per Sale" : "Pieces Per Unit Sold"}</Label>
               <Input type="number" min={1} value={form.piecesPerUnit} onChange={(e) => setForm({ ...form, piecesPerUnit: e.target.value })} />
               <p className="text-xs text-muted-foreground">
-                How many stock pieces one sale deducts — e.g. a "Beer Bucket" sold as 1 unit but tracked as 5 bottles in stock.
+                {form.stockFromProductId ? "How many of that item one sale uses — 3 for a bucket of 3, 5 for a bucket of 5." : "How many stock pieces one sale deducts — e.g. a \"Beer Bucket\" sold as 1 unit but tracked as 5 bottles in stock."}
               </p>
             </div>
             <div className="space-y-1.5">

@@ -11,6 +11,10 @@ export interface FnbProduct {
   stock: number;
   lowStockThreshold: number;
   piecesPerUnit: number;
+  // Bundles (e.g. "Tiger bucket of 5") take piecesPerUnit from this product's
+  // stock; the API then reports that product's stock as `stock`.
+  stockFromProductId?: string | null;
+  stockFromName?: string | null;
   isRedeemable: boolean;
   isAlcohol: boolean;
   isSignature: boolean;

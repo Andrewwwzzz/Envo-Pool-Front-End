@@ -364,7 +364,7 @@ export default function DashboardFnb() {
       {/* Menu grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {filteredMenu.map((product) => {
-          const outOfStock = product.stock <= 0;
+          const outOfStock = product.stock < Math.max(1, product.piecesPerUnit || 1);
           // Not just "has some free-drink benefit" — the item itself must be
           // covered by the customer's own plan (by ID or category), or the
           // button would show on items that fail as soon as they're confirmed.
