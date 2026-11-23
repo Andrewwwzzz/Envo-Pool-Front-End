@@ -4238,6 +4238,11 @@ function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () 
             {!isLoading && !missing && usage && usage.length === 0 && (
               <p className="text-sm text-muted-foreground">No usage yet.</p>
             )}
+            {!isLoading && !missing && usage && Number(promo.usage_count || 0) > usage.length && (
+              <p className="text-sm text-amber-500 mb-2">
+                {Number(promo.usage_count) - usage.length} use{Number(promo.usage_count) - usage.length > 1 ? "s" : ""} not linked to any booking here — the booking may have been permanently deleted.
+              </p>
+            )}
             {!isLoading && !missing && usage && usage.length > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -4249,6 +4254,7 @@ function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () 
                       <th className="py-2 pr-3 font-medium">Original → Final</th>
                       <th className="py-2 pr-3 font-medium">Booking Date</th>
                       <th className="py-2 pr-3 font-medium">Used At</th>
+                      <th className="py-2 pr-3 font-medium">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4272,6 +4278,12 @@ function PromoDetailDialog({ promo, onClose }: { promo: any | null; onClose: () 
                           <td className="py-2 pr-3">{money(original)} → {money(final)}</td>
                           <td className="py-2 pr-3">{bookingDate ? fmtDateTimeSG(bookingDate) : "—"}</td>
                           <td className="py-2 pr-3">{usedAt ? fmtDateTimeSG(usedAt) : "—"}</td>
+                          <td className="py-2 pr-3">
+                            <span className={u.status === "cancelled" || u.status === "refunded" || u.deleted ? "text-destructive" : ""}>
+                              {u.deleted ? "Deleted" : u.status ? u.status.charAt(0).toUpperCase() + u.status.slice(1) : "—"}
+                            </span>
+                            {u.cancellationReason && <div className="text-xs text-muted-foreground">{u.cancellationReason}</div>}
+                          </td>
                         </tr>
                       );
                     })}
