@@ -27,6 +27,9 @@ interface CountValues {
   bypassPrerequisite: boolean;
 }
 
+// First business date whose night runs to 06:00 (server: usesSixAmCutoff).
+const SIX_AM_CUTOFF_FROM = "2026-11-24";
+
 const EMPTY_VALUES: CountValues = {
   shiftType: "morning", date: "", counted: "", cashAfterMidnight: "", reason: "",
   overrideExpected: false, expectedOverride: "", bypassPrerequisite: false,
@@ -231,10 +234,13 @@ function CashCountForm({
   const isNightClosing = phase === "closing" && shiftType === "night";
 
   const { data: context, isLoading: contextLoading } = useCashCountContext(phase, shiftType, date, excludeId);
+  // From 24 Nov 2026 the night's sales day runs to 06:00, so the whole count belongs to it — no after-midnight split.
+  const nightDate = context?.date || date;
+  const splitsAfterMidnight = isNightClosing && !!nightDate && nightDate < SIX_AM_CUTOFF_FROM;
 
   const countedNum = parseFloat(counted);
   const hasCounted = counted.trim() !== "" && !isNaN(countedNum);
-  const afterMidnightNum = isNightClosing && cashAfterMidnight.trim() !== "" && !isNaN(parseFloat(cashAfterMidnight))
+  const afterMidnightNum = splitsAfterMidnight && cashAfterMidnight.trim() !== "" && !isNaN(parseFloat(cashAfterMidnight))
     ? parseFloat(cashAfterMidnight)
     : 0;
   // The after-midnight portion is physically in the drawer (counted) but
@@ -252,15 +258,15 @@ function CashCountForm({
   // until staff type their own figure. A fresh form (after submitting) starts pre-filling again.
   const [afterMidnightTouched, setAfterMidnightTouched] = useState(false);
   const [afterMidnightPrefilled, setAfterMidnightPrefilled] = useState(false);
-  const suggestedAfterMidnight = isNightClosing ? Number(context?.suggestedAfterMidnight || 0) : 0;
+  const suggestedAfterMidnight = splitsAfterMidnight ? Number(context?.suggestedAfterMidnight || 0) : 0;
   useEffect(() => {
     if (counted === "" && cashAfterMidnight === "") { setAfterMidnightTouched(false); setAfterMidnightPrefilled(false); }
   }, [counted, cashAfterMidnight]);
   useEffect(() => {
-    if (!prefillAfterMidnight || !isNightClosing || afterMidnightTouched || suggestedAfterMidnight <= 0) return;
+    if (!prefillAfterMidnight || !splitsAfterMidnight || afterMidnightTouched || suggestedAfterMidnight <= 0) return;
     const v = suggestedAfterMidnight.toFixed(2);
     if (cashAfterMidnight !== v) { onChange({ ...values, cashAfterMidnight: v }); setAfterMidnightPrefilled(true); }
-  }, [prefillAfterMidnight, isNightClosing, afterMidnightTouched, suggestedAfterMidnight, cashAfterMidnight]);
+  }, [prefillAfterMidnight, splitsAfterMidnight, afterMidnightTouched, suggestedAfterMidnight, cashAfterMidnight]);
 
   const handleSubmit = async () => {
     if (!hasCounted || countedNum < 0) {
@@ -280,7 +286,7 @@ function CashCountForm({
       countedAmount: countedNum,
       reason: reason.trim(),
       ...(date ? { date } : {}),
-      ...(isNightClosing && cashAfterMidnight.trim() !== "" ? { cashAfterMidnight: parseFloat(cashAfterMidnight) } : {}),
+      ...(splitsAfterMidnight && cashAfterMidnight.trim() !== "" ? { cashAfterMidnight: parseFloat(cashAfterMidnight) } : {}),
       ...(hasValidOverride ? { expectedAmountOverride: parseFloat(expectedOverride) } : {}),
       ...(canBypassPrerequisite && bypassPrerequisite ? { bypassPrerequisite: true } : {}),
     });
@@ -357,7 +363,7 @@ function CashCountForm({
         </div>
       )}
 
-      {isNightClosing && (
+      {splitsAfterMidnight && (
         <div className="space-y-1.5">
           <Label>Of that, collected after midnight <span className="text-muted-foreground text-xs">(optional)</span></Label>
           <Input type="number" min="0" step="0.01" placeholder="0.00" value={cashAfterMidnight} onChange={(e) => { setAfterMidnightTouched(true); setAfterMidnightPrefilled(false); set({ cashAfterMidnight: e.target.value }); }} />
@@ -372,7 +378,7 @@ function CashCountForm({
         </div>
       )}
 
-      {isNightClosing && hasCounted && afterMidnightNum > 0 && (
+      {splitsAfterMidnight && hasCounted && afterMidnightNum > 0 && (
         <div className="flex justify-between text-xs px-1">
           <span className="text-muted-foreground">Cash Sales for this shift's tally</span>
           <span className="font-medium">${tallyPreview!.toFixed(2)}</span>
