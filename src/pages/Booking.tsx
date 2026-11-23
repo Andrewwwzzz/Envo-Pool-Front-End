@@ -101,7 +101,8 @@ const Booking = () => {
   const operatingHours = operatingHoursData?.schedule;
   const phCloseTime = operatingHoursData?.phCloseTime;
 
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  // Opens on the current booking day — until 6am that's still last night's date.
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(() => currentBookingDate());
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [startSlot, setStartSlot] = useState<string | null>(null);
   const [endSlot, setEndSlot] = useState<string | null>(null);
@@ -931,6 +932,7 @@ const Booking = () => {
               selected={selectedDate}
               onSelect={handleDateSelect}
               disabled={(date) => isBefore(date, today)}
+              today={today}
               className="p-3 pointer-events-auto"
             />
           </CardContent>
