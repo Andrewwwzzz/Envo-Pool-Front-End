@@ -44,7 +44,8 @@ const booking = (from: string, to: string): Booked =>
 
 afterEach(() => vi.useRealTimers());
 
-describe("TimeSlotPicker — 6am day, tap each half-hour", () => {
+// Each test renders all 48 slots with tooltips — slow under a full parallel run.
+describe("TimeSlotPicker — 6am day, tap each half-hour", { timeout: 20000 }, () => {
   it("shows 6:00 AM to 5:30 AM the next morning with a midnight divider", () => {
     at("2026-11-24T15:10:00");
     render(<Harness />);

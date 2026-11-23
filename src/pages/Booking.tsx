@@ -2,13 +2,13 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useTables, TableStatus, validateDuration } from "@/hooks/useBooking";
-import { slotKeyToDate, currentBookingDate, isCurrentBookingDay, bookingDayWindow, bookingDayCalendarDates } from "@/lib/bookingDay";
+import { slotKeyToDate, currentBookingDate, isCurrentBookingDay, bookingDayWindow, bookingDayCalendarDates, bookingDateOf, operatingDayOf } from "@/lib/bookingDay";
 import { usePricingRules } from "@/hooks/usePricing";
 import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
 import { validateRewardCode, Reward } from "@/hooks/useRewards";
 import { useProfile } from "@/hooks/useProfile";
 import { useMyMembership, usePublicHolidays } from "@/hooks/useMembership";
-import { calculateBookingPrice, calculateDiscount, getCurrentHourlyRate, isPHOrPHEve } from "@/lib/pricing";
+import { calculateBookingPrice, calculateDiscount, getCurrentHourlyRate } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { apiFetch, BASE_URL } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isBefore } from "date-fns";
-import { toSG, getSGDateStr, isWithinCurrentOperatingDay, fmtTimeSG } from "@/lib/sgTime";
+import { getSGDateStr, fmtTimeSG } from "@/lib/sgTime";
 import WalkinSessionPanel from "@/components/WalkinSessionPanel";
 import { CampaignPopup } from "@/components/CampaignPopup";
 import { MobileBottomNav, BOTTOM_NAV_PADDING } from "@/components/MobileBottomNav";
@@ -432,36 +432,28 @@ const Booking = () => {
     : [];
   const freeMinutesExcludePH = Boolean(freeMinutesBenefits.freeMinutesExcludePH ?? false);
 
-  // Is the booking's start a public holiday or the day before one? Judged on
-  // the operational day (before 4am = previous day), like the server.
-  const bookingIsPHOrPHEve = useMemo(() => {
-    if (!startDate) return false;
-    return isPHOrPHEve(startDate, publicHolidayDateSet);
-  }, [startDate, publicHolidayDateSet]);
-  // Day-of-week eligibility — empty freeMinutesDays = every day. Evaluated
-  // against the booking's actual start date, not "today" (advance bookings).
-  const freeMinutesDayAllowed = useMemo(() => {
-    if (!startDate) return false;
-    if (freeMinutesDays.length === 0) return true;
-    return freeMinutesDays.includes(toSG(startDate).getDay());
-  }, [startDate, freeMinutesDays]);
+  // Free minutes go by the operating day the booking starts in — it runs to 06:00,
+  // so 00:30 is still last night (its weekday, holiday status and opening hours),
+  // exactly as the server decides (services/membershipBenefits.service.js).
+  const startOpDay = startDate ? operatingDayOf(startDate) : null;
+  // Is that operating day a public holiday or the day before one?
+  const bookingIsPHOrPHEve = !!startOpDay && (publicHolidayDateSet.has(startOpDay.dateStr) || publicHolidayDateSet.has(startOpDay.nextDateStr));
+  // Day-of-week eligibility — empty freeMinutesDays = every day.
+  const freeMinutesDayAllowed = !!startOpDay && (freeMinutesDays.length === 0 || freeMinutesDays.includes(startOpDay.dayOfWeek));
   const freeMinutesPHAllowed = !freeMinutesExcludePH || !bookingIsPHOrPHEve;
 
   // Mirrors the server's public-hours gate — free minutes never apply to a
   // booking that starts after closing (overnight slots).
   const bookingStartsAfterHours = useMemo(() => {
-    if (!startDate || !operatingHours) return false;
-    const sg = toSG(startDate);
-    const day = (operatingHours as any)[sg.getDay()];
+    if (!startOpDay || !operatingHours) return false;
+    const day = (operatingHours as any)[startOpDay.dayOfWeek];
     if (!day || !day.open) return true;
-    const t = `${String(sg.getHours()).padStart(2, "0")}:${String(sg.getMinutes()).padStart(2, "0")}`;
-    const openTime = day.openTime || "10:00";
-    const closeTime = bookingIsPHOrPHEve ? (phCloseTime || "02:00") : (day.closeTime || "01:00");
-    const inWindow = closeTime <= openTime
-      ? t >= openTime || t < closeTime
-      : t >= openTime && t < closeTime;
-    return !inWindow;
-  }, [startDate, operatingHours, phCloseTime, bookingIsPHOrPHEve]);
+    const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+    const open = toMin(day.openTime || "10:00");
+    let close = toMin(bookingIsPHOrPHEve ? (phCloseTime || "02:00") : (day.closeTime || "01:00"));
+    if (close <= open) close += 24 * 60; // closes after midnight
+    return !(startOpDay.minutesIn >= open && startOpDay.minutesIn < close);
+  }, [startOpDay?.dateStr, startOpDay?.minutesIn, operatingHours, phCloseTime, bookingIsPHOrPHEve]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Free minutes from ALL active memberships add up, as on the server: an
   // unlimited plan covers the whole booking (no day/PH/same-day/once-a-day
@@ -470,12 +462,12 @@ const Booking = () => {
   // hours, and that membership hasn't used them yet this operating day.
   const bookingMinutes = startDate && endDate ? (endDate.getTime() - startDate.getTime()) / (1000 * 60) : 0;
   const freeMinutesAvailable = useMemo(() => {
-    if (!startDate || bookingMinutes <= 0) return 0;
-    const sgDay = toSG(startDate).getDay();
-    // Free minutes only apply when the booking START date is within the
-    // CURRENT operating day (10am SGT to 4am SGT next day) — not calendar midnight.
-    // This lets a 11:30pm-12:10am session count as "today".
-    const startsToday = isWithinCurrentOperatingDay(startDate);
+    if (!startDate || !startOpDay || bookingMinutes <= 0) return 0;
+    const sgDay = startOpDay.dayOfWeek;
+    // Only for a booking in the current operating day (to 06:00, so tonight's
+    // after-midnight hours count as today), and once per operating day.
+    const today = bookingDateOf(new Date());
+    const startsToday = startOpDay.dateStr === today;
     let total = 0;
     for (const m of activeMemberships) {
       const benefits = membershipBenefits(m);
@@ -491,18 +483,18 @@ const Booking = () => {
       if (bookingStartsAfterHours || !startsToday) continue;
       const lastVisitRaw = m?.lastVisitDate ?? m?.last_visit_date ?? null;
       const lastVisit = lastVisitRaw ? new Date(lastVisitRaw) : null;
-      if (lastVisit && !isNaN(lastVisit.getTime()) && isWithinCurrentOperatingDay(lastVisit)) continue;
+      if (lastVisit && !isNaN(lastVisit.getTime()) && bookingDateOf(lastVisit) === today) continue;
       total += perVisit;
     }
     return Math.min(total, bookingMinutes);
-  }, [activeMemberships, startDate, bookingMinutes, bookingIsPHOrPHEve, bookingStartsAfterHours]);
+  }, [activeMemberships, startDate, startOpDay?.dateStr, bookingMinutes, bookingIsPHOrPHEve, bookingStartsAfterHours]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Why free minutes aren't showing today, if the plan has the benefit but
   // today's date doesn't qualify (day-of-week or PH/PH-eve restriction).
   const freeMinutesUnavailableReason = useMemo(() => {
     if (!freeMinutesMembership || freeMinutesPerVisit <= 0 || !startDate || freeMinutesAvailable > 0) return null;
-    if (!isWithinCurrentOperatingDay(startDate)) {
-      return `Free ${freeMinutesPerVisit} mins only applies to today's session (10am-4am operating day)`;
+    if (bookingDateOf(startDate) !== bookingDateOf(new Date())) {
+      return `Free ${freeMinutesPerVisit} mins only applies to bookings for today (today's opening hours, including after midnight)`;
     }
     if (!freeMinutesDayAllowed) {
       const dayNames = freeMinutesDays.map((d) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d]).join("/");

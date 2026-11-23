@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   bookingDaySlots, slotKeyToDate, currentBookingDate, isCurrentBookingDay, bookingDayWindow,
-  bookingDayCalendarDates, sgDateStr,
+  bookingDayCalendarDates, sgDateStr, bookingDateOf, operatingDayOf,
 } from "@/lib/bookingDay";
 
 const sgt = (s: string) => new Date(`${s}+08:00`);
@@ -64,5 +64,16 @@ describe("bookingDayWindow / calendar dates", () => {
 
   it("touches the date and the next one", () => {
     expect(bookingDayCalendarDates(sgt("2026-11-30T00:00:00"))).toEqual(["2026-11-30", "2026-12-01"]);
+  });
+});
+
+describe("operating day of a moment (free minutes)", () => {
+  it("is still last night until 6am, with last night's weekday", () => {
+    // 24 Nov 2026 is a Tuesday.
+    expect(bookingDateOf(sgt("2026-11-25T00:30:00"))).toBe("2026-11-24");
+    expect(bookingDateOf(sgt("2026-11-25T06:00:00"))).toBe("2026-11-25");
+    expect(operatingDayOf(sgt("2026-11-25T00:30:00"))).toEqual({ dateStr: "2026-11-24", nextDateStr: "2026-11-25", dayOfWeek: 2, minutesIn: 24 * 60 + 30 });
+    expect(operatingDayOf(sgt("2026-11-24T13:00:00")).minutesIn).toBe(13 * 60);
+    expect(operatingDayOf(sgt("2026-12-01T01:00:00")).nextDateStr).toBe("2026-12-01");
   });
 });

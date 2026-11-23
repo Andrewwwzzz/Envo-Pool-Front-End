@@ -92,3 +92,20 @@ export function bookingDayCalendarDates(date: Date): [string, string] {
   const midnight = bookingDayMidnight(date);
   return [sgDateStr(new Date(midnight + 12 * 60 * MINUTE_MS)), sgDateStr(new Date(midnight + DAY_MS + 12 * 60 * MINUTE_MS))];
 }
+
+/** The booking/operating date ("YYYY-MM-DD") a moment belongs to: 00:30 is still last night's. */
+export function bookingDateOf(instant: Date): string {
+  return sgDateStr(new Date(instant.getTime() - BOOKING_DAY_START_MIN * MINUTE_MS));
+}
+
+/** That operating date's weekday (0 = Sun), and how far into it the moment is (past 1440 = after midnight). */
+export function operatingDayOf(instant: Date): { dateStr: string; nextDateStr: string; dayOfWeek: number; minutesIn: number } {
+  const dateStr = bookingDateOf(instant);
+  const midnight = Date.parse(`${dateStr}T00:00:00+08:00`);
+  return {
+    dateStr,
+    nextDateStr: sgDateStr(new Date(midnight + DAY_MS + 12 * 60 * MINUTE_MS)),
+    dayOfWeek: new Date(`${dateStr}T00:00:00Z`).getUTCDay(),
+    minutesIn: Math.floor((instant.getTime() - midnight) / MINUTE_MS),
+  };
+}
