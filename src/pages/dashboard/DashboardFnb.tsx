@@ -132,8 +132,11 @@ export default function DashboardFnb() {
   // The machine section only appears once a slot is mapped to a product, so a
   // freshly deployed site shows the counter menu alone until the machine is set up.
   const machineHasItems = (vendingMenu?.items?.length ?? 0) > 0;
-  const showVending = (COUNTER_PICKUP && machineHasItems) || (!COUNTER_PICKUP && orderMode === "vending");
-  const showCounter = COUNTER_PICKUP || orderMode === "table";
+  // Vending machine and counter are two tabs, so customers don't scroll past one to reach the other.
+  const [section, setSection] = useState<"vending" | "counter">("vending");
+  const showSectionTabs = COUNTER_PICKUP && machineHasItems;
+  const showVending = (showSectionTabs && section === "vending") || (!COUNTER_PICKUP && orderMode === "vending");
+  const showCounter = COUNTER_PICKUP ? (!machineHasItems || section === "counter") : orderMode === "table";
 
   const [activeTab, setActiveTab] = useState<Category>("all");
   const [tableInput, setTableInput] = useState("");
@@ -288,25 +291,29 @@ export default function DashboardFnb() {
         </Button>
       </div>}
 
-      {showVending && (<>
-        {COUNTER_PICKUP && (
-          <h2 className="font-semibold text-foreground flex items-center gap-2"><Store className="h-4 w-4 text-accent" /> From the vending machine</h2>
-        )}
-        <VendingMenu walletBalance={walletBalance} />
-      </>)}
+      {showSectionTabs && <div className="grid grid-cols-2 gap-2 sm:max-w-md">
+        <Button variant={section === "vending" ? "default" : "outline"} className={section === "vending" ? "bg-accent text-accent-foreground hover:bg-accent/90" : ""} onClick={() => setSection("vending")}>
+          <Store className="h-4 w-4 mr-2" /> Vending machine
+        </Button>
+        <Button variant={section === "counter" ? "default" : "outline"} className={section === "counter" ? "bg-accent text-accent-foreground hover:bg-accent/90" : ""} onClick={() => setSection("counter")}>
+          <ShoppingBag className="h-4 w-4 mr-2" /> Counter
+        </Button>
+      </div>}
+
+      {showVending && <VendingMenu walletBalance={walletBalance} />}
 
       {showCounter && COUNTER_PICKUP && counterPaused && (
-        <div className="pt-6 border-t border-border/50">
+        <div>
           <h2 className="font-semibold text-foreground flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-accent" /> {ASK_TABLE ? "Brought to your table" : "Collect at the counter"}</h2>
           <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
             <p className="font-medium text-amber-300">Counter orders are paused right now</p>
-            <p className="text-muted-foreground mt-1">{fnbStatus?.notice || "Check back soon or order from a staff member."}{machineHasItems ? " Drinks from the vending machine are still available above." : ""}</p>
+            <p className="text-muted-foreground mt-1">{fnbStatus?.notice || "Check back soon or order from a staff member."}{machineHasItems ? " Drinks from the vending machine are still available in the Vending machine tab." : ""}</p>
           </div>
         </div>
       )}
       {showCounter && !(COUNTER_PICKUP && counterPaused) && (<>
       {COUNTER_PICKUP && (
-        <div className="pt-6 border-t border-border/50">
+        <div>
           <h2 className="font-semibold text-foreground flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-accent" /> {ASK_TABLE ? "Brought to your table" : "Collect at the counter"}</h2>
           <p className="text-xs text-muted-foreground mt-1">{ASK_TABLE ? "Hot drinks, food and anything the machine doesn't hold — order here with your table number and we'll bring it over." : "Hot drinks, food and anything the machine doesn't hold — order here, pick it up at the counter."}</p>
         </div>

@@ -3,13 +3,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { CheckCircle2, Clock, CupSoda, Gift, Loader2, Star, Wifi, WifiOff, XCircle, AlertTriangle } from "lucide-react";
-import { fmtDateTimeSG } from "@/lib/sgTime";
+import { CheckCircle2, CupSoda, Gift, Loader2, Star, Wifi, WifiOff, XCircle, AlertTriangle } from "lucide-react";
 import { CATEGORY_COLORS, CATEGORY_LABELS } from "@/hooks/useFnb";
 import {
   useVendingMenu, useMyVendingOrders, useVendingOrder, useVendingPurchase,
   fmtCents, isOrderFinal, vendingImageSrc,
-  VendingItem, VendingOrder, ORDER_STATUS_COLORS, ORDER_STATUS_LABELS,
+  VendingItem,
 } from "@/hooks/useVending";
 
 function ItemPhoto({ item }: { item: VendingItem }) {
@@ -65,25 +64,6 @@ export function OrderProgressDialog({ orderId, onClose }: { orderId: string | nu
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function OrderRow({ order, onOpen }: { order: VendingOrder; onOpen: () => void }) {
-  return (
-    <Card className="border-border/50 cursor-pointer" onClick={onOpen}>
-      <CardContent className="p-4 flex items-center justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm text-foreground">{order.productName}</p>
-          <p className="text-xs text-muted-foreground">
-            {order.paymentMethod === "free_membership" ? "Free — Membership" : fmtCents(order.priceCents)} · Vending machine
-          </p>
-          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-            <Clock className="h-3 w-3" />{fmtDateTimeSG(order.createdAt)}
-          </p>
-        </div>
-        <Badge className={ORDER_STATUS_COLORS[order.status]}>{ORDER_STATUS_LABELS[order.status]}</Badge>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -183,13 +163,6 @@ export function VendingMenu({ walletBalance }: { walletBalance: number }) {
         {!isLoading && items.length === 0 && (
           <div className="col-span-full text-center py-10 text-muted-foreground text-sm">Nothing in the vending machine yet.</div>
         )}
-      </div>
-
-      <div className="space-y-3">
-        <h2 className="font-semibold text-foreground">Vending Orders</h2>
-        {orders.length === 0
-          ? <p className="text-sm text-muted-foreground">No vending orders yet.</p>
-          : <div className="space-y-2">{orders.map((o) => <OrderRow key={o._id} order={o} onOpen={() => setActiveOrderId(o._id)} />)}</div>}
       </div>
 
       <Dialog open={!!confirm} onOpenChange={() => setConfirm(null)}>
