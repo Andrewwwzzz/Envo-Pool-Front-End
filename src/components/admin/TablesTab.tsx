@@ -38,6 +38,10 @@ import ReasonDialog from "@/components/admin/ReasonDialog";
 import DeletedBanner, { getDeletedInfo, isDeleted as isRecordDeleted } from "@/components/admin/DeletedBanner";
 import { Timer, Play, Square, Wrench, DollarSign, Wifi, WifiOff, Power, PowerOff, RotateCcw, Loader2, AlertTriangle, X, Check, Eye, EyeOff, CalendarClock, Plus } from "lucide-react";
 
+// A bundle staff get automatically: staff-only, or open to everyone with no usage limits.
+const isCounterBundle = (p: { staff_only?: boolean; usage_limit?: number | null; per_user_limit?: number | null }) =>
+  !!p.staff_only || (p.usage_limit == null && p.per_user_limit == null);
+
 function ChipStatus({ lastSeen }: { lastSeen: string | null }) {
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -1549,12 +1553,13 @@ function BookNowDialog({
     }
   };
 
-  // Auto-apply a staff-only package code (a counter bundle) when the chosen
+  // Auto-apply a bundle (package code, e.g. EVE2H / DAY2H) when the chosen
   // duration matches one and the booking fits its time window. Candidates are
   // picked by hours here; the server decides whether the window/day/limits
-  // actually allow it. Public codes are never auto-applied — the customer has
-  // to give the code (owner, 23 Nov 2026) — and per-hour codes (SELF7) are for
-  // self-practice only, so staff choose those by hand.
+  // actually allow it. Only open bundles qualify (no usage limits) or staff-only
+  // ones: a limited code such as a customer's own FREE1H-xxxxx is never
+  // auto-applied — the customer has to give it (owner, 23–24 Nov 2026). Per-hour
+  // codes (SELF7) are for self-practice only, so staff choose those by hand.
   const { data: allPromos = [] } = useAdminPromoCodes("default");
   // Keyed on the last loaded price, so a bill reloading for another reason (payment method,
   // customer, discount) doesn't count as a change and clear the "not applied" note.
@@ -1571,7 +1576,7 @@ function BookNowDialog({
     if (dismissedAutoKey.current === autoKey || autoTried.current === autoKey) return;
     autoTried.current = autoKey;
     const candidates = (allPromos as any[])
-      .filter((p) => p.is_active && !p.deleted && p.discount_type === "package_price" && p.staff_only
+      .filter((p) => p.is_active && !p.deleted && p.discount_type === "package_price" && isCounterBundle(p)
         && p.exact_hours && Math.abs(p.exact_hours * 60 - durationMinutes) < 1)
       .sort((a, b) => a.discount_value - b.discount_value);
     if (!candidates.length) return;
