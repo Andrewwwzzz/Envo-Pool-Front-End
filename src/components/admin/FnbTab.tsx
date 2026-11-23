@@ -588,6 +588,8 @@ function EditPaymentMethodDialog({
   );
 }
 
+const FNB_SIX_AM_FROM = Date.parse("2026-11-25T00:00:00+08:00");
+
 export function FnbTab() {
   const { user } = useAuth();
   const isMaster = (user as any)?.isMaster === true;
@@ -598,7 +600,8 @@ export function FnbTab() {
   const restore = useRestoreRecord();
   const hardDelete = useHardDelete();
   const [hardDeleteTarget, setHardDeleteTarget] = useState<{ type: string; id: string } | null>(null);
-  const today = getSGDateStr(nowSG());
+  // From the 24 Nov 2026 night on, orders up to 06:00 belong to the night before (server: getOperatingDay).
+  const today = Date.now() >= FNB_SIX_AM_FROM ? getSGDateStr(new Date(Date.now() - 6 * 60 * 60 * 1000)) : getSGDateStr(nowSG());
   const [viewDay, setViewDay] = useState(today);
   const [orderFilter, setOrderFilter] = useState("all");
   const [cancelDialog, setCancelDialog] = useState<{ id: string; name: string; price: number; paymentMethod: string; pointsSpent: number } | null>(null);
