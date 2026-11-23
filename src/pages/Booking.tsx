@@ -33,12 +33,53 @@ import { useMyWalkinSession, useStartWalkin } from "@/hooks/useWalkin";
 import { Timer } from "lucide-react";
 
 const statusColor: Record<TableStatus, string> = {
-  Available: "bg-primary/10 text-primary border-primary/20",
-  Booked: "bg-destructive/10 text-destructive border-destructive/20",
+  Available: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+  Booked: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
   "Pending Payment": "bg-accent/20 text-accent-foreground border-accent/30",
   "In Use": "bg-destructive/10 text-destructive border-destructive/20",
   Maintenance: "bg-destructive/10 text-destructive border-destructive/20",
 };
+
+type DayBooking = { start: number; end: number; confirmed: boolean };
+
+// Every table's bookings on an SGT date ("YYYY-MM-DD"), keyed by the booking's tableId
+// (hardware id or Mongo id). The public list carries slot times only.
+async function fetchBookingsByTable(dateStr: string): Promise<Record<string, DayBooking[]>> {
+  const res = await apiFetch(`/api/bookings?date=${dateStr}&status=confirmed,pending_payment`);
+  if (!res.ok) throw new Error("Failed to fetch bookings");
+  const data = await res.json();
+  const list: any[] = Array.isArray(data) ? data : (data?.bookings || []);
+  const byTable: Record<string, DayBooking[]> = {};
+  for (const b of list) {
+    (byTable[String(b.tableId)] ||= []).push({
+      start: new Date(b.startTime).getTime(),
+      end: new Date(b.endTime).getTime(),
+      confirmed: b.status === "confirmed",
+    });
+  }
+  return byTable;
+}
+
+const WALKIN_BOOKING_GAP_MS = 2 * 60 * 60 * 1000; // server: no walk-in within 2h of a confirmed booking
+
+const fmtSlotTime = (ms: number) =>
+  new Date(ms).toLocaleTimeString("en-US", { timeZone: "Asia/Singapore", hour: "numeric", minute: "2-digit" });
+
+// A table's bookings for the day as "3:30–5:00 PM" ranges, back-to-back ones joined.
+function bookedRanges(bookings: DayBooking[]): string[] {
+  const sorted = [...bookings].sort((a, b) => a.start - b.start);
+  const merged: { start: number; end: number }[] = [];
+  for (const b of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && b.start <= last.end) merged[merged.length - 1] = { ...last, end: Math.max(last.end, b.end) };
+    else merged.push(b);
+  }
+  return merged.map((r) => {
+    const [from, to] = [fmtSlotTime(r.start), fmtSlotTime(r.end)];
+    const samePeriod = from.slice(-2) === to.slice(-2);
+    return `${samePeriod ? from.slice(0, -3) : from}–${to}`;
+  });
+}
 
 function slotToDate(date: Date, slot: string): Date {
   return sgSlotToUTC(date, slot);
@@ -128,6 +169,32 @@ const Booking = () => {
       });
     },
     enabled: !!selectedTable && !!selectedDate,
+    refetchInterval: 30000,
+    staleTime: 0,
+  });
+
+  // Every table's bookings on the chosen date in one request, so each table card can show
+  // its booked times up front instead of customers opening the tables one by one.
+  const { data: dayBookingsByTable } = useQuery({
+    queryKey: ["all-tables-day-bookings", selectedDate ? getSGDateStr(selectedDate) : null],
+    queryFn: () => fetchBookingsByTable(getSGDateStr(selectedDate!)),
+    enabled: !!selectedDate,
+    refetchInterval: 30000,
+    staleTime: 0,
+  });
+  // Walk-ins start now, whatever date is being browsed — so their check uses today's (and,
+  // after midnight, into tomorrow's) bookings: the server refuses a walk-in while a booking
+  // is running or one starts within 2 hours.
+  const todayStr = getSGDateStr(new Date());
+  const tomorrowStr = getSGDateStr(new Date(Date.now() + 24 * 60 * 60 * 1000));
+  const { data: walkinBookingsByTable } = useQuery({
+    queryKey: ["walkin-blocking-bookings", todayStr],
+    queryFn: async () => {
+      const [a, b] = await Promise.all([fetchBookingsByTable(todayStr), fetchBookingsByTable(tomorrowStr)]);
+      const merged: Record<string, DayBooking[]> = { ...a };
+      for (const [k, v] of Object.entries(b)) merged[k] = [...(merged[k] ?? []), ...v];
+      return merged;
+    },
     refetchInterval: 30000,
     staleTime: 0,
   });
@@ -882,7 +949,32 @@ const Booking = () => {
                       !activeWalkin &&
                       table.status === "Available" &&
                       !!table.hardware_id;
+                    // Same rule as the server, so the button is greyed out with the reason instead of
+                    // failing after a tap: a booking running now, or a confirmed one within 2 hours.
+                    const nowMs = Date.now();
+                    const walkinBlocker = [
+                      ...(walkinBookingsByTable?.[String(table.id)] ?? []),
+                      ...(table.hardware_id ? walkinBookingsByTable?.[String(table.hardware_id)] ?? [] : []),
+                    ]
+                      .filter((b) => (b.start <= nowMs && b.end > nowMs) || (b.confirmed && b.start > nowMs && b.start <= nowMs + WALKIN_BOOKING_GAP_MS))
+                      .sort((a, b) => a.start - b.start)[0];
+                    const walkinBlockedReason = !walkinBlocker ? null
+                      : walkinBlocker.start <= nowMs ? "Booked now — no walk-in"
+                      : `Booked at ${fmtSlotTime(walkinBlocker.start)} — no walk-in`;
                     const isChinese = [7, 8, 11, 12].includes(table.table_number);
+                    // At a glance: green = free (now, when browsing today), yellow = booked now, or for
+                    // another date some times are booked; the booked times are listed under it.
+                    const isToday = isTodaySG(selectedDate);
+                    const dayBookings = [
+                      ...(dayBookingsByTable?.[String(table.id)] ?? []),
+                      ...(table.hardware_id ? dayBookingsByTable?.[String(table.hardware_id)] ?? [] : []),
+                    ].filter((b) => !isToday || b.end > Date.now());
+                    const ranges = bookedRanges(dayBookings);
+                    const shownStatus: TableStatus = !bookable
+                      ? table.status
+                      : (isToday ? table.status === "Booked" : ranges.length > 0) ? "Booked" : "Available";
+                    const statusLabel = shownStatus === "Booked" ? (isToday ? "Booked now" : "Some times booked")
+                      : shownStatus === "Available" ? (isToday ? "Free now" : "Available") : shownStatus;
                     return (
                       <div key={table.id} className="flex flex-col gap-2">
                         <button
@@ -891,6 +983,8 @@ const Booking = () => {
                           className={`rounded-xl border p-4 text-left transition-all duration-200 ${
                             selectedTable === table.id
                               ? "border-accent ring-2 ring-accent/20 bg-accent/5"
+                              : shownStatus === "Booked" ? "border-yellow-500/40 hover:border-yellow-500/60 hover:bg-card"
+                              : shownStatus === "Available" ? "border-emerald-500/30 hover:border-emerald-500/50 hover:bg-card"
                               : "border-border hover:border-muted-foreground/30 hover:bg-card"
                           } ${!bookable ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
                         >
@@ -898,10 +992,13 @@ const Booking = () => {
                           <p className={`text-xs mt-0.5 ${isChinese ? "text-blue-400" : "text-amber-400"}`}>
                             {isChinese ? "Chinese Pool" : "American Pool"}
                           </p>
-                          {!bookable && (
-                            <Badge variant="outline" className={`mt-2 text-xs ${statusColor[table.status]}`}>
-                              {table.status}
-                            </Badge>
+                          <Badge variant="outline" className={`mt-2 text-xs ${statusColor[shownStatus]}`}>
+                            {statusLabel}
+                          </Badge>
+                          {bookable && ranges.length > 0 && (
+                            <p className="mt-1.5 text-[11px] leading-snug text-yellow-400/90">
+                              Booked {ranges.slice(0, 3).join(", ")}{ranges.length > 3 ? ` +${ranges.length - 3} more` : ""}
+                            </p>
                           )}
                         </button>
                         {canStartWalkin && (
@@ -909,11 +1006,11 @@ const Booking = () => {
                             size="sm"
                             variant="outline"
                             className="gap-1 text-xs border-accent/30 text-accent hover:bg-accent/10"
-                            disabled={startWalkin.isPending}
+                            disabled={startWalkin.isPending || !!walkinBlockedReason}
                             onClick={() => setWalkinConfirmTable(table)}
                           >
                             <Timer className="h-3 w-3" />
-                            {startWalkin.isPending ? "Starting..." : "Start Walk-in"}
+                            {walkinBlockedReason ?? (startWalkin.isPending ? "Starting..." : "Start Walk-in")}
                           </Button>
                         )}
                       </div>

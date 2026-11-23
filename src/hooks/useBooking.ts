@@ -105,6 +105,9 @@ export function useTables(startTime: Date | null, endTime: Date | null) {
             status = "Maintenance";
           } else if (liveStatus === "in_use" || t.timerStartedAt || t.timer_started_at || hasActiveWalkin(hardwareId)) {
             status = "In Use";
+          } else if (liveStatus === "booked") {
+            // A booking is running on it right now (the server's liveStatus).
+            status = "Booked";
           } else {
             status = "Available";
           }
