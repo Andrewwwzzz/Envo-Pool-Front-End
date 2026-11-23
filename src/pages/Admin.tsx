@@ -274,10 +274,14 @@ function AutoLabelTables() {
 
 type PeriodKey = "today" | "yesterday" | "this_week" | "this_month" | "last_month" | "this_year" | "all_time" | "custom";
 
+const SALES_DAY_6AM_FROM = Date.parse("2026-11-24T06:00:00+08:00");
+
 function getPeriodRange(period: PeriodKey): { from: string; to: string } {
   const toISO = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const now = new Date();
+  // From 24 Nov 2026 a sales day runs 06:00 → 05:59 (server: businessDayBounds),
+  // so until 6am "Today" is still last night.
+  const now = Date.now() >= SALES_DAY_6AM_FROM ? new Date(Date.now() - 6 * 60 * 60 * 1000) : new Date();
   if (period === "today") {
     return { from: toISO(now), to: toISO(now) };
   }
