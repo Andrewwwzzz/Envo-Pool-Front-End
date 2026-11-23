@@ -1,16 +1,18 @@
 import { useMemo, useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
-import { isTodaySG, nowSGMinutes, sgSlotToUTC } from "@/lib/sgTime";
+import {
+  bookingDaySlots, slotKeyToDate, keyToMinutes, minutesToKey, durationChoices,
+  formatDuration, formatSlotMoment, type BookingDaySlot,
+} from "@/lib/bookingDay";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { isSlotWithinHours, type WeekSchedule } from "@/hooks/useOperatingHours";
 
 type SlotState = "available" | "booked" | "pending" | "past" | "maintenance" | "closed" | "private-only";
 
-interface TimeSlot {
-  time: string;
-  label: string;
+interface TimeSlot extends BookingDaySlot {
   available: boolean;
   state: SlotState;
   userName?: string | null;
@@ -50,27 +52,8 @@ interface TimeSlotPickerProps {
 }
 
 const PENDING_LOCK_MINUTES = 10;
-
-function generateSlots(): { time: string; label: string }[] {
-  const slots: { time: string; label: string }[] = [];
-  for (let h = 0; h < 24; h++) {
-    for (let m = 0; m < 60; m += 30) {
-      const time = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
-      const hour12 = h % 12 || 12;
-      const ampm = h < 12 ? "AM" : "PM";
-      const label = `${hour12}:${m.toString().padStart(2, "0")} ${ampm}`;
-      slots.push({ time, label });
-    }
-  }
-  return slots;
-}
-
-const ALL_SLOTS = generateSlots();
-
-function slotToMinutes(slot: string): number {
-  const [h, m] = slot.split(":").map(Number);
-  return h * 60 + m;
-}
+// Length buttons shown before "More": 1h to 4h.
+const QUICK_DURATIONS = 7;
 
 function formatCountdown(ms: number): string {
   if (ms <= 0) return "0:00";
@@ -117,161 +100,90 @@ export function TimeSlotPicker({
   onSelectStart,
   onSelectEnd,
 }: TimeSlotPickerProps) {
-  const isToday = isTodaySG(date);
-  const nowMinutes = nowSGMinutes();
   const [expiredKey, setExpiredKey] = useState(0);
   const [openInfoSlot, setOpenInfoSlot] = useState<string | null>(null);
+  const [showAllDurations, setShowAllDurations] = useState(false);
+  // Re-check "past" slots every minute while the page stays open.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 60000);
+    return () => clearInterval(id);
+  }, []);
 
-  const slotAvailability = useMemo(() => {
-    const currentTimeMs = Date.now();
+  const slotAvailability: TimeSlot[] = useMemo(() => {
+    const pendingCutoffMs = Date.now() - PENDING_LOCK_MINUTES * 60 * 1000;
+    const none = { userName: null, expiresAt: null, maintenanceReason: null };
 
-    return ALL_SLOTS.map((slot) => {
-      const slotMin = slotToMinutes(slot.time);
-      const slotEndMin = slotMin + 30;
+    return bookingDaySlots(date).map((slot) => {
+      const slotStart = slotKeyToDate(date, slot.key);
+      const slotEnd = new Date(slotStart.getTime() + 30 * 60 * 1000);
 
-      // A slot is only "past" once it has fully ended. The slot containing the
-      // current minute (e.g. 9:00 slot at 9:01) remains selectable.
-      if (isToday && slotEndMin <= nowMinutes) {
-        return { ...slot, available: false, state: "past" as const, userName: null, expiresAt: null, maintenanceReason: null };
-      }
+      // A slot is only "past" once it has fully ended — the current half-hour stays selectable.
+      if (slotEnd.getTime() <= nowMs) return { ...slot, available: false, state: "past" as const, ...none };
 
-      // Outside configured operating hours
+      // Opening hours are checked on the calendar date the slot falls on (after midnight = next date).
       if (operatingHours) {
-        const hoursResult = isSlotWithinHours(operatingHours, date, slot.time, phDates, phCloseTime, hasPrivateMembership);
-        if (hoursResult === false) {
-          return { ...slot, available: false, state: "closed" as const, userName: null, expiresAt: null, maintenanceReason: null };
-        }
-        if (hoursResult === "private-only") {
-          return { ...slot, available: false, state: "private-only" as const, userName: null, expiresAt: null, maintenanceReason: null };
-        }
+        const hoursResult = isSlotWithinHours(operatingHours, slot.calendarDate, slot.clock, phDates, phCloseTime, hasPrivateMembership);
+        if (hoursResult === false) return { ...slot, available: false, state: "closed" as const, ...none };
+        if (hoursResult === "private-only") return { ...slot, available: false, state: "private-only" as const, ...none };
       }
 
-      const slotStartStr = `${Math.floor(slotMin / 60).toString().padStart(2, "0")}:${(slotMin % 60).toString().padStart(2, "0")}`;
-      const slotEndStr = `${Math.floor(slotEndMin / 60).toString().padStart(2, "0")}:${(slotEndMin % 60).toString().padStart(2, "0")}`;
-      const slotStart = sgSlotToUTC(date, slotStartStr);
-      const slotEnd = sgSlotToUTC(date, slotEndStr);
+      const overlaps = (from: string | undefined, to: string | undefined) => {
+        const a = new Date(from || ""), b = new Date(to || "");
+        return !isNaN(a.getTime()) && !isNaN(b.getTime()) && a < slotEnd && b > slotStart;
+      };
 
-      // Check maintenance windows first
-      const maintenance = maintenanceWindows.find((w) => {
-        const wStart = new Date(w.startTime || w.start_time || "");
-        const wEnd = new Date(w.endTime || w.end_time || "");
-        if (isNaN(wStart.getTime()) || isNaN(wEnd.getTime())) return false;
-        return wStart < slotEnd && wEnd > slotStart;
-      });
-
+      const maintenance = maintenanceWindows.find((w) => overlaps(w.startTime || w.start_time, w.endTime || w.end_time));
       if (maintenance) {
-        return { ...slot, available: false, state: "maintenance" as const, userName: null, expiresAt: null, maintenanceReason: maintenance.reason || "Maintenance" };
+        return { ...slot, available: false, state: "maintenance" as const, ...none, maintenanceReason: maintenance.reason || "Maintenance" };
       }
 
-      // Check confirmed
-      const confirmedBooking = bookedSlots.find((b) => {
-        if (b.status !== "confirmed") return false;
-        const bStart = new Date(b.start_time);
-        const bEnd = new Date(b.end_time);
-        const overlaps = bStart < slotEnd && bEnd > slotStart;
-        if (overlaps) console.log("SLOT BLOCKED (confirmed):", slot.time, "by booking", b.start_time, "→", b.end_time);
-        return overlaps;
-      });
-
+      const confirmedBooking = bookedSlots.find((b) => b.status === "confirmed" && overlaps(b.start_time, b.end_time));
       if (confirmedBooking) {
-        return { ...slot, available: false, state: "booked" as const, userName: confirmedBooking.user_name, expiresAt: null, maintenanceReason: null };
+        return { ...slot, available: false, state: "booked" as const, ...none, userName: confirmedBooking.user_name };
       }
 
-      // Check pending
-      const pendingCutoffMs = currentTimeMs - PENDING_LOCK_MINUTES * 60 * 1000;
-      const pendingBooking = bookedSlots.find((b) => {
-        if (b.status !== "pending") return false;
-        if (new Date(b.created_at).getTime() <= pendingCutoffMs) return false;
-        const bStart = new Date(b.start_time);
-        const bEnd = new Date(b.end_time);
-        const overlaps = bStart < slotEnd && bEnd > slotStart;
-        if (overlaps) console.log("SLOT BLOCKED (pending):", slot.time, "by booking", b.start_time, "→", b.end_time);
-        return overlaps;
-      });
-
+      const pendingBooking = bookedSlots.find((b) =>
+        b.status === "pending" && new Date(b.created_at).getTime() > pendingCutoffMs && overlaps(b.start_time, b.end_time));
       if (pendingBooking) {
-        return { ...slot, available: false, state: "pending" as const, userName: pendingBooking.user_name, expiresAt: pendingBooking.expires_at, maintenanceReason: null };
+        return { ...slot, available: false, state: "pending" as const, ...none, userName: pendingBooking.user_name, expiresAt: pendingBooking.expires_at };
       }
 
-      return { ...slot, available: true, state: "available" as const, userName: null, expiresAt: null, maintenanceReason: null };
+      return { ...slot, available: true, state: "available" as const, ...none };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, bookedSlots, maintenanceWindows, operatingHours, isToday, nowMinutes, expiredKey]);
+  }, [date, bookedSlots, maintenanceWindows, operatingHours, phDates, phCloseTime, hasPrivateMembership, nowMs, expiredKey]);
 
-  const startMinutes = startSlot ? slotToMinutes(startSlot) : null;
-  // If end slot is before 4 AM and start is at/after 10 AM, the end is on the next
-  // calendar day — add 1440 minutes so range comparisons stay consistent.
-  const rawEndMinutes = endSlot ? slotToMinutes(endSlot) : null;
-  const endMinutes =
-    rawEndMinutes !== null && startMinutes !== null &&
-    rawEndMinutes < 4 * 60 && startMinutes >= 10 * 60
-      ? rawEndMinutes + 1440
-      : rawEndMinutes;
+  const startIndex = startSlot ? slotAvailability.findIndex((s) => s.key === startSlot) : -1;
+  const startMin = startSlot ? keyToMinutes(startSlot) : null;
+  const endMin = endSlot ? keyToMinutes(endSlot) : null;
+  const choices = startIndex >= 0 ? durationChoices(slotAvailability.map((s) => s.available), startIndex) : [];
+  const shownChoices = showAllDurations ? choices : choices.slice(0, QUICK_DURATIONS);
+
+  // A start that's no longer free (someone else booked it, or its half-hour passed) is cleared.
+  useEffect(() => {
+    if (startSlot && (startIndex < 0 || !slotAvailability[startIndex].available)) {
+      onSelectStart("");
+      onSelectEnd("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startSlot, startIndex, slotAvailability]);
 
   const handleSlotClick = (slot: TimeSlot) => {
     if (!slot.available) return;
-
-    if (!startSlot || (startSlot && endSlot)) {
-      onSelectStart(slot.time);
-      onSelectEnd("");
-      return;
-    }
-
-    const startMin = slotToMinutes(startSlot);
-    const rawClickedMin = slotToMinutes(slot.time);
-    // Overnight: early-morning slots (before 4 AM) are "next day" relative to
-    // a start at 10 AM or later — give them +1440 minutes for comparison.
-    const effectiveClickedMin =
-      rawClickedMin < 4 * 60 && startMin >= 10 * 60
-        ? rawClickedMin + 1440
-        : rawClickedMin;
-
-    if (effectiveClickedMin <= startMin) {
-      onSelectStart(slot.time);
-      onSelectEnd("");
-      return;
-    }
-
-    const allAvailable = slotAvailability.every((s) => {
-      const sMin = slotToMinutes(s.time);
-      const effectiveSMin = sMin < 4 * 60 && startMin >= 10 * 60 ? sMin + 1440 : sMin;
-      if (effectiveSMin >= startMin && effectiveSMin < effectiveClickedMin) {
-        return s.available;
-      }
-      return true;
-    });
-
-    if (!allAvailable) {
-      onSelectStart(slot.time);
-      onSelectEnd("");
-      return;
-    }
-
-    // Compute end-time string; wrap at midnight (e.g. 23:30 → end is "00:00")
-    const rawEndMin = rawClickedMin + 30;
-    const endHour = Math.floor(rawEndMin / 60) % 24;
-    const endTime = `${endHour.toString().padStart(2, "0")}:${(rawEndMin % 60).toString().padStart(2, "0")}`;
-    onSelectEnd(endTime);
+    // Tapping a slot always (re)sets the start; the length is chosen with the buttons below.
+    onSelectStart(slot.key);
+    onSelectEnd("");
+    setShowAllDurations(false);
   };
 
-  const isInRange = (slotTime: string) => {
-    if (startMinutes === null || endMinutes === null) return false;
-    const min = slotToMinutes(slotTime);
-    const effective = min < 4 * 60 && startMinutes >= 10 * 60 ? min + 1440 : min;
-    return effective >= startMinutes && effective < endMinutes;
+  const chooseDuration = (minutes: number) => {
+    if (startMin === null) return;
+    onSelectEnd(minutesToKey(startMin + minutes));
   };
 
-  const isStart = (slotTime: string) => startSlot === slotTime;
-
-  const duration = startSlot && endSlot
-    ? (() => {
-        let mins = slotToMinutes(endSlot) - slotToMinutes(startSlot);
-        if (mins <= 0) mins += 1440; // overnight crossing
-        const h = Math.floor(mins / 60);
-        const m = mins % 60;
-        return h > 0 && m > 0 ? `${h}h ${m}m` : h > 0 ? `${h}h` : `${m}m`;
-      })()
-    : null;
+  const isInRange = (slot: TimeSlot) =>
+    startMin !== null && endMin !== null && slot.offsetMin >= startMin && slot.offsetMin < endMin;
 
   const handleExpired = () => {
     setExpiredKey((k) => k + 1);
@@ -280,34 +192,35 @@ export function TimeSlotPicker({
   return (
     <TooltipProvider delayDuration={200}>
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div>
         <Label className="text-base">
           {format(date, "EEEE, d MMM yyyy")} — Available Slots
         </Label>
-        {duration && (
-          <span className="text-sm text-accent font-medium">
-            Duration: {duration}
-          </span>
-        )}
+        <p className="text-xs text-muted-foreground mt-0.5">From 6:00 AM, through midnight, to 6:00 AM the next morning.</p>
       </div>
 
-      {!startSlot && (
-        <p className="text-sm text-muted-foreground">Click a slot to set your start time</p>
-      )}
-      {startSlot && !endSlot && (
-        <p className="text-sm text-muted-foreground">Click another slot to set your end time</p>
-      )}
+      <p className="text-sm text-muted-foreground">
+        {startSlot ? "Now choose how long you'll play below — or tap another slot to change the start." : "Tap the time you want to start."}
+      </p>
 
       <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5">
-        {slotAvailability.map((slot) => {
-          const inRange = isInRange(slot.time);
-          const isStartSlot = isStart(slot.time);
+        {slotAvailability.map((slot, index) => {
+          const inRange = isInRange(slot);
+          const isStartSlot = startSlot === slot.key;
           const displayName = getDisplayName(slot.userName, slot.state);
-          const isInfoOpen = openInfoSlot === slot.time;
+          const isInfoOpen = openInfoSlot === slot.key;
+          // Divider where the night crosses midnight onto the next date.
+          const midnightDivider = slot.nextDay && !slotAvailability[index - 1]?.nextDay ? (
+            <div key="after-midnight" className="col-span-full flex items-center gap-2 pt-2 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              After midnight — {format(slot.calendarDate, "EEE d MMM")}
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          ) : null;
 
           const slotButton = (
             <button
-              key={slot.time}
+              key={slot.key}
               onClick={() => handleSlotClick(slot)}
               disabled={!slot.available}
               className={cn(
@@ -346,13 +259,13 @@ export function TimeSlotPicker({
                     ? "This table is currently being reserved. It may become available if payment is not completed."
                     : "This slot is booked.";
 
-            return (
-              <Tooltip key={slot.time} open={isInfoOpen} onOpenChange={(o) => setOpenInfoSlot(o ? slot.time : null)}>
+            const withInfo = (
+              <Tooltip key={slot.key} open={isInfoOpen} onOpenChange={(o) => setOpenInfoSlot(o ? slot.key : null)}>
                 <TooltipTrigger asChild>
                   <div
                     role="button"
                     tabIndex={0}
-                    onClick={() => setOpenInfoSlot((cur) => (cur === slot.time ? null : slot.time))}
+                    onClick={() => setOpenInfoSlot((cur) => (cur === slot.key ? null : slot.key))}
                     className="w-full"
                   >
                     {slotButton}
@@ -363,11 +276,54 @@ export function TimeSlotPicker({
                 </TooltipContent>
               </Tooltip>
             );
+            return midnightDivider ? [midnightDivider, withInfo] : withInfo;
           }
 
-          return slotButton;
+          return midnightDivider ? [midnightDivider, slotButton] : slotButton;
         })}
       </div>
+
+      {startSlot && startMin !== null && (
+        <div className="rounded-lg border border-accent/30 bg-accent/5 p-3 space-y-2.5">
+          <p className="text-sm">
+            Start: <span className="font-medium">{formatSlotMoment(slotKeyToDate(date, startSlot))}</span>
+          </p>
+          {choices.length === 0 ? (
+            <p className="text-sm text-destructive">Less than 1 hour is free from this time — tap another start time.</p>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">How long will you play?</p>
+              <div className="flex flex-wrap gap-1.5">
+                {shownChoices.map((minutes) => {
+                  const chosen = endMin !== null && endMin - startMin === minutes;
+                  return (
+                    <Button
+                      key={minutes}
+                      type="button"
+                      size="sm"
+                      variant={chosen ? "default" : "outline"}
+                      className={cn("h-8 px-3 text-xs", !chosen && "border-accent/40")}
+                      onClick={() => chooseDuration(minutes)}
+                    >
+                      {minutes % 60 ? `${Math.floor(minutes / 60)}.5h` : `${minutes / 60}h`}
+                    </Button>
+                  );
+                })}
+                {!showAllDurations && choices.length > QUICK_DURATIONS && (
+                  <Button type="button" size="sm" variant="ghost" className="h-8 px-3 text-xs" onClick={() => setShowAllDurations(true)}>
+                    More…
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
+          {endSlot && endMin !== null && (
+            <p className="text-sm font-medium text-accent">
+              {formatSlotMoment(slotKeyToDate(date, startSlot))} → {formatSlotMoment(slotKeyToDate(date, endSlot))} · {formatDuration(endMin - startMin)}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-1">
         <span className="flex items-center gap-1.5">

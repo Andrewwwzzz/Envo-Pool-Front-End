@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useTables, TableStatus, validateDuration } from "@/hooks/useBooking";
+import { slotKeyToDate, currentBookingDate, isCurrentBookingDay, bookingDayWindow, bookingDayCalendarDates } from "@/lib/bookingDay";
 import { usePricingRules } from "@/hooks/usePricing";
 import { useValidatePromo, PromoValidation } from "@/hooks/usePromo";
 import { validateRewardCode, Reward } from "@/hooks/useRewards";
@@ -25,7 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { apiFetch, BASE_URL } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isBefore } from "date-fns";
-import { todaySG, sgSlotToUTC, sgDayBoundsUTC, isTodaySG, toSG, getSGDateStr, isWithinCurrentOperatingDay, fmtTimeSG } from "@/lib/sgTime";
+import { toSG, getSGDateStr, isWithinCurrentOperatingDay, fmtTimeSG } from "@/lib/sgTime";
 import WalkinSessionPanel from "@/components/WalkinSessionPanel";
 import { CampaignPopup } from "@/components/CampaignPopup";
 import { MobileBottomNav, BOTTOM_NAV_PADDING } from "@/components/MobileBottomNav";
@@ -81,8 +82,9 @@ function bookedRanges(bookings: DayBooking[]): string[] {
   });
 }
 
+// Slot keys past "24:00" are the next morning (the booking day runs 06:00 → 06:00).
 function slotToDate(date: Date, slot: string): Date {
-  return sgSlotToUTC(date, slot);
+  return slotKeyToDate(date, slot);
 }
 
 // A membership's plan (populated planId, or a flattened `plan`) and its benefits
@@ -117,7 +119,8 @@ const Booking = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
-  const today = useMemo(() => todaySG(), []);
+  // Before 6am it's still last night's booking day, so that date stays bookable.
+  const today = useMemo(() => currentBookingDate(), []);
 
   const { data: tables, isLoading: tablesLoading } = useTables(null, null);
   const { data: activeWalkin } = useMyWalkinSession();
@@ -143,15 +146,23 @@ const Booking = () => {
       if (!selectedTable || !selectedDate) return [];
       // Use hardware_id if available, fall back to MongoDB _id
       const tableRef = selectedTableData_pre?.hardware_id || selectedTable;
-      const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
-
-      // Backend now filters by table + date + status.
-      const res = await apiFetch(
-        `/api/bookings?tableId=${encodeURIComponent(tableRef)}&date=${dateStr}&status=confirmed,pending_payment`
-      );
-      if (!res.ok) throw new Error("Failed to fetch bookings");
-      const data = await res.json();
-      const filtered: any[] = Array.isArray(data) ? data : (data?.bookings || []);
+      // The booking day runs 06:00 → 06:00, so it spans two calendar dates; a booking
+      // across midnight comes back for both, hence the de-duplication.
+      const lists = await Promise.all(bookingDayCalendarDates(selectedDate).map(async (dateStr) => {
+        const res = await apiFetch(
+          `/api/bookings?tableId=${encodeURIComponent(tableRef)}&date=${dateStr}&status=confirmed,pending_payment`
+        );
+        if (!res.ok) throw new Error("Failed to fetch bookings");
+        const data = await res.json();
+        return (Array.isArray(data) ? data : (data?.bookings || [])) as any[];
+      }));
+      const seen = new Set<string>();
+      const filtered = lists.flat().filter((b) => {
+        const id = String(b._id ?? `${b.startTime}|${b.endTime}`);
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
 
 
       return filtered.map((b: any) => {
@@ -177,7 +188,21 @@ const Booking = () => {
   // its booked times up front instead of customers opening the tables one by one.
   const { data: dayBookingsByTable } = useQuery({
     queryKey: ["all-tables-day-bookings", selectedDate ? getSGDateStr(selectedDate) : null],
-    queryFn: () => fetchBookingsByTable(getSGDateStr(selectedDate!)),
+    queryFn: async () => {
+      const dayWindow = bookingDayWindow(selectedDate!);
+      const byDate = await Promise.all(bookingDayCalendarDates(selectedDate!).map(fetchBookingsByTable));
+      const merged: Record<string, DayBooking[]> = {};
+      for (const day of byDate) {
+        for (const [table, list] of Object.entries(day)) {
+          for (const b of list) {
+            if (b.start >= dayWindow.end || b.end <= dayWindow.start) continue;
+            const existing = merged[table] ?? [];
+            if (!existing.some((x) => x.start === b.start && x.end === b.end)) merged[table] = [...existing, b];
+          }
+        }
+      }
+      return merged;
+    },
     enabled: !!selectedDate,
     refetchInterval: 30000,
     staleTime: 0,
@@ -252,11 +277,7 @@ const Booking = () => {
   const startDate = selectedDate && startSlot ? slotToDate(selectedDate, startSlot) : null;
   const endDate = (() => {
     if (!selectedDate || !endSlot) return null;
-    const end = slotToDate(selectedDate, endSlot);
-    // If the computed end is not after start, the session crosses midnight —
-    // shift the end forward by 24 hours to place it on the next calendar day.
-    if (startDate && end <= startDate) return new Date(end.getTime() + 24 * 60 * 60 * 1000);
-    return end;
+    return slotToDate(selectedDate, endSlot);
   })();
 
   const publicHolidayDateSet = useMemo(
@@ -856,18 +877,10 @@ const Booking = () => {
       // browsing today. A table busy right now will surely be free again
       // by a future date, so it shouldn't block selecting that date; the
       // actual time slot is still checked precisely in step 3.
+      // The booking day runs to 06:00, so tonight's after-midnight hours are on
+      // today's date — only the current booking day is blocked by a live session.
       if (!selectedDate) return false;
-      if (isTodaySG(selectedDate)) return false;
-      // Business hours don't reset at calendar midnight — a session still
-      // running late tonight can spill into tomorrow's earliest hours
-      // before the venue reopens. In that late-night/pre-open window,
-      // keep tomorrow blocked too; any date further out is unaffected.
-      const nowSGTHour = toSG(new Date()).getHours();
-      const inOvernightSpilloverWindow = nowSGTHour >= 21 || nowSGTHour < 4;
-      if (inOvernightSpilloverWindow) {
-        const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-        if (getSGDateStr(selectedDate) === getSGDateStr(tomorrow)) return false;
-      }
+      if (isCurrentBookingDay(selectedDate)) return false;
     }
     return true;
   };
@@ -964,7 +977,7 @@ const Booking = () => {
                     const isChinese = [7, 8, 11, 12].includes(table.table_number);
                     // At a glance: green = free (now, when browsing today), yellow = booked now, or for
                     // another date some times are booked; the booked times are listed under it.
-                    const isToday = isTodaySG(selectedDate);
+                    const isToday = isCurrentBookingDay(selectedDate);
                     const dayBookings = [
                       ...(dayBookingsByTable?.[String(table.id)] ?? []),
                       ...(table.hardware_id ? dayBookingsByTable?.[String(table.hardware_id)] ?? [] : []),
