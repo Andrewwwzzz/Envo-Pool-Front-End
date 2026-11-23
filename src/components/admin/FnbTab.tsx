@@ -18,11 +18,12 @@ import { apiFetch } from "@/lib/api";
 import {
   useAdminFnbOrders, useAdminMenu, useServeOrder, useCancelFnbOrder,
   useCreateProduct, useUpdateProduct, useRestockProduct, useDeleteProduct, useSetProductImage, productImageSrc,
-  useFnbStatus, useSetFnbStatus, usePlaceStaffOrder, useEditFnbOrderPaymentMethod,
+  useFnbStatus, useSetFnbStatus, usePlaceStaffOrder, usePlaceStaffCart, useSaveFoodBundle, useEditFnbOrderPaymentMethod,
   FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, getCategoryGroup, CategoryGroup,
   priceOf,
 } from "@/hooks/useFnb";
 import { fmtDateTimeSG, getSGDateStr, nowSG } from "@/lib/sgTime";
+import { foodBundleSavings, cartUnits } from "@/lib/fnbBundle";
 import { useAdminGmailPayments, useAdminCustomers } from "@/hooks/useAdmin";
 import { PayNowVerifyIcon } from "@/components/admin/PayNowVerifyIcon";
 import { useToast } from "@/hooks/use-toast";
@@ -178,11 +179,46 @@ function FnbCountdown({ resumeAt }: { resumeAt: string }) {
 type CartLine = { product: FnbProduct; qty: number; sauce: "chilli" | "ketchup" | null; nacho: boolean };
 const lineKey = (l: Pick<CartLine, "product" | "sauce" | "nacho">) => `${l.product._id}|${l.sauce ?? ""}|${l.nacho ? "1" : "0"}`;
 
+// Any N Finger Food items for a fixed price (admins only) — applied automatically to carts.
+function FoodBundleCard() {
+  const { data: fnbStatus } = useFnbStatus();
+  const save = useSaveFoodBundle();
+  const config = fnbStatus?.foodBundle;
+  const [size, setSize] = useState("");
+  const [price, setPrice] = useState("");
+  useEffect(() => {
+    if (config) { setSize(String(config.size)); setPrice(config.price.toFixed(2)); }
+  }, [config?.size, config?.price]);
+  if (!config) return null;
+  const changed = Number(size) !== config.size || Number(price) !== config.price;
+  return (
+    <Card className="border-border/50">
+      <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p className="font-semibold text-sm">Food bundle — {config.enabled ? "On" : "Off"}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Any {config.size} Finger Food items in one order for ${config.price.toFixed(2)} (customer app and Place Order).</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input className="h-8 w-14" type="number" min={2} max={10} value={size} onChange={(e) => setSize(e.target.value)} aria-label="Items in the bundle" />
+          <span className="text-xs text-muted-foreground">for $</span>
+          <Input className="h-8 w-20" type="number" min={0} step="0.10" value={price} onChange={(e) => setPrice(e.target.value)} aria-label="Bundle price" />
+          {changed && (
+            <Button size="sm" variant="outline" disabled={save.isPending} onClick={() => save.mutate({ enabled: config.enabled, size: Number(size), price: Number(price) })}>Save</Button>
+          )}
+          <Switch checked={config.enabled} disabled={save.isPending} onCheckedChange={(on) => save.mutate({ enabled: on, size: config.size, price: config.price })} aria-label="Food bundle on or off" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { toast } = useToast();
   const { data: tables = [] } = useAdminTables();
   const { data: products = [] } = useAdminMenu();
   const placeOrder = usePlaceStaffOrder();
+  const placeCart = usePlaceStaffCart();
+  const { data: fnbStatus } = useFnbStatus();
 
   const runningTables = tables.filter((t: any) => !!t.timer_started_at);
   const availableProducts = products.filter((p) => p.isActive && p.stock >= Math.max(1, p.piecesPerUnit || 1));
@@ -240,7 +276,13 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
     : availableProducts;
 
   const selectedTable = runningTables.find((t: any) => t.id === tableId);
-  const total = cart.reduce((s, l) => s + (priceOf(l.product)) * l.qty, 0);
+  const listTotal = cart.reduce((s, l) => s + (priceOf(l.product)) * l.qty, 0);
+  // Any 3 Finger Food items are a bundle — not for a free redemption (a single item). The server prices it.
+  const foodBundle = fnbStatus?.foodBundle;
+  const bundle = payment === "free"
+    ? { savings: 0, bundles: 0 }
+    : foodBundleSavings(cartUnits(cart.map((l) => ({ category: l.product.category, price: priceOf(l.product), qty: l.qty }))), foodBundle);
+  const total = Math.round((listTotal - bundle.savings) * 100) / 100;
 
   const addLineToCart = (line: Omit<CartLine, "qty">) => {
     setCart((prev) => {
@@ -269,36 +311,43 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
       .filter((l) => l.qty > 0));
   };
 
+  const tableLabel = tableId ? `Table ${selectedTable?.table_number}` : undefined;
+
   const handleSubmit = async () => {
     if (cart.length === 0) return;
     setSubmitting(true);
-    let succeeded = 0;
-    let failed = 0;
-    for (const line of cart) {
-      for (let i = 0; i < line.qty; i++) {
-        try {
-          await placeOrder.mutateAsync({
-            productId: line.product._id,
-            ...(line.product.hasSauceOptions ? { selectedSauce: line.sauce ?? undefined, nachoCheeseAddOn: line.nacho } : {}),
-            ...(customerId ? { userId: customerId } : {}),
-            ...(payment === "free"
-              ? { isFreeRedemption: true, tableId: tableId || undefined, tableName: tableId ? `Table ${selectedTable?.table_number}` : undefined }
-              : payment === "charge_to_table"
-              ? { chargeToTable: true, tableRefId: tableId, tableName: `Table ${selectedTable?.table_number}` }
-              : { paymentMethod: payment, tableId: tableId || undefined, tableName: tableId ? `Table ${selectedTable?.table_number}` : undefined }),
-          });
-          succeeded++;
-        } catch {
-          failed++;
-        }
+    try {
+      if (payment === "free") {
+        // A free redemption is always exactly one item (canRedeemFree).
+        const line = cart[0];
+        await placeOrder.mutateAsync({
+          productId: line.product._id,
+          ...(line.product.hasSauceOptions ? { selectedSauce: line.sauce ?? undefined } : {}),
+          ...(customerId ? { userId: customerId } : {}),
+          isFreeRedemption: true, tableId: tableId || undefined, tableName: tableLabel,
+        });
+        toast({ title: "1 item ordered" });
+      } else {
+        // The whole cart in one go — all or nothing, and the server applies food bundles.
+        const out = await placeCart.mutateAsync({
+          items: cart.map((l) => ({
+            productId: l.product._id,
+            quantity: l.qty,
+            ...(l.product.hasSauceOptions && l.sauce ? { selectedSauce: l.sauce } : {}),
+          })),
+          ...(customerId ? { userId: customerId } : {}),
+          paymentMethod: payment,
+          ...(payment === "charge_to_table" ? { tableRefId: tableId } : {}),
+          tableId: tableId || undefined,
+          tableName: tableLabel,
+        });
+        toast({ title: out.message, description: out.savings > 0 ? `Food bundle: −$${out.savings.toFixed(2)}` : undefined });
       }
-    }
-    setSubmitting(false);
-    if (failed === 0) {
-      toast({ title: `${succeeded} item${succeeded === 1 ? "" : "s"} ordered` });
       onOpenChange(false);
-    } else {
-      toast({ title: `${succeeded} ordered, ${failed} failed`, description: "Check stock levels for the failed items.", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Order failed — nothing was charged", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -379,6 +428,12 @@ function PlaceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
                   );
                 })}
               </div>
+              {bundle.savings > 0 && (
+                <div className="flex justify-between text-sm text-green-400 px-1">
+                  <span>Food bundle{bundle.bundles > 1 ? ` × ${bundle.bundles}` : ""} (any {foodBundle?.size} for ${foodBundle?.price.toFixed(2)})</span>
+                  <span>−${bundle.savings.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm font-semibold px-1">
                 <span>Total</span>
                 <span>${total.toFixed(2)}</span>
@@ -816,6 +871,8 @@ export function FnbTab() {
         </CardContent>
       </Card>
 
+      {canDeleteProducts && <FoodBundleCard />}
+
       <PlaceOrderDialog open={placeOrderOpen} onOpenChange={setPlaceOrderOpen} />
       <EditPaymentMethodDialog open={!!editPaymentOrder} onOpenChange={(o) => !o && setEditPaymentOrder(null)} order={editPaymentOrder} />
 
@@ -995,6 +1052,7 @@ export function FnbTab() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-foreground">{order.productName}</p>
                           {statusBadge(order.status)}
+                          {order.bundleId && <Badge variant="outline" className="border-green-600/50 text-green-400 text-[10px]">Food bundle</Badge>}
                         </div>
                         <p className="text-sm text-muted-foreground mt-0.5">
                           {order.userId?.name || "Unknown"} · {order.tableName || "No table"}

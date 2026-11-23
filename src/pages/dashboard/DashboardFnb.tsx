@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import {
-  useMenu, useMyFnbOrders, useRedemptionCheck, usePlaceOrder,
+  useMenu, useMyFnbOrders, useRedemptionCheck, usePlaceOrder, usePlaceCart,
   useFnbStatus, productImageSrc,
   FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS,
   priceOf,
@@ -39,6 +39,7 @@ function ProductPhoto({ product }: { product: FnbProduct }) {
   );
 }
 import { fmtDateTimeSG } from "@/lib/sgTime";
+import { foodBundleSavings, cartUnits } from "@/lib/fnbBundle";
 import { useToast } from "@/hooks/use-toast";
 import { VendingMenu } from "@/components/dashboard/VendingMenu";
 import { useVendingMenu } from "@/hooks/useVending";
@@ -120,6 +121,7 @@ export default function DashboardFnb() {
   const { data: redemption } = useRedemptionCheck();
   const { data: fnbStatus } = useFnbStatus();
   const placeOrder = usePlaceOrder();
+  const placeCart = usePlaceCart();
   const countdown = useCountdown(fnbStatus?.resumeAt);
 
   const [orderMode, setOrderMode] = useState<OrderMode>(TABLE_DELIVERY_ENABLED ? "table" : "vending");
@@ -166,7 +168,11 @@ export default function DashboardFnb() {
     );
   };
 
-  const cartTotal = cart.reduce((s, l) => s + (priceOf(l.product)) * l.qty, 0);
+  const cartListTotal = cart.reduce((s, l) => s + (priceOf(l.product)) * l.qty, 0);
+  // Any 3 Finger Food items are a bundle (the server prices it; this is the preview).
+  const foodBundle = fnbStatus?.foodBundle;
+  const bundle = foodBundleSavings(cartUnits(cart.map((l) => ({ category: l.product.category, price: priceOf(l.product), qty: l.qty }))), foodBundle);
+  const cartTotal = Math.round((cartListTotal - bundle.savings) * 100) / 100;
 
   const addLineToCart = (line: Omit<CartLine, "qty">) => {
     setCart((prev) => {
@@ -195,41 +201,31 @@ export default function DashboardFnb() {
       .filter((l) => l.qty > 0));
   };
 
+  // The whole cart is one order now (all or nothing), so the server can see and price food bundles.
   const handlePlaceCart = async () => {
     if (cart.length === 0 || !tableOk) return;
     setCartConfirmOpen(false);
     setPlacingCart(true);
-    let succeeded = 0;
-    let failed = 0;
-    const remaining: CartLine[] = [];
-    for (const line of cart) {
-      let lineFailed = 0;
-      for (let i = 0; i < line.qty; i++) {
-        try {
-          await placeOrder.mutateAsync({
-            productId: line.product._id,
-            tableId: tableLabel,
-            tableName: tableLabel,
-            isFreeRedemption: false,
-            ...(line.product.hasSauceOptions ? { selectedSauce: line.sauce ?? undefined, nachoCheeseAddOn: line.nacho } : {}),
-            silent: true,
-          });
-          succeeded++;
-        } catch {
-          failed++;
-          lineFailed++;
-        }
-      }
-      // Keep only the units that didn't go through, so a stock-related
-      // failure leaves the cart ready to retry instead of vanishing.
-      if (lineFailed > 0) remaining.push({ product: line.product, sauce: line.sauce, nacho: line.nacho, qty: lineFailed });
-    }
-    setPlacingCart(false);
-    setCart(remaining);
-    if (failed === 0) {
-      toast({ title: `${succeeded} item${succeeded === 1 ? "" : "s"} ordered!`, description: ASK_TABLE ? `We'll bring it to ${tableLabel} shortly.` : "Collect it at the counter when it's ready." });
-    } else {
-      toast({ title: `${succeeded} ordered, ${failed} failed`, description: "An item may have gone out of stock — remaining items are still in your cart.", variant: "destructive" });
+    try {
+      const out = await placeCart.mutateAsync({
+        items: cart.map((l) => ({
+          productId: l.product._id,
+          quantity: l.qty,
+          ...(l.product.hasSauceOptions && l.sauce ? { selectedSauce: l.sauce } : {}),
+        })),
+        tableId: tableLabel,
+        tableName: tableLabel,
+      });
+      setCart([]);
+      toast({
+        title: `${out.count} item${out.count === 1 ? "" : "s"} ordered!`,
+        description: `${out.savings > 0 ? `Food bundle saved you $${out.savings.toFixed(2)}. ` : ""}${ASK_TABLE ? `We'll bring it to ${tableLabel} shortly.` : "Collect it at the counter when it's ready."}`,
+      });
+    } catch (err) {
+      // Nothing was charged or ordered — the cart stays as it was to try again.
+      toast({ title: "Order failed — nothing was charged", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setPlacingCart(false);
     }
   };
 
@@ -321,6 +317,16 @@ export default function DashboardFnb() {
           <Gift className="h-4 w-4 text-green-400 flex-shrink-0" />
           <p className="text-sm text-green-400">
             <span className="font-medium">Free drink available today!</span> Tap "Redeem Free" on any eligible item.
+          </p>
+        </div>
+      )}
+
+      {/* Food bundle promo */}
+      {foodBundle?.enabled && (
+        <div className="rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 flex items-center gap-2">
+          <Drumstick className="h-4 w-4 text-accent flex-shrink-0" />
+          <p className="text-sm text-accent">
+            <span className="font-medium">Any {foodBundle.size} food for ${foodBundle.price.toFixed(2)}!</span> Add {foodBundle.size} Finger Food items to your cart — the bundle price applies automatically.
           </p>
         </div>
       )}
@@ -455,6 +461,12 @@ export default function DashboardFnb() {
                 );
               })}
             </div>
+            {bundle.savings > 0 && (
+              <div className="flex items-center justify-between text-sm text-green-400">
+                <span>Food bundle{bundle.bundles > 1 ? ` × ${bundle.bundles}` : ""} (any {foodBundle?.size} for ${foodBundle?.price.toFixed(2)})</span>
+                <span>−${bundle.savings.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between pt-2 border-t border-border/50">
               <span className="font-semibold text-sm">Total: ${cartTotal.toFixed(2)}</span>
               <Button
@@ -487,7 +499,7 @@ export default function DashboardFnb() {
                         ? "Free — Membership"
                         : order.paymentMethod === "free_reward"
                         ? "Free — Reward"
-                        : `$${order.totalPrice.toFixed(2)}`}
+                        : `$${order.totalPrice.toFixed(2)}${order.bundleId ? " (food bundle)" : ""}`}
                       {order.tableName ? ` · ${order.tableName}` : ""}
                     </p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
@@ -554,6 +566,12 @@ export default function DashboardFnb() {
                 </div>
               );
             })}
+            {bundle.savings > 0 && (
+              <div className="flex justify-between text-sm text-green-400">
+                <span>Food bundle{bundle.bundles > 1 ? ` × ${bundle.bundles}` : ""}</span>
+                <span>−${bundle.savings.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm font-semibold pt-2 border-t border-border/50">
               <span>Total</span>
               <span>${cartTotal.toFixed(2)}</span>

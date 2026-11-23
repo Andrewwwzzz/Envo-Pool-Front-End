@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, BASE_URL } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import type { FoodBundleConfig } from "@/lib/fnbBundle";
 
 export interface FnbProduct {
   _id: string;
@@ -64,6 +65,9 @@ export interface FnbOrder {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  /** Set on the items of one food bundle (they share it); listPrice is the normal price. */
+  bundleId?: string | null;
+  listPrice?: number | null;
   paymentMethod: "wallet" | "cash" | "paynow" | "free_membership" | "free_reward" | "charge_to_table";
   selectedSauce: "chilli" | "ketchup" | null;
   nachoCheeseAddOn: boolean;
@@ -190,6 +194,26 @@ export function usePlaceOrder() {
   });
 }
 
+export type CartItem = { productId: string; quantity: number; selectedSauce?: "chilli" | "ketchup" };
+
+/** The customer's whole cart in one go, paid from the wallet — all or nothing; the server applies food bundles. */
+export function usePlaceCart() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { items: CartItem[]; tableId?: string; tableName?: string }) => {
+      const res = await apiFetch("/api/fnb/orders/cart", { method: "POST", body: JSON.stringify(body) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to place order");
+      return data as { message: string; count: number; total: number; savings: number; walletBalance: number };
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["fnb-orders-my"] });
+      qc.invalidateQueries({ queryKey: ["fnb-menu"] });
+      qc.invalidateQueries({ queryKey: ["profile"] });
+    },
+  });
+}
+
 // ── Admin hooks ──────────────────────────────────────
 
 export function useAdminFnbOrders(status?: string, day?: string) {
@@ -245,6 +269,31 @@ export function usePlaceStaffOrder() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw Object.assign(new Error(data.error || "Failed to place order"), { data });
       return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fnb-orders-admin"] });
+      qc.invalidateQueries({ queryKey: ["fnb-menu-admin"] });
+      qc.invalidateQueries({ queryKey: ["fnb-orders-table-pending"] });
+    },
+  });
+}
+
+/** Staff cart in one go (F&B tab Place Order) — all or nothing; the server applies food bundles. */
+export function usePlaceStaffCart() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: {
+      items: CartItem[];
+      userId?: string;
+      tableId?: string;
+      tableName?: string;
+      paymentMethod: "wallet" | "cash" | "paynow" | "charge_to_table";
+      tableRefId?: string;
+    }) => {
+      const res = await apiFetch("/api/fnb/orders/staff/batch", { method: "POST", body: JSON.stringify(body) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to place order");
+      return data as { message: string; total: number; savings: number };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["fnb-orders-admin"] });
@@ -477,6 +526,7 @@ export interface FnbStatus {
   isOpen: boolean;
   notice: string;
   resumeAt: string | null;
+  foodBundle?: FoodBundleConfig;
 }
 
 export function useFnbStatus() {
@@ -514,3 +564,23 @@ export function useSetFnbStatus() {
   });
 }
 
+/** Any N Finger Food items for a fixed price — on/off, N and price (admins only). */
+export function useSaveFoodBundle() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (data: { enabled: boolean; size: number; price: number }) => {
+      const r = await apiFetch("/api/fnb/admin/food-bundle", { method: "PUT", body: JSON.stringify(data) });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body.error || "Couldn't save the food bundle");
+      return body as { message: string };
+    },
+    onSuccess: (data) => {
+      toast({ title: data.message });
+      qc.invalidateQueries({ queryKey: ["fnb-status"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+}

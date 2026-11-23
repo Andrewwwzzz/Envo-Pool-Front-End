@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/select";
 import { AlertTriangle, Loader2, Plus, Trash2 } from "lucide-react";
 import { useChargeWallet, useAdminUser, type ChargeWalletCategory } from "@/hooks/useAdmin";
-import { useAdminMenu } from "@/hooks/useFnb";
+import { useAdminMenu, useFnbStatus } from "@/hooks/useFnb";
+import { foodBundleSavings, cartUnits, type FoodBundleConfig } from "@/lib/fnbBundle";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -46,6 +47,14 @@ interface FnbItem {
   productName: string;
   quantity: number;
   price: number;
+  category: string;
+}
+
+// What the items cost together — any 3 Finger Food items are a food bundle (the server prices it).
+function fnbItemsTotal(items: FnbItem[], bundle?: FoodBundleConfig) {
+  const list = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
+  const { savings } = foodBundleSavings(cartUnits(items.map((i) => ({ category: i.category, price: i.price, qty: i.quantity }))), bundle);
+  return { savings, total: Math.round((list - savings) * 100) / 100 };
 }
 
 function normalizeTableName(input: string): string {
@@ -91,6 +100,8 @@ export function ChargeWalletDialog({
   const { user: authUser } = useAuth();
   const isAdmin = authUser?.role === "admin";
   const { data: fnbProducts = [] } = useAdminMenu();
+  const { data: fnbStatus } = useFnbStatus();
+  const foodBundle = fnbStatus?.foodBundle;
   // Caller-supplied accountAllowsNegative may be stale or simply not wired up
   // (e.g. it comes from a walk-in session row that never carried this field) —
   // fetch the current value directly so any charge-wallet entry point works.
@@ -154,12 +165,12 @@ export function ChargeWalletDialog({
       productName: product.name,
       quantity: qty,
       price: unitPrice,
+      category: product.category,
     };
 
     const updatedItems = [...fnbItems, newItem];
     setFnbItems(updatedItems);
-    const totalFnbAmount = updatedItems.reduce((sum, item) => sum + item.quantity * item.price, 0);
-    setAmount(String(totalFnbAmount.toFixed(2)));
+    setAmount(fnbItemsTotal(updatedItems, foodBundle).total.toFixed(2));
 
     setSelectedProductId("");
     setSelectedQuantity("1");
@@ -168,8 +179,8 @@ export function ChargeWalletDialog({
   const removeFnbItem = (index: number) => {
     const updated = fnbItems.filter((_, i) => i !== index);
     setFnbItems(updated);
-    const totalFnbAmount = updated.reduce((sum, item) => sum + item.quantity * item.price, 0);
-    setAmount(totalFnbAmount > 0 ? String(totalFnbAmount.toFixed(2)) : "");
+    const { total } = fnbItemsTotal(updated, foodBundle);
+    setAmount(total > 0 ? total.toFixed(2) : "");
   };
 
   const submit = async () => {
@@ -322,6 +333,13 @@ export function ChargeWalletDialog({
                       </Button>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {fnbItemsTotal(fnbItems, foodBundle).savings > 0 && (
+                <div className="flex items-center justify-between px-3 text-sm text-green-500">
+                  <span>Food bundle</span>
+                  <span>−${fnbItemsTotal(fnbItems, foodBundle).savings.toFixed(2)}</span>
                 </div>
               )}
 
