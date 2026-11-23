@@ -1549,11 +1549,12 @@ function BookNowDialog({
     }
   };
 
-  // Auto-apply a package code (e.g. DAY2H) when the chosen duration matches
-  // one and the booking fits its time window. Candidates are picked by hours
-  // here; the server decides whether the window/day/limits actually allow it.
-  // Staff-only per-hour codes (SELF7) are never auto-applied — those are for
-  // self-practice only, so staff choose them by hand.
+  // Auto-apply a staff-only package code (a counter bundle) when the chosen
+  // duration matches one and the booking fits its time window. Candidates are
+  // picked by hours here; the server decides whether the window/day/limits
+  // actually allow it. Public codes are never auto-applied — the customer has
+  // to give the code (owner, 23 Nov 2026) — and per-hour codes (SELF7) are for
+  // self-practice only, so staff choose those by hand.
   const { data: allPromos = [] } = useAdminPromoCodes("default");
   // Keyed on the last loaded price, so a bill reloading for another reason (payment method,
   // customer, discount) doesn't count as a change and clear the "not applied" note.
@@ -1570,7 +1571,7 @@ function BookNowDialog({
     if (dismissedAutoKey.current === autoKey || autoTried.current === autoKey) return;
     autoTried.current = autoKey;
     const candidates = (allPromos as any[])
-      .filter((p) => p.is_active && !p.deleted && p.discount_type === "package_price" && !p.staff_only
+      .filter((p) => p.is_active && !p.deleted && p.discount_type === "package_price" && p.staff_only
         && p.exact_hours && Math.abs(p.exact_hours * 60 - durationMinutes) < 1)
       .sort((a, b) => a.discount_value - b.discount_value);
     if (!candidates.length) return;
