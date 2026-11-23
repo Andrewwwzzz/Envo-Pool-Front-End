@@ -1,11 +1,9 @@
 import { useMemo, useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import {
-  bookingDaySlots, slotKeyToDate, keyToMinutes, minutesToKey, durationChoices,
-  formatDuration, formatSlotMoment, type BookingDaySlot,
+  bookingDaySlots, slotKeyToDate, keyToMinutes, minutesToKey, formatClock, type BookingDaySlot,
 } from "@/lib/bookingDay";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { isSlotWithinHours, type WeekSchedule } from "@/hooks/useOperatingHours";
@@ -52,8 +50,7 @@ interface TimeSlotPickerProps {
 }
 
 const PENDING_LOCK_MINUTES = 10;
-// Length buttons shown before "More": 1h to 4h.
-const QUICK_DURATIONS = 7;
+const SLOT_MIN = 30;
 
 function formatCountdown(ms: number): string {
   if (ms <= 0) return "0:00";
@@ -82,6 +79,13 @@ function CountdownTimer({ expiresAt, onExpired }: { expiresAt: string; onExpired
   return <span className="text-[10px] font-mono">{formatCountdown(remaining)}</span>;
 }
 
+// "1h 30m", "2h", "30m"
+function duration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 && m > 0 ? `${h}h ${m}m` : h > 0 ? `${h}h` : `${m}m`;
+}
+
 function getDisplayName(userName: string | null | undefined, state: SlotState): string | null {
   if (!userName || userName === "Anonymous") return null;
   return state === "booked" ? `Booked by ${userName}` : `Pending by ${userName}`;
@@ -102,7 +106,6 @@ export function TimeSlotPicker({
 }: TimeSlotPickerProps) {
   const [expiredKey, setExpiredKey] = useState(0);
   const [openInfoSlot, setOpenInfoSlot] = useState<string | null>(null);
-  const [showAllDurations, setShowAllDurations] = useState(false);
   // Re-check "past" slots every minute while the page stays open.
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
@@ -154,32 +157,37 @@ export function TimeSlotPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, bookedSlots, maintenanceWindows, operatingHours, phDates, phCloseTime, hasPrivateMembership, nowMs, expiredKey]);
 
-  const startIndex = startSlot ? slotAvailability.findIndex((s) => s.key === startSlot) : -1;
   const startMin = startSlot ? keyToMinutes(startSlot) : null;
-  const endMin = endSlot ? keyToMinutes(endSlot) : null;
-  const choices = startIndex >= 0 ? durationChoices(slotAvailability.map((s) => s.available), startIndex) : [];
-  const shownChoices = showAllDurations ? choices : choices.slice(0, QUICK_DURATIONS);
+  const endMin = startMin !== null && endSlot ? keyToMinutes(endSlot) : null;
 
-  // A start that's no longer free (someone else booked it, or its half-hour passed) is cleared.
-  useEffect(() => {
-    if (startSlot && (startIndex < 0 || !slotAvailability[startIndex].available)) {
-      onSelectStart("");
-      onSelectEnd("");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startSlot, startIndex, slotAvailability]);
-
-  const handleSlotClick = (slot: TimeSlot) => {
-    if (!slot.available) return;
-    // Tapping a slot always (re)sets the start; the length is chosen with the buttons below.
-    onSelectStart(slot.key);
-    onSelectEnd("");
-    setShowAllDurations(false);
+  const select = (from: number | null, to: number | null) => {
+    onSelectStart(from === null ? "" : minutesToKey(from));
+    onSelectEnd(to === null ? "" : minutesToKey(to));
   };
 
-  const chooseDuration = (minutes: number) => {
-    if (startMin === null) return;
-    onSelectEnd(minutesToKey(startMin + minutes));
+  // A selected half-hour that's no longer free (someone else booked it, or it passed) clears the selection.
+  useEffect(() => {
+    if (startMin === null || endMin === null) return;
+    const blocked = slotAvailability.some((s) => s.offsetMin >= startMin && s.offsetMin < endMin && !s.available);
+    const missing = !slotAvailability.some((s) => s.offsetMin === startMin);
+    if (blocked || missing) select(null, null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startMin, endMin, slotAvailability]);
+
+  // Each slot is a half-hour, tapped on its own. The half-hours chosen must be next to
+  // each other: tapping the one just before or after the selection adds it, tapping the
+  // first or last one removes it, and tapping anywhere else starts a new selection there.
+  const handleSlotClick = (slot: TimeSlot) => {
+    if (!slot.available) return;
+    const m = slot.offsetMin;
+    if (startMin === null || endMin === null) return select(m, m + SLOT_MIN);
+    if (m === endMin) return select(startMin, endMin + SLOT_MIN);
+    if (m === startMin - SLOT_MIN) return select(m, endMin);
+    if (m === startMin && m === endMin - SLOT_MIN) return select(null, null);
+    if (m === endMin - SLOT_MIN) return select(startMin, m);
+    if (m === startMin) return select(startMin + SLOT_MIN, endMin);
+    if (m > startMin && m < endMin) return; // a middle half-hour: remove from either end instead
+    select(m, m + SLOT_MIN);
   };
 
   const isInRange = (slot: TimeSlot) =>
@@ -192,15 +200,24 @@ export function TimeSlotPicker({
   return (
     <TooltipProvider delayDuration={200}>
     <div className="space-y-3">
-      <div>
-        <Label className="text-base">
-          {format(date, "EEEE, d MMM yyyy")} — Available Slots
-        </Label>
-        <p className="text-xs text-muted-foreground mt-0.5">From 6:00 AM, through midnight, to 6:00 AM the next morning.</p>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <Label className="text-base">
+            {format(date, "EEEE, d MMM yyyy")} — Available Slots
+          </Label>
+          <p className="text-xs text-muted-foreground mt-0.5">From 6:00 AM, through midnight, to 6:00 AM the next morning.</p>
+        </div>
+        {startMin !== null && endMin !== null && (
+          <span className="text-sm text-accent font-medium text-right whitespace-nowrap">
+            {formatClock(startMin)} – {formatClock(endMin)} · {duration(endMin - startMin)}
+          </span>
+        )}
       </div>
 
       <p className="text-sm text-muted-foreground">
-        {startSlot ? "Now choose how long you'll play below — or tap another slot to change the start." : "Tap the time you want to start."}
+        {startMin === null
+          ? "Tap each half-hour you want to play. Each slot is 30 minutes."
+          : "Tap the next slot to add 30 minutes, or the first/last selected slot to remove it."}
       </p>
 
       <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5">
@@ -282,48 +299,6 @@ export function TimeSlotPicker({
           return midnightDivider ? [midnightDivider, slotButton] : slotButton;
         })}
       </div>
-
-      {startSlot && startMin !== null && (
-        <div className="rounded-lg border border-accent/30 bg-accent/5 p-3 space-y-2.5">
-          <p className="text-sm">
-            Start: <span className="font-medium">{formatSlotMoment(slotKeyToDate(date, startSlot))}</span>
-          </p>
-          {choices.length === 0 ? (
-            <p className="text-sm text-destructive">Less than 1 hour is free from this time — tap another start time.</p>
-          ) : (
-            <>
-              <p className="text-xs text-muted-foreground">How long will you play?</p>
-              <div className="flex flex-wrap gap-1.5">
-                {shownChoices.map((minutes) => {
-                  const chosen = endMin !== null && endMin - startMin === minutes;
-                  return (
-                    <Button
-                      key={minutes}
-                      type="button"
-                      size="sm"
-                      variant={chosen ? "default" : "outline"}
-                      className={cn("h-8 px-3 text-xs", !chosen && "border-accent/40")}
-                      onClick={() => chooseDuration(minutes)}
-                    >
-                      {minutes % 60 ? `${Math.floor(minutes / 60)}.5h` : `${minutes / 60}h`}
-                    </Button>
-                  );
-                })}
-                {!showAllDurations && choices.length > QUICK_DURATIONS && (
-                  <Button type="button" size="sm" variant="ghost" className="h-8 px-3 text-xs" onClick={() => setShowAllDurations(true)}>
-                    More…
-                  </Button>
-                )}
-              </div>
-            </>
-          )}
-          {endSlot && endMin !== null && (
-            <p className="text-sm font-medium text-accent">
-              {formatSlotMoment(slotKeyToDate(date, startSlot))} → {formatSlotMoment(slotKeyToDate(date, endSlot))} · {formatDuration(endMin - startMin)}
-            </p>
-          )}
-        </div>
-      )}
 
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-1">
         <span className="flex items-center gap-1.5">

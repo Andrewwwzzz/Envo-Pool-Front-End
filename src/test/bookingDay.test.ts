@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   bookingDaySlots, slotKeyToDate, currentBookingDate, isCurrentBookingDay, bookingDayWindow,
-  bookingDayCalendarDates, durationChoices, formatDuration, formatSlotMoment, sgDateStr,
+  bookingDayCalendarDates, sgDateStr,
 } from "@/lib/bookingDay";
 
 const sgt = (s: string) => new Date(`${s}+08:00`);
@@ -64,29 +64,5 @@ describe("bookingDayWindow / calendar dates", () => {
 
   it("touches the date and the next one", () => {
     expect(bookingDayCalendarDates(sgt("2026-11-30T00:00:00"))).toEqual(["2026-11-30", "2026-12-01"]);
-  });
-});
-
-describe("durationChoices", () => {
-  it("offers every 30 min from 1 hour while the slots stay free", () => {
-    const free = [true, true, true, true, false, true];
-    expect(durationChoices(free, 0)).toEqual([60, 90, 120]);
-    expect(durationChoices(free, 2)).toEqual([60]);
-    expect(durationChoices(free, 3)).toEqual([]);
-  });
-
-  it("stops at the end of the booking day", () => {
-    const free = Array(48).fill(true);
-    expect(durationChoices(free, 46)).toEqual([60]);
-    expect(durationChoices(free, 47)).toEqual([]);
-  });
-});
-
-describe("wording", () => {
-  it("formats lengths and moments", () => {
-    expect(formatDuration(120)).toBe("2 hours");
-    expect(formatDuration(90)).toBe("1 hour 30 min");
-    expect(formatDuration(60)).toBe("1 hour");
-    expect(formatSlotMoment(sgt("2026-11-25T01:00:00"))).toMatch(/^Wed,? 25 Nov, 1:00\sAM$/);
   });
 });

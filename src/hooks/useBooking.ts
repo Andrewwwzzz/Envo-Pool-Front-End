@@ -17,7 +17,7 @@ export interface TableWithStatus {
 export function validateDuration(start: Date, end: Date): string | null {
   const diffMs = end.getTime() - start.getTime();
   const diffMinutes = diffMs / (1000 * 60);
-  if (diffMinutes < 60) return "Minimum booking duration is 1 hour.";
+  if (diffMinutes < 30) return "Minimum booking duration is 30 minutes.";
   if (diffMinutes % 30 !== 0) return "Duration must be in 30-minute intervals.";
   return null;
 }

@@ -92,31 +92,3 @@ export function bookingDayCalendarDates(date: Date): [string, string] {
   const midnight = bookingDayMidnight(date);
   return [sgDateStr(new Date(midnight + 12 * 60 * MINUTE_MS)), sgDateStr(new Date(midnight + DAY_MS + 12 * 60 * MINUTE_MS))];
 }
-
-/** "Tue 24 Nov, 11:00 PM" */
-export function formatSlotMoment(d: Date): string {
-  const day = d.toLocaleDateString("en-GB", { timeZone: "Asia/Singapore", weekday: "short", day: "numeric", month: "short" });
-  const time = d.toLocaleTimeString("en-US", { timeZone: "Asia/Singapore", hour: "numeric", minute: "2-digit" });
-  return `${day}, ${time}`;
-}
-
-/** "2 hours", "1 hour 30 min", "30 min" */
-export function formatDuration(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  const hours = h ? `${h} hour${h > 1 ? "s" : ""}` : "";
-  return [hours, m ? `${m} min` : ""].filter(Boolean).join(" ");
-}
-
-/**
- * Lengths (in minutes) a booking starting at `startIndex` can run: every 30 min
- * from `minMinutes`, while each slot it covers is free, up to the end of the day.
- */
-export function durationChoices(available: boolean[], startIndex: number, minMinutes = 60): number[] {
-  const choices: number[] = [];
-  for (let i = startIndex; i < available.length && available[i]; i++) {
-    const minutes = (i - startIndex + 1) * SLOT_MINUTES;
-    if (minutes >= minMinutes) choices.push(minutes);
-  }
-  return choices;
-}
