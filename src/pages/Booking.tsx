@@ -967,7 +967,7 @@ const Booking = () => {
                       .sort((a, b) => a.start - b.start)[0];
                     const walkinBlockedReason = !walkinBlocker ? null
                       : walkinBlocker.start <= nowMs ? "Booked now — no walk-in"
-                      : `Booked at ${fmtSlotTime(walkinBlocker.start)} — no walk-in`;
+                      : "Booking upcoming — no walk-in"; // the time is already listed on the table card
                     const isChinese = [7, 8, 11, 12].includes(table.table_number);
                     // At a glance: green = free (now, when browsing today), yellow = booked now, or for
                     // another date some times are booked; the booked times are listed under it.
@@ -1012,7 +1012,7 @@ const Booking = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="gap-1 text-xs border-accent/30 text-accent hover:bg-accent/10"
+                            className="h-auto min-h-9 gap-1 whitespace-normal py-1.5 text-center text-xs leading-tight border-accent/30 text-accent hover:bg-accent/10"
                             disabled={startWalkin.isPending || !!walkinBlockedReason}
                             onClick={() => setWalkinConfirmTable(table)}
                           >
