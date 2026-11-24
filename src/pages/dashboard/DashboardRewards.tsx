@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
+import { MAX_TABLE, normalizeTableName, isValidTable } from "@/lib/fnbTable";
 import {
   useRewardCatalog, useMyMilestones, useExchangeReward, useClaimMilestone,
   usePointsHistory, useMultiplierEvents, isMultiplierLive,
@@ -22,9 +23,8 @@ import {
 import { useVendingMenu } from "@/hooks/useVending";
 import { OrderProgressDialog } from "@/components/dashboard/VendingMenu";
 
-// Table delivery is off: an F&B reward is either dropped by the vending
-// machine (when it holds that item) or collected at the counter.
-const COUNTER_LABEL = "Counter";
+// An F&B reward is either dropped by the vending machine (when it holds that
+// item) or brought to the member's table (they type the table number).
 
 const TYPE_LABELS: Record<string, string> = {
   free_session: "Free Session",
@@ -58,6 +58,20 @@ function useFulfilFnbReward() {
       toast({ title: "Order failed", description: err.message, variant: "destructive" });
     },
   });
+}
+
+// Food and hot drinks from the counter are brought to the member's table, same as the F&B page
+// (owner, 24 Nov 2026: reward orders arrived as "Counter" with no table).
+function TableField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const bad = !value.trim() || !isValidTable(value);
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-muted-foreground uppercase tracking-wider">Your Table <span className="text-red-400">*</span></Label>
+      <Input placeholder="e.g. 1, T3, Table 5" value={value} onChange={(e) => onChange(e.target.value)} className={bad ? "border-red-500/50" : ""} />
+      {!value.trim() && <p className="text-xs text-red-400">Enter your table number so we know where to bring it</p>}
+      {value.trim() && !isValidTable(value) && <p className="text-xs text-red-400">Invalid table — must be between 1 and {MAX_TABLE}</p>}
+    </div>
+  );
 }
 
 export default function DashboardRewards() {
@@ -283,7 +297,7 @@ export default function DashboardRewards() {
                     </div>
                     <p className="text-xs text-muted-foreground flex-1">{item.description}</p>
                     {isFnb && (
-                      <p className="text-xs text-blue-400/80">{linked(item.fnbProductId) ? (vendable(item.fnbProductId) ? "🍹 Drops from the vending machine" : "🍹 Vending machine — unavailable right now") : "🍹 Collect at the counter"}</p>
+                      <p className="text-xs text-blue-400/80">{linked(item.fnbProductId) ? (vendable(item.fnbProductId) ? "🍹 Drops from the vending machine" : "🍹 Vending machine — unavailable right now") : "🍹 Brought to your table"}</p>
                     )}
                     <div className="flex items-center justify-between pt-2">
                       <span className="font-mono text-amber-400 font-semibold">{cost.toLocaleString()} pts</span>
@@ -491,11 +505,14 @@ export default function DashboardRewards() {
             <DialogTitle>Redeem — {confirmExchange?.name}</DialogTitle>
             <DialogDescription>
               {confirmExchange?.category === "food_drinks"
-                ? <>This will spend <strong className="text-amber-400">{confirmExchange?.pointCost} points</strong>. {linked(confirmExchange?.fnbProductId) ? (vendable(confirmExchange?.fnbProductId) ? "The vending machine drops it right away." : "This item comes from the vending machine, which can't dispense it right now — please try again later.") : "Collect it at the counter when it's ready."}</>
+                ? <>This will spend <strong className="text-amber-400">{confirmExchange?.pointCost} points</strong>. {linked(confirmExchange?.fnbProductId) ? (vendable(confirmExchange?.fnbProductId) ? "The vending machine drops it right away." : "This item comes from the vending machine, which can't dispense it right now — please try again later.") : "We'll bring it to your table."}</>
                 : <>This will spend <strong className="text-amber-400">{confirmExchange?.pointCost} points</strong>. A discount code will be added to your My Reward Codes — use it at checkout when paying for a booking.</>
               }
             </DialogDescription>
           </DialogHeader>
+          {confirmExchange?.category === "food_drinks" && !linked(confirmExchange?.fnbProductId) && (
+            <TableField value={fnbTableInput} onChange={setFnbTableInput} />
+          )}
 
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => { setConfirmExchange(null); setFnbTableInput(""); }}>Cancel</Button>
@@ -503,14 +520,16 @@ export default function DashboardRewards() {
               <>
                 {!linked(confirmExchange?.fnbProductId) && (
                   <Button
-                    disabled={exchange.isPending || vendingLoading}
+                    disabled={exchange.isPending || vendingLoading || !isValidTable(fnbTableInput)}
                     onClick={async () => {
-                      if (!confirmExchange) return;
-                      await exchange.mutateAsync({ catalogId: (confirmExchange._id || confirmExchange.id)!, tableId: COUNTER_LABEL, tableName: COUNTER_LABEL, collect: "counter" });
+                      if (!confirmExchange || !isValidTable(fnbTableInput)) return;
+                      const table = normalizeTableName(fnbTableInput);
+                      await exchange.mutateAsync({ catalogId: (confirmExchange._id || confirmExchange.id)!, tableId: table, tableName: table, collect: "counter" });
                       setConfirmExchange(null);
+                      setFnbTableInput("");
                     }}
                   >
-                    Collect at counter
+                    Bring to my table
                   </Button>
                 )}
                 {linked(confirmExchange?.fnbProductId) && (
@@ -584,21 +603,25 @@ export default function DashboardRewards() {
                 ? (vendable(rewardProductId(fnbOrderReward))
                   ? <>The vending machine will drop <strong>{fnbOrderReward?.description}</strong> right away.</>
                   : <><strong>{fnbOrderReward?.description}</strong> comes from the vending machine, which can't dispense it right now — please try again later.</>)
-                : <><strong>{fnbOrderReward?.description}</strong> will be ready for you at the counter.</>}
+                : <>We'll bring <strong>{fnbOrderReward?.description}</strong> to your table.</>}
             </DialogDescription>
           </DialogHeader>
+          {fnbOrderReward && !linked(rewardProductId(fnbOrderReward)) && (
+            <TableField value={fnbOrderTable} onChange={setFnbOrderTable} />
+          )}
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => { setFnbOrderReward(null); setFnbOrderTable(""); }}>Cancel</Button>
             {!linked(rewardProductId(fnbOrderReward)) && (
               <Button
-                disabled={fulfilFnb.isPending || vendingLoading}
+                disabled={fulfilFnb.isPending || vendingLoading || !isValidTable(fnbOrderTable)}
                 onClick={async () => {
-                  if (!fnbOrderReward) return;
-                  await fulfilFnb.mutateAsync({ rewardId: rewardIdOf(fnbOrderReward), tableName: COUNTER_LABEL, collect: "counter" });
+                  if (!fnbOrderReward || !isValidTable(fnbOrderTable)) return;
+                  await fulfilFnb.mutateAsync({ rewardId: rewardIdOf(fnbOrderReward), tableName: normalizeTableName(fnbOrderTable), collect: "counter" });
                   setFnbOrderReward(null);
+                  setFnbOrderTable("");
                 }}
               >
-                Collect at counter
+                Bring to my table
               </Button>
             )}
             {linked(rewardProductId(fnbOrderReward)) && (

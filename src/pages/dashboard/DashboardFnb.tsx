@@ -40,6 +40,7 @@ function ProductPhoto({ product }: { product: FnbProduct }) {
 }
 import { fmtDateTimeSG } from "@/lib/sgTime";
 import { foodBundleSavings, cartUnits } from "@/lib/fnbBundle";
+import { MAX_TABLE, normalizeTableName, isValidTable } from "@/lib/fnbTable";
 import { useToast } from "@/hooks/use-toast";
 import { VendingMenu } from "@/components/dashboard/VendingMenu";
 import { useVendingMenu } from "@/hooks/useVending";
@@ -81,26 +82,6 @@ function useCountdown(resumeAt: string | null | undefined) {
 }
 
 type Category = "all" | "drinks" | "food" | "snacks" | "others";
-
-const MAX_TABLE = 14;
-
-function normalizeTableName(input: string): string {
-  const v = input.trim();
-  if (!v) return v;
-  if (/^[Tt]\d+$/.test(v)) return `Table ${v.replace(/^[Tt]/, "")}`;
-  if (/^\d+$/.test(v)) return `Table ${v}`;
-  return v;
-}
-
-function extractTableNumber(input: string): number | null {
-  const m = input.trim().match(/^(?:[Tt]able\s*)?(\d+)$/i);
-  return m ? parseInt(m[1]) : null;
-}
-
-function isValidTable(input: string): boolean {
-  const n = extractTableNumber(input);
-  return n !== null && n >= 1 && n <= MAX_TABLE;
-}
 
 function getCategoryGroup(cat: string): Category {
   if (cat === "soft_drinks" || cat === "beer") return "drinks";
