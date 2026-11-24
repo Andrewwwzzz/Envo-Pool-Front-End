@@ -19,7 +19,7 @@ import {
   useAdminFnbOrders, useAdminMenu, useServeOrder, useCancelFnbOrder,
   useCreateProduct, useUpdateProduct, useRestockProduct, useDeleteProduct, useSetProductImage, productImageSrc,
   useFnbStatus, useSetFnbStatus, usePlaceStaffOrder, usePlaceStaffCart, useSaveFoodBundle, useEditFnbOrderPaymentMethod,
-  FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, getCategoryGroup, CategoryGroup,
+  FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, getCategoryGroup, CategoryGroup, CATEGORY_GROUP_TABS,
   priceOf,
 } from "@/hooks/useFnb";
 import { fmtDateTimeSG, getSGDateStr, nowSG } from "@/lib/sgTime";
@@ -1133,7 +1133,7 @@ export function FnbTab() {
           </div>
 
           <div className="flex gap-2 flex-wrap">
-            {(["all", "drinks", "food", "snacks", "others"] as const).map((tab) => (
+            {CATEGORY_GROUP_TABS.map(({ value: tab, label }) => (
               <Button
                 key={tab}
                 size="sm"
@@ -1141,7 +1141,7 @@ export function FnbTab() {
                 onClick={() => setCategoryGroupFilter(tab)}
                 className={categoryGroupFilter === tab ? "bg-accent text-accent-foreground" : ""}
               >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {label}
               </Button>
             ))}
           </div>

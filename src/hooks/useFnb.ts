@@ -105,12 +105,21 @@ export const CATEGORY_COLORS: Record<string, string> = {
   others: "bg-purple-500/20 text-purple-400",
 };
 
-export type CategoryGroup = "drinks" | "food" | "snacks" | "others";
+// Menu filter tabs (owner, 24 Nov 2026): alcohol has its own tab; snacks sit under Food.
+export type CategoryGroup = "drinks" | "alcohol" | "food" | "others";
+
+export const CATEGORY_GROUP_TABS: { value: "all" | CategoryGroup; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "drinks", label: "Drinks" },
+  { value: "alcohol", label: "Alcohol" },
+  { value: "food", label: "Food" },
+  { value: "others", label: "Others" },
+];
 
 export function getCategoryGroup(cat: string): CategoryGroup {
-  if (cat === "soft_drinks" || cat === "beer") return "drinks";
-  if (cat === "finger_food") return "food";
-  if (cat === "snacks") return "snacks";
+  if (cat === "soft_drinks") return "drinks";
+  if (cat === "beer") return "alcohol";
+  if (cat === "finger_food" || cat === "snacks") return "food";
   return "others";
 }
 

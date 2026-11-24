@@ -12,7 +12,7 @@ import { useProfile } from "@/hooks/useProfile";
 import {
   useMenu, useMyFnbOrders, useRedemptionCheck, usePlaceOrder, usePlaceCart,
   useFnbStatus, productImageSrc,
-  FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS,
+  FnbProduct, CATEGORY_LABELS, CATEGORY_COLORS, CATEGORY_GROUP_TABS, getCategoryGroup, CategoryGroup,
   priceOf,
 } from "@/hooks/useFnb";
 
@@ -81,15 +81,7 @@ function useCountdown(resumeAt: string | null | undefined) {
   return label;
 }
 
-type Category = "all" | "drinks" | "food" | "snacks" | "others";
-
-function getCategoryGroup(cat: string): Category {
-  if (cat === "soft_drinks" || cat === "beer") return "drinks";
-  if (cat === "finger_food") return "food";
-  if (cat === "snacks") return "snacks";
-  if (cat === "others") return "others";
-  return "all";
-}
+type Category = "all" | CategoryGroup;
 
 type CartLine = { product: FnbProduct; qty: number; sauce: "chilli" | "ketchup" | null; nacho: boolean };
 const lineKey = (l: Pick<CartLine, "product" | "sauce" | "nacho">) => `${l.product._id}|${l.sauce ?? ""}|${l.nacho ? "1" : "0"}`;
@@ -340,7 +332,7 @@ export default function DashboardFnb() {
 
       {/* Category tabs */}
       <div className="flex gap-2 flex-wrap">
-        {(["all", "drinks", "food", "snacks", "others"] as Category[]).map((tab) => (
+        {CATEGORY_GROUP_TABS.map(({ value: tab, label }) => (
           <Button
             key={tab}
             variant={activeTab === tab ? "default" : "outline"}
@@ -348,7 +340,7 @@ export default function DashboardFnb() {
             onClick={() => setActiveTab(tab)}
             className={activeTab === tab ? "bg-accent text-accent-foreground" : ""}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {label}
           </Button>
         ))}
       </div>
