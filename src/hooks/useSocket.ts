@@ -4,7 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
-const SOCKET_URL = "https://api.envopoolsg.com";
+// Same server as the API calls (lib/api.ts), so a local site talks to the local server.
+const SOCKET_URL = import.meta.env.VITE_API_URL || "https://api.envopoolsg.com";
 
 let socketInstance: Socket | null = null;
 

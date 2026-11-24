@@ -204,7 +204,7 @@ function LoadMore({ paged }: { paged: { hasNextPage: boolean; isFetchingNextPage
 export default function LogsTab() {
   return (
     <Tabs defaultValue="transactions" className="space-y-4">
-      <TabsList>
+      <TabsList className="flex-wrap h-auto">
         <TabsTrigger value="transactions" className="gap-1.5">
           <ScrollText className="h-3.5 w-3.5" /> Transactions
         </TabsTrigger>

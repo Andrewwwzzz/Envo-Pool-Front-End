@@ -390,10 +390,10 @@ export default function AnnouncementsTab() {
                   {n.imageUrl && <img src={`${BASE_URL}${n.imageUrl}`} alt="" className="h-16 w-16 rounded object-cover shrink-0" loading="lazy" />}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2 flex-wrap">
-                      <p className="font-medium text-sm flex items-center gap-2">
+                      <div className="font-medium text-sm flex items-center gap-2">
                         {n.title}
                         {n.recalledAt && <Badge variant="outline" className="text-destructive border-destructive/40">Recalled</Badge>}
-                      </p>
+                      </div>
                       <span className="text-xs text-muted-foreground">{fmtWhen(n.sentAt)} · by {n.sentBy}</span>
                     </div>
                     {n.recalledAt && (

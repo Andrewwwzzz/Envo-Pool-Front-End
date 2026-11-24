@@ -178,7 +178,7 @@ export default function RewardsTab({
   return (
     <div className="space-y-4">
       <Tabs defaultValue="codes">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="codes">Reward Codes</TabsTrigger>
           <TabsTrigger value="catalog">Reward Catalog</TabsTrigger>
           <TabsTrigger value="multipliers">Multiplier Events</TabsTrigger>

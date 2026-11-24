@@ -241,7 +241,7 @@ export default function DashboardRewards() {
               const canClaim = !m.claimed && lifetimePoints >= m.milestoneThreshold;
               return (
                 <div
-                  key={m.catalogId}
+                  key={m.catalogId || m._id || m.id}
                   className={`rounded-lg border p-3 flex items-center justify-between gap-3 ${
                     m.claimed ? "border-border bg-muted/20" :
                     canClaim ? "border-emerald-500/50 bg-emerald-500/5 animate-pulse" :

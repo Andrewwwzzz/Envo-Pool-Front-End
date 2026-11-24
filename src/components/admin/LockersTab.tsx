@@ -311,7 +311,7 @@ export default function LockersTab() {
                     const isAvailable = !rentalActive && (l.status ?? "available") === "available";
 
                     return (
-                      <TableRow key={l.id}>
+                      <TableRow key={l.id ?? anyL._id ?? lockerNum}>
                         <TableCell className="font-medium">#{lockerNum ?? "—"}</TableCell>
                         <TableCell>
                           <Badge variant={isAvailable ? "secondary" : "default"} className="capitalize">

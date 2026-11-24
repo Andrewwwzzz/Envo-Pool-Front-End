@@ -16,4 +16,14 @@ describe("table number", () => {
     expect(isValidTable("")).toBe(false);
     expect(isValidTable("bar")).toBe(false);
   });
+
+  it("accepts the T3 form the input box suggests, and staff always see 'Table N'", () => {
+    expect(isValidTable("T3")).toBe(true);
+    expect(isValidTable("t4")).toBe(true);
+    expect(isValidTable("T 7")).toBe(true);
+    expect(isValidTable("T15")).toBe(false);
+    expect(normalizeTableName("table5")).toBe("Table 5");
+    expect(normalizeTableName("TABLE 2")).toBe("Table 2");
+    expect(normalizeTableName("T 7")).toBe("Table 7");
+  });
 });

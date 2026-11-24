@@ -3,17 +3,15 @@
 
 export const MAX_TABLE = 14;
 
-/** "3" / "t3" → "Table 3"; anything else is kept as typed (trimmed). */
+/** "3" / "t3" / "table 3" → "Table 3"; anything else is kept as typed (trimmed). */
 export function normalizeTableName(input: string): string {
-  const v = input.trim();
-  if (!v) return v;
-  if (/^[Tt]\d+$/.test(v)) return `Table ${v.replace(/^[Tt]/, "")}`;
-  if (/^\d+$/.test(v)) return `Table ${v}`;
-  return v;
+  const n = extractTableNumber(input);
+  return n === null ? input.trim() : `Table ${n}`;
 }
 
+// "3", "T3", "T 3", "Table 3" (any case) — the box's own hint says "e.g. 1, T3, Table 5".
 function extractTableNumber(input: string): number | null {
-  const m = input.trim().match(/^(?:[Tt]able\s*)?(\d+)$/i);
+  const m = input.trim().match(/^(?:t(?:able)?\s*)?(\d+)$/i);
   return m ? parseInt(m[1]) : null;
 }
 

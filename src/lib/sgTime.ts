@@ -73,7 +73,7 @@ export function fmtDateSG(d: string | Date): string {
 /**
  * Format a date string for Singapore display (HH:MM).
  */
-export function fmtTimeSG(d: string | Date): string {
+export function fmtTimeSG(d: string | number | Date): string {
   return new Date(d).toLocaleTimeString("en-GB", {
     timeZone: SG_TZ,
     hour: "2-digit",
