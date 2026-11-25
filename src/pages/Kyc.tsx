@@ -17,8 +17,29 @@ const Kyc = () => {
 
   const status = searchParams.get("status");
   const error = searchParams.get("error");
-  const verifiedName = searchParams.get("name") || "";
   const kycToken = searchParams.get("kycToken") || "";
+  // Name and date of birth come from the server with the one-time token, so
+  // they never sit in the page address. (Older links carried them there.)
+  const [verifiedName, setVerifiedName] = useState(searchParams.get("name") || "");
+  const [kycDob, setKycDob] = useState<string | null>(searchParams.get("dob"));
+  const [pendingError, setPendingError] = useState("");
+
+  useEffect(() => {
+    if (status !== "success" || !kycToken) return;
+    let cancelled = false;
+    apiFetch(`/api/myinfo/pending/${encodeURIComponent(kycToken)}`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) throw new Error(data.error || "Could not load your Singpass details. Please refresh.");
+        setVerifiedName(data.name || "");
+        setKycDob(data.dob || null);
+      })
+      .catch((err) => {
+        if (!cancelled) setPendingError(err.message);
+      });
+    return () => { cancelled = true; };
+  }, [status, kycToken]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,8 +51,6 @@ const Kyc = () => {
       localStorage.removeItem("pendingSignup");
     }
   }, [status, error]);
-
-  const kycDob = searchParams.get("dob");
 
   const computeAge = (iso: string | null) => {
     if (!iso) return null;
@@ -77,7 +96,7 @@ const Kyc = () => {
     }
   };
 
-  const isError = !!error || (status && status !== "success");
+  const isError = !!error || !!pendingError || (status && status !== "success");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4 dark">
@@ -102,7 +121,7 @@ const Kyc = () => {
                 <CardDescription>
                   {error === "account_exists"
                     ? "An account is already registered with this Singpass identity. Please sign in instead."
-                    : "Please try again."}
+                    : pendingError || "Please try again."}
                 </CardDescription>
               </CardHeader>
               <CardContent>
