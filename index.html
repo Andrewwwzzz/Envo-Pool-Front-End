@@ -10,12 +10,12 @@
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-    <!-- Fonts: connect early and load without blocking the first paint
-         (text shows in the fallback font for a moment, then swaps). -->
+    <!-- Fonts: connect early; display=swap shows text in the fallback font
+         until they arrive. A plain stylesheet link: the print/onload trick is
+         an inline script, which the content policy (vercel.json) blocks. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" media="print" onload="this.media='all'" />
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" /></noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" />
 
     <!-- Title, description, canonical, social tags and structured data are
          generated from src/seo/site.ts at build time (see vite.config.ts). -->
